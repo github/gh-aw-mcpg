@@ -137,5 +137,5 @@ help:
 	@echo "  format     - Format Go code using gofmt"
 	@echo "  clean      - Clean build artifacts"
 	@echo "  install    - Install required toolchains and dependencies"
-	@echo "  release    - Create and push a release tag (requires VERSION=v*.*.*))"
+	@echo "  release    - Create and push a release tag (requires VERSION=v*.*.*)"
 	@echo "  help       - Display this help message"
