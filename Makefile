@@ -1,4 +1,4 @@
-.PHONY: build lint test coverage test-ci format clean install help
+.PHONY: build lint test coverage test-ci format clean install release help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -66,6 +66,26 @@ clean:
 	@rm -f test-result-unit.json
 	@echo "Clean complete!"
 
+# Create and push a release tag
+release:
+	@echo "Creating release tag..."
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION is required. Usage: make release VERSION=v0.1.0"; \
+		exit 1; \
+	fi
+	@if ! echo "$(VERSION)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		echo "Error: VERSION must be in format v*.*.* (e.g., v0.1.0)"; \
+		exit 1; \
+	fi
+	@echo "Creating and pushing tag: $(VERSION)"
+	@git tag -a "$(VERSION)" -m "Release $(VERSION)"
+	@git push origin "$(VERSION)"
+	@echo "✓ Tag $(VERSION) created and pushed"
+	@echo "✓ Release workflow will be triggered automatically"
+	@echo ""
+	@echo "Monitor the release workflow at:"
+	@echo "  https://github.com/githubnext/gh-aw-mcpg/actions/workflows/release.md"
+
 # Install required toolchains
 install:
 	@echo "Installing required toolchains..."
@@ -117,4 +137,5 @@ help:
 	@echo "  format     - Format Go code using gofmt"
 	@echo "  clean      - Clean build artifacts"
 	@echo "  install    - Install required toolchains and dependencies"
+	@echo "  release    - Create and push a release tag (requires VERSION=v*.*.*))"
 	@echo "  help       - Display this help message"
