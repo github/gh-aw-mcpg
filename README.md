@@ -2,6 +2,8 @@
 
 A gateway for Model Context Protocol (MCP) servers.
 
+This gateway is used with [GitHub Agentic Workflows](https://github.com/githubnext/gh-aw) via the `sandbox.mcp` configuration to provide MCP server access to AI agents running in sandboxed environments.
+
 ## Features
 
 - **Configuration Modes**: Supports both TOML files and JSON stdin configuration
