@@ -1,7 +1,6 @@
 #!/bin/bash
 # Custom build script for multi-platform builds of awmg
 # This script is called during the release process to build binaries for all platforms
-# Note: Version injection is not yet implemented in this project
 set -e
 
 VERSION="$1"
@@ -10,8 +9,6 @@ if [ -z "$VERSION" ]; then
   echo "error: VERSION argument is required" >&2
   exit 1
 fi
-
-# Note: VERSION parameter is currently unused but kept for compatibility with future version injection
 
 platforms=(
   darwin-amd64
@@ -53,7 +50,7 @@ for p in "${platforms[@]}"; do
   echo "Building awmg for $p..."
   GOOS="$goos" GOARCH="$goarch" go build \
     -trimpath \
-    -ldflags="-s -w" \
+    -ldflags="-s -w -X main.Version=${VERSION}" \
     -o "dist/awmg-${p}${ext}" \
     .
   

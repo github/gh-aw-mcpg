@@ -26,11 +26,13 @@ var (
 	envFile     string
 	enableDIFC  bool
 	debugLog    = logger.New("cmd:root")
+	version     = "dev" // Default version, overridden by SetVersion
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "awmg",
-	Short: "MCPG MCP proxy server",
+	Use:     "awmg",
+	Short:   "MCPG MCP proxy server",
+	Version: version,
 	Long: `MCPG is a proxy server for Model Context Protocol (MCP) servers.
 It provides routing, aggregation, and management of multiple MCP backend servers.`,
 	RunE: run,
@@ -192,4 +194,10 @@ func Execute() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+// SetVersion sets the version string for the CLI
+func SetVersion(v string) {
+	version = v
+	rootCmd.Version = v
 }
