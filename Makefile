@@ -28,10 +28,15 @@ test:
 # Run tests with coverage
 coverage:
 	@echo "Running tests with coverage..."
-	@go test -coverprofile=coverage.out ./... 2>&1 | grep -v "go: no such tool \"covdata\""
+	@go test -coverprofile=coverage.out ./... 2>&1 | grep -vE "go: no such tool \"covdata\"|no such tool" | grep -v "^$$" || true
 	@echo ""
 	@echo "Coverage report:"
-	@go tool cover -func=coverage.out 2>/dev/null || echo "Coverage data collected successfully"
+	@if [ -f coverage.out ]; then \
+		go tool cover -func=coverage.out 2>/dev/null || echo "Note: go tool cover not available, but coverage data was collected"; \
+	else \
+		echo "Error: coverage.out not generated"; \
+		exit 1; \
+	fi
 	@echo ""
 	@echo "Coverage profile saved to coverage.out"
 	@echo "To view HTML coverage report, run: go tool cover -html=coverage.out"
