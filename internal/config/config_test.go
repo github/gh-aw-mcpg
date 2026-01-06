@@ -66,15 +66,16 @@ func TestLoadFromStdin_ValidJSON(t *testing.T) {
 		arg := server.Args[i]
 		if arg == "-e" && i+1 < len(server.Args) {
 			nextArg := server.Args[i+1]
-			if nextArg == "NO_COLOR=1" {
+			switch nextArg {
+			case "NO_COLOR=1":
 				hasNoColor = true
-			} else if nextArg == "TERM=dumb" {
+			case "TERM=dumb":
 				hasTerm = true
-			} else if nextArg == "PYTHONUNBUFFERED=1" {
+			case "PYTHONUNBUFFERED=1":
 				hasPythonUnbuffered = true
-			} else if nextArg == "TEST_VAR=value" {
+			case "TEST_VAR=value":
 				hasTestVar = true
-			} else if nextArg == "PASSTHROUGH_VAR" {
+			case "PASSTHROUGH_VAR":
 				hasPassthrough = true
 			}
 		}

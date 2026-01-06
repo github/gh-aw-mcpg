@@ -19,10 +19,11 @@ func CreateHTTPServerForRoutedMode(addr string, unifiedServer *UnifiedServer) *h
 	mux := http.NewServeMux()
 
 	// OAuth discovery endpoint - return 404 since we don't use OAuth
-	mux.HandleFunc("/mcp/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+	oauthHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[%s] %s %s - OAuth discovery (not supported)", r.RemoteAddr, r.Method, r.URL.Path)
 		http.NotFound(w, r)
 	})
+	mux.Handle("/mcp/.well-known/oauth-authorization-server", withResponseLogging(oauthHandler))
 
 	// Create routes for all backends plus sys
 	allBackends := append([]string{"sys"}, unifiedServer.GetServerIDs()...)
@@ -84,10 +85,11 @@ func CreateHTTPServerForRoutedMode(addr string, unifiedServer *UnifiedServer) *h
 	}
 
 	// Health check
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	healthHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK\n")
 	})
+	mux.Handle("/health", withResponseLogging(healthHandler))
 
 	return &http.Server{
 		Addr:    addr,
