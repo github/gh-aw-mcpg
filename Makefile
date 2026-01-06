@@ -28,7 +28,7 @@ test:
 # Run tests with coverage
 coverage:
 	@echo "Running tests with coverage..."
-	@go test -coverprofile=coverage.out ./... 2>&1 | grep -v "go: no such tool"
+	@go test -coverprofile=coverage.out ./... 2>&1 | grep -v "go: no such tool \"covdata\""
 	@echo ""
 	@echo "Coverage report:"
 	@go tool cover -func=coverage.out 2>/dev/null || echo "Coverage data collected successfully"
