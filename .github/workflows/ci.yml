@@ -43,7 +43,7 @@ jobs:
 
       - name: Run unit tests with coverage
         run: |
-          go test -v -parallel=8 -timeout=3m -coverprofile=coverage.out -json ./... | tee test-result-unit.json
+          make coverage
           go tool cover -html=coverage.out -o coverage.html
 
       - name: Upload coverage report
@@ -53,12 +53,7 @@ jobs:
           path: coverage.html
           retention-days: 7
 
-      - name: Upload unit test results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: test-result-unit
-          path: test-result-unit.json
-          retention-days: 14
+
 
   lint:
     runs-on: ubuntu-latest
@@ -85,6 +80,9 @@ jobs:
           else
             echo "⚠️ Go cache miss" >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Run go vet and gofmt checks
+        run: make lint
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ec5d18412c0aeab7936cb16880d708ba2a64e1ae # v6.2.0
@@ -119,11 +117,11 @@ jobs:
           fi
 
       - name: Build binary
-        run: go build -v -o gh-aw-mcpg .
+        run: make build
 
       - name: Upload build artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: gh-aw-mcpg-binary
-          path: gh-aw-mcpg
+          name: awmg-binary
+          path: awmg
           retention-days: 7
