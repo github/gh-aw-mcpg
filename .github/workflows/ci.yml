@@ -8,6 +8,7 @@ on:
       - '**.go'
       - 'go.mod'
       - 'go.sum'
+      - 'Makefile'
       - '.github/workflows/ci.yml'
   workflow_dispatch:
 
