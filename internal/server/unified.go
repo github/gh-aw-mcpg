@@ -90,6 +90,12 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 
 	us.server = server
 
+	// Add middleware to handle tool name prefixing
+	// - Receiving middleware: adds prefix to tool names in tools/call requests
+	// - Sending middleware: strips prefix from tool names in tools/list responses
+	server.AddReceivingMiddleware(us.addToolNamePrefixMiddleware())
+	server.AddSendingMiddleware(us.stripToolNamePrefixMiddleware())
+
 	// Register guards for all backends
 	for _, serverID := range l.ServerIDs() {
 		us.registerGuard(serverID)
@@ -601,6 +607,107 @@ func (us *UnifiedServer) GetToolHandler(backendID string, toolName string) func(
 		return toolInfo.Handler
 	}
 	return nil
+}
+
+// addToolNamePrefixMiddleware creates middleware that adds the server prefix to tool names
+// in tools/call requests, so the SDK can route them to the correct handler
+func (us *UnifiedServer) addToolNamePrefixMiddleware() sdk.Middleware {
+	return func(next sdk.MethodHandler) sdk.MethodHandler {
+		return func(ctx context.Context, method string, req sdk.Request) (sdk.Result, error) {
+			// Only process tools/call requests
+			if method != "tools/call" || req == nil {
+				return next(ctx, method, req)
+			}
+
+			// Type assert to get the params
+			params := req.GetParams()
+			if params == nil {
+				return next(ctx, method, req)
+			}
+
+			// Type assert to CallToolParams
+			callParams, ok := params.(*sdk.CallToolParams)
+			if !ok {
+				return next(ctx, method, req)
+			}
+
+			// Check if the tool name already has a prefix (contains ___)
+			toolName := callParams.Name
+			if len(toolName) > 3 {
+				for i := 0; i < len(toolName)-2; i++ {
+					if toolName[i:i+3] == "___" {
+						// Already prefixed, pass through
+						return next(ctx, method, req)
+					}
+				}
+			}
+
+			// Find which backend this tool belongs to by checking our tools map
+			// We need to find a tool that matches the pattern <backend>___<toolName>
+			us.toolsMu.RLock()
+			var prefixedName string
+			for name := range us.tools {
+				// Check if this prefixed name ends with ___<toolName>
+				suffix := "___" + toolName
+				if len(name) > len(suffix) && name[len(name)-len(suffix):] == suffix {
+					prefixedName = name
+					break
+				}
+			}
+			us.toolsMu.RUnlock()
+
+			// If we found a prefixed name, update the request
+			if prefixedName != "" {
+				log.Printf("Rewriting tool name from '%s' to '%s'", toolName, prefixedName)
+				callParams.Name = prefixedName
+			} else {
+				log.Printf("Warning: Could not find prefixed name for tool '%s'", toolName)
+			}
+
+			// Call the next handler with the modified request
+			return next(ctx, method, req)
+		}
+	}
+}
+
+// stripToolNamePrefixMiddleware creates middleware that strips the server prefix from tool names
+// in tools/list responses, so clients see the original tool names without the <serverID>___ prefix
+func (us *UnifiedServer) stripToolNamePrefixMiddleware() sdk.Middleware {
+	return func(next sdk.MethodHandler) sdk.MethodHandler {
+		return func(ctx context.Context, method string, req sdk.Request) (sdk.Result, error) {
+			// Call the original handler
+			result, err := next(ctx, method, req)
+			if err != nil {
+				return result, err
+			}
+
+			// Only process tools/list responses
+			if method != "tools/list" || result == nil {
+				return result, err
+			}
+
+			// Type assert to ListToolsResult
+			listResult, ok := result.(*sdk.ListToolsResult)
+			if !ok {
+				return result, err
+			}
+
+			// Strip prefixes from all tool names
+			for _, tool := range listResult.Tools {
+				if tool != nil {
+					// Find the ___ separator and strip everything before it
+					for i := 0; i < len(tool.Name)-2; i++ {
+						if tool.Name[i:i+3] == "___" {
+							tool.Name = tool.Name[i+3:]
+							break
+						}
+					}
+				}
+			}
+
+			return listResult, err
+		}
+	}
 }
 
 // Close cleans up resources

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/githubnext/gh-aw-mcpg/internal/config"
+	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func TestUnifiedServer_GetServerIDs(t *testing.T) {
@@ -326,4 +327,60 @@ func TestRequireSession_DifcDisabled_Concurrent(t *testing.T) {
 	if session.SessionID != sessionID {
 		t.Errorf("Expected session ID '%s', got '%s'", sessionID, session.SessionID)
 	}
+}
+
+func TestStripToolNamePrefixMiddleware(t *testing.T) {
+cfg := &config.Config{
+Servers: map[string]*config.ServerConfig{},
+}
+
+ctx := context.Background()
+us, err := NewUnified(ctx, cfg)
+if err != nil {
+t.Fatalf("NewUnified() failed: %v", err)
+}
+defer us.Close()
+
+// Create a mock ListToolsResult with prefixed names
+mockResult := &sdk.ListToolsResult{
+Tools: []*sdk.Tool{
+{Name: "github___issue_read", Description: "Read an issue"},
+{Name: "github___repo_list", Description: "List repositories"},
+{Name: "sys___init", Description: "Initialize"},
+},
+}
+
+// Create the middleware
+middleware := us.stripToolNamePrefixMiddleware()
+
+// Create a mock handler that returns the mock result
+mockHandler := func(ctx context.Context, method string, req sdk.Request) (sdk.Result, error) {
+return mockResult, nil
+}
+
+// Wrap the mock handler with middleware
+wrappedHandler := middleware(mockHandler)
+
+// Call the wrapped handler with a tools/list request
+result, err := wrappedHandler(ctx, "tools/list", nil)
+if err != nil {
+t.Fatalf("Middleware failed: %v", err)
+}
+
+// Check that prefixes were stripped
+listResult, ok := result.(*sdk.ListToolsResult)
+if !ok {
+t.Fatalf("Expected ListToolsResult, got %T", result)
+}
+
+expectedNames := []string{"issue_read", "repo_list", "init"}
+if len(listResult.Tools) != len(expectedNames) {
+t.Fatalf("Expected %d tools, got %d", len(expectedNames), len(listResult.Tools))
+}
+
+for i, tool := range listResult.Tools {
+if tool.Name != expectedNames[i] {
+t.Errorf("Tool %d: expected name '%s', got '%s'", i, expectedNames[i], tool.Name)
+}
+}
 }
