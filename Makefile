@@ -69,18 +69,18 @@ clean:
 # Create and push a release tag
 release:
 	@echo "Creating release tag..."
-	@# Check if BUMP argument is provided
-	@if [ -z "$(BUMP)" ]; then \
-		echo "Error: BUMP is required. Usage: make release BUMP=patch|minor|major"; \
+	@# Check if first argument is provided
+	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
+		echo "Error: Bump type is required. Usage: make release patch|minor|major"; \
 		exit 1; \
 	fi
-	@# Validate BUMP argument
-	@if ! echo "$(BUMP)" | grep -qE '^(patch|minor|major)$$'; then \
-		echo "Error: BUMP must be one of: patch, minor, major"; \
+	@BUMP_TYPE="$(filter-out $@,$(MAKECMDGOALS))"; \
+	if ! echo "$$BUMP_TYPE" | grep -qE '^(patch|minor|major)$$'; then \
+		echo "Error: Bump type must be one of: patch, minor, major"; \
 		exit 1; \
-	fi
-	@# Get the latest tag
-	@LATEST_TAG=$$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -1); \
+	fi; \
+	echo "Bump type: $$BUMP_TYPE"; \
+	LATEST_TAG=$$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -1); \
 	if [ -z "$$LATEST_TAG" ]; then \
 		echo "No existing tags found, starting from v0.0.0"; \
 		LATEST_TAG="v0.0.0"; \
@@ -91,14 +91,14 @@ release:
 	MAJOR=$$(echo $$VERSION_NUM | cut -d. -f1); \
 	MINOR=$$(echo $$VERSION_NUM | cut -d. -f2); \
 	PATCH=$$(echo $$VERSION_NUM | cut -d. -f3); \
-	if [ "$(BUMP)" = "major" ]; then \
+	if [ "$$BUMP_TYPE" = "major" ]; then \
 		MAJOR=$$((MAJOR + 1)); \
 		MINOR=0; \
 		PATCH=0; \
-	elif [ "$(BUMP)" = "minor" ]; then \
+	elif [ "$$BUMP_TYPE" = "minor" ]; then \
 		MINOR=$$((MINOR + 1)); \
 		PATCH=0; \
-	elif [ "$(BUMP)" = "patch" ]; then \
+	elif [ "$$BUMP_TYPE" = "patch" ]; then \
 		PATCH=$$((PATCH + 1)); \
 	fi; \
 	NEW_VERSION="v$$MAJOR.$$MINOR.$$PATCH"; \
@@ -119,7 +119,11 @@ release:
 	echo "✓ Release workflow will be triggered automatically"; \
 	echo ""; \
 	echo "Monitor the release workflow at:"; \
-	echo "  https://github.com/githubnext/gh-aw-mcpg/actions/workflows/release.md"
+	echo "  https://github.com/githubnext/gh-aw-mcpg/actions/workflows/release.lock.yml"
+
+# Prevent make from treating the argument as a target
+%:
+	@:
 
 # Install required toolchains
 install:
@@ -172,5 +176,5 @@ help:
 	@echo "  format     - Format Go code using gofmt"
 	@echo "  clean      - Clean build artifacts"
 	@echo "  install    - Install required toolchains and dependencies"
-	@echo "  release    - Create and push a release tag (requires BUMP=patch|minor|major)"
+	@echo "  release    - Create and push a release tag (usage: make release patch|minor|major)"
 	@echo "  help       - Display this help message"
