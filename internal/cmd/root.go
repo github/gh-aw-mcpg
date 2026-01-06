@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/githubnext/gh-aw-mcpg/internal/config"
+	"github.com/githubnext/gh-aw-mcpg/internal/logger"
 	"github.com/githubnext/gh-aw-mcpg/internal/server"
 	"github.com/spf13/cobra"
 )
@@ -24,6 +25,7 @@ var (
 	unifiedMode bool
 	envFile     string
 	enableDIFC  bool
+	debugLog    = logger.New("cmd:root")
 )
 
 var rootCmd = &cobra.Command{
@@ -48,8 +50,11 @@ func run(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	debugLog.Printf("Starting MCPG with config: %s, listen: %s", configFile, listenAddr)
+
 	// Load .env file if specified
 	if envFile != "" {
+		debugLog.Printf("Loading environment from file: %s", envFile)
 		if err := loadEnvFile(envFile); err != nil {
 			return fmt.Errorf("failed to load .env file: %w", err)
 		}
@@ -71,6 +76,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	debugLog.Printf("Configuration loaded with %d servers", len(cfg.Servers))
 	log.Printf("Loaded %d MCP server(s)", len(cfg.Servers))
 
 	// Apply command-line flags to config
@@ -89,6 +95,8 @@ func run(cmd *cobra.Command, args []string) error {
 	if routedMode {
 		mode = "routed"
 	}
+
+	debugLog.Printf("Server mode: %s, DIFC enabled: %v", mode, cfg.EnableDIFC)
 
 	// Create unified MCP server (backend for both modes)
 	unifiedServer, err := server.NewUnified(ctx, cfg)
