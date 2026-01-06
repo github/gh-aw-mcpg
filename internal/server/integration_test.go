@@ -93,7 +93,7 @@ func TestTransparentProxy_RoutedMode(t *testing.T) {
 
 	// Create HTTP server in routed mode
 	httpServer := CreateHTTPServerForRoutedMode("127.0.0.1:0", us)
-	
+
 	// Start server in background using httptest
 	ts := httptest.NewServer(httpServer.Handler)
 	defer ts.Close()
@@ -132,7 +132,7 @@ func TestTransparentProxy_RoutedMode(t *testing.T) {
 		}
 
 		resp := sendMCPRequest(t, serverURL+"/mcp/testserver", "test-token", initReq)
-		
+
 		// Verify response structure - the gateway should pass through a valid MCP response
 		if resp["jsonrpc"] != "2.0" {
 			t.Errorf("Expected jsonrpc 2.0, got %v", resp["jsonrpc"])
@@ -489,7 +489,7 @@ func TestProxyDoesNotModifyRequests(t *testing.T) {
 	// Now send the actual test request
 	// Note: Due to session state issues, this test verifies the tool handler receives correct data
 	// The handler will be called if the tool is invoked, demonstrating transparent proxying
-	
+
 	// Verify the handler is set up correctly
 	handler := us.GetToolHandler("testserver", "echo_tool")
 	if handler == nil {

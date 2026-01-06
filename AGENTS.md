@@ -18,6 +18,9 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 - `internal/launcher/` - Backend process management
 - `internal/difc/` - Security labels (not enabled)
 - `internal/guard/` - Security guards (NoopGuard active)
+- `internal/logger/` - Debug logging framework (micro logger)
+- `internal/timeutil/` - Time formatting utilities
+- `internal/tty/` - Terminal detection utilities
 
 ## Key Tech
 
@@ -55,6 +58,66 @@ args = ["run", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "-i", "ghcr.io/gith
 **Add Route**: Edit `internal/server/routed.go` or `unified.go`  
 **Add Guard**: Implement in `internal/guard/` and register  
 **Add Test**: Create `*_test.go` with Go testing package
+
+## Debug Logging
+
+**ALWAYS use the logger package for debug logging:**
+
+```go
+import "github.com/githubnext/gh-aw-mcpg/internal/logger"
+
+// Create a logger with namespace following pkg:filename convention
+var log = logger.New("pkg:filename")
+
+// Log debug messages (only shown when DEBUG environment variable matches)
+log.Printf("Processing %d items", count)
+log.Print("Simple debug message")
+
+// Check if logging is enabled before expensive operations
+if log.Enabled() {
+    log.Printf("Expensive debug info: %+v", expensiveOperation())
+}
+```
+
+**Category Naming Convention:**
+- Follow the pattern: `pkg:filename` (e.g., `server:routed`, `launcher:docker`)
+- Use colon (`:`) as separator between package and file/component name
+- Be consistent with existing loggers in the codebase
+
+**Debug Output Control:**
+```bash
+# Enable all debug logs
+DEBUG=* ./flowguard-go --config config.toml
+
+# Enable specific package
+DEBUG=server:* ./flowguard-go --config config.toml
+
+# Enable multiple packages
+DEBUG=server:*,launcher:* ./flowguard-go --config config.toml
+
+# Exclude specific loggers
+DEBUG=*,-launcher:test ./flowguard-go --config config.toml
+
+# Disable colors (auto-disabled when piping)
+DEBUG_COLORS=0 DEBUG=* ./flowguard-go --config config.toml
+```
+
+**Key Features:**
+- **Zero overhead**: Logs only computed when DEBUG matches the logger's namespace
+- **Time diff**: Shows elapsed time between log calls (e.g., `+50ms`, `+2.5s`)
+- **Auto-colors**: Each namespace gets a consistent color in terminals
+- **Pattern matching**: Supports wildcards (`*`) and exclusions (`-pattern`)
+
+**When to Use:**
+- Non-essential diagnostic information
+- Performance insights and timing data
+- Internal state tracking during development
+- Detailed operation flow for debugging
+
+**When NOT to Use:**
+- Essential user-facing messages (use standard logging)
+- Error messages (use proper error handling)
+- Final output or results (use stdout)
 
 ## Environment Variables
 
