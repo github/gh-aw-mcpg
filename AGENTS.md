@@ -4,10 +4,13 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 
 ## Quick Start
 
-**Build**: `go build -o flowguard-go`  
-**Test**: `go test ./...`  
-**Lint**: `go vet ./... && go fmt ./...`  
-**Run**: `./flowguard-go --config config.toml`
+**Build**: `make build` (builds `mcpg` binary)  
+**Test**: `make test`  
+**Lint**: `make lint` (runs go vet and gofmt checks)  
+**Coverage**: `make coverage` (tests with coverage report)  
+**Format**: `make format` (auto-format code with gofmt)  
+**Clean**: `make clean` (remove build artifacts)  
+**Run**: `./mcpg --config config.toml`
 
 ## Project Structure
 
