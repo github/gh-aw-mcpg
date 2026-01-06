@@ -23,7 +23,7 @@ func NewValidatorClient(ctx context.Context, transport sdk.Transport) (*Validato
 
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect: %w", err)
+		return nil, fmt.Errorf("connect to server: %w", err)
 	}
 
 	return &ValidatorClient{
@@ -37,7 +37,7 @@ func NewValidatorClient(ctx context.Context, transport sdk.Transport) (*Validato
 func (v *ValidatorClient) ListTools() ([]*sdk.Tool, error) {
 	result, err := v.session.ListTools(v.ctx, &sdk.ListToolsParams{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list tools: %w", err)
+		return nil, fmt.Errorf("list tools: %w", err)
 	}
 	return result.Tools, nil
 }
@@ -46,7 +46,7 @@ func (v *ValidatorClient) ListTools() ([]*sdk.Tool, error) {
 func (v *ValidatorClient) ListResources() ([]*sdk.Resource, error) {
 	result, err := v.session.ListResources(v.ctx, &sdk.ListResourcesParams{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list resources: %w", err)
+		return nil, fmt.Errorf("list resources: %w", err)
 	}
 	return result.Resources, nil
 }
@@ -58,7 +58,7 @@ func (v *ValidatorClient) CallTool(name string, arguments map[string]interface{}
 		Arguments: arguments,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to call tool: %w", err)
+		return nil, fmt.Errorf("call tool %s: %w", name, err)
 	}
 	return result, nil
 }
@@ -69,7 +69,7 @@ func (v *ValidatorClient) ReadResource(uri string) (*sdk.ReadResourceResult, err
 		URI: uri,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to read resource: %w", err)
+		return nil, fmt.Errorf("read resource %s: %w", uri, err)
 	}
 	return result, nil
 }

@@ -16,18 +16,9 @@ func TestBasicServerWithOneTool(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Create test server configuration with one tool
 	config := mcptest.DefaultServerConfig().
 		WithTool(mcptest.SimpleEchoTool("test_echo"))
 
-	// Start the test server
-	testServer := mcptest.NewServer(config)
-	if err := testServer.Start(); err != nil {
-		t.Fatalf("Failed to start test server: %v", err)
-	}
-	defer testServer.Stop()
-
-	// Create stdio transport for communication
 	driver := mcptest.NewTestDriver()
 	defer driver.Stop()
 
@@ -40,25 +31,22 @@ func TestBasicServerWithOneTool(t *testing.T) {
 		t.Fatalf("Failed to create transport: %v", err)
 	}
 
-	// Create validator client
 	validator, err := mcptest.NewValidatorClient(ctx, transport)
 	if err != nil {
 		t.Fatalf("Failed to create validator client: %v", err)
 	}
 	defer validator.Close()
 
-	// Test: List tools
+	// Validate tools
 	tools, err := validator.ListTools()
 	if err != nil {
 		t.Fatalf("Failed to list tools: %v", err)
 	}
 
-	// Validate: Should have exactly 1 tool
 	if len(tools) != 1 {
 		t.Errorf("Expected 1 tool, got %d", len(tools))
 	}
 
-	// Validate: Tool name should match
 	if len(tools) > 0 {
 		if tools[0].Name != "test_echo" {
 			t.Errorf("Expected tool name 'test_echo', got '%s'", tools[0].Name)
@@ -66,7 +54,7 @@ func TestBasicServerWithOneTool(t *testing.T) {
 		t.Logf("✓ Tool found: %s - %s", tools[0].Name, tools[0].Description)
 	}
 
-	// Test: Call the tool
+	// Test tool execution
 	result, err := validator.CallTool("test_echo", map[string]interface{}{
 		"message": "Hello, World!",
 	})
@@ -74,7 +62,6 @@ func TestBasicServerWithOneTool(t *testing.T) {
 		t.Fatalf("Failed to call tool: %v", err)
 	}
 
-	// Validate: Tool should return expected content
 	if result.IsError {
 		t.Error("Tool returned an error")
 	}

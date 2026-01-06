@@ -616,4 +616,3 @@ func (us *UnifiedServer) RegisterTestTool(name string, tool *ToolInfo) {
 	defer us.toolsMu.Unlock()
 	us.tools[name] = tool
 }
-

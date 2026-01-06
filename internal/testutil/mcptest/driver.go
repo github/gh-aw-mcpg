@@ -14,11 +14,10 @@ import (
 
 // TestDriver manages test servers and the gateway for integration testing
 type TestDriver struct {
-	ctx          context.Context
-	cancel       context.CancelFunc
-	testServers  map[string]*Server
-	gatewayUS    *server.UnifiedServer
-	gatewayAddr  string
+	ctx         context.Context
+	cancel      context.CancelFunc
+	testServers map[string]*Server
+	gatewayUS   *server.UnifiedServer
 }
 
 // NewTestDriver creates a new test driver
@@ -33,19 +32,21 @@ func NewTestDriver() *TestDriver {
 
 // AddTestServer adds a test server with the given ID and configuration
 func (td *TestDriver) AddTestServer(serverID string, config *ServerConfig) error {
+	log.Printf("[TestDriver] Adding test server: %s (tools: %d, resources: %d)",
+		serverID, len(config.Tools), len(config.Resources))
+
 	server := NewServer(config)
 	if err := server.Start(); err != nil {
-		return fmt.Errorf("failed to start test server %s: %w", serverID, err)
+		return fmt.Errorf("start server %s: %w", serverID, err)
 	}
 	td.testServers[serverID] = server
-	log.Printf("[TestDriver] Added test server: %s", serverID)
 	return nil
 }
 
 // StartGateway starts the AWMG gateway on top of the test servers
-// This creates in-memory connections to test servers instead of launching real processes
 func (td *TestDriver) StartGateway() error {
-	// Create an empty config - we'll populate connections manually
+	log.Printf("[TestDriver] Starting gateway with %d test servers", len(td.testServers))
+
 	cfg := &config.Config{
 		Servers: make(map[string]*config.ServerConfig),
 	}
@@ -53,19 +54,18 @@ func (td *TestDriver) StartGateway() error {
 	// Add server configs for all test servers
 	for serverID := range td.testServers {
 		cfg.Servers[serverID] = &config.ServerConfig{
-			Command: "echo", // Dummy - not used for in-memory servers
+			Command: "echo", // Dummy command for testing
 			Args:    []string{},
 		}
 	}
 
-	// Create unified server
 	us, err := server.NewUnified(td.ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create unified server: %w", err)
+		return fmt.Errorf("create unified server: %w", err)
 	}
 
 	td.gatewayUS = us
-	log.Printf("[TestDriver] Started gateway with %d test servers", len(td.testServers))
+	log.Printf("[TestDriver] Gateway started successfully")
 	return nil
 }
 
@@ -78,8 +78,10 @@ func (td *TestDriver) GetGatewayServer() *server.UnifiedServer {
 func (td *TestDriver) CreateStdioTransport(serverID string) (sdk.Transport, error) {
 	testServer, ok := td.testServers[serverID]
 	if !ok {
-		return nil, fmt.Errorf("test server %s not found", serverID)
+		return nil, fmt.Errorf("server %s not found", serverID)
 	}
+
+	log.Printf("[TestDriver] Creating transport for server: %s", serverID)
 
 	// Create in-memory transports that connect to each other
 	serverTransport, clientTransport := sdk.NewInMemoryTransports()

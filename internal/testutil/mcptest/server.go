@@ -11,10 +11,10 @@ import (
 
 // Server is a configurable MCP test server
 type Server struct {
-	config  *ServerConfig
-	server  *sdk.Server
-	ctx     context.Context
-	cancel  context.CancelFunc
+	config *ServerConfig
+	server *sdk.Server
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NewServer creates a new configurable MCP test server
@@ -29,24 +29,25 @@ func NewServer(config *ServerConfig) *Server {
 
 // Start initializes and starts the MCP server with configured tools and resources
 func (s *Server) Start() error {
-	// Create server implementation
+	log.Printf("[TestServer] Initializing %s v%s", s.config.Name, s.config.Version)
+
 	impl := &sdk.Implementation{
 		Name:    s.config.Name,
 		Version: s.config.Version,
 	}
 
-	// Create server with no default capabilities
 	s.server = sdk.NewServer(impl, nil)
 
 	// Register tools
-	for _, toolCfg := range s.config.Tools {
+	for i, toolCfg := range s.config.Tools {
 		tool := toolCfg // Capture for closure
+		log.Printf("[TestServer] Registering tool %d: %s", i+1, tool.Name)
+
 		s.server.AddTool(&sdk.Tool{
 			Name:        tool.Name,
 			Description: tool.Description,
 			InputSchema: tool.InputSchema,
 		}, func(ctx context.Context, req *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
-			// Parse arguments from json.RawMessage
 			var args map[string]interface{}
 			if len(req.Params.Arguments) > 0 {
 				if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
@@ -61,7 +62,6 @@ func (s *Server) Start() error {
 				}
 			}
 
-			// Call the handler
 			content, err := tool.Handler(args)
 			if err != nil {
 				return &sdk.CallToolResult{
@@ -81,8 +81,10 @@ func (s *Server) Start() error {
 	}
 
 	// Register resources
-	for _, resCfg := range s.config.Resources {
+	for i, resCfg := range s.config.Resources {
 		res := resCfg // Capture for closure
+		log.Printf("[TestServer] Registering resource %d: %s", i+1, res.URI)
+
 		s.server.AddResource(&sdk.Resource{
 			URI:         res.URI,
 			Name:        res.Name,
@@ -101,7 +103,7 @@ func (s *Server) Start() error {
 		})
 	}
 
-	log.Printf("[TestServer] Server %s initialized with %d tools and %d resources",
+	log.Printf("[TestServer] Server %s initialized successfully (tools: %d, resources: %d)",
 		s.config.Name, len(s.config.Tools), len(s.config.Resources))
 
 	return nil
