@@ -42,17 +42,6 @@ func (t *HTTPTransport) Close() error {
 	return nil
 }
 
-// loggingResponseWriter wraps http.ResponseWriter to capture response body
-type loggingResponseWriter struct {
-	http.ResponseWriter
-	body []byte
-}
-
-func (w *loggingResponseWriter) Write(b []byte) (int, error) {
-	w.body = append(w.body, b...)
-	return w.ResponseWriter.Write(b)
-}
-
 // CreateHTTPServerForMCP creates an HTTP server that handles MCP over SSE
 func CreateHTTPServerForMCP(addr string, unifiedServer *UnifiedServer) *http.Server {
 	mux := http.NewServeMux()

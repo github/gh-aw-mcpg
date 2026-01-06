@@ -32,7 +32,6 @@ func NewConnection(ctx context.Context, command string, args []string, env map[s
 	// Expand Docker -e flags that reference environment variables
 	// Docker's `-e VAR_NAME` expects VAR_NAME to be in the environment
 	expandedArgs := expandDockerEnvArgs(args)
-	expandedArgs = args // --- IGNORE ---
 	// Create command transport
 	cmd := exec.CommandContext(ctx, command, expandedArgs...)
 
