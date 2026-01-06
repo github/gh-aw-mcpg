@@ -16,7 +16,7 @@ ENV_FILE="${ENV_FILE:-.env}"
 MODE="${MODE:---routed}"
 
 # Build the command
-CMD="./mcpg"
+CMD="./awmg"
 FLAGS="$MODE --listen ${HOST}:${PORT}"
 
 # Only add --env flag if ENV_FILE is set and the file exists

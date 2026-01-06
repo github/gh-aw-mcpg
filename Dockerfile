@@ -12,7 +12,7 @@ COPY . .
 RUN go mod tidy
 
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o mcpg .
+RUN CGO_ENABLED=0 GOOS=linux go build -o awmg .
 
 # Runtime stage
 FROM alpine:latest
@@ -23,7 +23,7 @@ RUN apk add --no-cache docker-cli bash
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=builder /app/mcpg .
+COPY --from=builder /app/awmg .
 
 # Copy run.sh script
 COPY run.sh .

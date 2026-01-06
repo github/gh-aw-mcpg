@@ -22,7 +22,7 @@ A gateway for Model Context Protocol (MCP) servers.
 
 1. **Build the binary**
    ```bash
-   go build -o mcpg
+   go build -o awmg
    ```
 
 2. **Create your environment file**
@@ -121,10 +121,10 @@ If you prefer to run manually without the `run.sh` script:
 
 ```bash
 # Run with TOML config
-./mcpg --config config.toml
+./awmg --config config.toml
 
 # Run with JSON stdin config
-echo '{"mcpServers": {...}}' | ./mcpg --config-stdin
+echo '{"mcpServers": {...}}' | ./awmg --config-stdin
 ```
 
 ## Configuration
@@ -168,13 +168,13 @@ MCPG is a proxy server for Model Context Protocol (MCP) servers.
 It provides routing, aggregation, and management of multiple MCP backend servers.
 
 Usage:
-  mcpg [flags]
+  awmg [flags]
 
 Flags:
   -c, --config string   Path to config file (default "config.toml")
       --config-stdin    Read MCP server configuration from stdin (JSON format). When enabled, overrides --config
       --env string      Path to .env file to load environment variables
-  -h, --help            help for mcpg
+  -h, --help            help for awmg
   -l, --listen string   HTTP server listen address (default "127.0.0.1:3000")
       --routed          Run in routed mode (each backend at /mcp/<server>)
       --unified         Run in unified mode (all backends at /mcp)
@@ -185,7 +185,7 @@ Flags:
 ### Build Image
 
 ```bash
-docker build -t mcpg .
+docker build -t awmg .
 ```
 
 ### Run Container
@@ -194,7 +194,7 @@ docker build -t mcpg .
 docker run --rm -v $(pwd)/.env:/app/.env \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -p 8000:8000 \
-  mcpg
+  awmg
 ```
 
 The container uses `run.sh` as the entrypoint, which automatically:
@@ -216,7 +216,7 @@ docker run --rm -v $(pwd)/config.toml:/app/config.toml \
   -e PORT=8000 \
   -e HOST=127.0.0.1 \
   -p 8000:8000 \
-  mcpg
+  awmg
 ```
 
 Available environment variables for `run.sh`:
@@ -317,7 +317,7 @@ See [`docs/DIFC_INTEGRATION_PROPOSAL.md`](docs/DIFC_INTEGRATION_PROPOSAL.md) for
 ### Project Structure
 
 ```
-mcpg/
+awmg/
 ├── main.go              # Entry point
 ├── go.mod               # Dependencies
 ├── Dockerfile           # Container image

@@ -23,7 +23,7 @@ This document proposes an approach to integrate Decentralized Information Flow C
 ### 1. Package Structure
 
 ```
-mcpg/
+awmg/
 ├── internal/
 │   ├── difc/              # DIFC label system
 │   │   ├── labels.go      # Label types and operations

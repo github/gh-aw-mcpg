@@ -139,7 +139,7 @@ func (s *Server) handleInitialize(w http.ResponseWriter, req *mcp.Request, serve
 			"prompts":   map[string]interface{}{},
 		},
 		"serverInfo": map[string]interface{}{
-			"name":    "mcpg-" + serverID,
+			"name":    "awmg-" + serverID,
 			"version": "1.0.0",
 		},
 	}

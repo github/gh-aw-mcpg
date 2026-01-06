@@ -2,7 +2,7 @@ model = "gpt-5.1-codex-max"
 sandbox_mode = "workspace-write"
 model_reasoning_effort = "high"
 
-[mcp_servers.mcpg]
+[mcp_servers.sys]
 url = "http://127.0.0.1:8000/mcp/sys"
 transport = "streamablehttp"
 tool_timeout_sec = 120000

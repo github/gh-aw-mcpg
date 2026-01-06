@@ -18,7 +18,7 @@ import (
 	"github.com/githubnext/gh-aw-mcpg/internal/config"
 )
 
-// TestTransparentProxy_RoutedMode tests that flowguard-go acts as a transparent proxy
+// TestTransparentProxy_RoutedMode tests that awmg acts as a transparent proxy
 // when DIFC is disabled (using NoopGuard) in routed mode.
 // This verifies that requests and responses pass through without modification.
 func TestTransparentProxy_RoutedMode(t *testing.T) {

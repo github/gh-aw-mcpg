@@ -4,7 +4,7 @@
 .DEFAULT_GOAL := help
 
 # Binary name
-BINARY_NAME=mcpg
+BINARY_NAME=awmg
 
 # Go and toolchain versions
 GO_VERSION=1.25.0

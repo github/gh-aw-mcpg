@@ -3,7 +3,7 @@
 [servers.github]
 command = "docker"
 args = ["run", "--rm", "-i",
-        "--name", "mcpg-github-mcp",
+        "--name", "awmg-github-mcp",
         "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
         "-e", "NO_COLOR=1", "-e", "TERM=dumb",
         "ghcr.io/github/github-mcp-server:latest"]

@@ -5,13 +5,13 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 ## Quick Start
 
 **Install**: `make install` (install toolchains and dependencies)  
-**Build**: `make build` (builds `mcpg` binary)  
+**Build**: `make build` (builds `awmg` binary)  
 **Test**: `make test`  
 **Lint**: `make lint` (runs go vet and gofmt checks)  
 **Coverage**: `make coverage` (tests with coverage report)  
 **Format**: `make format` (auto-format code with gofmt)  
 **Clean**: `make clean` (remove build artifacts)  
-**Run**: `./mcpg --config config.toml`
+**Run**: `./awmg --config config.toml`
 
 ## Project Structure
 

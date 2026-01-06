@@ -100,7 +100,7 @@ func CreateHTTPServerForRoutedMode(addr string, unifiedServer *UnifiedServer) *h
 func createFilteredServer(unifiedServer *UnifiedServer, backendID string) *sdk.Server {
 	// Create a new SDK server for this route
 	server := sdk.NewServer(&sdk.Implementation{
-		Name:    fmt.Sprintf("mcpg-%s", backendID),
+		Name:    fmt.Sprintf("awmg-%s", backendID),
 		Version: "1.0.0",
 	}, nil)
 

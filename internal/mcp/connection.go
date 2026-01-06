@@ -25,7 +25,7 @@ func NewConnection(ctx context.Context, command string, args []string, env map[s
 
 	// Create MCP client
 	client := sdk.NewClient(&sdk.Implementation{
-		Name:    "mcpg",
+		Name:    "awmg",
 		Version: "1.0.0",
 	}, nil)
 

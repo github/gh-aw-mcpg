@@ -33,7 +33,7 @@ func NewSession(sessionID, token string) *Session {
 type ContextKey string
 
 // SessionIDContextKey is used to store MCP session ID in context
-const SessionIDContextKey ContextKey = "mcpg-session-id"
+const SessionIDContextKey ContextKey = "awmg-session-id"
 
 // ToolInfo stores metadata about a registered tool
 type ToolInfo struct {
@@ -84,7 +84,7 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 
 	// Create MCP server
 	server := sdk.NewServer(&sdk.Implementation{
-		Name:    "mcpg-unified",
+		Name:    "awmg-unified",
 		Version: "1.0.0",
 	}, nil)
 
