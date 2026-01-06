@@ -10,7 +10,7 @@ permissions:
   issues: read
   pull-requests: read
 
-engine: claude
+engine: copilot
 
 safe-outputs:
   create-pull-request:
