@@ -119,11 +119,11 @@ jobs:
           fi
 
       - name: Build binary
-        run: go build -v -o gh-aw-mcpg .
+        run: go build -v -o awmg .
 
       - name: Upload build artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: gh-aw-mcpg-binary
-          path: gh-aw-mcpg
+          name: awmg-binary
+          path: awmg
           retention-days: 7

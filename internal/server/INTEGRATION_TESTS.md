@@ -1,6 +1,6 @@
 # Integration Tests for Transparent Proxy
 
-This directory contains integration tests that verify flowguard-go functions as a transparent proxy when DIFC is disabled and routed mode is enabled.
+This directory contains integration tests that verify awmg functions as a transparent proxy when DIFC is disabled and routed mode is enabled.
 
 ## Overview
 

@@ -7,14 +7,10 @@
 *.dll
 *.so
 *.dylib
-flowguard-go
 
 # Built binaries
-flowguard-go
-
-# Project binary
 mcpg
-flowguard-go
+awmg
 
 # Test binary, built with `go test -c`
 *.test

@@ -4,10 +4,10 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 
 ## Quick Start
 
-**Build**: `go build -o flowguard-go`  
-**Test**: `go test ./...`  
-**Lint**: `go vet ./... && go fmt ./...`  
-**Run**: `./flowguard-go --config config.toml`
+**Build**: `go build -o awmg`  
+**Test**: `go test ./...`
+**Lint**: `go vet ./... && go fmt ./...`
+**Run**: `./awmg --config config.toml`
 
 ## Project Structure
 
