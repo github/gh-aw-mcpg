@@ -115,6 +115,60 @@ Or run manually:
 echo '{"mcpServers": {...}}' | ./awmg --config-stdin
 ```
 
+### Testing with Codex
+
+You can test MCPG with Codex (in another terminal):
+```bash
+cp ~/.codex/config.toml ~/.codex/config.toml.bak && cp agent-configs/codex.config.toml ~/.codex/config.toml
+AGENT_ID=demo-agent codex
+```
+
+You can use '/mcp' in codex to list the available tools. 
+
+When you're done you can restore your old codex config file:
+
+```bash
+cp ~/.codex/config.toml.bak ~/.codex/config.toml
+```
+
+### Testing with curl
+
+You can test the MCP server directly using curl commands:
+
+#### 1. Initialize a session and extract session ID
+
+```bash
+MCP_URL="http://127.0.0.1:8000/mcp/github"
+
+SESSION_ID=$(
+  curl -isS -X POST $MCP_URL \
+    -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' \
+    -H 'Authorization: Bearer demo-agent' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"1.0.0","capabilities":{},"clientInfo":{"name":"curl","version":"0.1"}}}' \
+  | awk 'BEGIN{IGNORECASE=1} /^mcp-session-id:/{print $2}' | tr -d '\r'
+)
+
+echo "Session ID: $SESSION_ID"
+```
+
+#### 2. List available tools
+
+```bash
+curl -s \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: $SESSION_ID" \
+  -H 'Authorization: Bearer demo-agent' \
+  -X POST \
+  $MCP_URL \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list",
+    "params": {}
+  }'
+```
+
 ### Cleaning
 
 Remove build artifacts:
@@ -265,6 +319,35 @@ docker run --rm -v $(pwd)/.env:/app/.env \
   -p 8000:8000 \
   awmg
 ```
+
+The container uses `run.sh` as the entrypoint, which automatically:
+- Detects architecture and sets DOCKER_API_VERSION (1.43 for arm64, 1.44 for amd64)
+- Loads environment variables from `.env`
+- Starts MCPG in routed mode on port 8000
+- Reads configuration from stdin (via heredoc in run.sh)
+
+### Override with custom configuration
+
+To use a custom config file, set environment variables that `run.sh` reads:
+
+```bash
+docker run --rm -v $(pwd)/config.toml:/app/config.toml \
+  -v $(pwd)/.env:/app/.env \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e CONFIG=/app/config.toml \
+  -e ENV_FILE=/app/.env \
+  -e PORT=8000 \
+  -e HOST=127.0.0.1 \
+  -p 8000:8000 \
+  awmg
+```
+
+Available environment variables for `run.sh`:
+- `CONFIG` - Path to config file (overrides stdin config)
+- `ENV_FILE` - Path to .env file (default: `.env`)
+- `PORT` - Server port (default: `8000`)
+- `HOST` - Server host (default: `127.0.0.1`)
+- `MODE` - Server mode flag (default: `--routed`, can be `--unified`)
 
 **Note:** Set `DOCKER_API_VERSION=1.43` for arm64 (Mac) or `1.44` for amd64 (Linux).
 

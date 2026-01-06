@@ -11,122 +11,26 @@ A gateway for Model Context Protocol (MCP) servers.
 - **Docker Support**: Launch backend MCP servers as Docker containers
 - **Stdio Transport**: JSON-RPC 2.0 over stdin/stdout for MCP communication
 
-## Quick Start
+## Getting Started
 
-### Prerequisites
+For detailed setup instructions, building from source, and local development, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-1. **Docker** installed and running
-2. **Go 1.25+** and Make for building from source
+### Quick Start with Docker
 
-### Setup Steps
-
-1. **Install toolchains and build the binary**
+1. **Pull the Docker image** (when available):
    ```bash
-   make install
-   make build
+   docker pull ghcr.io/githubnext/gh-aw-mcpg:latest
    ```
 
-2. **Create your environment file**
+2. **Run the container**:
    ```bash
-   cp example.env .env
+   docker run --rm -v $(pwd)/.env:/app/.env \
+     -v /var/run/docker.sock:/var/run/docker.sock \
+     -p 8000:8000 \
+     ghcr.io/githubnext/gh-aw-mcpg:latest
    ```
 
-3. **Create a GitHub Personal Access Token**
-   - Go to https://github.com/settings/tokens
-   - Click "Generate new token (classic)"
-   - Select scopes as needed (e.g., `repo` for repository access)
-   - Copy the generated token
-
-4. **Add your token to `.env`**
-   
-   Replace the placeholder value with your actual token:
-   ```bash
-   sed -i '' 's/GITHUB_PERSONAL_ACCESS_TOKEN=.*/GITHUB_PERSONAL_ACCESS_TOKEN=your_token_here/' .env
-   ```
-   
-   Or edit `.env` manually and replace the value of `GITHUB_PERSONAL_ACCESS_TOKEN`.
-
-5. **Pull required Docker images**
-   ```bash
-   docker pull ghcr.io/github/github-mcp-server:latest
-   docker pull mcp/fetch
-   docker pull mcp/memory
-   ```
-
-6. **Start MCPG**
-   
-   In one terminal, run:
-   ```bash
-   ./run.sh
-   ```
-   
-   This will start MCPG in routed mode on `http://127.0.0.1:8000`.
-
-7. **Run Codex (in another terminal)**
-   ```bash
-   cp ~/.codex/config.toml ~/.codex/config.toml.bak && cp agent-configs/codex.config.toml ~/.codex/config.toml
-   AGENT_ID=demo-agent codex
-   ```
-   
-   You can use '/mcp' in codex to list the available tools. 
-
-   That's it! MCPG is now proxying MCP requests to your configured backend servers.
-
-   When you're done you can restore your old codex config file:
-
-   ```bash
-   cp ~/.codex/config.toml.bak ~/.codex/config.toml
-   ```
-
-## Testing with curl
-
-You can test the MCP server directly using curl commands:
-
-### 1. Initialize a session and extract session ID
-
-```bash
-MCP_URL="http://127.0.0.1:8000/mcp/github"
-
-SESSION_ID=$(
-  curl -isS -X POST $MCP_URL \
-    -H 'Content-Type: application/json' \
-    -H 'Accept: application/json, text/event-stream' \
-    -H 'Authorization: Bearer demo-agent' \
-    -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"1.0.0","capabilities":{},"clientInfo":{"name":"curl","version":"0.1"}}}' \
-  | awk 'BEGIN{IGNORECASE=1} /^mcp-session-id:/{print $2}' | tr -d '\r'
-)
-
-echo "Session ID: $SESSION_ID"
-```
-
-### 2. List available tools
-
-```bash
-curl -s \
-  -H "Content-Type: application/json" \
-  -H "Mcp-Session-Id: $SESSION_ID" \
-  -H 'Authorization: Bearer demo-agent' \
-  -X POST \
-  $MCP_URL \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 2,
-    "method": "tools/list",
-    "params": {}
-  }'
-```
-
-### Manual Build & Run
-
-If you prefer to run manually without the `run.sh` script:
-
-```bash
-# Run with TOML config
-./awmg --config config.toml
-
-# Run with JSON stdin config
-echo '{"mcpServers": {...}}' | ./awmg --config-stdin
-```
+MCPG will start in routed mode on `http://127.0.0.1:8000`, proxying MCP requests to your configured backend servers.
 
 ## Configuration
 
@@ -180,56 +84,6 @@ Flags:
       --routed          Run in routed mode (each backend at /mcp/<server>)
       --unified         Run in unified mode (all backends at /mcp)
 ```
-
-## Docker
-
-### Build Image
-
-```bash
-docker build -t awmg .
-```
-
-### Run Container
-
-```bash
-docker run --rm -v $(pwd)/.env:/app/.env \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -p 8000:8000 \
-  awmg
-```
-
-The container uses `run.sh` as the entrypoint, which automatically:
-- Detects architecture and sets DOCKER_API_VERSION (1.43 for arm64, 1.44 for amd64)
-- Loads environment variables from `.env`
-- Starts MCPG in routed mode on port 8000
-- Reads configuration from stdin (via heredoc in run.sh)
-
-### Override with custom configuration
-
-To use a custom config file, set environment variables that `run.sh` reads:
-
-```bash
-docker run --rm -v $(pwd)/config.toml:/app/config.toml \
-  -v $(pwd)/.env:/app/.env \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -e CONFIG=/app/config.toml \
-  -e ENV_FILE=/app/.env \
-  -e PORT=8000 \
-  -e HOST=127.0.0.1 \
-  -p 8000:8000 \
-  awmg
-```
-
-Available environment variables for `run.sh`:
-- `CONFIG` - Path to config file (overrides stdin config)
-- `ENV_FILE` - Path to .env file (default: `.env`)
-- `PORT` - Server port (default: `8000`)
-- `HOST` - Server host (default: `127.0.0.1`)
-- `MODE` - Server mode flag (default: `--routed`, can be `--unified`)
-
-**Note:** Set `DOCKER_API_VERSION=1.43` for arm64 (Mac) or `1.44` for amd64 (Linux).
-
-
 ## API Endpoints
 
 ### Routed Mode (default)
