@@ -16,13 +16,14 @@ A gateway for Model Context Protocol (MCP) servers.
 ### Prerequisites
 
 1. **Docker** installed and running
-2. **Go 1.23+** for building from source
+2. **Go 1.25+** and Make for building from source
 
 ### Setup Steps
 
-1. **Build the binary**
+1. **Install toolchains and build the binary**
    ```bash
-   go build -o awmg
+   make install
+   make build
    ```
 
 2. **Create your environment file**
@@ -312,28 +313,9 @@ See [`docs/DIFC_INTEGRATION_PROPOSAL.md`](docs/DIFC_INTEGRATION_PROPOSAL.md) for
 
 **Current Status**: All DIFC infrastructure is implemented and tested, but only the `NoopGuard` is active (which returns empty labels, effectively disabling enforcement). Custom guards for specific backends (GitHub, filesystem, etc.) are not yet implemented.
 
-## Development
+## Contributing
 
-### Project Structure
-
-```
-awmg/
-├── main.go              # Entry point
-├── go.mod               # Dependencies
-├── Dockerfile           # Container image
-└── internal/
-    ├── cmd/             # CLI commands (cobra)
-    ├── config/          # Configuration loading
-    ├── launcher/        # Backend server management
-    ├── mcp/             # MCP protocol types & connection
-    └── server/          # HTTP server
-```
-
-### Dependencies
-
-- `github.com/spf13/cobra` - CLI framework
-- `github.com/BurntSushi/toml` - TOML parser
-- Standard library for JSON, HTTP, exec
+For development setup, build instructions, testing guidelines, and project architecture details, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
