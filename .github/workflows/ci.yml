@@ -54,8 +54,6 @@ jobs:
           path: coverage.html
           retention-days: 7
 
-
-
   lint:
     runs-on: ubuntu-latest
     permissions:
