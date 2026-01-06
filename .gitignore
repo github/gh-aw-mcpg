@@ -16,6 +16,7 @@ flowguard-go
 mcpg
 awmg
 flowguard-go
+gh-aw-mcpg
 
 # Test binary, built with `go test -c`
 *.test
