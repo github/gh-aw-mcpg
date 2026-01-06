@@ -1,4 +1,4 @@
-.PHONY: build lint test coverage format clean install help
+.PHONY: build lint test coverage test-ci format clean install help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -45,6 +45,13 @@ coverage:
 	@echo "Coverage profile saved to coverage.out"
 	@echo "To view HTML coverage report, run: go tool cover -html=coverage.out"
 
+# Run tests with coverage and JSON output for CI
+test-ci:
+	@echo "Running tests with coverage and JSON output..."
+	@go test -v -parallel=8 -timeout=3m -coverprofile=coverage.out -json ./... | tee test-result-unit.json
+	@echo "Test results saved to test-result-unit.json"
+	@echo "Coverage profile saved to coverage.out"
+
 # Format Go code
 format:
 	@echo "Formatting Go code..."
@@ -56,6 +63,7 @@ clean:
 	@echo "Cleaning build artifacts..."
 	@rm -f $(BINARY_NAME)
 	@rm -f coverage.out
+	@rm -f test-result-unit.json
 	@echo "Clean complete!"
 
 # Install required toolchains
@@ -105,6 +113,7 @@ help:
 	@echo "  lint       - Run all linters (go vet, gofmt check)"
 	@echo "  test       - Run all tests"
 	@echo "  coverage   - Run tests with coverage report"
+	@echo "  test-ci    - Run tests with coverage and JSON output for CI"
 	@echo "  format     - Format Go code using gofmt"
 	@echo "  clean      - Clean build artifacts"
 	@echo "  install    - Install required toolchains and dependencies"

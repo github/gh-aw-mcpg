@@ -25,6 +25,7 @@ flowguard-go
 coverage.*
 *.coverprofile
 profile.cov
+test-result-unit.json
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
