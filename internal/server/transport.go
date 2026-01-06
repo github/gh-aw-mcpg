@@ -42,15 +42,38 @@ func (t *HTTPTransport) Close() error {
 	return nil
 }
 
+// loggingResponseWriter wraps http.ResponseWriter to capture response body
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	body []byte
+}
+
+func (w *loggingResponseWriter) Write(b []byte) (int, error) {
+	w.body = append(w.body, b...)
+	return w.ResponseWriter.Write(b)
+}
+
+// withResponseLogging wraps an http.Handler to log response bodies
+func withResponseLogging(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		lw := &loggingResponseWriter{ResponseWriter: w, body: []byte{}}
+		handler.ServeHTTP(lw, r)
+		if len(lw.body) > 0 {
+			log.Printf("[%s] %s %s - Response: %s", r.RemoteAddr, r.Method, r.URL.Path, string(lw.body))
+		}
+	})
+}
+
 // CreateHTTPServerForMCP creates an HTTP server that handles MCP over SSE
 func CreateHTTPServerForMCP(addr string, unifiedServer *UnifiedServer) *http.Server {
 	mux := http.NewServeMux()
 
 	// OAuth discovery endpoint - return 404 since we don't use OAuth
-	mux.HandleFunc("/mcp/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+	oauthHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[%s] %s %s - OAuth discovery (not supported)", r.RemoteAddr, r.Method, r.URL.Path)
 		http.NotFound(w, r)
 	})
+	mux.Handle("/mcp/.well-known/oauth-authorization-server", withResponseLogging(oauthHandler))
 
 	// Create StreamableHTTP handler for MCP protocol (supports POST requests)
 	// This is what Codex uses with transport = "streamablehttp"
@@ -110,10 +133,11 @@ func CreateHTTPServerForMCP(addr string, unifiedServer *UnifiedServer) *http.Ser
 	mux.Handle("/mcp", streamableHandler)
 
 	// Health check
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	healthHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK\n")
 	})
+	mux.Handle("/health", withResponseLogging(healthHandler))
 
 	return &http.Server{
 		Addr:    addr,
