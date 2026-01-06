@@ -4,6 +4,7 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 
 ## Quick Start
 
+**Install**: `make install` (install toolchains and dependencies)  
 **Build**: `make build` (builds `mcpg` binary)  
 **Test**: `make test`  
 **Lint**: `make lint` (runs go vet and gofmt checks)  

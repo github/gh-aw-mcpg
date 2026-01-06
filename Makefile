@@ -1,10 +1,14 @@
-.PHONY: build lint test coverage format clean help
+.PHONY: build lint test coverage format clean install help
 
 # Default target
 .DEFAULT_GOAL := help
 
 # Binary name
 BINARY_NAME=mcpg
+
+# Go and toolchain versions
+GO_VERSION=1.25.0
+GOLANGCI_LINT_VERSION=v2.2.0
 
 # Build the CLI binary
 build:
@@ -54,6 +58,46 @@ clean:
 	@rm -f coverage.out
 	@echo "Clean complete!"
 
+# Install required toolchains
+install:
+	@echo "Installing required toolchains..."
+	@echo "Checking Go installation..."
+	@if command -v go >/dev/null 2>&1; then \
+		INSTALLED_VERSION=$$(go version | awk '{print $$3}' | sed 's/go//'); \
+		echo "✓ Go $$INSTALLED_VERSION is installed"; \
+		if [ "$$INSTALLED_VERSION" != "$(GO_VERSION)" ]; then \
+			echo "⚠ Warning: Expected Go $(GO_VERSION), but found $$INSTALLED_VERSION"; \
+			echo "  Visit https://go.dev/dl/ to install Go $(GO_VERSION)"; \
+		fi; \
+	else \
+		echo "✗ Go is not installed"; \
+		echo "  Visit https://go.dev/dl/ to install Go $(GO_VERSION)"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Checking golangci-lint installation..."
+	@GOPATH=$$(go env GOPATH); \
+	if [ -f "$$GOPATH/bin/golangci-lint" ] || command -v golangci-lint >/dev/null 2>&1; then \
+		if [ -f "$$GOPATH/bin/golangci-lint" ]; then \
+			INSTALLED_LINT_VERSION=$$($$GOPATH/bin/golangci-lint version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown"); \
+		else \
+			INSTALLED_LINT_VERSION=$$(golangci-lint version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown"); \
+		fi; \
+		echo "✓ golangci-lint v$$INSTALLED_LINT_VERSION is installed"; \
+	else \
+		echo "✗ golangci-lint is not installed"; \
+		echo "  Installing golangci-lint $(GOLANGCI_LINT_VERSION)..."; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$GOPATH/bin $(GOLANGCI_LINT_VERSION); \
+		echo "✓ golangci-lint $(GOLANGCI_LINT_VERSION) installed"; \
+	fi
+	@echo ""
+	@echo "Installing Go dependencies..."
+	@go mod download
+	@go mod verify
+	@echo "✓ Dependencies installed and verified"
+	@echo ""
+	@echo "✓ Toolchain installation complete!"
+
 # Display help information
 help:
 	@echo "Available targets:"
@@ -63,4 +107,5 @@ help:
 	@echo "  coverage   - Run tests with coverage report"
 	@echo "  format     - Format Go code using gofmt"
 	@echo "  clean      - Clean build artifacts"
+	@echo "  install    - Install required toolchains and dependencies"
 	@echo "  help       - Display this help message"
