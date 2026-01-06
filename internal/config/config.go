@@ -8,7 +8,10 @@ import (
 	"os"
 
 	"github.com/BurntSushi/toml"
+	"github.com/githubnext/gh-aw-mcpg/internal/logger"
 )
+
+var logConfig = logger.New("config:config")
 
 // Config represents the MCPG configuration
 type Config struct {
@@ -48,24 +51,30 @@ type StdinGatewayConfig struct {
 
 // LoadFromFile loads configuration from a TOML file
 func LoadFromFile(path string) (*Config, error) {
+	logConfig.Printf("Loading configuration from file: path=%s", path)
 	var cfg Config
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to decode TOML: %w", err)
 	}
+	logConfig.Printf("Successfully loaded %d servers from TOML file", len(cfg.Servers))
 	return &cfg, nil
 }
 
 // LoadFromStdin loads configuration from stdin JSON
 func LoadFromStdin() (*Config, error) {
+	logConfig.Print("Loading configuration from stdin JSON")
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read stdin: %w", err)
 	}
 
+	logConfig.Printf("Read %d bytes from stdin", len(data))
 	var stdinCfg StdinConfig
 	if err := json.Unmarshal(data, &stdinCfg); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %w", err)
 	}
+
+	logConfig.Printf("Parsed stdin config with %d servers", len(stdinCfg.MCPServers))
 
 	// Log gateway configuration if present (reserved for future use)
 	if stdinCfg.Gateway != nil {
@@ -133,5 +142,6 @@ func LoadFromStdin() (*Config, error) {
 		}
 	}
 
+	logConfig.Printf("Converted stdin config to internal format with %d servers", len(cfg.Servers))
 	return cfg, nil
 }

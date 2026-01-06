@@ -8,8 +8,11 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/githubnext/gh-aw-mcpg/internal/logger"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+var logConn = logger.New("mcp:connection")
 
 // Connection represents a connection to an MCP server using the official SDK
 type Connection struct {
@@ -21,6 +24,7 @@ type Connection struct {
 
 // NewConnection creates a new MCP connection using the official SDK
 func NewConnection(ctx context.Context, command string, args []string, env map[string]string) (*Connection, error) {
+	logConn.Printf("Creating new MCP connection: command=%s, args=%v", command, args)
 	ctx, cancel := context.WithCancel(ctx)
 
 	// Create MCP client
@@ -32,6 +36,8 @@ func NewConnection(ctx context.Context, command string, args []string, env map[s
 	// Expand Docker -e flags that reference environment variables
 	// Docker's `-e VAR_NAME` expects VAR_NAME to be in the environment
 	expandedArgs := expandDockerEnvArgs(args)
+	logConn.Printf("Expanded args for Docker env: %v", expandedArgs)
+	
 	// Create command transport
 	cmd := exec.CommandContext(ctx, command, expandedArgs...)
 
@@ -50,11 +56,14 @@ func NewConnection(ctx context.Context, command string, args []string, env map[s
 
 	// Connect to the server (this handles the initialization handshake automatically)
 	log.Printf("Connecting to MCP server...")
+	logConn.Print("Initiating MCP server connection and handshake")
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to connect: %w", err)
 	}
+
+	logConn.Printf("Successfully connected to MCP server: command=%s", command)
 
 	conn := &Connection{
 		client:  client,

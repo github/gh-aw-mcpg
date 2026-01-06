@@ -11,9 +11,12 @@ import (
 	"github.com/githubnext/gh-aw-mcpg/internal/difc"
 	"github.com/githubnext/gh-aw-mcpg/internal/guard"
 	"github.com/githubnext/gh-aw-mcpg/internal/launcher"
+	"github.com/githubnext/gh-aw-mcpg/internal/logger"
 	"github.com/githubnext/gh-aw-mcpg/internal/sys"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+var logUnified = logger.New("server:unified")
 
 // Session represents a MCPG session
 type Session struct {
@@ -65,6 +68,7 @@ type UnifiedServer struct {
 
 // NewUnified creates a new unified MCP server
 func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error) {
+	logUnified.Printf("Creating new unified server: enableDIFC=%v, servers=%d", cfg.EnableDIFC, len(cfg.Servers))
 	l := launcher.New(ctx, cfg)
 
 	us := &UnifiedServer{
@@ -100,12 +104,14 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 		return nil, fmt.Errorf("failed to register tools: %w", err)
 	}
 
+	logUnified.Printf("Unified server created successfully with %d tools", len(us.tools))
 	return us, nil
 }
 
 // registerAllTools fetches and registers tools from all backend servers
 func (us *UnifiedServer) registerAllTools() error {
 	log.Println("Registering tools from all backends...")
+	logUnified.Printf("Starting tool registration for %d backends", len(us.launcher.ServerIDs()))
 
 	// Register sys tools first
 	log.Println("Registering sys tools...")
@@ -115,12 +121,14 @@ func (us *UnifiedServer) registerAllTools() error {
 
 	// Register tools from each backend server
 	for _, serverID := range us.launcher.ServerIDs() {
+		logUnified.Printf("Registering tools from backend: %s", serverID)
 		if err := us.registerToolsFromBackend(serverID); err != nil {
 			log.Printf("Warning: failed to register tools from %s: %v", serverID, err)
 			// Continue with other backends
 		}
 	}
 
+	logUnified.Printf("Tool registration complete: total tools=%d", len(us.tools))
 	return nil
 }
 
