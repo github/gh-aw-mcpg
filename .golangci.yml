@@ -1,0 +1,89 @@
+version: "2"
+run:
+  go: "1.25"
+  tests: true
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - misspell
+    - unconvert
+    - testifylint
+  disable:
+    - errcheck
+    - gocritic
+    - revive
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - (*os.File).Close
+      - (*os.File).Sync
+      - os.Chdir
+      - os.Chmod
+      - os.Chtimes
+      - os.MkdirAll
+      - os.Remove
+      - os.RemoveAll
+      - os.WriteFile
+  gocritic:
+    enable-all: true
+    disabled-checks:
+      - ifElseChain
+      - singleCaseSwitch
+      - appendAssign
+      - unlambda
+      - elseif
+      - assignOp
+      - argOrder
+      - dupBranchBody
+      - deprecatedComment
+      - commentFormatting
+      - badCall
+  gosec:
+    exclude:
+      - G101
+      - G115
+      - G602
+      - G301
+      - G302
+      - G304
+      - G306
+    config:
+      G204: "0644"
+      G306: "0644"
+  testifylint:
+    enable-all: true
+
+issues:
+  exclude-generated: lax
+  exclude-dirs-use-default: false
+  exclude-use-default: false
+  exclude-rules:
+    - linters:
+        - staticcheck
+      text: "ST1005:"
+    - linters:
+        - gosec
+      text: "^G304:"
+    - linters:
+        - gosec
+      text: "^G104:"
+      path: _test\.go
+    - linters:
+        - gosec
+      text: "^G204:"
+    - linters:
+        - gosec
+      text: "^G404:"
+    - linters:
+        - gosec
+      text: "^G306:"
+      path: _test\.go
+    - linters:
+        - gosec
+      text: "^G305:"
+    - linters:
+        - gosec
+      text: "^G110:"
