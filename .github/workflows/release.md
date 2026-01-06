@@ -60,22 +60,26 @@ jobs:
         run: make test
 
       - name: Build binary
-        run: make build
+        run: |
+          RELEASE_TAG="${GITHUB_REF#refs/tags/}"
+          echo "Building multi-platform binaries for: $RELEASE_TAG"
+          chmod +x scripts/build-release.sh
+          ./scripts/build-release.sh "$RELEASE_TAG"
 
-      - name: Create release
+      - name: Upload binaries to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RELEASE_TAG="${GITHUB_REF#refs/tags/}"
           echo "Creating release for tag: $RELEASE_TAG"
           
-          # Create release with the binary
+          # Create release with all binaries and checksums
           gh release create "$RELEASE_TAG" \
             --title "$RELEASE_TAG" \
             --generate-notes \
-            ./awmg
+            dist/*
           
-          echo "✓ Release created with binary"
+          echo "✓ Release created with all platform binaries and checksums"
 
       - name: Get release ID
         id: get_release
