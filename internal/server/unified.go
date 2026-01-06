@@ -11,9 +11,12 @@ import (
 	"github.com/githubnext/gh-aw-mcpg/internal/difc"
 	"github.com/githubnext/gh-aw-mcpg/internal/guard"
 	"github.com/githubnext/gh-aw-mcpg/internal/launcher"
+	"github.com/githubnext/gh-aw-mcpg/internal/logger"
 	"github.com/githubnext/gh-aw-mcpg/internal/sys"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+var logMiddleware = logger.New("server:middleware")
 
 // Session represents a MCPG session
 type Session struct {
@@ -644,24 +647,38 @@ func (us *UnifiedServer) addToolNamePrefixMiddleware() sdk.Middleware {
 
 			// Find which backend this tool belongs to by checking our tools map
 			// We need to find a tool that matches the pattern <backend>___<toolName>
+			// To avoid ambiguity, we check all backends and ensure only one match
 			us.toolsMu.RLock()
 			var prefixedName string
-			for name := range us.tools {
+			var matches []string
+			for name, toolInfo := range us.tools {
 				// Check if this prefixed name ends with ___<toolName>
+				// and the backend ID matches what we expect
 				suffix := "___" + toolName
 				if len(name) > len(suffix) && name[len(name)-len(suffix):] == suffix {
-					prefixedName = name
-					break
+					// Verify the prefix part is actually a valid backend ID
+					expectedPrefix := toolInfo.BackendID + "___"
+					if len(name) >= len(expectedPrefix) && name[:len(expectedPrefix)] == expectedPrefix {
+						matches = append(matches, name)
+					}
 				}
 			}
 			us.toolsMu.RUnlock()
 
-			// If we found a prefixed name, update the request
-			if prefixedName != "" {
-				log.Printf("Rewriting tool name from '%s' to '%s'", toolName, prefixedName)
+			// Handle matches
+			if len(matches) == 1 {
+				prefixedName = matches[0]
+				logMiddleware.Printf("Tool name rewrite: '%s' -> '%s'", toolName, prefixedName)
+				callParams.Name = prefixedName
+			} else if len(matches) > 1 {
+				// Ambiguous - multiple backends have tools with the same name
+				// Use the first match but log a warning
+				prefixedName = matches[0]
+				logMiddleware.Printf("Ambiguous tool name '%s' matches %d tools, using %s", toolName, len(matches), prefixedName)
 				callParams.Name = prefixedName
 			} else {
-				log.Printf("Warning: Could not find prefixed name for tool '%s'", toolName)
+				// No match found - might be a sys tool or invalid tool name
+				logMiddleware.Printf("No prefix match found for tool '%s'", toolName)
 			}
 
 			// Call the next handler with the modified request
