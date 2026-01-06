@@ -69,22 +69,57 @@ clean:
 # Create and push a release tag
 release:
 	@echo "Creating release tag..."
-	@if [ -z "$(VERSION)" ]; then \
-		echo "Error: VERSION is required. Usage: make release VERSION=v0.1.0"; \
+	@# Check if BUMP argument is provided
+	@if [ -z "$(BUMP)" ]; then \
+		echo "Error: BUMP is required. Usage: make release BUMP=patch|minor|major"; \
 		exit 1; \
 	fi
-	@if ! echo "$(VERSION)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$$'; then \
-		echo "Error: VERSION must be in format v*.*.* (e.g., v0.1.0)"; \
+	@# Validate BUMP argument
+	@if ! echo "$(BUMP)" | grep -qE '^(patch|minor|major)$$'; then \
+		echo "Error: BUMP must be one of: patch, minor, major"; \
 		exit 1; \
 	fi
-	@echo "Creating and pushing tag: $(VERSION)"
-	@git tag -a "$(VERSION)" -m "Release $(VERSION)"
-	@git push origin "$(VERSION)"
-	@echo "✓ Tag $(VERSION) created and pushed"
-	@echo "✓ Release workflow will be triggered automatically"
-	@echo ""
-	@echo "Monitor the release workflow at:"
-	@echo "  https://github.com/githubnext/gh-aw-mcpg/actions/workflows/release.md"
+	@# Get the latest tag
+	@LATEST_TAG=$$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -1); \
+	if [ -z "$$LATEST_TAG" ]; then \
+		echo "No existing tags found, starting from v0.0.0"; \
+		LATEST_TAG="v0.0.0"; \
+	else \
+		echo "Latest tag: $$LATEST_TAG"; \
+	fi; \
+	VERSION_NUM=$$(echo $$LATEST_TAG | sed 's/^v//'); \
+	MAJOR=$$(echo $$VERSION_NUM | cut -d. -f1); \
+	MINOR=$$(echo $$VERSION_NUM | cut -d. -f2); \
+	PATCH=$$(echo $$VERSION_NUM | cut -d. -f3); \
+	if [ "$(BUMP)" = "major" ]; then \
+		MAJOR=$$((MAJOR + 1)); \
+		MINOR=0; \
+		PATCH=0; \
+	elif [ "$(BUMP)" = "minor" ]; then \
+		MINOR=$$((MINOR + 1)); \
+		PATCH=0; \
+	elif [ "$(BUMP)" = "patch" ]; then \
+		PATCH=$$((PATCH + 1)); \
+	fi; \
+	NEW_VERSION="v$$MAJOR.$$MINOR.$$PATCH"; \
+	echo ""; \
+	echo "New version will be: $$NEW_VERSION"; \
+	echo ""; \
+	printf "Do you want to create and push this tag? [Y/n] "; \
+	read -r CONFIRM; \
+	CONFIRM=$${CONFIRM:-Y}; \
+	if [ "$$CONFIRM" != "Y" ] && [ "$$CONFIRM" != "y" ]; then \
+		echo "Release cancelled."; \
+		exit 1; \
+	fi; \
+	echo "Creating and pushing tag: $$NEW_VERSION"; \
+	git tag -a "$$NEW_VERSION" -m "Release $$NEW_VERSION"; \
+	git push origin "$$NEW_VERSION"; \
+	echo "✓ Tag $$NEW_VERSION created and pushed"; \
+	echo "✓ Release workflow will be triggered automatically"; \
+	echo ""; \
+	echo "Monitor the release workflow at:"; \
+	echo "  https://github.com/githubnext/gh-aw-mcpg/actions/workflows/release.md"
 
 # Install required toolchains
 install:
@@ -137,5 +172,5 @@ help:
 	@echo "  format     - Format Go code using gofmt"
 	@echo "  clean      - Clean build artifacts"
 	@echo "  install    - Install required toolchains and dependencies"
-	@echo "  release    - Create and push a release tag (requires VERSION=v*.*.*)"
+	@echo "  release    - Create and push a release tag (requires BUMP=patch|minor|major)"
 	@echo "  help       - Display this help message"
