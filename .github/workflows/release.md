@@ -134,34 +134,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Update release with Docker info
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
-          VERSION: ${{ steps.tag_version.outputs.version }}
-        run: |
-          DOCKER_INFO="
-
-          ## 🐳 Docker Image
-
-          The Docker image for this release is available at:
-
-          \`\`\`bash
-          docker pull ghcr.io/${{ github.repository }}:${VERSION}
-          # or
-          docker pull ghcr.io/${{ github.repository }}:latest
-          \`\`\`
-
-          Supported platforms: \`linux/amd64\`, \`linux/arm64\`
-          "
-                    
-          # Get current release body
-          CURRENT_BODY=$(gh release view "$RELEASE_TAG" --json body --jq .body)
-          
-          # Append Docker info
-          gh release edit "$RELEASE_TAG" --notes "${CURRENT_BODY}${DOCKER_INFO}"
-          echo "✓ Docker information added to release"
-
   generate-sbom:
     needs: ["release"]
     runs-on: ubuntu-latest
@@ -370,9 +342,14 @@ Structure:
 [Only if significant doc additions/improvements]
 
 ### 🐳 Docker Image
-The Docker image for this release is available:
-- `ghcr.io/githubnext/gh-aw-mcpg:${RELEASE_TAG}`
-- `ghcr.io/githubnext/gh-aw-mcpg:latest`
+
+The Docker image for this release is available at:
+
+\`\`\`bash
+docker pull ghcr.io/githubnext/gh-aw-mcpg:${RELEASE_TAG}
+# or
+docker pull ghcr.io/githubnext/gh-aw-mcpg:latest
+\`\`\`
 
 Supported platforms: `linux/amd64`, `linux/arm64`
 
@@ -404,7 +381,16 @@ Welcome to the inaugural release of MCP Gateway! This Go-based proxy server enab
 - **Security**: Built-in guards and DIFC labeling support
 
 ### 🐳 Docker Image
-Available at: `ghcr.io/githubnext/gh-aw-mcpg:${RELEASE_TAG}`
+
+The Docker image for this release is available at:
+
+\`\`\`bash
+docker pull ghcr.io/githubnext/gh-aw-mcpg:${RELEASE_TAG}
+# or
+docker pull ghcr.io/githubnext/gh-aw-mcpg:latest
+\`\`\`
+
+Supported platforms: `linux/amd64`, `linux/arm64`
 
 ### Getting Started
 1. Build: `make build`
@@ -421,7 +407,16 @@ See the [README](https://github.com/githubnext/gh-aw-mcpg#readme) for complete s
 Dependency updates and internal improvements to keep MCP Gateway running smoothly.
 
 ### 🐳 Docker Image
-Updated image available at: `ghcr.io/githubnext/gh-aw-mcpg:${RELEASE_TAG}`
+
+The Docker image for this release is available at:
+
+\`\`\`bash
+docker pull ghcr.io/githubnext/gh-aw-mcpg:${RELEASE_TAG}
+# or
+docker pull ghcr.io/githubnext/gh-aw-mcpg:latest
+\`\`\`
+
+Supported platforms: `linux/amd64`, `linux/arm64`
 ```
 
 ## Output Format
