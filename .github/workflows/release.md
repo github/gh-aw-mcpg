@@ -94,7 +94,7 @@ jobs:
     needs: ["release"]
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - name: Checkout
