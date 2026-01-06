@@ -608,3 +608,12 @@ func (us *UnifiedServer) Close() error {
 	us.launcher.Close()
 	return nil
 }
+
+// RegisterTestTool registers a tool for testing purposes
+// This method is used by integration tests to inject mock tools into the gateway
+func (us *UnifiedServer) RegisterTestTool(name string, tool *ToolInfo) {
+	us.toolsMu.Lock()
+	defer us.toolsMu.Unlock()
+	us.tools[name] = tool
+}
+
