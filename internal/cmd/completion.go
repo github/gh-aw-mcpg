@@ -48,7 +48,7 @@ PowerShell:
 `,
 		DisableFlagsInUseLine: true,
 		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
-		Args:                  cobra.ExactValidArgs(1),
+		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch args[0] {
 			case "bash":
@@ -60,8 +60,8 @@ PowerShell:
 			case "powershell":
 				return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
 			default:
-				// This default case should never be reached due to cobra.ExactValidArgs(1)
-				// validation above, but is included for defensive programming.
+				// This default case should never be reached due to Args validation
+				// above, but is included for defensive programming.
 				return fmt.Errorf("unsupported shell type: %s", args[0])
 			}
 		},
