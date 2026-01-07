@@ -47,6 +47,16 @@ type ToolInfo struct {
 	Handler     func(context.Context, *sdk.CallToolRequest, interface{}) (*sdk.CallToolResult, interface{}, error)
 }
 
+// ResourceInfo stores metadata about a registered resource
+type ResourceInfo struct {
+	URI         string
+	Name        string
+	Description string
+	MimeType    string
+	BackendID   string // Which backend this resource belongs to
+	Content     string // For testing purposes
+}
+
 // UnifiedServer implements a unified MCP server that aggregates multiple backend servers
 type UnifiedServer struct {
 	launcher  *launcher.Launcher
@@ -57,6 +67,8 @@ type UnifiedServer struct {
 	sessionMu sync.RWMutex
 	tools     map[string]*ToolInfo // prefixed tool name -> tool info
 	toolsMu   sync.RWMutex
+	resources map[string]*ResourceInfo // resource URI -> resource info
+	resourcesMu sync.RWMutex
 
 	// DIFC components
 	guardRegistry *guard.Registry
@@ -77,6 +89,7 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 		ctx:       ctx,
 		sessions:  make(map[string]*Session),
 		tools:     make(map[string]*ToolInfo),
+		resources: make(map[string]*ResourceInfo),
 
 		// Initialize DIFC components
 		guardRegistry: guard.NewRegistry(),
@@ -624,3 +637,27 @@ func (us *UnifiedServer) RegisterTestTool(name string, tool *ToolInfo) {
 	defer us.toolsMu.Unlock()
 	us.tools[name] = tool
 }
+
+// GetResourcesForBackend returns resources for a specific backend
+func (us *UnifiedServer) GetResourcesForBackend(backendID string) []ResourceInfo {
+	us.resourcesMu.RLock()
+	defer us.resourcesMu.RUnlock()
+
+	filtered := make([]ResourceInfo, 0)
+	for _, resource := range us.resources {
+		if resource.BackendID == backendID {
+			filtered = append(filtered, *resource)
+		}
+	}
+	return filtered
+}
+
+// RegisterTestResource registers a resource for testing purposes
+// This method is used by integration tests to inject mock resources into the gateway
+func (us *UnifiedServer) RegisterTestResource(backendID string, resource *ResourceInfo) {
+	us.resourcesMu.Lock()
+	defer us.resourcesMu.Unlock()
+	resource.BackendID = backendID
+	us.resources[resource.URI] = resource
+}
+
