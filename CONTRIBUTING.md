@@ -364,6 +364,62 @@ Available environment variables for `run.sh`:
 5. **Update documentation** if you change behavior or add features
 6. **Keep changes minimal** - smaller PRs are easier to review
 
+## Creating a Release
+
+Releases are created using semantic versioning tags (e.g., `v1.2.3`). The `make release` command simplifies the process:
+
+```bash
+# Create a patch release (v1.2.3 -> v1.2.4)
+make release patch
+
+# Create a minor release (v1.2.3 -> v1.3.0)
+make release minor
+
+# Create a major release (v1.2.3 -> v2.0.0)
+make release major
+```
+
+### Release Process
+
+1. **Run the release command** with the appropriate bump type:
+   ```bash
+   make release patch
+   ```
+
+2. **Review the version** that will be created:
+   ```
+   Latest tag: v1.2.3
+   New version will be: v1.2.4
+   Do you want to create and push this tag? [Y/n]
+   ```
+
+3. **Confirm** by pressing `Y` (or `Enter` for yes)
+
+4. **Monitor the workflow** at the URL shown:
+   ```
+   ✓ Tag v1.2.4 created and pushed
+   ✓ Release workflow will be triggered automatically
+   
+   Monitor the release workflow at:
+     https://github.com/githubnext/gh-aw-mcpg/actions/workflows/release.lock.yml
+   ```
+
+### What Happens Automatically
+
+When you push a release tag, the automated release workflow:
+- Runs the full test suite
+- Builds multi-platform binaries (Linux, macOS, Windows for amd64 and arm64)
+- Creates a GitHub release with all binaries and checksums
+- Builds and pushes a multi-arch Docker image to `ghcr.io/githubnext/gh-aw-mcpg`
+- Generates and attaches SBOM files (SPDX and CycloneDX formats)
+- Creates release highlights from merged PRs
+
+### Version Guidelines
+
+- **Patch** (`v1.2.3` → `v1.2.4`): Bug fixes, documentation updates, minor improvements
+- **Minor** (`v1.2.3` → `v1.3.0`): New features, non-breaking changes
+- **Major** (`v1.2.3` → `v2.0.0`): Breaking changes, major architectural changes
+
 ## Architecture Notes
 
 ### Core Features
