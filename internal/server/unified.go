@@ -59,15 +59,15 @@ type ResourceInfo struct {
 
 // UnifiedServer implements a unified MCP server that aggregates multiple backend servers
 type UnifiedServer struct {
-	launcher  *launcher.Launcher
-	sysServer *sys.SysServer
-	ctx       context.Context
-	server    *sdk.Server
-	sessions  map[string]*Session // mcp-session-id -> Session
-	sessionMu sync.RWMutex
-	tools     map[string]*ToolInfo // prefixed tool name -> tool info
-	toolsMu   sync.RWMutex
-	resources map[string]*ResourceInfo // resource URI -> resource info
+	launcher    *launcher.Launcher
+	sysServer   *sys.SysServer
+	ctx         context.Context
+	server      *sdk.Server
+	sessions    map[string]*Session // mcp-session-id -> Session
+	sessionMu   sync.RWMutex
+	tools       map[string]*ToolInfo // prefixed tool name -> tool info
+	toolsMu     sync.RWMutex
+	resources   map[string]*ResourceInfo // resource URI -> resource info
 	resourcesMu sync.RWMutex
 
 	// DIFC components
@@ -660,4 +660,3 @@ func (us *UnifiedServer) RegisterTestResource(backendID string, resource *Resour
 	resource.BackendID = backendID
 	us.resources[resource.URI] = resource
 }
-
