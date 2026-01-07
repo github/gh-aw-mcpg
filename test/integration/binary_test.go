@@ -299,9 +299,9 @@ func findBinary(t *testing.T) string {
 
 	// Look for binary in common locations
 	locations := []string{
-		"./awmg",           // Current directory
-		"../../awmg",       // From test/integration
-		"../../../awmg",    // Alternative path
+		"./awmg",        // Current directory
+		"../../awmg",    // From test/integration
+		"../../../awmg", // Alternative path
 	}
 
 	// Also check in PATH
