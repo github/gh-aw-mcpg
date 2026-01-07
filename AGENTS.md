@@ -21,6 +21,7 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 - `internal/server/` - HTTP server (routed/unified modes)
 - `internal/mcp/` - MCP protocol types
 - `internal/launcher/` - Backend process management
+- `internal/middleware/` - Request/response middleware (JSONL logger, etc.)
 - `internal/difc/` - Security labels (not enabled)
 - `internal/guard/` - Security guards (NoopGuard active)
 - `internal/logger/` - Debug logging framework (micro logger)
@@ -33,6 +34,7 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 - **Protocol**: JSON-RPC 2.0 over stdio
 - **Routing**: `/mcp/{serverID}` (routed) or `/mcp` (unified)
 - **Docker**: Launches MCP servers as containers
+- **Middleware**: Flexible request/response pipeline for logging and monitoring
 
 ## Config Examples
 
@@ -62,7 +64,27 @@ args = ["run", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "-i", "ghcr.io/gith
 **Add MCP Server**: Update config.toml with new server entry  
 **Add Route**: Edit `internal/server/routed.go` or `unified.go`  
 **Add Guard**: Implement in `internal/guard/` and register  
+**Add Middleware**: Implement `middleware.Middleware` interface in `internal/middleware/` and add to config  
 **Add Test**: Create `*_test.go` with Go testing package
+
+## Middleware
+
+**Adding Custom Middleware**:
+1. Create a new file in `internal/middleware/`
+2. Implement the `Middleware` interface:
+   ```go
+   type Middleware interface {
+       Name() string
+       OnRequest(ctx context.Context, req *mcp.Request) context.Context
+       OnResponse(ctx context.Context, req *mcp.Request, resp *mcp.Response, duration time.Duration)
+       OnError(ctx context.Context, req *mcp.Request, err error, duration time.Duration)
+   }
+   ```
+3. Register in `internal/server/unified.go` NewUnified() based on config
+4. Add config support in `internal/config/config.go`
+
+**Available Middleware**:
+- `JSONLLogger` - Logs all requests/responses to JSONL file (see README for config)
 
 ## Agent Completion Checklist
 

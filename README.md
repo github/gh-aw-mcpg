@@ -48,6 +48,14 @@ args = ["run", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "-i", "ghcr.io/gith
 [servers.filesystem]
 command = "node"
 args = ["/path/to/filesystem-server.js"]
+
+# Optional: Middleware configuration
+[middleware]
+
+# JSONL logger middleware - logs all requests and responses to a file
+[middleware.jsonl_log]
+enabled = true
+file_path = "./logs/mcp-requests.jsonl"
 ```
 
 ### JSON Stdin Format
@@ -60,13 +68,49 @@ args = ["/path/to/filesystem-server.js"]
       "container": "ghcr.io/github/github-mcp-server:latest",
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": ""
-      },
+      }
+    }
+  },
+  "gateway": {
+    "middleware": {
+      "jsonl_log": {
+        "enabled": true,
+        "file_path": "./logs/mcp-requests.jsonl"
+      }
     }
   }
 }
 ```
 
 **Environment Variable Passthrough**: Set the value to an empty string (`""`) to pass through the variable from the host environment.
+
+### Middleware
+
+MCPG supports a flexible middleware infrastructure for logging, monitoring, and request/response manipulation.
+
+#### JSONL Logger
+
+The JSONL logger middleware logs all MCP requests and responses to a JSON Lines file:
+
+- **enabled**: Set to `true` to enable the logger
+- **file_path**: Path to the log file (will be created if it doesn't exist)
+
+Each log entry contains:
+- `timestamp`: ISO 8601 timestamp
+- `type`: "request", "response", or "error"
+- `method`: MCP method name
+- `request_id`: Request identifier
+- `duration_ms`: Request duration in milliseconds (for responses)
+- `session_id`: Session identifier (if available)
+- `backend_id`: Backend server identifier (if available)
+
+Example log entries:
+```jsonl
+{"timestamp":"2024-01-01T12:00:00.123Z","type":"request","method":"tools/list","request_id":"github___list","session_id":"abc123","backend_id":"github"}
+{"timestamp":"2024-01-01T12:00:00.234Z","type":"response","method":"tools/list","request_id":"github___list","duration_ms":111.5,"session_id":"abc123","backend_id":"github","result":{"tools":[...]}}
+```
+
+See `config-with-middleware.toml` and `config-with-middleware.json` for complete examples.
 
 ## Usage
 
