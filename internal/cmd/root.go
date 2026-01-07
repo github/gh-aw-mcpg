@@ -106,8 +106,9 @@ PowerShell:
 				return cmd.Root().GenFishCompletion(os.Stdout, true)
 			case "powershell":
 				return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+			default:
+				return fmt.Errorf("unsupported shell type: %s", args[0])
 			}
-			return nil
 		},
 	}
 }
