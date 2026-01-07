@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/githubnext/gh-aw-mcpg/internal/config"
 	"github.com/githubnext/gh-aw-mcpg/internal/difc"
 	"github.com/githubnext/gh-aw-mcpg/internal/guard"
 	"github.com/githubnext/gh-aw-mcpg/internal/launcher"
 	"github.com/githubnext/gh-aw-mcpg/internal/logger"
+	"github.com/githubnext/gh-aw-mcpg/internal/mcp"
+	"github.com/githubnext/gh-aw-mcpg/internal/middleware"
 	"github.com/githubnext/gh-aw-mcpg/internal/sys"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -64,6 +67,10 @@ type UnifiedServer struct {
 	capabilities  *difc.Capabilities
 	evaluator     *difc.Evaluator
 	enableDIFC    bool // When true, DIFC enforcement and session requirement are enabled
+
+	// Middleware chain
+	middlewareChain *middleware.Chain
+	closableMiddleware []interface{ Close() error } // Track middleware that needs cleanup
 }
 
 // NewUnified creates a new unified MCP server
@@ -84,6 +91,22 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 		capabilities:  difc.NewCapabilities(),
 		evaluator:     difc.NewEvaluator(),
 		enableDIFC:    cfg.EnableDIFC,
+
+		// Initialize middleware chain
+		middlewareChain: middleware.NewChain(),
+	}
+
+	// Configure middleware based on config
+	if cfg.Middleware != nil {
+		if cfg.Middleware.JSONLLog != nil && cfg.Middleware.JSONLLog.Enabled {
+			jsonlLogger, err := middleware.NewJSONLLogger(cfg.Middleware.JSONLLog.FilePath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create JSONL logger: %w", err)
+			}
+			us.middlewareChain.Add(jsonlLogger)
+			us.closableMiddleware = append(us.closableMiddleware, jsonlLogger)
+			log.Printf("Enabled JSONL logger middleware: path=%s", cfg.Middleware.JSONLLog.FilePath)
+		}
 	}
 
 	// Create MCP server
@@ -104,7 +127,7 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 		return nil, fmt.Errorf("failed to register tools: %w", err)
 	}
 
-	logUnified.Printf("Unified server created successfully with %d tools", len(us.tools))
+	logUnified.Printf("Unified server created successfully with %d tools and %d middleware", len(us.tools), us.middlewareChain.Count())
 	return us, nil
 }
 
@@ -188,7 +211,7 @@ func (us *UnifiedServer) registerToolsFromBackend(serverID string) error {
 			if err := us.requireSession(ctx); err != nil {
 				return &sdk.CallToolResult{IsError: true}, nil, err
 			}
-			return us.callBackendTool(ctx, serverIDCopy, toolNameCopy, args)
+			return us.callBackendToolWithMiddleware(ctx, serverIDCopy, toolNameCopy, req, args)
 		}
 
 		// Store handler for routed mode to reuse
@@ -214,6 +237,20 @@ func (us *UnifiedServer) registerToolsFromBackend(serverID string) error {
 func (us *UnifiedServer) registerSysTools() error {
 	// Create sys_init handler
 	sysInitHandler := func(ctx context.Context, req *sdk.CallToolRequest, args interface{}) (*sdk.CallToolResult, interface{}, error) {
+		startTime := time.Now()
+		
+		// Create MCP request for middleware
+		argsJSON, _ := json.Marshal(args)
+		mcpReq := &mcp.Request{
+			JSONRPC: "2.0",
+			Method:  "tools/call",
+			ID:      "sys___init",
+			Params:  argsJSON,
+		}
+		
+		// Call middleware OnRequest
+		ctx = us.middlewareChain.OnRequest(ctx, mcpReq)
+		
 		// Extract token from args
 		token := ""
 		if argsMap, ok := args.(map[string]interface{}); ok {
@@ -227,7 +264,9 @@ func (us *UnifiedServer) registerSysTools() error {
 		// Get session ID from context
 		sessionID := us.getSessionID(ctx)
 		if sessionID == "" {
-			return &sdk.CallToolResult{IsError: true}, nil, fmt.Errorf("no session ID provided")
+			err := fmt.Errorf("no session ID provided")
+			us.middlewareChain.OnError(ctx, mcpReq, err, time.Since(startTime))
+			return &sdk.CallToolResult{IsError: true}, nil, err
 		}
 
 		// Create session
@@ -244,8 +283,21 @@ func (us *UnifiedServer) registerSysTools() error {
 		})
 		result, err := us.sysServer.HandleRequest("tools/call", json.RawMessage(params))
 		if err != nil {
+			us.middlewareChain.OnError(ctx, mcpReq, err, time.Since(startTime))
 			return &sdk.CallToolResult{IsError: true}, nil, err
 		}
+		
+		// Create MCP response for middleware
+		resultJSON, _ := json.Marshal(result)
+		mcpResp := &mcp.Response{
+			JSONRPC: "2.0",
+			ID:      mcpReq.ID,
+			Result:  resultJSON,
+		}
+		
+		// Call middleware OnResponse
+		us.middlewareChain.OnResponse(ctx, mcpReq, mcpResp, time.Since(startTime))
+		
 		return nil, result, nil
 	}
 
@@ -285,8 +337,23 @@ func (us *UnifiedServer) registerSysTools() error {
 
 	// Create sys_list_servers handler
 	sysListHandler := func(ctx context.Context, req *sdk.CallToolRequest, args interface{}) (*sdk.CallToolResult, interface{}, error) {
+		startTime := time.Now()
+		
+		// Create MCP request for middleware
+		argsJSON, _ := json.Marshal(args)
+		mcpReq := &mcp.Request{
+			JSONRPC: "2.0",
+			Method:  "tools/call",
+			ID:      "sys___list_servers",
+			Params:  argsJSON,
+		}
+		
+		// Call middleware OnRequest
+		ctx = us.middlewareChain.OnRequest(ctx, mcpReq)
+		
 		// Check session is initialized
 		if err := us.requireSession(ctx); err != nil {
+			us.middlewareChain.OnError(ctx, mcpReq, err, time.Since(startTime))
 			return &sdk.CallToolResult{IsError: true}, nil, err
 		}
 
@@ -296,8 +363,21 @@ func (us *UnifiedServer) registerSysTools() error {
 		})
 		result, err := us.sysServer.HandleRequest("tools/call", json.RawMessage(params))
 		if err != nil {
+			us.middlewareChain.OnError(ctx, mcpReq, err, time.Since(startTime))
 			return &sdk.CallToolResult{IsError: true}, nil, err
 		}
+		
+		// Create MCP response for middleware
+		resultJSON, _ := json.Marshal(result)
+		mcpResp := &mcp.Response{
+			JSONRPC: "2.0",
+			ID:      mcpReq.ID,
+			Result:  resultJSON,
+		}
+		
+		// Call middleware OnResponse
+		us.middlewareChain.OnResponse(ctx, mcpReq, mcpResp, time.Since(startTime))
+		
 		return nil, result, nil
 	}
 
@@ -371,6 +451,47 @@ func (g *guardBackendCaller) CallTool(ctx context.Context, toolName string, args
 	}
 
 	return result, nil
+}
+
+// callBackendToolWithMiddleware wraps callBackendTool with middleware hooks
+func (us *UnifiedServer) callBackendToolWithMiddleware(ctx context.Context, serverID, toolName string, sdkReq *sdk.CallToolRequest, args interface{}) (*sdk.CallToolResult, interface{}, error) {
+	startTime := time.Now()
+	
+	// Create MCP request for middleware
+	argsJSON, _ := json.Marshal(args)
+	mcpReq := &mcp.Request{
+		JSONRPC: "2.0",
+		Method:  "tools/call",
+		ID:      fmt.Sprintf("%s___%s", serverID, toolName),
+		Params:  argsJSON,
+	}
+	
+	// Call middleware OnRequest
+	ctx = us.middlewareChain.OnRequest(ctx, mcpReq)
+	
+	// Call the actual backend tool
+	result, data, err := us.callBackendTool(ctx, serverID, toolName, args)
+	
+	duration := time.Since(startTime)
+	
+	if err != nil {
+		// Call middleware OnError
+		us.middlewareChain.OnError(ctx, mcpReq, err, duration)
+		return result, data, err
+	}
+	
+	// Create MCP response for middleware
+	resultJSON, _ := json.Marshal(data)
+	mcpResp := &mcp.Response{
+		JSONRPC: "2.0",
+		ID:      mcpReq.ID,
+		Result:  resultJSON,
+	}
+	
+	// Call middleware OnResponse
+	us.middlewareChain.OnResponse(ctx, mcpReq, mcpResp, duration)
+	
+	return result, data, err
 }
 
 // callBackendTool calls a tool on a backend server with DIFC enforcement
@@ -613,6 +734,13 @@ func (us *UnifiedServer) GetToolHandler(backendID string, toolName string) func(
 
 // Close cleans up resources
 func (us *UnifiedServer) Close() error {
+	// Close middleware
+	for _, mw := range us.closableMiddleware {
+		if err := mw.Close(); err != nil {
+			log.Printf("Error closing middleware: %v", err)
+		}
+	}
+	
 	us.launcher.Close()
 	return nil
 }

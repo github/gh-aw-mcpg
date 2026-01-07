@@ -15,8 +15,20 @@ var logConfig = logger.New("config:config")
 
 // Config represents the MCPG configuration
 type Config struct {
-	Servers    map[string]*ServerConfig `toml:"servers"`
-	EnableDIFC bool                     // When true, enables DIFC enforcement and requires sys___init call before tool access. Default is false for standard MCP client compatibility.
+	Servers     map[string]*ServerConfig `toml:"servers"`
+	EnableDIFC  bool                     // When true, enables DIFC enforcement and requires sys___init call before tool access. Default is false for standard MCP client compatibility.
+	Middleware  *MiddlewareConfig        `toml:"middleware"`
+}
+
+// MiddlewareConfig represents middleware configuration
+type MiddlewareConfig struct {
+	JSONLLog *JSONLLogConfig `toml:"jsonl_log"`
+}
+
+// JSONLLogConfig represents JSONL logger configuration
+type JSONLLogConfig struct {
+	Enabled  bool   `toml:"enabled"`
+	FilePath string `toml:"file_path"`
 }
 
 // ServerConfig represents a single MCP server configuration
@@ -45,8 +57,20 @@ type StdinServerConfig struct {
 
 // StdinGatewayConfig represents gateway configuration from stdin JSON
 type StdinGatewayConfig struct {
-	Port   *int   `json:"port,omitempty"`
-	APIKey string `json:"apiKey,omitempty"`
+	Port       *int                       `json:"port,omitempty"`
+	APIKey     string                     `json:"apiKey,omitempty"`
+	Middleware *StdinMiddlewareConfig     `json:"middleware,omitempty"`
+}
+
+// StdinMiddlewareConfig represents middleware configuration from stdin JSON
+type StdinMiddlewareConfig struct {
+	JSONLLog *StdinJSONLLogConfig `json:"jsonl_log,omitempty"`
+}
+
+// StdinJSONLLogConfig represents JSONL logger configuration from stdin JSON
+type StdinJSONLLogConfig struct {
+	Enabled  bool   `json:"enabled"`
+	FilePath string `json:"file_path"`
 }
 
 // LoadFromFile loads configuration from a TOML file
@@ -86,6 +110,17 @@ func LoadFromStdin() (*Config, error) {
 	// Convert stdin config to internal format
 	cfg := &Config{
 		Servers: make(map[string]*ServerConfig),
+	}
+
+	// Convert middleware configuration if present
+	if stdinCfg.Gateway != nil && stdinCfg.Gateway.Middleware != nil {
+		cfg.Middleware = &MiddlewareConfig{}
+		if stdinCfg.Gateway.Middleware.JSONLLog != nil {
+			cfg.Middleware.JSONLLog = &JSONLLogConfig{
+				Enabled:  stdinCfg.Gateway.Middleware.JSONLLog.Enabled,
+				FilePath: stdinCfg.Gateway.Middleware.JSONLLog.FilePath,
+			}
+		}
 	}
 
 	for name, server := range stdinCfg.MCPServers {
