@@ -106,7 +106,7 @@ func CreateHTTPServerForRoutedMode(addr string, unifiedServer *UnifiedServer) *h
 // This reuses the unified server's tool handlers, ensuring all calls go through the same session
 func createFilteredServer(unifiedServer *UnifiedServer, backendID string) *sdk.Server {
 	logRouted.Printf("Creating filtered server: backend=%s", backendID)
-	
+
 	// Create a new SDK server for this route
 	server := sdk.NewServer(&sdk.Implementation{
 		Name:    fmt.Sprintf("awmg-%s", backendID),

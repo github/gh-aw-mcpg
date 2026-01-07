@@ -36,7 +36,7 @@ func New(ctx context.Context, cfg *config.Config) *Launcher {
 // GetOrLaunch returns an existing connection or launches a new one
 func GetOrLaunch(l *Launcher, serverID string) (*mcp.Connection, error) {
 	logLauncher.Printf("GetOrLaunch called: serverID=%s", serverID)
-	
+
 	// Check if already exists
 	l.mu.RLock()
 	if conn, ok := l.connections[serverID]; ok {
