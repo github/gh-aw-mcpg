@@ -11,6 +11,7 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 **Coverage**: `make coverage` (tests with coverage report)  
 **Format**: `make format` (auto-format code with gofmt)  
 **Clean**: `make clean` (remove build artifacts)  
+**Agent-Finished**: `make agent-finished` (run format, build, lint, test - ALWAYS run before completion)  
 **Run**: `./awmg --config config.toml`
 
 ## Project Structure
@@ -62,6 +63,34 @@ args = ["run", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "-i", "ghcr.io/gith
 **Add Route**: Edit `internal/server/routed.go` or `unified.go`  
 **Add Guard**: Implement in `internal/guard/` and register  
 **Add Test**: Create `*_test.go` with Go testing package
+
+## Agent Completion Checklist
+
+**CRITICAL: Before returning to the user, ALWAYS run `make agent-finished`**
+
+This command runs the complete verification pipeline:
+1. **Format** - Auto-formats all Go code with gofmt
+2. **Build** - Ensures the project compiles successfully
+3. **Lint** - Runs go vet and gofmt checks
+4. **Test** - Executes the full test suite
+
+**Requirements:**
+- **ALL failures must be fixed** before completion
+- If `make agent-finished` fails at any stage, debug and fix the issue
+- Re-run `make agent-finished` after fixes to verify success
+- Only report completion to the user after seeing "✓ All agent-finished checks passed!"
+
+**Example workflow:**
+```bash
+# Make your code changes
+# ...
+
+# Run verification before completion
+make agent-finished
+
+# If any step fails, fix the issues and run again
+# Only complete the task after all checks pass
+```
 
 ## Debug Logging
 

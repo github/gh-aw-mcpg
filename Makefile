@@ -1,4 +1,4 @@
-.PHONY: build lint test coverage test-ci format clean install release help
+.PHONY: build lint test coverage test-ci format clean install release help agent-finished
 
 # Default target
 .DEFAULT_GOAL := help
@@ -28,6 +28,20 @@ lint:
 test:
 	@echo "Running tests..."
 	@go test -v ./...
+
+# Run format, build, lint, and test (for agents before completion)
+agent-finished:
+	@echo "Running agent-finished checks..."
+	@echo ""
+	@$(MAKE) format
+	@echo ""
+	@$(MAKE) build
+	@echo ""
+	@$(MAKE) lint
+	@echo ""
+	@$(MAKE) test
+	@echo ""
+	@echo "✓ All agent-finished checks passed!"
 
 # Run tests with coverage
 coverage:
@@ -168,13 +182,14 @@ install:
 # Display help information
 help:
 	@echo "Available targets:"
-	@echo "  build      - Build the CLI binary"
-	@echo "  lint       - Run all linters (go vet, gofmt check)"
-	@echo "  test       - Run all tests"
-	@echo "  coverage   - Run tests with coverage report"
-	@echo "  test-ci    - Run tests with coverage and JSON output for CI"
-	@echo "  format     - Format Go code using gofmt"
-	@echo "  clean      - Clean build artifacts"
-	@echo "  install    - Install required toolchains and dependencies"
-	@echo "  release    - Create and push a release tag (usage: make release patch|minor|major)"
-	@echo "  help       - Display this help message"
+	@echo "  build           - Build the CLI binary"
+	@echo "  lint            - Run all linters (go vet, gofmt check)"
+	@echo "  test            - Run all tests"
+	@echo "  coverage        - Run tests with coverage report"
+	@echo "  test-ci         - Run tests with coverage and JSON output for CI"
+	@echo "  format          - Format Go code using gofmt"
+	@echo "  clean           - Clean build artifacts"
+	@echo "  install         - Install required toolchains and dependencies"
+	@echo "  release         - Create and push a release tag (usage: make release patch|minor|major)"
+	@echo "  agent-finished  - Run format, build, lint, and test (for agents before completion)"
+	@echo "  help            - Display this help message"
