@@ -26,11 +26,12 @@ imports:
   - shared/reporting.md
 
 safe-outputs:
-  create-discussion:
+  create-issue:
     title-prefix: "[go-fan] "
-    category: "General"
+    labels: [go-fan, module-review]
     max: 1
-    close-older-discussions: true
+    expires: 7
+  noop:
 
 tools:
   serena: ["go"]
@@ -247,9 +248,9 @@ Save your progress to cache-memory:
 
 This allows the round-robin to cycle through all dependencies while maintaining preference for recently updated ones.
 
-## Step 8: Create Discussion
+## Step 8: Create Issue
 
-Create a discussion summarizing your findings:
+Create an issue summarizing your findings:
 
 **Title Format**: `Go Module Review: <module-name>`
 
@@ -324,10 +325,14 @@ Use Serena for:
 
 ## Output
 
-Your output MUST include:
-1. A module summary saved to `specs/mods/<module>.md`
-2. A discussion with your complete analysis and recommendations
+Your output depends on whether improvements are found:
 
-If you cannot find any improvements, still create a discussion noting the module is well-utilized and document your analysis in `specs/mods/`.
+**If improvements are found:**
+1. A module summary saved to `specs/mods/<module>.md`
+2. An issue with your complete analysis and recommendations
+
+**If no improvements are found:**
+1. A module summary saved to `specs/mods/<module>.md` documenting your analysis
+2. Call the `noop` tool with a message like: "Go Module Review complete for <module-name> - module is well-utilized, no improvements identified at this time. Analysis saved to specs/mods/<module>.md"
 
 Begin your analysis! Pick the next module and start your deep review.
