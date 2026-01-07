@@ -69,7 +69,7 @@ type UnifiedServer struct {
 	enableDIFC    bool // When true, DIFC enforcement and session requirement are enabled
 
 	// Middleware chain
-	middlewareChain *middleware.Chain
+	middlewareChain    *middleware.Chain
 	closableMiddleware []interface{ Close() error } // Track middleware that needs cleanup
 }
 
@@ -238,7 +238,7 @@ func (us *UnifiedServer) registerSysTools() error {
 	// Create sys_init handler
 	sysInitHandler := func(ctx context.Context, req *sdk.CallToolRequest, args interface{}) (*sdk.CallToolResult, interface{}, error) {
 		startTime := time.Now()
-		
+
 		// Create MCP request for middleware
 		argsJSON, _ := json.Marshal(args)
 		mcpReq := &mcp.Request{
@@ -247,10 +247,10 @@ func (us *UnifiedServer) registerSysTools() error {
 			ID:      "sys___init",
 			Params:  argsJSON,
 		}
-		
+
 		// Call middleware OnRequest
 		ctx = us.middlewareChain.OnRequest(ctx, mcpReq)
-		
+
 		// Extract token from args
 		token := ""
 		if argsMap, ok := args.(map[string]interface{}); ok {
@@ -286,7 +286,7 @@ func (us *UnifiedServer) registerSysTools() error {
 			us.middlewareChain.OnError(ctx, mcpReq, err, time.Since(startTime))
 			return &sdk.CallToolResult{IsError: true}, nil, err
 		}
-		
+
 		// Create MCP response for middleware
 		resultJSON, _ := json.Marshal(result)
 		mcpResp := &mcp.Response{
@@ -294,10 +294,10 @@ func (us *UnifiedServer) registerSysTools() error {
 			ID:      mcpReq.ID,
 			Result:  resultJSON,
 		}
-		
+
 		// Call middleware OnResponse
 		us.middlewareChain.OnResponse(ctx, mcpReq, mcpResp, time.Since(startTime))
-		
+
 		return nil, result, nil
 	}
 
@@ -338,7 +338,7 @@ func (us *UnifiedServer) registerSysTools() error {
 	// Create sys_list_servers handler
 	sysListHandler := func(ctx context.Context, req *sdk.CallToolRequest, args interface{}) (*sdk.CallToolResult, interface{}, error) {
 		startTime := time.Now()
-		
+
 		// Create MCP request for middleware
 		argsJSON, _ := json.Marshal(args)
 		mcpReq := &mcp.Request{
@@ -347,10 +347,10 @@ func (us *UnifiedServer) registerSysTools() error {
 			ID:      "sys___list_servers",
 			Params:  argsJSON,
 		}
-		
+
 		// Call middleware OnRequest
 		ctx = us.middlewareChain.OnRequest(ctx, mcpReq)
-		
+
 		// Check session is initialized
 		if err := us.requireSession(ctx); err != nil {
 			us.middlewareChain.OnError(ctx, mcpReq, err, time.Since(startTime))
@@ -366,7 +366,7 @@ func (us *UnifiedServer) registerSysTools() error {
 			us.middlewareChain.OnError(ctx, mcpReq, err, time.Since(startTime))
 			return &sdk.CallToolResult{IsError: true}, nil, err
 		}
-		
+
 		// Create MCP response for middleware
 		resultJSON, _ := json.Marshal(result)
 		mcpResp := &mcp.Response{
@@ -374,10 +374,10 @@ func (us *UnifiedServer) registerSysTools() error {
 			ID:      mcpReq.ID,
 			Result:  resultJSON,
 		}
-		
+
 		// Call middleware OnResponse
 		us.middlewareChain.OnResponse(ctx, mcpReq, mcpResp, time.Since(startTime))
-		
+
 		return nil, result, nil
 	}
 
@@ -456,7 +456,7 @@ func (g *guardBackendCaller) CallTool(ctx context.Context, toolName string, args
 // callBackendToolWithMiddleware wraps callBackendTool with middleware hooks
 func (us *UnifiedServer) callBackendToolWithMiddleware(ctx context.Context, serverID, toolName string, sdkReq *sdk.CallToolRequest, args interface{}) (*sdk.CallToolResult, interface{}, error) {
 	startTime := time.Now()
-	
+
 	// Create MCP request for middleware
 	argsJSON, _ := json.Marshal(args)
 	mcpReq := &mcp.Request{
@@ -465,21 +465,21 @@ func (us *UnifiedServer) callBackendToolWithMiddleware(ctx context.Context, serv
 		ID:      fmt.Sprintf("%s___%s", serverID, toolName),
 		Params:  argsJSON,
 	}
-	
+
 	// Call middleware OnRequest
 	ctx = us.middlewareChain.OnRequest(ctx, mcpReq)
-	
+
 	// Call the actual backend tool
 	result, data, err := us.callBackendTool(ctx, serverID, toolName, args)
-	
+
 	duration := time.Since(startTime)
-	
+
 	if err != nil {
 		// Call middleware OnError
 		us.middlewareChain.OnError(ctx, mcpReq, err, duration)
 		return result, data, err
 	}
-	
+
 	// Create MCP response for middleware
 	resultJSON, _ := json.Marshal(data)
 	mcpResp := &mcp.Response{
@@ -487,10 +487,10 @@ func (us *UnifiedServer) callBackendToolWithMiddleware(ctx context.Context, serv
 		ID:      mcpReq.ID,
 		Result:  resultJSON,
 	}
-	
+
 	// Call middleware OnResponse
 	us.middlewareChain.OnResponse(ctx, mcpReq, mcpResp, duration)
-	
+
 	return result, data, err
 }
 
@@ -740,7 +740,7 @@ func (us *UnifiedServer) Close() error {
 			log.Printf("Error closing middleware: %v", err)
 		}
 	}
-	
+
 	us.launcher.Close()
 	return nil
 }

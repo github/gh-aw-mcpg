@@ -15,9 +15,9 @@ var logConfig = logger.New("config:config")
 
 // Config represents the MCPG configuration
 type Config struct {
-	Servers     map[string]*ServerConfig `toml:"servers"`
-	EnableDIFC  bool                     // When true, enables DIFC enforcement and requires sys___init call before tool access. Default is false for standard MCP client compatibility.
-	Middleware  *MiddlewareConfig        `toml:"middleware"`
+	Servers    map[string]*ServerConfig `toml:"servers"`
+	EnableDIFC bool                     // When true, enables DIFC enforcement and requires sys___init call before tool access. Default is false for standard MCP client compatibility.
+	Middleware *MiddlewareConfig        `toml:"middleware"`
 }
 
 // MiddlewareConfig represents middleware configuration
@@ -57,9 +57,9 @@ type StdinServerConfig struct {
 
 // StdinGatewayConfig represents gateway configuration from stdin JSON
 type StdinGatewayConfig struct {
-	Port       *int                       `json:"port,omitempty"`
-	APIKey     string                     `json:"apiKey,omitempty"`
-	Middleware *StdinMiddlewareConfig     `json:"middleware,omitempty"`
+	Port       *int                   `json:"port,omitempty"`
+	APIKey     string                 `json:"apiKey,omitempty"`
+	Middleware *StdinMiddlewareConfig `json:"middleware,omitempty"`
 }
 
 // StdinMiddlewareConfig represents middleware configuration from stdin JSON

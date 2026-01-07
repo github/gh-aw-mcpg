@@ -12,15 +12,15 @@ import (
 
 // mockMiddleware is a test middleware that tracks calls
 type mockMiddleware struct {
-	name             string
-	onRequestCalls   int
-	onResponseCalls  int
-	onErrorCalls     int
-	lastContext      context.Context
-	lastRequest      *mcp.Request
-	lastResponse     *mcp.Response
-	lastError        error
-	lastDuration     time.Duration
+	name            string
+	onRequestCalls  int
+	onResponseCalls int
+	onErrorCalls    int
+	lastContext     context.Context
+	lastRequest     *mcp.Request
+	lastResponse    *mcp.Response
+	lastError       error
+	lastDuration    time.Duration
 }
 
 func (m *mockMiddleware) Name() string {
