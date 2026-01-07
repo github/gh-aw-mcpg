@@ -37,7 +37,7 @@ func NewConnection(ctx context.Context, command string, args []string, env map[s
 	// Docker's `-e VAR_NAME` expects VAR_NAME to be in the environment
 	expandedArgs := expandDockerEnvArgs(args)
 	logConn.Printf("Expanded args for Docker env: %v", expandedArgs)
-	
+
 	// Create command transport
 	cmd := exec.CommandContext(ctx, command, expandedArgs...)
 
