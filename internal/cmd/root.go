@@ -107,6 +107,8 @@ PowerShell:
 			case "powershell":
 				return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
 			default:
+				// This default case should never be reached due to cobra.ExactValidArgs(1)
+				// validation above, but is included for defensive programming.
 				return fmt.Errorf("unsupported shell type: %s", args[0])
 			}
 		},
