@@ -46,6 +46,69 @@ func init() {
 	rootCmd.Flags().BoolVar(&unifiedMode, "unified", false, "Run in unified mode (all backends at /mcp)")
 	rootCmd.Flags().StringVar(&envFile, "env", "", "Path to .env file to load environment variables")
 	rootCmd.Flags().BoolVar(&enableDIFC, "enable-difc", false, "Enable DIFC enforcement and session requirement (requires sys___init call before tool access)")
+
+	// Mark mutually exclusive flags
+	rootCmd.MarkFlagsMutuallyExclusive("routed", "unified")
+
+	// Add completion command
+	rootCmd.AddCommand(newCompletionCmd())
+}
+
+// newCompletionCmd creates a completion command for generating shell completion scripts
+func newCompletionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "completion [bash|zsh|fish|powershell]",
+		Short: "Generate completion script",
+		Long: `To load completions:
+
+Bash:
+  $ source <(awmg completion bash)
+
+  # To load completions for each session, execute once:
+  # Linux:
+  $ awmg completion bash > /etc/bash_completion.d/awmg
+  # macOS:
+  $ awmg completion bash > $(brew --prefix)/etc/bash_completion.d/awmg
+
+Zsh:
+  # If shell completion is not already enabled in your environment,
+  # you will need to enable it.  You can execute the following once:
+  $ echo "autoload -U compinit; compinit" >> ~/.zshrc
+
+  # To load completions for each session, execute once:
+  $ awmg completion zsh > "${fpath[1]}/_awmg"
+
+  # You will need to start a new shell for this setup to take effect.
+
+Fish:
+  $ awmg completion fish | source
+
+  # To load completions for each session, execute once:
+  $ awmg completion fish > ~/.config/fish/completions/awmg.fish
+
+PowerShell:
+  PS> awmg completion powershell | Out-String | Invoke-Expression
+
+  # To load completions for every new session, run:
+  PS> awmg completion powershell > awmg.ps1
+  # and source this file from your PowerShell profile.
+`,
+		DisableFlagsInUseLine: true,
+		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+		Args:                  cobra.ExactValidArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			switch args[0] {
+			case "bash":
+				cmd.Root().GenBashCompletion(os.Stdout)
+			case "zsh":
+				cmd.Root().GenZshCompletion(os.Stdout)
+			case "fish":
+				cmd.Root().GenFishCompletion(os.Stdout, true)
+			case "powershell":
+				cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+			}
+		},
+	}
 }
 
 func run(cmd *cobra.Command, args []string) error {
@@ -91,9 +154,6 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// Determine mode (default to unified if neither flag is set)
 	mode := "unified"
-	if routedMode && unifiedMode {
-		return fmt.Errorf("cannot specify both --routed and --unified")
-	}
 	if routedMode {
 		mode = "routed"
 	}
