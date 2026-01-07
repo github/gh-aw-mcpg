@@ -1,4 +1,4 @@
-.PHONY: build lint test coverage test-ci format clean install release help agent-finished
+.PHONY: build lint test test-integration coverage test-ci format clean install release help agent-finished
 
 # Default target
 .DEFAULT_GOAL := help
@@ -28,6 +28,15 @@ lint:
 test:
 	@echo "Running tests..."
 	@go test -v ./...
+
+# Run binary integration tests (requires built binary)
+test-integration:
+	@echo "Running binary integration tests..."
+	@if [ ! -f $(BINARY_NAME) ]; then \
+		echo "Binary not found. Building..."; \
+		$(MAKE) build; \
+	fi
+	@go test -v ./test/integration/...
 
 # Run format, build, lint, and test (for agents before completion)
 agent-finished:
@@ -185,6 +194,7 @@ help:
 	@echo "  build           - Build the CLI binary"
 	@echo "  lint            - Run all linters (go vet, gofmt check)"
 	@echo "  test            - Run all tests"
+	@echo "  test-integration - Run binary integration tests (requires built binary)"
 	@echo "  coverage        - Run tests with coverage report"
 	@echo "  test-ci         - Run tests with coverage and JSON output for CI"
 	@echo "  format          - Format Go code using gofmt"
