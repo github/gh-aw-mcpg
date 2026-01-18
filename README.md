@@ -238,6 +238,14 @@ When running locally (`run.sh`), these variables are optional (warnings shown if
 | `DOCKER_HOST` | Docker daemon socket path | `/var/run/docker.sock` |
 | `DOCKER_API_VERSION` | Docker API version | Auto-detected (1.43 for arm64, 1.44 for amd64) |
 
+### GitHub Actions Integration
+
+| Variable | Description | Required When |
+|----------|-------------|---------------|
+| `MCP_GATEWAY_CONTAINER` | Docker container image for the gateway (e.g., `ghcr.io/githubnext/gh-aw-mcpg:latest`) | Using gh-aw's `start_mcp_gateway.sh` script |
+
+**Note**: The `MCP_GATEWAY_CONTAINER` variable is only required when using the gateway with GitHub Agentic Workflows' startup scripts. Direct gateway execution does not require this variable. See the [GitHub Actions Integration](#github-actions-integration) section for details.
+
 ## Containerized Mode
 
 ### Running in Docker
@@ -298,6 +306,62 @@ CONFIG=my-config.toml ./run.sh
 # Run with environment variables:
 MCP_GATEWAY_PORT=3000 ./run.sh
 ```
+
+## GitHub Actions Integration
+
+When using the MCP Gateway with [GitHub Agentic Workflows](https://github.com/githubnext/gh-aw), there's an additional environment variable requirement for the external startup script (`start_mcp_gateway.sh`):
+
+### Required Environment Variable
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `MCP_GATEWAY_CONTAINER` | The Docker container image used to run the gateway | `ghcr.io/githubnext/gh-aw-mcpg:latest` |
+
+This variable tells the gh-aw startup script which container image to use when launching the gateway. It must be set in addition to the standard gateway environment variables.
+
+### Example GitHub Actions Configuration
+
+```yaml
+- name: Start MCP Gateway
+  env:
+    MCP_GATEWAY_PORT: "80"
+    MCP_GATEWAY_DOMAIN: "host.docker.internal"
+    MCP_GATEWAY_API_KEY: "${{ secrets.API_KEY }}"
+    MCP_GATEWAY_CONTAINER: "ghcr.io/githubnext/gh-aw-mcpg:latest"  # Required!
+  run: |
+    cat << EOF | bash /opt/gh-aw/actions/start_mcp_gateway.sh
+    {
+      "mcpServers": {
+        "github": {
+          "type": "stdio",
+          "container": "ghcr.io/github/github-mcp-server:latest",
+          "env": {
+            "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+          }
+        }
+      },
+      "gateway": {
+        "port": ${MCP_GATEWAY_PORT},
+        "domain": "${MCP_GATEWAY_DOMAIN}",
+        "apiKey": "${MCP_GATEWAY_API_KEY}"
+      }
+    }
+    EOF
+```
+
+### Error: "MCP_GATEWAY_CONTAINER must be set"
+
+If you see this error during GitHub Actions execution:
+
+```
+ERROR: MCP_GATEWAY_CONTAINER must be set (command-based execution is not supported per MCP Gateway Specification v1.0.0)
+```
+
+**Cause**: The `MCP_GATEWAY_CONTAINER` environment variable is not set when calling the gh-aw startup script.
+
+**Solution**: Add `MCP_GATEWAY_CONTAINER` to your workflow's environment variables as shown above.
+
+**Note**: This requirement is specific to the gh-aw integration scripts. When running the gateway directly (without gh-aw scripts), this variable is not needed.
 
 ## Logging
 
