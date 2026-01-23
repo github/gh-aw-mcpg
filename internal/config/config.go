@@ -16,6 +16,7 @@ var logConfig = logger.New("config:config")
 // Config represents the MCPG configuration
 type Config struct {
 	Servers    map[string]*ServerConfig `toml:"servers"`
+	Guards     map[string]*GuardConfig  `toml:"guards"`      // Guard configurations (optional, experimental)
 	EnableDIFC bool                     `toml:"enable_difc"` // When true, enables DIFC enforcement and requires sys___init call before tool access. Default is false for standard MCP client compatibility.
 	Gateway    *GatewayConfig           `toml:"gateway"`     // Gateway configuration (port, API key, etc.)
 }
@@ -41,11 +42,23 @@ type ServerConfig struct {
 	Headers map[string]string `toml:"headers"` // HTTP headers for authentication
 	// Tool filtering (applies to both stdio and http servers)
 	Tools []string `toml:"tools"` // Tool filter: ["*"] for all tools, or list of specific tool names
+	// Guard binding (optional, experimental)
+	Guard string `toml:"guard"` // Guard ID to use for this server (references a guard in the guards section)
+}
+
+// GuardConfig represents a DIFC guard configuration (experimental)
+type GuardConfig struct {
+	Type    string            `toml:"type"` // "remote" for MCP-based guards
+	Command string            `toml:"command"`
+	Args    []string          `toml:"args"`
+	Env     map[string]string `toml:"env"`
+	URL     string            `toml:"url"` // HTTP endpoint URL for remote guards
 }
 
 // StdinConfig represents JSON configuration from stdin
 type StdinConfig struct {
 	MCPServers    map[string]*StdinServerConfig `json:"mcpServers"`
+	Guards        map[string]*StdinGuardConfig  `json:"guards,omitempty"` // Guard configurations (optional, experimental)
 	Gateway       *StdinGatewayConfig           `json:"gateway,omitempty"`
 	CustomSchemas map[string]string             `json:"customSchemas,omitempty"` // Map of custom server type names to JSON Schema URLs
 }
@@ -63,6 +76,17 @@ type StdinServerConfig struct {
 	URL            string            `json:"url,omitempty"`     // For HTTP-based MCP servers
 	Headers        map[string]string `json:"headers,omitempty"` // HTTP headers for authentication
 	Tools          []string          `json:"tools,omitempty"`   // Tool filter: ["*"] for all tools, or list of specific tool names
+	Guard          string            `json:"guard,omitempty"`   // Guard ID to use for this server (references a guard in the guards section)
+}
+
+// StdinGuardConfig represents a DIFC guard configuration from stdin JSON (experimental)
+type StdinGuardConfig struct {
+	Type      string            `json:"type"`                // "remote" for MCP-based guards
+	Command   string            `json:"command,omitempty"`   // Command to run (for stdio guards)
+	Args      []string          `json:"args,omitempty"`      // Command arguments
+	Env       map[string]string `json:"env,omitempty"`       // Environment variables
+	Container string            `json:"container,omitempty"` // Container image (for containerized guards)
+	URL       string            `json:"url,omitempty"`       // HTTP endpoint URL for remote guards
 }
 
 // StdinGatewayConfig represents gateway configuration from stdin JSON
@@ -269,10 +293,78 @@ func LoadFromStdin() (*Config, error) {
 			Args:    args,
 			Env:     make(map[string]string),
 			Tools:   server.Tools,
+			Guard:   server.Guard, // Bind guard to server
 		}
 	}
 
-	logConfig.Printf("Converted stdin config to internal format with %d servers", len(cfg.Servers))
+	// Convert guards configuration
+	if len(stdinCfg.Guards) > 0 {
+		cfg.Guards = make(map[string]*GuardConfig)
+		for name, guard := range stdinCfg.Guards {
+			logConfig.Printf("Processing guard: name=%s, type=%s", name, guard.Type)
+
+			// Validate guard type
+			if guard.Type != "remote" {
+				return nil, fmt.Errorf("guard '%s': unsupported type '%s' (only 'remote' is supported)", name, guard.Type)
+			}
+
+			// Expand variable expressions in env vars
+			expandedEnv := guard.Env
+			if len(guard.Env) > 0 {
+				var err error
+				expandedEnv, err = expandEnvVariables(guard.Env, fmt.Sprintf("guard:%s", name))
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			guardCfg := &GuardConfig{
+				Type: guard.Type,
+				Env:  expandedEnv,
+			}
+
+			// Handle different guard configurations
+			if guard.URL != "" {
+				// HTTP-based guard
+				guardCfg.URL = guard.URL
+				logConfig.Printf("Configured HTTP guard: name=%s, url=%s", name, guard.URL)
+			} else if guard.Container != "" {
+				// Container-based guard (stdio)
+				guardCfg.Command = "docker"
+				guardCfg.Args = []string{
+					"run",
+					"--rm",
+					"-i",
+					"-e", "NO_COLOR=1",
+					"-e", "TERM=dumb",
+				}
+
+				// Add environment variables
+				for k, v := range expandedEnv {
+					guardCfg.Args = append(guardCfg.Args, "-e")
+					if v == "" {
+						guardCfg.Args = append(guardCfg.Args, k)
+					} else {
+						guardCfg.Args = append(guardCfg.Args, fmt.Sprintf("%s=%s", k, v))
+					}
+				}
+
+				guardCfg.Args = append(guardCfg.Args, guard.Container)
+				logConfig.Printf("Configured container guard: name=%s, container=%s", name, guard.Container)
+			} else if guard.Command != "" {
+				// Command-based guard (stdio)
+				guardCfg.Command = guard.Command
+				guardCfg.Args = guard.Args
+				logConfig.Printf("Configured command guard: name=%s, command=%s", name, guard.Command)
+			} else {
+				return nil, fmt.Errorf("guard '%s': must specify either 'url', 'container', or 'command'", name)
+			}
+
+			cfg.Guards[name] = guardCfg
+		}
+	}
+
+	logConfig.Printf("Converted stdin config to internal format with %d servers and %d guards", len(cfg.Servers), len(cfg.Guards))
 	return cfg, nil
 }
 
