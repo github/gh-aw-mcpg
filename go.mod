@@ -13,7 +13,7 @@ require (
 	github.com/itchyny/gojq v0.12.18
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/stretchr/testify v1.11.1
-	github.com/tetratelabs/wazero v1.8.2
+	github.com/tetratelabs/wazero v1.11.0
 )
 
 require (

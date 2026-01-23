@@ -1,41 +1,79 @@
 # Sample DIFC Guard for WASM
 
-This is a sample DIFC guard written in Go that can be compiled to WebAssembly (WASM).
+This is a sample DIFC guard written in Go that compiles to WebAssembly (WASM).
 
-## Overview
+## Requirements and Limitations
 
-WASM guards run in a sandboxed environment and cannot make direct network calls or access the filesystem. They interact with the MCP Gateway through a controlled interface:
+### TinyGo Requirement
 
-- **Host functions**: The guard can call `call_backend` to make read-only requests to the backend MCP server
-- **Exported functions**: The guard exports `label_resource` and `label_response` functions that the gateway calls
+**TinyGo is required** for proper WASM function exports. Standard Go's `wasip1` target does not support the `//export` directive needed for guard functions.
 
-## Building
+**Current Limitation**: TinyGo 0.34 supports Go 1.19-1.23, but this project uses Go 1.25. 
 
-To compile this guard to WASM:
+**Workarounds**:
+1. Wait for TinyGo to support Go 1.25 (check https://github.com/tinygo-org/tinygo/releases)
+2. Use a separate Go 1.23 installation for guard compilation only
+3. The framework is implemented and ready - guard compilation is the only blocker
+
+### Building
 
 ```bash
 make build
 ```
 
-This will create `guard.wasm` in the current directory.
+The Makefile will:
+1. Try to build with TinyGo (required for working guards)
+2. Fall back to standard Go if TinyGo fails (produces non-functional WASM for testing structure only)
+
+## Overview
+
+WASM guards run **inside the gateway process** in a sandboxed wazero runtime. They cannot make direct network calls or access the filesystem.
+
+### Guard Execution Model
+
+```
+┌─────────────────────────────────────┐
+│ Gateway Process                      │
+│  ┌────────────────────────────────┐ │
+│  │ WasmGuard (Go)                 │ │
+│  │  ┌──────────────────────────┐  │ │
+│  │  │ guard.wasm               │  │ │
+│  │  │ (sandboxed in wazero)    │  │ │
+│  │  │                          │  │ │
+│  │  │ - label_resource()       │  │ │
+│  │  │ - label_response()       │  │ │
+│  │  │ - call_backend() ───────┐│  │ │
+│  │  └──────────────────────────┘│  │ │
+│  │             │                 │  │ │
+│  │             └─────────────────┼──┼─┼─► BackendCaller
+│  └────────────────────────────────┘ │ │       │
+│                                      │ │       ▼
+│                                      │ │   MCP Backend
+└──────────────────────────────────────┘ └───────────
+```
+
+Guards:
+- Run in-process (not separate CLI)
+- Execute in sandboxed wazero runtime
+- Cannot make direct network/file I/O
+- Call backend via controlled host function
 
 ## Interface
 
-### Exported Functions
+### Exported Functions (from WASM to Gateway)
 
-#### `label_resource`
-Called before accessing a resource to determine its DIFC labels and operation type.
+#### `label_resource(inputPtr, inputLen, outputPtr, outputSize uint32) int32`
+Labels a resource before access.
 
-**Input** (JSON):
+**Input** (JSON at inputPtr):
 ```json
 {
   "tool_name": "create_issue",
-  "tool_args": {"owner": "org", "repo": "repo", "title": "Bug"},
-  "capabilities": {...}
+  "tool_args": {"owner": "org", "repo": "repo", "title": "Bug"}
 }
 ```
 
-**Output** (JSON):
+**Output** (JSON at outputPtr):
 ```json
 {
   "resource": {
@@ -47,45 +85,48 @@ Called before accessing a resource to determine its DIFC labels and operation ty
 }
 ```
 
-#### `label_response`
-Called after a successful backend call to label response data for fine-grained filtering.
+**Returns**: Length of output JSON (>0), 0 for empty, or negative for error
 
-**Input** (JSON):
+#### `label_response(inputPtr, inputLen, outputPtr, outputSize uint32) int32`
+Labels response data for fine-grained filtering.
+
+**Input** (JSON at inputPtr):
 ```json
 {
   "tool_name": "list_issues",
-  "tool_result": [...],
-  "capabilities": {...}
+  "tool_result": [...]
 }
 ```
 
-**Output** (JSON):
+**Output** (JSON at outputPtr):
 ```json
 {
   "items": [
-    {
-      "data": {...},
-      "labels": {
-        "description": "issue:1",
-        "secrecy": ["public"],
-        "integrity": ["maintainer"]
-      }
-    }
+    {"data": {...}, "labels": {"secrecy": ["public"]}}
   ]
 }
 ```
 
-### Host Functions
+**Returns**: Length of output JSON, 0 for no labeling, or negative for error
 
-#### `call_backend`
-Allows the guard to make read-only calls to the backend MCP server to gather metadata.
+### Host Functions (from WASM to Gateway)
 
-**Signature**:
+#### `call_backend(toolNamePtr, toolNameLen, argsPtr, argsLen, resultPtr, resultSize uint32) int32`
+Makes read-only calls to backend MCP server.
+
+**Parameters**:
+- Tool name and args as JSON in WASM memory
+- Result buffer for backend response
+
+**Returns**: Length of result JSON, or negative on error
+
+**Example**:
 ```go
-func callBackend(toolNamePtr, toolNameLen, argsPtr, argsLen, resultPtr, resultSize uint32) int32
+// Inside WASM guard
+repoInfo, err := callBackendHelper("search_repositories", map[string]interface{}{
+    "query": "repo:owner/name",
+})
 ```
-
-Returns the length of the result JSON, or a negative number on error.
 
 ## Example Configuration
 
@@ -96,12 +137,25 @@ guard = "github"
 
 [guards.github]
 type = "wasm"
-path = "/path/to/guard.wasm"
+path = "./examples/guards/sample-guard/guard.wasm"
 ```
 
 ## Implementation Notes
 
-- The guard must export `malloc` and `free` for memory management
-- All data is passed as JSON via linear memory
-- The guard runs in a sandboxed environment with no direct I/O access
-- Backend calls are mediated by the gateway and are read-only
+- **In-process execution**: Guard runs inside gateway, not as separate process
+- **Sandboxed**: wazero runtime prevents direct I/O and network access
+- **TinyGo required**: Standard Go doesn't support `//export` for WASM
+- **JSON-based**: All data exchange uses JSON (TinyGo-compatible)
+- **Simple types**: No complex Go types across WASM boundary
+- **Read-only backend**: Guards can only read from backend, not write
+
+## TinyGo Limitations
+
+TinyGo has some standard library limitations:
+- ✓ encoding/json - Works
+- ✓ fmt - Works
+- ✓ Basic stdlib - Works
+- ✗ Reflection - Limited
+- ✗ Some stdlib packages - Not available
+
+The guard interface is designed to work within these constraints using simple JSON data exchange.
