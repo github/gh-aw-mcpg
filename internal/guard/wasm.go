@@ -15,17 +15,15 @@ import (
 
 var logWasm = logger.New("guard:wasm")
 
-// WasmGuard implements Guard interface by executing a WASM module
-// The WASM module is sandboxed and cannot make direct network calls
-// It receives a BackendCaller interface to make controlled backend requests
+// WasmGuard implements Guard interface by executing a WASM module in-process
+// The WASM module runs sandboxed within the gateway using wazero runtime
+// Guards cannot make direct network calls - they receive a BackendCaller interface via host functions
 type WasmGuard struct {
 	name    string
 	runtime wazero.Runtime
 	module  api.Module
-	malloc  api.Function
-	free    api.Function
 
-	// Backend caller for metadata requests
+	// Backend caller provided to the guard via host functions
 	backend BackendCaller
 	ctx     context.Context
 }
@@ -64,7 +62,7 @@ func NewWasmGuard(ctx context.Context, name string, wasmPath string, backend Bac
 
 	// Compile and instantiate the WASM module
 	module, err := runtime.InstantiateWithConfig(ctx, wasmBytes,
-		wazero.NewModuleConfig().WithName("guard"))
+		wazero.NewModuleConfig().WithName("guard").WithStartFunctions())
 	if err != nil {
 		runtime.Close(ctx)
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
@@ -72,13 +70,23 @@ func NewWasmGuard(ctx context.Context, name string, wasmPath string, backend Bac
 
 	guard.module = module
 
-	// Get malloc and free functions for memory management
-	guard.malloc = module.ExportedFunction("malloc")
-	guard.free = module.ExportedFunction("free")
+	// Verify required functions are exported
+	labelResourceFn := module.ExportedFunction("label_resource")
+	labelResponseFn := module.ExportedFunction("label_response")
 
-	if guard.malloc == nil || guard.free == nil {
+	if labelResourceFn == nil || labelResponseFn == nil {
 		runtime.Close(ctx)
-		return nil, fmt.Errorf("WASM module must export malloc and free functions")
+
+		// Check if this was compiled with standard Go (only _start is exported)
+		if module.ExportedFunction("_start") != nil && labelResourceFn == nil {
+			return nil, fmt.Errorf("WASM module does not export guard functions. " +
+				"This usually means the guard was compiled with standard Go instead of TinyGo. " +
+				"TinyGo is required for proper function exports. " +
+				"Note: TinyGo 0.34 supports Go 1.19-1.23 (not yet compatible with Go 1.25). " +
+				"See examples/guards/sample-guard/README.md for details")
+		}
+
+		return nil, fmt.Errorf("WASM module must export label_resource and label_response functions")
 	}
 
 	logWasm.Printf("WASM guard created successfully: name=%s", name)
@@ -113,10 +121,15 @@ func (g *WasmGuard) hostCallBackend(ctx context.Context, m api.Module, stack []u
 	resultPtr := uint32(stack[4])
 	resultSize := uint32(stack[5])
 
+	// Helper to set error return value
+	setError := func() {
+		stack[0] = uint64(^uint32(0)) // Max uint32 represents error
+	}
+
 	// Read tool name from WASM memory
 	toolNameBytes, ok := m.Memory().Read(toolNamePtr, toolNameLen)
 	if !ok {
-		stack[0] = uint64(^uint32(0)) // error - max uint32 value
+		setError()
 		return
 	}
 	toolName := string(toolNameBytes)
@@ -124,7 +137,7 @@ func (g *WasmGuard) hostCallBackend(ctx context.Context, m api.Module, stack []u
 	// Read args JSON from WASM memory
 	argsBytes, ok := m.Memory().Read(argsPtr, argsLen)
 	if !ok {
-		stack[0] = uint64(^uint32(0)) // error
+		setError()
 		return
 	}
 
@@ -133,7 +146,7 @@ func (g *WasmGuard) hostCallBackend(ctx context.Context, m api.Module, stack []u
 	if len(argsBytes) > 0 {
 		if err := json.Unmarshal(argsBytes, &args); err != nil {
 			logWasm.Printf("Failed to unmarshal backend call args: %v", err)
-			stack[0] = uint64(^uint32(0)) // error
+			setError()
 			return
 		}
 	}
@@ -144,7 +157,7 @@ func (g *WasmGuard) hostCallBackend(ctx context.Context, m api.Module, stack []u
 	result, err := g.backend.CallTool(ctx, toolName, args)
 	if err != nil {
 		logWasm.Printf("Backend call failed: %v", err)
-		stack[0] = uint64(^uint32(0)) // error
+		setError()
 		return
 	}
 
@@ -152,19 +165,21 @@ func (g *WasmGuard) hostCallBackend(ctx context.Context, m api.Module, stack []u
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
 		logWasm.Printf("Failed to marshal backend result: %v", err)
-		stack[0] = uint64(^uint32(0)) // error
+		setError()
+		return
+	}
+
+	// Check if result fits in buffer
+	if uint32(len(resultJSON)) > resultSize {
+		logWasm.Printf("Result too large: %d > %d", len(resultJSON), resultSize)
+		setError()
 		return
 	}
 
 	// Write result to WASM memory
-	if uint32(len(resultJSON)) > resultSize {
-		logWasm.Printf("Result too large: %d > %d", len(resultJSON), resultSize)
-		stack[0] = uint64(^uint32(0)) // error
-		return
-	}
-
 	if !m.Memory().Write(resultPtr, resultJSON) {
-		stack[0] = uint64(^uint32(0)) // error
+		logWasm.Printf("Failed to write result to WASM memory")
+		setError()
 		return
 	}
 
@@ -205,51 +220,12 @@ func (g *WasmGuard) LabelResource(ctx context.Context, toolName string, args int
 	}
 
 	// Parse result
-	var response struct {
-		Resource struct {
-			Description string   `json:"description"`
-			Secrecy     []string `json:"secrecy"`
-			Integrity   []string `json:"integrity"`
-		} `json:"resource"`
-		Operation string `json:"operation"`
-	}
-
+	var response map[string]interface{}
 	if err := json.Unmarshal(resultJSON, &response); err != nil {
 		return nil, difc.OperationWrite, fmt.Errorf("failed to unmarshal WASM response: %w", err)
 	}
 
-	// Convert to LabeledResource
-	resource := &difc.LabeledResource{
-		Description: response.Resource.Description,
-	}
-
-	// Convert secrecy tags
-	secrecyTags := make([]difc.Tag, len(response.Resource.Secrecy))
-	for i, tag := range response.Resource.Secrecy {
-		secrecyTags[i] = difc.Tag(tag)
-	}
-	resource.Secrecy = *difc.NewSecrecyLabelWithTags(secrecyTags)
-
-	// Convert integrity tags
-	integrityTags := make([]difc.Tag, len(response.Resource.Integrity))
-	for i, tag := range response.Resource.Integrity {
-		integrityTags[i] = difc.Tag(tag)
-	}
-	resource.Integrity = *difc.NewIntegrityLabelWithTags(integrityTags)
-
-	// Parse operation type
-	operation := difc.OperationWrite // default to most restrictive
-	switch response.Operation {
-	case "read":
-		operation = difc.OperationRead
-	case "write":
-		operation = difc.OperationWrite
-	case "read-write":
-		operation = difc.OperationReadWrite
-	}
-
-	logWasm.Printf("LabelResource complete: operation=%s, description=%s", operation, resource.Description)
-	return resource, operation, nil
+	return parseResourceResponse(response)
 }
 
 // LabelResponse calls the WASM module's label_response function
@@ -284,14 +260,14 @@ func (g *WasmGuard) LabelResponse(ctx context.Context, toolName string, result i
 		return nil, nil
 	}
 
-	// Parse result to see if it's a collection
+	// Parse result
 	var responseMap map[string]interface{}
 	if err := json.Unmarshal(resultJSON, &responseMap); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal WASM response: %w", err)
 	}
 
 	// Check if it's a collection
-	if items, ok := responseMap["items"].([]interface{}); ok {
+	if items, ok := responseMap["items"].([]interface{}); ok && len(items) > 0 {
 		return parseCollectionLabeledData(items)
 	}
 
@@ -299,39 +275,53 @@ func (g *WasmGuard) LabelResponse(ctx context.Context, toolName string, result i
 	return nil, nil
 }
 
-// callWasmFunction calls a function in the WASM module with JSON input/output
+// callWasmFunction calls an exported function in the WASM module
 func (g *WasmGuard) callWasmFunction(funcName string, inputJSON []byte) ([]byte, error) {
-	// Get the exported function
 	fn := g.module.ExportedFunction(funcName)
 	if fn == nil {
 		return nil, fmt.Errorf("function %s not exported from WASM module", funcName)
 	}
 
-	// Allocate memory for input
-	inputSize := uint32(len(inputJSON))
-	results, err := g.malloc.Call(g.ctx, uint64(inputSize))
-	if err != nil {
-		return nil, fmt.Errorf("failed to allocate input memory: %w", err)
+	mem := g.module.Memory()
+	if mem == nil {
+		return nil, fmt.Errorf("WASM module has no memory")
 	}
-	inputPtr := uint32(results[0])
-	defer g.free.Call(g.ctx, uint64(inputPtr))
+
+	// Allocate memory regions
+	// We use the end of memory for our buffers to avoid conflicts
+	memSize := mem.Size()
+	minSize := uint32(4 * 1024 * 1024) // 4MB minimum
+
+	if memSize < minSize {
+		// Try to grow memory
+		pages := (minSize - memSize + 65535) / 65536 // Round up to pages
+		_, success := mem.Grow(pages)
+		if !success {
+			return nil, fmt.Errorf("failed to grow WASM memory from %d to %d bytes", memSize, minSize)
+		}
+		memSize = mem.Size()
+	}
+
+	// Use last 2MB for buffers
+	outputPtr := uint32(memSize - 2*1024*1024)
+	outputSize := uint32(1024 * 1024)
+	inputPtr := uint32(memSize - 1*1024*1024)
+
+	if uint32(len(inputJSON)) > 1024*1024 {
+		return nil, fmt.Errorf("input too large: %d bytes", len(inputJSON))
+	}
 
 	// Write input to WASM memory
-	if !g.module.Memory().Write(inputPtr, inputJSON) {
+	if !mem.Write(inputPtr, inputJSON) {
 		return nil, fmt.Errorf("failed to write input to WASM memory")
 	}
 
-	// Allocate memory for output (max 1MB)
-	outputSize := uint32(1024 * 1024)
-	results, err = g.malloc.Call(g.ctx, uint64(outputSize))
-	if err != nil {
-		return nil, fmt.Errorf("failed to allocate output memory: %w", err)
-	}
-	outputPtr := uint32(results[0])
-	defer g.free.Call(g.ctx, uint64(outputPtr))
-
 	// Call the WASM function
-	results, err = fn.Call(g.ctx, uint64(inputPtr), uint64(inputSize), uint64(outputPtr), uint64(outputSize))
+	results, err := fn.Call(g.ctx,
+		uint64(inputPtr),
+		uint64(len(inputJSON)),
+		uint64(outputPtr),
+		uint64(outputSize))
 	if err != nil {
 		return nil, fmt.Errorf("WASM function call failed: %w", err)
 	}
@@ -339,24 +329,76 @@ func (g *WasmGuard) callWasmFunction(funcName string, inputJSON []byte) ([]byte,
 	// Check result (negative = error)
 	resultLen := int32(results[0])
 	if resultLen < 0 {
-		return nil, fmt.Errorf("WASM function returned error: %d", resultLen)
+		return nil, fmt.Errorf("WASM function returned error code: %d", resultLen)
+	}
+
+	if resultLen == 0 {
+		// Empty result
+		return []byte{}, nil
 	}
 
 	// Read output from WASM memory
-	outputJSON, ok := g.module.Memory().Read(outputPtr, uint32(resultLen))
+	outputJSON, ok := mem.Read(outputPtr, uint32(resultLen))
 	if !ok {
-		return nil, fmt.Errorf("failed to read output from WASM memory")
+		return nil, fmt.Errorf("failed to read output from WASM memory (len=%d)", resultLen)
 	}
 
 	return outputJSON, nil
 }
 
-// Close releases WASM runtime resources
-func (g *WasmGuard) Close(ctx context.Context) error {
-	if g.runtime != nil {
-		return g.runtime.Close(ctx)
+// parseResourceResponse converts guard response to LabeledResource
+func parseResourceResponse(response map[string]interface{}) (*difc.LabeledResource, difc.OperationType, error) {
+	resourceData, ok := response["resource"].(map[string]interface{})
+	if !ok {
+		return nil, difc.OperationWrite, fmt.Errorf("invalid resource format in guard response")
 	}
-	return nil
+
+	resource := &difc.LabeledResource{}
+
+	if desc, ok := resourceData["description"].(string); ok {
+		resource.Description = desc
+	}
+
+	// Parse secrecy tags
+	if secrecy, ok := resourceData["secrecy"].([]interface{}); ok {
+		tags := make([]difc.Tag, 0, len(secrecy))
+		for _, t := range secrecy {
+			if tagStr, ok := t.(string); ok {
+				tags = append(tags, difc.Tag(tagStr))
+			}
+		}
+		resource.Secrecy = *difc.NewSecrecyLabelWithTags(tags)
+	} else {
+		resource.Secrecy = *difc.NewSecrecyLabel()
+	}
+
+	// Parse integrity tags
+	if integrity, ok := resourceData["integrity"].([]interface{}); ok {
+		tags := make([]difc.Tag, 0, len(integrity))
+		for _, t := range integrity {
+			if tagStr, ok := t.(string); ok {
+				tags = append(tags, difc.Tag(tagStr))
+			}
+		}
+		resource.Integrity = *difc.NewIntegrityLabelWithTags(tags)
+	} else {
+		resource.Integrity = *difc.NewIntegrityLabel()
+	}
+
+	// Parse operation type
+	operation := difc.OperationWrite // default to most restrictive
+	if opStr, ok := response["operation"].(string); ok {
+		switch opStr {
+		case "read":
+			operation = difc.OperationRead
+		case "write":
+			operation = difc.OperationWrite
+		case "read-write":
+			operation = difc.OperationReadWrite
+		}
+	}
+
+	return resource, operation, nil
 }
 
 // parseCollectionLabeledData converts an array of items to CollectionLabeledData
@@ -416,4 +458,17 @@ func parseCollectionLabeledData(items []interface{}) (*difc.CollectionLabeledDat
 	}
 
 	return collection, nil
+}
+
+// Close releases WASM runtime resources
+func (g *WasmGuard) Close(ctx context.Context) error {
+	if g.module != nil {
+		if err := g.module.Close(ctx); err != nil {
+			logWasm.Printf("Error closing module: %v", err)
+		}
+	}
+	if g.runtime != nil {
+		return g.runtime.Close(ctx)
+	}
+	return nil
 }

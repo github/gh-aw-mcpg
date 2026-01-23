@@ -53,3 +53,7 @@ test/serena-mcp-tests/results/
 test/serena-mcp-tests/results-gateway/
 test/serena-mcp-tests/**/__pycache__/
 test/serena-mcp-tests/**/*.pyc
+
+# WASM guard build artifacts
+examples/guards/*/guard.wasm
+*.wasm
