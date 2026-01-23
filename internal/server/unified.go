@@ -88,13 +88,11 @@ type UnifiedServer struct {
 	payloadDir       string // Base directory for storing large payload files (segmented by session ID)
 
 	// DIFC components
-	guardRegistry      *guard.Registry
-	guardConnections   map[string]*mcp.Connection // guardID -> guard MCP connection
-	guardConnectionsMu sync.RWMutex
-	agentRegistry      *difc.AgentRegistry
-	capabilities       *difc.Capabilities
-	evaluator          *difc.Evaluator
-	enableDIFC         bool // When true, DIFC enforcement and session requirement are enabled
+	guardRegistry *guard.Registry
+	agentRegistry *difc.AgentRegistry
+	capabilities  *difc.Capabilities
+	evaluator     *difc.Evaluator
+	enableDIFC    bool // When true, DIFC enforcement and session requirement are enabled
 
 	// Shutdown state tracking
 	isShutdown   bool
@@ -126,12 +124,11 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 		payloadDir:       payloadDir,
 
 		// Initialize DIFC components
-		guardRegistry:    guard.NewRegistry(),
-		guardConnections: make(map[string]*mcp.Connection),
-		agentRegistry:    difc.NewAgentRegistry(),
-		capabilities:     difc.NewCapabilities(),
-		evaluator:        difc.NewEvaluator(),
-		enableDIFC:       cfg.EnableDIFC,
+		guardRegistry: guard.NewRegistry(),
+		agentRegistry: difc.NewAgentRegistry(),
+		capabilities:  difc.NewCapabilities(),
+		evaluator:     difc.NewEvaluator(),
+		enableDIFC:    cfg.EnableDIFC,
 	}
 
 	// Create MCP server
@@ -141,11 +138,6 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 	}, nil)
 
 	us.server = server
-
-	// Launch and register guards for backends that specify them
-	if err := us.launchGuards(cfg); err != nil {
-		return nil, fmt.Errorf("failed to launch guards: %w", err)
-	}
 
 	// Register guards for all backends
 	for _, serverID := range l.ServerIDs() {
@@ -554,97 +546,43 @@ func (us *UnifiedServer) registerGuard(serverID string, cfg *config.Config) {
 
 	guardID := serverCfg.Guard
 
-	// Check if we have a connection for this guard
-	us.guardConnectionsMu.RLock()
-	conn, hasConn := us.guardConnections[guardID]
-	us.guardConnectionsMu.RUnlock()
-
-	if !hasConn {
-		// Guard not launched, use noop guard as fallback
-		log.Printf("[DIFC] Warning: guard '%s' specified for server '%s' but not launched, using noop guard", guardID, serverID)
+	// Check if we have a guard configuration
+	guardCfg, ok := cfg.Guards[guardID]
+	if !ok {
+		// Guard not configured, use noop guard as fallback
+		log.Printf("[DIFC] Warning: guard '%s' specified for server '%s' but not configured, using noop guard", guardID, serverID)
 		g := guard.NewNoopGuard()
 		us.guardRegistry.Register(serverID, g)
 		return
 	}
 
-	// Create and register remote guard
-	g := guard.NewRemoteGuard(guardID, conn)
-	us.guardRegistry.Register(serverID, g)
-	log.Printf("[DIFC] Registered remote guard '%s' for server '%s'", guardID, serverID)
-}
-
-// launchGuards launches all configured guard MCP servers
-func (us *UnifiedServer) launchGuards(cfg *config.Config) error {
-	if len(cfg.Guards) == 0 {
-		logUnified.Print("No guards configured")
-		return nil
-	}
-
-	logUnified.Printf("Launching %d configured guards", len(cfg.Guards))
-
-	for guardID, guardCfg := range cfg.Guards {
-		logUnified.Printf("Launching guard: id=%s, type=%s", guardID, guardCfg.Type)
-
-		if guardCfg.Type != "remote" {
-			log.Printf("[DIFC] Warning: unsupported guard type '%s' for guard '%s', skipping", guardCfg.Type, guardID)
-			continue
+	// Create appropriate guard based on type
+	switch guardCfg.Type {
+	case "wasm":
+		// Create backend caller for this guard
+		backendCaller := &guardBackendCaller{
+			server:   us,
+			serverID: serverID,
+			ctx:      us.ctx,
 		}
 
-		var conn *mcp.Connection
-		var err error
-
-		if guardCfg.URL != "" {
-			// HTTP-based guard
-			logUnified.Printf("Creating HTTP guard connection: id=%s, url=%s", guardID, guardCfg.URL)
-			conn, err = mcp.NewHTTPConnection(us.ctx, guardCfg.URL, nil)
-			if err != nil {
-				log.Printf("[DIFC] Failed to create HTTP guard connection for '%s': %v", guardID, err)
-				return fmt.Errorf("failed to create HTTP guard connection for '%s': %w", guardID, err)
-			}
-		} else if guardCfg.Command != "" {
-			// Stdio-based guard (command or container)
-			logUnified.Printf("Creating stdio guard connection: id=%s, command=%s", guardID, guardCfg.Command)
-			conn, err = mcp.NewConnection(us.ctx, guardCfg.Command, guardCfg.Args, guardCfg.Env)
-			if err != nil {
-				log.Printf("[DIFC] Failed to create stdio guard connection for '%s': %v", guardID, err)
-				return fmt.Errorf("failed to create stdio guard connection for '%s': %w", guardID, err)
-			}
-		} else {
-			log.Printf("[DIFC] Warning: guard '%s' has no connection method (url or command), skipping", guardID)
-			continue
-		}
-
-		// Initialize the guard connection
-		initResult, err := conn.SendRequest("initialize", map[string]interface{}{
-			"protocolVersion": MCPProtocolVersion,
-			"capabilities":    map[string]interface{}{},
-			"clientInfo": map[string]interface{}{
-				"name":    "awmg-guard-client",
-				"version": gatewayVersion,
-			},
-		})
-
+		// Create WASM guard
+		wasmGuard, err := guard.NewWasmGuard(us.ctx, guardID, guardCfg.Path, backendCaller)
 		if err != nil {
-			log.Printf("[DIFC] Failed to initialize guard '%s': %v", guardID, err)
-			return fmt.Errorf("failed to initialize guard '%s': %w", guardID, err)
+			log.Printf("[DIFC] Failed to create WASM guard '%s': %v, using noop guard", guardID, err)
+			g := guard.NewNoopGuard()
+			us.guardRegistry.Register(serverID, g)
+			return
 		}
 
-		if initResult.Error != nil {
-			log.Printf("[DIFC] Guard '%s' initialization error: %s", guardID, initResult.Error.Message)
-			return fmt.Errorf("guard '%s' initialization error: %s", guardID, initResult.Error.Message)
-		}
+		us.guardRegistry.Register(serverID, wasmGuard)
+		log.Printf("[DIFC] Registered WASM guard '%s' for server '%s' (path: %s)", guardID, serverID, guardCfg.Path)
 
-		// Store the connection
-		us.guardConnectionsMu.Lock()
-		us.guardConnections[guardID] = conn
-		us.guardConnectionsMu.Unlock()
-
-		log.Printf("[DIFC] Successfully launched and initialized guard '%s'", guardID)
-		logUnified.Printf("Guard launched: id=%s", guardID)
+	default:
+		log.Printf("[DIFC] Warning: unsupported guard type '%s' for guard '%s', using noop guard", guardCfg.Type, guardID)
+		g := guard.NewNoopGuard()
+		us.guardRegistry.Register(serverID, g)
 	}
-
-	logUnified.Printf("All guards launched successfully: count=%d", len(us.guardConnections))
-	return nil
 }
 
 // guardBackendCaller implements guard.BackendCaller for guards to query backend metadata
@@ -1093,24 +1031,6 @@ func (us *UnifiedServer) InitiateShutdown() int {
 
 		log.Println("Backend servers terminated")
 		logger.LogInfo("shutdown", "Backend servers terminated successfully")
-
-		// Close guard connections
-		us.guardConnectionsMu.Lock()
-		guardCount := len(us.guardConnections)
-		if guardCount > 0 {
-			log.Printf("Closing %d guard connection(s)...", guardCount)
-			logger.LogInfo("shutdown", "Closing %d guard connections", guardCount)
-			for guardID, conn := range us.guardConnections {
-				if err := conn.Close(); err != nil {
-					log.Printf("Error closing guard '%s': %v", guardID, err)
-					logger.LogWarn("shutdown", "Failed to close guard '%s': %v", guardID, err)
-				}
-			}
-			us.guardConnections = make(map[string]*mcp.Connection)
-			log.Println("Guard connections closed")
-			logger.LogInfo("shutdown", "Guard connections closed successfully")
-		}
-		us.guardConnectionsMu.Unlock()
 	})
 	return serversTerminated
 }

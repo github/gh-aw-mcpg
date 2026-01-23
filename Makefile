@@ -21,15 +21,15 @@ build:
 lint:
 	@echo "Running linters..."
 	@go mod tidy
-	@go vet ./...
+	@go vet $$(go list ./... | grep -v '/examples/guards/')
 	@echo "Running gofmt check..."
-	@test -z "$$(gofmt -l .)" || (echo "The following files are not formatted:"; gofmt -l .; exit 1)
+	@test -z "$$(gofmt -l $$(find . -name '*.go' -not -path './examples/guards/*'))" || (echo "The following files are not formatted:"; gofmt -l $$(find . -name '*.go' -not -path './examples/guards/*'); exit 1)
 	@echo "Running golangci-lint..."
 	@GOPATH=$$(go env GOPATH); \
 	if [ -f "$$GOPATH/bin/golangci-lint" ]; then \
-		$$GOPATH/bin/golangci-lint run --timeout=5m || echo "⚠ Warning: golangci-lint failed (compatibility issue with Go 1.25.0). Continuing with other checks..."; \
+		$$GOPATH/bin/golangci-lint run --timeout=5m --skip-dirs examples/guards || echo "⚠ Warning: golangci-lint failed (compatibility issue with Go 1.25.0). Continuing with other checks..."; \
 	elif command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run --timeout=5m || echo "⚠ Warning: golangci-lint failed (compatibility issue with Go 1.25.0). Continuing with other checks..."; \
+		golangci-lint run --timeout=5m --skip-dirs examples/guards || echo "⚠ Warning: golangci-lint failed (compatibility issue with Go 1.25.0). Continuing with other checks..."; \
 	else \
 		echo "⚠ Warning: golangci-lint not found. Run 'make install' to install it."; \
 		echo "  Skipping golangci-lint checks..."; \

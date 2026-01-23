@@ -61,11 +61,8 @@ type ServerConfig struct {
 
 // GuardConfig represents a DIFC guard configuration (experimental)
 type GuardConfig struct {
-	Type    string            `toml:"type"` // "remote" for MCP-based guards
-	Command string            `toml:"command"`
-	Args    []string          `toml:"args"`
-	Env     map[string]string `toml:"env"`
-	URL     string            `toml:"url"` // HTTP endpoint URL for remote guards
+	Type string `toml:"type"` // "wasm" for WebAssembly guards
+	Path string `toml:"path"` // Path to WASM file
 }
 
 // StdinConfig represents JSON configuration from stdin
@@ -94,12 +91,8 @@ type StdinServerConfig struct {
 
 // StdinGuardConfig represents a DIFC guard configuration from stdin JSON (experimental)
 type StdinGuardConfig struct {
-	Type      string            `json:"type"`                // "remote" for MCP-based guards
-	Command   string            `json:"command,omitempty"`   // Command to run (for stdio guards)
-	Args      []string          `json:"args,omitempty"`      // Command arguments
-	Env       map[string]string `json:"env,omitempty"`       // Environment variables
-	Container string            `json:"container,omitempty"` // Container image (for containerized guards)
-	URL       string            `json:"url,omitempty"`       // HTTP endpoint URL for remote guards
+	Type string `json:"type"` // "wasm" for WebAssembly guards
+	Path string `json:"path"` // Path to WASM file
 }
 
 // StdinGatewayConfig represents gateway configuration from stdin JSON
@@ -338,63 +331,23 @@ func LoadFromStdin() (*Config, error) {
 			logConfig.Printf("Processing guard: name=%s, type=%s", name, guard.Type)
 
 			// Validate guard type
-			if guard.Type != "remote" {
-				return nil, fmt.Errorf("guard '%s': unsupported type '%s' (only 'remote' is supported)", name, guard.Type)
+			if guard.Type != "wasm" {
+				return nil, fmt.Errorf("guard '%s': unsupported type '%s' (only 'wasm' is supported)", name, guard.Type)
 			}
 
-			// Expand variable expressions in env vars
-			expandedEnv := guard.Env
-			if len(guard.Env) > 0 {
-				var err error
-				expandedEnv, err = expandEnvVariables(guard.Env, fmt.Sprintf("guard:%s", name))
-				if err != nil {
-					return nil, err
-				}
+			// Validate path
+			if guard.Path == "" {
+				return nil, fmt.Errorf("guard '%s': path is required for wasm guards", name)
 			}
 
-			guardCfg := &GuardConfig{
+			// Expand path (support ${VAR} syntax)
+			expandedPath := os.ExpandEnv(guard.Path)
+
+			cfg.Guards[name] = &GuardConfig{
 				Type: guard.Type,
-				Env:  expandedEnv,
+				Path: expandedPath,
 			}
-
-			// Handle different guard configurations
-			if guard.URL != "" {
-				// HTTP-based guard
-				guardCfg.URL = guard.URL
-				logConfig.Printf("Configured HTTP guard: name=%s, url=%s", name, guard.URL)
-			} else if guard.Container != "" {
-				// Container-based guard (stdio)
-				guardCfg.Command = "docker"
-				guardCfg.Args = []string{
-					"run",
-					"--rm",
-					"-i",
-					"-e", "NO_COLOR=1",
-					"-e", "TERM=dumb",
-				}
-
-				// Add environment variables
-				for k, v := range expandedEnv {
-					guardCfg.Args = append(guardCfg.Args, "-e")
-					if v == "" {
-						guardCfg.Args = append(guardCfg.Args, k)
-					} else {
-						guardCfg.Args = append(guardCfg.Args, fmt.Sprintf("%s=%s", k, v))
-					}
-				}
-
-				guardCfg.Args = append(guardCfg.Args, guard.Container)
-				logConfig.Printf("Configured container guard: name=%s, container=%s", name, guard.Container)
-			} else if guard.Command != "" {
-				// Command-based guard (stdio)
-				guardCfg.Command = guard.Command
-				guardCfg.Args = guard.Args
-				logConfig.Printf("Configured command guard: name=%s, command=%s", name, guard.Command)
-			} else {
-				return nil, fmt.Errorf("guard '%s': must specify either 'url', 'container', or 'command'", name)
-			}
-
-			cfg.Guards[name] = guardCfg
+			logConfig.Printf("Configured WASM guard: name=%s, path=%s", name, expandedPath)
 		}
 	}
 
