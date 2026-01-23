@@ -27,25 +27,50 @@ There is no Go version coupling between the gateway and guards.
 go version  # Should show go1.25
 ```
 
-**For Guard Development** (Go 1.23):
+**For Guard Development** (Go 1.23 + TinyGo):
+
+#### macOS
+
 ```bash
-# Install Go 1.23 alongside Go 1.25
-go install golang.org/dl/go1.23@latest
-go1.23 download
+# Install Go 1.23.4 alongside your main Go version
+go install golang.org/dl/go1.23.4@latest
+~/go/bin/go1.23.4 download
+
+# Verify installation
+~/go/bin/go1.23.4 version  # Should show go1.23.4
+
+# Install TinyGo via Homebrew
+brew tap tinygo-org/tools
+brew install tinygo
+
+# Verify TinyGo
+tinygo version
+```
+
+#### Linux (Debian/Ubuntu)
+
+```bash
+# Install Go 1.23.4 alongside your main Go version
+go install golang.org/dl/go1.23.4@latest
+~/go/bin/go1.23.4 download
 
 # Install TinyGo
 # See: https://tinygo.org/getting-started/install/
-curl -sSfL https://github.com/tinygo-org/tinygo/releases/download/v0.34.0/tinygo_0.34.0_amd64.deb
+curl -sSfL -O https://github.com/tinygo-org/tinygo/releases/download/v0.34.0/tinygo_0.34.0_amd64.deb
 sudo dpkg -i tinygo_0.34.0_amd64.deb
 ```
+
+#### Other Platforms
+
+See the [TinyGo installation guide](https://tinygo.org/getting-started/install/) for additional platforms.
 
 ### Building
 
 To compile this guard to WASM using TinyGo with Go 1.23:
 
 ```bash
-# Set GOROOT to use Go 1.23
-export GOROOT=$(go1.23 env GOROOT)
+# Set GOROOT to use Go 1.23.4
+export GOROOT=$(~/go/bin/go1.23.4 env GOROOT)
 tinygo build -o guard.wasm -target=wasi main.go
 ```
 
