@@ -317,11 +317,8 @@ func TestWasmGuardConfiguration(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	guardDir := filepath.Join("..", "..", "examples", "guards", "sample-guard")
-	wasmFile := filepath.Join(guardDir, "guard.wasm")
-
 	// For configuration testing, we just need the file to exist
-	wasmFile = buildWasmGuard(t)
+	wasmFile := buildWasmGuard(t)
 	defer os.Remove(wasmFile)
 
 	// Create a config with guard

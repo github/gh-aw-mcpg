@@ -303,9 +303,9 @@ func (g *WasmGuard) callWasmFunction(funcName string, inputJSON []byte) ([]byte,
 	}
 
 	// Use last 2MB for buffers
-	outputPtr := uint32(memSize - 2*1024*1024)
+	outputPtr := memSize - 2*1024*1024
 	outputSize := uint32(1024 * 1024)
-	inputPtr := uint32(memSize - 1*1024*1024)
+	inputPtr := memSize - 1*1024*1024
 
 	if uint32(len(inputJSON)) > 1024*1024 {
 		return nil, fmt.Errorf("input too large: %d bytes", len(inputJSON))
