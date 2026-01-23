@@ -4,26 +4,55 @@ This is a sample DIFC guard written in Go that compiles to WebAssembly (WASM).
 
 ## Requirements and Limitations
 
-### TinyGo Requirement
+### TinyGo + Go 1.23 Requirement
 
 **TinyGo is required** for proper WASM function exports. Standard Go's `wasip1` target does not support the `//export` directive needed for guard functions.
 
-**Current Limitation**: TinyGo 0.34 supports Go 1.19-1.23, but this project uses Go 1.25. 
+**Version Compatibility**:
+- **Gateway**: Go 1.25 (current project version)
+- **Guards**: Go 1.23 (for TinyGo compatibility)
+- **TinyGo**: 0.34+ (supports Go 1.19-1.23)
 
-**Workarounds**:
-1. Wait for TinyGo to support Go 1.25 (check https://github.com/tinygo-org/tinygo/releases)
-2. Use a separate Go 1.23 installation for guard compilation only
-3. The framework is implemented and ready - guard compilation is the only blocker
+**Key insight**: WASM is version-independent! A guard compiled with Go 1.23 works perfectly with a gateway compiled with Go 1.25. The gateway and guard communicate only through:
+- JSON data in linear memory
+- Function calls via exported symbols
+
+There is no Go version coupling between the gateway and guards.
+
+### Setup
+
+**For Gateway Development** (Go 1.25):
+```bash
+# Already installed - use for gateway
+go version  # Should show go1.25
+```
+
+**For Guard Development** (Go 1.23):
+```bash
+# Install Go 1.23 alongside Go 1.25
+go install golang.org/dl/go1.23@latest
+go1.23 download
+
+# Install TinyGo
+# See: https://tinygo.org/getting-started/install/
+curl -sSfL https://github.com/tinygo-org/tinygo/releases/download/v0.34.0/tinygo_0.34.0_amd64.deb
+sudo dpkg -i tinygo_0.34.0_amd64.deb
+```
 
 ### Building
 
+To compile this guard to WASM using TinyGo with Go 1.23:
+
+```bash
+# Set GOROOT to use Go 1.23
+export GOROOT=$(go1.23 env GOROOT)
+tinygo build -o guard.wasm -target=wasi main.go
+```
+
+Or use the Makefile (tries Go 1.23 automatically):
 ```bash
 make build
 ```
-
-The Makefile will:
-1. Try to build with TinyGo (required for working guards)
-2. Fall back to standard Go if TinyGo fails (produces non-functional WASM for testing structure only)
 
 ## Overview
 
