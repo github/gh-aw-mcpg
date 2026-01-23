@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/githubnext/gh-aw-mcpg/internal/config"
@@ -70,7 +71,38 @@ func isTinyGoAvailable() bool {
 	return cmd.Run() == nil
 }
 
-// buildWasmGuard builds the sample guard with TinyGo if available
+// isGo123Available checks if Go 1.23 is available for guard compilation
+func isGo123Available() bool {
+	// Check common Go 1.23 binary names
+	binaries := []string{"go1.23", "go1.23.9", "go1.23.10", "go1.23.8"}
+	for _, bin := range binaries {
+		cmd := exec.Command(bin, "version")
+		if cmd.Run() == nil {
+			return true
+		}
+	}
+
+	// Check if regular go is version 1.23
+	cmd := exec.Command("go", "version")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(output), "go1.23")
+}
+
+// getGo123Binary returns the command to use for Go 1.23
+func getGo123Binary() string {
+	binaries := []string{"go1.23", "go1.23.9", "go1.23.10", "go1.23.8"}
+	for _, bin := range binaries {
+		if _, err := exec.LookPath(bin); err == nil {
+			return bin
+		}
+	}
+	return ""
+}
+
+// buildWasmGuard builds the sample guard with TinyGo + Go 1.23 if available
 func buildWasmGuard(t *testing.T) string {
 	guardDir := filepath.Join("..", "..", "examples", "guards", "sample-guard")
 	wasmFile := filepath.Join(guardDir, "guard.wasm")
@@ -79,7 +111,31 @@ func buildWasmGuard(t *testing.T) string {
 	os.Remove(wasmFile)
 
 	// Try to compile with TinyGo first
+	// TinyGo needs Go 1.23 for compatibility (doesn't support Go 1.25 yet)
 	if isTinyGoAvailable() {
+		// Try with Go 1.23 if available
+		go123 := getGo123Binary()
+		if go123 != "" {
+			t.Logf("Found Go 1.23: %s", go123)
+			cmd := exec.Command("tinygo", "build", "-o", "guard.wasm", "-target=wasi", "main.go")
+			cmd.Dir = guardDir
+			// Set GOROOT to use Go 1.23
+			goRootCmd := exec.Command(go123, "env", "GOROOT")
+			goRootBytes, err := goRootCmd.Output()
+			if err == nil {
+				cmd.Env = append(os.Environ(), "GOROOT="+strings.TrimSpace(string(goRootBytes)))
+				output, err := cmd.CombinedOutput()
+				if err == nil {
+					t.Logf("✓ Successfully built guard with TinyGo using %s", go123)
+					return wasmFile
+				}
+				t.Logf("TinyGo build with %s failed: %s", go123, output)
+			}
+		} else {
+			t.Log("Go 1.23 not found - install with: go install golang.org/dl/go1.23.9@latest && go1.23.9 download")
+		}
+
+		// Try with default Go version
 		cmd := exec.Command("tinygo", "build", "-o", "guard.wasm", "-target=wasi", "main.go")
 		cmd.Dir = guardDir
 		output, err := cmd.CombinedOutput()
@@ -87,7 +143,7 @@ func buildWasmGuard(t *testing.T) string {
 			t.Log("Successfully built guard with TinyGo")
 			return wasmFile
 		}
-		t.Logf("TinyGo build failed (may not support Go 1.25): %s", output)
+		t.Logf("TinyGo build failed (may not support current Go version): %s", output)
 	}
 
 	// Fall back to standard Go (won't work but useful for testing error handling)
