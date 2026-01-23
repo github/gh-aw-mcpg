@@ -71,26 +71,6 @@ func isTinyGoAvailable() bool {
 	return cmd.Run() == nil
 }
 
-// isGo123Available checks if Go 1.23 is available for guard compilation
-func isGo123Available() bool {
-	// Check common Go 1.23 binary names
-	binaries := []string{"go1.23", "go1.23.9", "go1.23.10", "go1.23.8"}
-	for _, bin := range binaries {
-		cmd := exec.Command(bin, "version")
-		if cmd.Run() == nil {
-			return true
-		}
-	}
-
-	// Check if regular go is version 1.23
-	cmd := exec.Command("go", "version")
-	output, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	return strings.Contains(string(output), "go1.23")
-}
-
 // getGo123Binary returns the command to use for Go 1.23
 func getGo123Binary() string {
 	binaries := []string{"go1.23", "go1.23.9", "go1.23.10", "go1.23.8"}
