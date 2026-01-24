@@ -1,0 +1,33 @@
+# Echo Guard Demo Configuration
+# This config runs GitHub MCP server with the echo guard to see all tool calls
+
+[gateway]
+port = 8000
+api_key = "demo-key-12345"
+
+# Define the echo guard
+[guards.echo]
+type = "wasm"
+path = "./examples/guards/echo-guard/guard.wasm"
+
+# GitHub MCP server with echo guard attached
+[servers.github]
+command = "docker"
+args = [
+    "run", "--rm", "-i",
+    "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+    "-e", "NO_COLOR=1", "-e", "TERM=dumb",
+    "ghcr.io/github/github-mcp-server:latest"
+]
+guard = "echo"
+
+# Also add fetch for testing without GitHub token
+[servers.fetch]
+command = "docker"
+args = [
+    "run", "--rm", "-i",
+    "-e", "NO_COLOR=1", "-e", "TERM=dumb",
+    "-e", "PYTHONUNBUFFERED=1",
+    "mcp/fetch"
+]
+guard = "echo"

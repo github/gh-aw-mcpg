@@ -1,0 +1,23 @@
+# Codex config for Echo Guard Demo
+# This connects Codex to the gateway running the echo guard
+
+model = "gpt-5.1-codex-max"
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "high"
+
+[mcp_servers.github]
+url = "http://127.0.0.1:8000/mcp/github"
+transport = "streamablehttp"
+tool_timeout_sec = 120000
+startup_timeout_ms = 180000
+bearer_token_env_var = "AGENT_ID"
+
+[mcp_servers.fetch]
+url = "http://127.0.0.1:8000/mcp/fetch"
+transport = "streamablehttp"
+tool_timeout_sec = 120000
+startup_timeout_ms = 180000
+bearer_token_env_var = "AGENT_ID"
+
+[projects."/workspace/"]
+trust_level="trusted"
