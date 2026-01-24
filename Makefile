@@ -1,4 +1,4 @@
-.PHONY: build lint test test-unit test-integration test-all test-serena test-serena-gateway coverage test-ci format clean install release help agent-finished
+.PHONY: build lint test test-unit test-integration test-all test-serena test-serena-gateway coverage test-ci format clean install release help agent-finished echo-guard-demo echo-guard-build echo-guard-test
 
 # Default target
 .DEFAULT_GOAL := help
@@ -261,4 +261,25 @@ help:
 	@echo "  install         - Install required toolchains and dependencies"
 	@echo "  release         - Create and push a release tag (usage: make release patch|minor|major)"
 	@echo "  agent-finished  - Run format, build, lint, and all tests (for agents before completion)"
+	@echo "  echo-guard-demo - Run interactive echo guard demo (shows guard I/O)"
+	@echo "  echo-guard-build - Build the echo guard WASM file"
+	@echo "  echo-guard-test - Run echo guard integration tests"
 	@echo "  help            - Display this help message"
+
+# Echo Guard Demo targets
+echo-guard-demo:
+	@echo ""
+	@echo "╔═══════════════════════════════════════════════════════════════╗"
+	@echo "║              ECHO GUARD DEMO                                  ║"
+	@echo "║  Demonstrates guard I/O for debugging guard implementations   ║"
+	@echo "╚═══════════════════════════════════════════════════════════════╝"
+	@echo ""
+	@./scripts/echo-guard-demo.sh all
+
+echo-guard-build:
+	@echo "Building echo guard WASM..."
+	@./scripts/echo-guard-demo.sh build
+
+echo-guard-test:
+	@echo "Running echo guard tests..."
+	@go test -v -run "TestEchoGuard" ./test/integration/...
