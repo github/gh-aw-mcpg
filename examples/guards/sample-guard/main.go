@@ -80,26 +80,47 @@ func labelResource(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 		output.Operation = "read-write"
 		output.Resource.Integrity = []string{"maintainer"}
 
-	case "list_issues", "get_issue", "list_pull_requests":
+	case "list_issues", "list_pull_requests":
 		output.Operation = "read"
+		// Label based on repository visibility
+		labelByRepoVisibility(&output, req.ToolArgs)
 
-		// Call backend to check repository visibility
-		// This demonstrates calling the backend from within the WASM guard
+	case "get_issue":
+		output.Operation = "read"
+		// Label based on repository visibility first
+		labelByRepoVisibility(&output, req.ToolArgs)
+
+		// Use tool arguments to get issue-specific information
+		// ToolArgs contains: owner, repo, issue_number
 		if owner, ok := req.ToolArgs["owner"].(string); ok {
 			if repo, ok := req.ToolArgs["repo"].(string); ok {
-				// Call the backend via host function
-				repoInfo, err := callBackendHelper("search_repositories", map[string]interface{}{
-					"query": fmt.Sprintf("repo:%s/%s", owner, repo),
-				})
+				if issueNum, ok := req.ToolArgs["issue_number"].(float64); ok {
+					// Call backend to get issue details for labeling
+					issueInfo, err := callBackendHelper("get_issue", map[string]interface{}{
+						"owner":        owner,
+						"repo":         repo,
+						"issue_number": int(issueNum),
+					})
 
-				if err == nil {
-					// Check if repository is private
-					if repoData, ok := repoInfo.(map[string]interface{}); ok {
-						if items, ok := repoData["items"].([]interface{}); ok && len(items) > 0 {
-							if firstItem, ok := items[0].(map[string]interface{}); ok {
-								if private, ok := firstItem["private"].(bool); ok && private {
-									// Repository is private
-									output.Resource.Secrecy = []string{"repo_private"}
+					if err == nil {
+						if issueData, ok := issueInfo.(map[string]interface{}); ok {
+							// Label based on issue author
+							if user, ok := issueData["user"].(map[string]interface{}); ok {
+								if login, ok := user["login"].(string); ok {
+									output.Resource.Description = fmt.Sprintf("issue:%s/%s#%d by %s", owner, repo, int(issueNum), login)
+								}
+							}
+
+							// Check for sensitive labels
+							if labels, ok := issueData["labels"].([]interface{}); ok {
+								for _, label := range labels {
+									if labelData, ok := label.(map[string]interface{}); ok {
+										if name, ok := labelData["name"].(string); ok {
+											if name == "security" || name == "confidential" {
+												output.Resource.Secrecy = []string{"repo_private", "sensitive"}
+											}
+										}
+									}
 								}
 							}
 						}
@@ -142,6 +163,31 @@ func labelResponse(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 }
 
 // Helper functions
+
+// labelByRepoVisibility checks repository visibility and updates secrecy labels
+func labelByRepoVisibility(output *LabelResourceOutput, toolArgs map[string]interface{}) {
+	if owner, ok := toolArgs["owner"].(string); ok {
+		if repo, ok := toolArgs["repo"].(string); ok {
+			// Call the backend via host function to check visibility
+			repoInfo, err := callBackendHelper("search_repositories", map[string]interface{}{
+				"query": fmt.Sprintf("repo:%s/%s", owner, repo),
+			})
+
+			if err == nil {
+				// Check if repository is private
+				if repoData, ok := repoInfo.(map[string]interface{}); ok {
+					if items, ok := repoData["items"].([]interface{}); ok && len(items) > 0 {
+						if firstItem, ok := items[0].(map[string]interface{}); ok {
+							if private, ok := firstItem["private"].(bool); ok && private {
+								output.Resource.Secrecy = []string{"repo_private"}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
 
 func readBytes(ptr, length uint32) []byte {
 	return unsafe.Slice((*byte)(unsafe.Pointer(uintptr(ptr))), length)

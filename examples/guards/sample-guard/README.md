@@ -2,6 +2,8 @@
 
 This is a sample DIFC guard written in Go that compiles to WebAssembly (WASM).
 
+> **Tip**: For simpler guard development, use the [Guard SDK](../guardsdk/README.md) which handles memory management and JSON marshaling for you. See [guardsdk/example](../guardsdk/example/) for a simplified version of this guard.
+
 ## Requirements and Limitations
 
 ### TinyGo + Go 1.23 Requirement
