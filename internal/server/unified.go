@@ -566,8 +566,24 @@ func (us *UnifiedServer) registerGuard(serverID string, cfg *config.Config) {
 			ctx:      us.ctx,
 		}
 
-		// Create WASM guard
-		wasmGuard, err := guard.NewWasmGuard(us.ctx, guardID, guardCfg.Path, backendCaller)
+		// Load WASM guard from path or URL
+		loadCfg := guard.LoaderConfig{
+			Path:     guardCfg.Path,
+			URL:      guardCfg.URL,
+			SHA256:   guardCfg.SHA256,
+			CacheDir: guardCfg.CacheDir,
+		}
+
+		loadResult, err := guard.Load(us.ctx, loadCfg)
+		if err != nil {
+			log.Printf("[DIFC] Failed to load WASM guard '%s': %v, using noop guard", guardID, err)
+			g := guard.NewNoopGuard()
+			us.guardRegistry.Register(serverID, g)
+			return
+		}
+
+		// Create WASM guard from loaded bytes
+		wasmGuard, err := guard.NewWasmGuardFromBytes(us.ctx, guardID, loadResult.WASMBytes, backendCaller)
 		if err != nil {
 			log.Printf("[DIFC] Failed to create WASM guard '%s': %v, using noop guard", guardID, err)
 			g := guard.NewNoopGuard()
@@ -576,7 +592,11 @@ func (us *UnifiedServer) registerGuard(serverID string, cfg *config.Config) {
 		}
 
 		us.guardRegistry.Register(serverID, wasmGuard)
-		log.Printf("[DIFC] Registered WASM guard '%s' for server '%s' (path: %s)", guardID, serverID, guardCfg.Path)
+		if guardCfg.URL != "" {
+			log.Printf("[DIFC] Registered WASM guard '%s' for server '%s' (url: %s, source: %s)", guardID, serverID, guardCfg.URL, loadResult.Source)
+		} else {
+			log.Printf("[DIFC] Registered WASM guard '%s' for server '%s' (path: %s)", guardID, serverID, guardCfg.Path)
+		}
 
 	default:
 		log.Printf("[DIFC] Warning: unsupported guard type '%s' for guard '%s', using noop guard", guardCfg.Type, guardID)

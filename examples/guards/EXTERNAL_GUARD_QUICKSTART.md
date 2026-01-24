@@ -106,15 +106,19 @@ EOF
 cat > Makefile << 'EOF'
 .PHONY: build clean
 
+GO123 := $(HOME)/go/bin/go1.23.4
+
 build:
-	@echo "Building WASM guard with TinyGo + Go 1.23..."
-	@for go_bin in go1.23 go1.23.9 go1.23.10; do \
-		if command -v $$go_bin >/dev/null 2>&1; then \
-			GOROOT=$$($$go_bin env GOROOT) tinygo build -o guard.wasm -target=wasi main.go && \
-			echo "✓ Built with $$go_bin" && exit 0; \
-		fi; \
-	done; \
-	echo "Error: Go 1.23 required. Install: go install golang.org/dl/go1.23.9@latest && go1.23.9 download"
+	@echo "Building WASM guard with TinyGo + Go 1.23.4..."
+	@if [ -x "$(GO123)" ]; then \
+		export GOROOT=$$($(GO123) env GOROOT) && \
+		tinygo build -o guard.wasm -target=wasi main.go && \
+		echo "✓ Built guard.wasm"; \
+	else \
+		echo "Error: Go 1.23.4 required."; \
+		echo "Install: go install golang.org/dl/go1.23.4@latest && ~/go/bin/go1.23.4 download"; \
+		exit 1; \
+	fi
 
 clean:
 	rm -f guard.wasm
@@ -129,8 +133,8 @@ Custom DIFC guard for MCP Gateway.
 ## Build
 
 Requires:
-- Go 1.23: `go install golang.org/dl/go1.23.9@latest && go1.23.9 download`
-- TinyGo 0.34+: https://tinygo.org
+- Go 1.23.4: `go install golang.org/dl/go1.23.4@latest && ~/go/bin/go1.23.4 download`
+- TinyGo 0.34+: https://tinygo.org/getting-started/install/
 
 Build: `make build`
 EOF
@@ -139,12 +143,16 @@ EOF
 ### Step 3: Build Guard
 
 ```bash
-# Install Go 1.23 (if not already installed)
-go install golang.org/dl/go1.23.9@latest
-go1.23.9 download
+# Install Go 1.23.4 (if not already installed)
+go install golang.org/dl/go1.23.4@latest
+~/go/bin/go1.23.4 download
+
+# Verify Go 1.23.4 is installed
+~/go/bin/go1.23.4 version  # Should show go1.23.4
 
 # Install TinyGo (if not already installed)
-# See: https://tinygo.org/getting-started/install/
+# macOS: brew tap tinygo-org/tools && brew install tinygo
+# Linux: See https://tinygo.org/getting-started/install/
 
 # Build the guard
 make build
@@ -205,10 +213,25 @@ guard = "myguard"
 [guards.myguard]
 type = "wasm"
 url = "https://github.com/my-org/my-difc-guard/releases/download/v1.0.0/guard.wasm"
-sha256 = "abc123..."  # Optional but recommended for security
+sha256 = "abc123..."  # Required for URL-based loading
+cache_dir = "/var/cache/mcp-guards"  # Optional, defaults to system temp
 ```
 
-**Note**: The `url` field is not yet implemented in the current framework. See "Future Enhancement" section below.
+**JSON Configuration** (for stdin):
+```json
+{
+  "guards": {
+    "myguard": {
+      "type": "wasm",
+      "url": "https://github.com/my-org/my-difc-guard/releases/download/v1.0.0/guard.wasm",
+      "sha256": "abc123...",
+      "cacheDir": "/var/cache/mcp-guards"
+    }
+  }
+}
+```
+
+**Private Repository Access**: Set the `GITHUB_TOKEN` environment variable to download guards from private GitHub repositories.
 
 ## Security Best Practices
 
@@ -305,39 +328,6 @@ EOF
 ./awmg --config test-config.toml
 ```
 
-## Future Enhancement: URL Loading
-
-The framework currently supports local `path` but not remote `url` loading. To add URL support:
-
-**Proposed configuration**:
-```toml
-[guards.myguard]
-type = "wasm"
-url = "https://github.com/my-org/my-difc-guard/releases/download/v1.0.0/guard.wasm"
-sha256 = "expected_checksum"  # Required for URL loading
-cache_dir = "/var/cache/mcp-guards"  # Optional cache location
-```
-
-**Implementation would include**:
-1. HTTP client to download WASM from URL
-2. SHA256 verification (required for security)
-3. Local caching to avoid repeated downloads
-4. Support for GitHub authentication (`GITHUB_TOKEN` env var)
-5. Retry logic for network failures
-
-**Workaround until implemented**:
-```bash
-# Download guard in deployment script
-wget https://github.com/my-org/my-difc-guard/releases/download/v1.0.0/guard.wasm \
-  -O /var/lib/mcp-guards/myguard.wasm
-
-# Verify checksum
-echo "expected_sha256  /var/lib/mcp-guards/myguard.wasm" | sha256sum -c -
-
-# Reference local path in config
-# path = "/var/lib/mcp-guards/myguard.wasm"
-```
-
 ## Example: Complete Guard Repository
 
 See the sample guard in the main repository:
@@ -353,10 +343,10 @@ make build   # Build the guard
 ## Troubleshooting
 
 ### Build fails with "requires go version 1.19 through 1.23"
-**Solution**: Install Go 1.23 specifically for guard compilation:
+**Solution**: Install Go 1.23.4 specifically for guard compilation:
 ```bash
-go install golang.org/dl/go1.23.9@latest
-go1.23.9 download
+go install golang.org/dl/go1.23.4@latest
+~/go/bin/go1.23.4 download
 ```
 
 ### TinyGo not found

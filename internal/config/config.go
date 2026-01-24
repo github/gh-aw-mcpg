@@ -61,8 +61,11 @@ type ServerConfig struct {
 
 // GuardConfig represents a DIFC guard configuration (experimental)
 type GuardConfig struct {
-	Type string `toml:"type"` // "wasm" for WebAssembly guards
-	Path string `toml:"path"` // Path to WASM file
+	Type     string `toml:"type"`      // "wasm" for WebAssembly guards
+	Path     string `toml:"path"`      // Path to WASM file (mutually exclusive with URL)
+	URL      string `toml:"url"`       // URL to download WASM file from (mutually exclusive with Path)
+	SHA256   string `toml:"sha256"`    // SHA256 checksum for URL downloads (required when URL is set)
+	CacheDir string `toml:"cache_dir"` // Directory to cache downloaded WASM files (optional, defaults to system temp)
 }
 
 // StdinConfig represents JSON configuration from stdin
@@ -91,8 +94,11 @@ type StdinServerConfig struct {
 
 // StdinGuardConfig represents a DIFC guard configuration from stdin JSON (experimental)
 type StdinGuardConfig struct {
-	Type string `json:"type"` // "wasm" for WebAssembly guards
-	Path string `json:"path"` // Path to WASM file
+	Type     string `json:"type"`               // "wasm" for WebAssembly guards
+	Path     string `json:"path,omitempty"`     // Path to WASM file (mutually exclusive with URL)
+	URL      string `json:"url,omitempty"`      // URL to download WASM file from (mutually exclusive with Path)
+	SHA256   string `json:"sha256,omitempty"`   // SHA256 checksum for URL downloads (required when URL is set)
+	CacheDir string `json:"cacheDir,omitempty"` // Directory to cache downloaded WASM files (optional)
 }
 
 // StdinGatewayConfig represents gateway configuration from stdin JSON
@@ -335,19 +341,40 @@ func LoadFromStdin() (*Config, error) {
 				return nil, fmt.Errorf("guard '%s': unsupported type '%s' (only 'wasm' is supported)", name, guard.Type)
 			}
 
-			// Validate path
-			if guard.Path == "" {
-				return nil, fmt.Errorf("guard '%s': path is required for wasm guards", name)
+			// Validate path/URL - must have exactly one
+			hasPath := guard.Path != ""
+			hasURL := guard.URL != ""
+
+			if !hasPath && !hasURL {
+				return nil, fmt.Errorf("guard '%s': either path or url is required for wasm guards", name)
+			}
+			if hasPath && hasURL {
+				return nil, fmt.Errorf("guard '%s': path and url are mutually exclusive", name)
 			}
 
-			// Expand path (support ${VAR} syntax)
-			expandedPath := os.ExpandEnv(guard.Path)
-
-			cfg.Guards[name] = &GuardConfig{
-				Type: guard.Type,
-				Path: expandedPath,
+			// Validate SHA256 is required for URL
+			if hasURL && guard.SHA256 == "" {
+				return nil, fmt.Errorf("guard '%s': sha256 is required when using url", name)
 			}
-			logConfig.Printf("Configured WASM guard: name=%s, path=%s", name, expandedPath)
+
+			// Build guard config
+			guardCfg := &GuardConfig{
+				Type:     guard.Type,
+				SHA256:   guard.SHA256,
+				CacheDir: os.ExpandEnv(guard.CacheDir),
+			}
+
+			if hasPath {
+				// Expand path (support ${VAR} syntax)
+				guardCfg.Path = os.ExpandEnv(guard.Path)
+				logConfig.Printf("Configured WASM guard: name=%s, path=%s", name, guardCfg.Path)
+			} else {
+				// Expand URL (support ${VAR} syntax for tokens, etc.)
+				guardCfg.URL = os.ExpandEnv(guard.URL)
+				logConfig.Printf("Configured WASM guard: name=%s, url=%s, sha256=%s", name, guardCfg.URL, guardCfg.SHA256)
+			}
+
+			cfg.Guards[name] = guardCfg
 		}
 	}
 

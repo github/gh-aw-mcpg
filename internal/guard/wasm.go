@@ -38,6 +38,14 @@ func NewWasmGuard(ctx context.Context, name string, wasmPath string, backend Bac
 		return nil, fmt.Errorf("failed to read WASM file: %w", err)
 	}
 
+	return NewWasmGuardFromBytes(ctx, name, wasmBytes, backend)
+}
+
+// NewWasmGuardFromBytes creates a new WASM guard from WASM binary bytes
+// This is useful when loading guards from URLs or other sources
+func NewWasmGuardFromBytes(ctx context.Context, name string, wasmBytes []byte, backend BackendCaller) (*WasmGuard, error) {
+	logWasm.Printf("Creating WASM guard from bytes: name=%s, size=%d", name, len(wasmBytes))
+
 	// Create WASM runtime
 	runtime := wazero.NewRuntime(ctx)
 
