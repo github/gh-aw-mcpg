@@ -1,3 +1,5 @@
+//go:build tinygo.wasm || wasm
+
 // Package guardsdk provides utilities for building WASM guards for MCP Gateway.
 //
 // This SDK simplifies guard development by handling:

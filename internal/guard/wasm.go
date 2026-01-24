@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/githubnext/gh-aw-mcpg/internal/difc"
@@ -14,6 +15,14 @@ import (
 )
 
 var logWasm = logger.New("guard:wasm")
+
+// WasmGuardOptions configures optional settings for WASM guard creation
+type WasmGuardOptions struct {
+	// Stdout is the writer for WASM stdout output. Defaults to os.Stdout if nil.
+	Stdout io.Writer
+	// Stderr is the writer for WASM stderr output. Defaults to os.Stderr if nil.
+	Stderr io.Writer
+}
 
 // WasmGuard implements Guard interface by executing a WASM module in-process
 // The WASM module runs sandboxed within the gateway using wazero runtime
@@ -44,6 +53,12 @@ func NewWasmGuard(ctx context.Context, name string, wasmPath string, backend Bac
 // NewWasmGuardFromBytes creates a new WASM guard from WASM binary bytes
 // This is useful when loading guards from URLs or other sources
 func NewWasmGuardFromBytes(ctx context.Context, name string, wasmBytes []byte, backend BackendCaller) (*WasmGuard, error) {
+	return NewWasmGuardWithOptions(ctx, name, wasmBytes, backend, nil)
+}
+
+// NewWasmGuardWithOptions creates a new WASM guard from WASM binary bytes with custom options
+// Options can be nil to use defaults (stdout/stderr go to os.Stdout/os.Stderr)
+func NewWasmGuardWithOptions(ctx context.Context, name string, wasmBytes []byte, backend BackendCaller, opts *WasmGuardOptions) (*WasmGuard, error) {
 	logWasm.Printf("Creating WASM guard from bytes: name=%s, size=%d", name, len(wasmBytes))
 
 	// Create WASM runtime
@@ -68,9 +83,19 @@ func NewWasmGuardFromBytes(ctx context.Context, name string, wasmBytes []byte, b
 		return nil, fmt.Errorf("failed to instantiate host functions: %w", err)
 	}
 
+	// Configure module options with stdout/stderr
+	moduleConfig := wazero.NewModuleConfig().WithName("guard").WithStartFunctions()
+	if opts != nil {
+		if opts.Stdout != nil {
+			moduleConfig = moduleConfig.WithStdout(opts.Stdout)
+		}
+		if opts.Stderr != nil {
+			moduleConfig = moduleConfig.WithStderr(opts.Stderr)
+		}
+	}
+
 	// Compile and instantiate the WASM module
-	module, err := runtime.InstantiateWithConfig(ctx, wasmBytes,
-		wazero.NewModuleConfig().WithName("guard").WithStartFunctions())
+	module, err := runtime.InstantiateWithConfig(ctx, wasmBytes, moduleConfig)
 	if err != nil {
 		runtime.Close(ctx)
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
