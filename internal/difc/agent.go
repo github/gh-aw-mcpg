@@ -3,7 +3,11 @@ package difc
 import (
 	"log"
 	"sync"
+
+	"github.com/githubnext/gh-aw-mcpg/internal/logger"
 )
+
+var logAgent = logger.New("difc:agent")
 
 // AgentLabels associates each agent with their DIFC labels
 // Tracks what secrecy and integrity tags an agent has accumulated
@@ -16,6 +20,7 @@ type AgentLabels struct {
 
 // NewAgentLabels creates a new agent with empty labels
 func NewAgentLabels(agentID string) *AgentLabels {
+	logAgent.Printf("Creating new agent with empty labels: agentID=%s", agentID)
 	return &AgentLabels{
 		AgentID:   agentID,
 		Secrecy:   NewSecrecyLabel(),
@@ -25,6 +30,7 @@ func NewAgentLabels(agentID string) *AgentLabels {
 
 // NewAgentLabelsWithTags creates a new agent with initial tags
 func NewAgentLabelsWithTags(agentID string, secrecyTags []Tag, integrityTags []Tag) *AgentLabels {
+	logAgent.Printf("Creating new agent with initial tags: agentID=%s, secrecyTags=%v, integrityTags=%v", agentID, secrecyTags, integrityTags)
 	return &AgentLabels{
 		AgentID:   agentID,
 		Secrecy:   NewSecrecyLabelWithTags(secrecyTags),
@@ -62,6 +68,8 @@ func (a *AgentLabels) DropIntegrityTag(tag Tag) {
 func (a *AgentLabels) AccumulateFromRead(resource *LabeledResource) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
+	logAgent.Printf("Agent accumulating labels from read: agentID=%s", a.AgentID)
 
 	// Gain secrecy tags from the data we read
 	if resource.Secrecy.Label != nil && !resource.Secrecy.Label.IsEmpty() {
@@ -136,6 +144,7 @@ func (r *AgentRegistry) GetOrCreate(agentID string) *AgentLabels {
 	r.mu.RLock()
 	if labels, ok := r.agents[agentID]; ok {
 		r.mu.RUnlock()
+		logAgent.Printf("Retrieved existing agent from registry: agentID=%s", agentID)
 		return labels
 	}
 	r.mu.RUnlock()
@@ -148,6 +157,8 @@ func (r *AgentRegistry) GetOrCreate(agentID string) *AgentLabels {
 	if labels, ok := r.agents[agentID]; ok {
 		return labels
 	}
+
+	logAgent.Printf("Creating new agent in registry: agentID=%s, defaultSecrecy=%v, defaultIntegrity=%v", agentID, r.defaultSecrecy, r.defaultIntegrity)
 
 	// Initialize new agent with default labels
 	labels := NewAgentLabelsWithTags(agentID, r.defaultSecrecy, r.defaultIntegrity)
@@ -172,6 +183,8 @@ func (r *AgentRegistry) Register(agentID string, secrecyTags []Tag, integrityTag
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	logAgent.Printf("Registering agent in registry: agentID=%s, secrecyTags=%v, integrityTags=%v", agentID, secrecyTags, integrityTags)
+
 	labels := NewAgentLabelsWithTags(agentID, secrecyTags, integrityTags)
 	r.agents[agentID] = labels
 
@@ -185,6 +198,7 @@ func (r *AgentRegistry) Register(agentID string, secrecyTags []Tag, integrityTag
 func (r *AgentRegistry) Remove(agentID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	logAgent.Printf("Removing agent from registry: agentID=%s", agentID)
 	delete(r.agents, agentID)
 	log.Printf("[DIFC] Removed agent: %s", agentID)
 }
