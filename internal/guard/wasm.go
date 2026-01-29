@@ -331,10 +331,14 @@ func (g *WasmGuard) LabelResponse(ctx context.Context, toolName string, result i
 	// Update backend caller for this request
 	g.backend = backend
 
-	// Prepare input
+	// Extract the actual response from MCP wrapper if present
+	// MCP responses are wrapped as: {"content":[{"type":"text","text":"{...actual JSON...}"}]}
+	unwrappedResult, wasMCPWrapped := unwrapMCPResponse(result)
+
+	// Prepare input with unwrapped result
 	input := map[string]interface{}{
 		"tool_name":   toolName,
-		"tool_result": result,
+		"tool_result": unwrappedResult, // Pass unwrapped data to guard
 	}
 	if caps != nil {
 		input["capabilities"] = caps
@@ -364,16 +368,75 @@ func (g *WasmGuard) LabelResponse(ctx context.Context, toolName string, result i
 
 	// Check for path-based labeling format (preferred, more efficient)
 	if _, hasLabeledPaths := responseMap["labeled_paths"]; hasLabeledPaths {
-		return parsePathLabeledResponse(resultJSON, result)
+		labeledData, err := parsePathLabeledResponse(resultJSON, unwrappedResult)
+		if err != nil {
+			return nil, err
+		}
+		// Store MCP wrapper for rewrapping if needed
+		if wasMCPWrapped {
+			if collection, ok := labeledData.(*difc.CollectionLabeledData); ok {
+				collection.SetMCPWrapper(result)
+			}
+		}
+		return labeledData, nil
 	}
 
 	// Legacy format: check if it's a collection with "items"
 	if items, ok := responseMap["items"].([]interface{}); ok && len(items) > 0 {
-		return parseCollectionLabeledData(items)
+		collection, err := parseCollectionLabeledData(items)
+		if err != nil {
+			return nil, err
+		}
+		// Store MCP wrapper for rewrapping if needed
+		if wasMCPWrapped {
+			collection.SetMCPWrapper(result)
+		}
+		return collection, nil
 	}
 
 	// No fine-grained labeling
 	return nil, nil
+}
+
+// unwrapMCPResponse extracts the actual JSON from MCP content wrapper
+// MCP responses are wrapped as: {"content":[{"type":"text","text":"{...actual JSON...}"}]}
+// Returns (unwrapped data, true) if MCP wrapped, or (original, false) if not
+func unwrapMCPResponse(result interface{}) (interface{}, bool) {
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		return result, false
+	}
+
+	content, ok := resultMap["content"].([]interface{})
+	if !ok || len(content) == 0 {
+		return result, false
+	}
+
+	firstContent, ok := content[0].(map[string]interface{})
+	if !ok {
+		return result, false
+	}
+
+	// Check if this is a text content type
+	contentType, _ := firstContent["type"].(string)
+	if contentType != "text" {
+		return result, false
+	}
+
+	textStr, ok := firstContent["text"].(string)
+	if !ok {
+		return result, false
+	}
+
+	// Parse the JSON string inside text
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(textStr), &parsed); err != nil {
+		// Not valid JSON inside text, return original
+		return result, false
+	}
+
+	logWasm.Printf("Unwrapped MCP response for guard processing")
+	return parsed, true
 }
 
 // parsePathLabeledResponse parses the new path-based labeling format

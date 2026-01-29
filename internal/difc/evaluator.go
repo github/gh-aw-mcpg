@@ -254,6 +254,7 @@ func (e *Evaluator) FilterCollection(
 		Filtered:     []LabeledItem{},
 		TotalCount:   len(collection.Items),
 		FilterReason: "DIFC policy",
+		mcpWrapper:   collection.mcpWrapper, // Propagate MCP wrapper for rewrapping
 	}
 
 	for _, item := range collection.Items {

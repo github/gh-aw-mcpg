@@ -1,5 +1,7 @@
 package difc
 
+import "encoding/json"
+
 // Resource represents an external system with label requirements (deprecated - use LabeledResource)
 type Resource struct {
 	Description string
@@ -93,12 +95,21 @@ func (s *SimpleLabeledData) ToResult() (interface{}, error) {
 // CollectionLabeledData represents a collection where each item has its own labels
 type CollectionLabeledData struct {
 	Items []LabeledItem
+
+	// mcpWrapper stores the original MCP response structure for rewrapping
+	// When the guard returns labeled items, we need to rewrap them in MCP format
+	mcpWrapper interface{}
 }
 
 // LabeledItem represents a single item in a collection with its labels
 type LabeledItem struct {
 	Data   interface{}
 	Labels *LabeledResource
+}
+
+// SetMCPWrapper stores the original MCP response structure for rewrapping
+func (c *CollectionLabeledData) SetMCPWrapper(wrapper interface{}) {
+	c.mcpWrapper = wrapper
 }
 
 func (c *CollectionLabeledData) Overall() *LabeledResource {
@@ -126,7 +137,32 @@ func (c *CollectionLabeledData) ToResult() (interface{}, error) {
 	for _, item := range c.Items {
 		result = append(result, item.Data)
 	}
+
+	// If we have an original MCP wrapper, rewrap the result
+	if c.mcpWrapper != nil {
+		return rewrapAsMCP(result)
+	}
+
 	return result, nil
+}
+
+// rewrapAsMCP wraps the items back in MCP content format
+func rewrapAsMCP(items interface{}) (map[string]interface{}, error) {
+	// Serialize the items to JSON string
+	itemsJSON, err := json.Marshal(items)
+	if err != nil {
+		return nil, err
+	}
+
+	// Reconstruct MCP format
+	return map[string]interface{}{
+		"content": []interface{}{
+			map[string]interface{}{
+				"type": "text",
+				"text": string(itemsJSON),
+			},
+		},
+	}, nil
 }
 
 // FilteredCollectionLabeledData represents a collection with some items filtered out
@@ -135,6 +171,14 @@ type FilteredCollectionLabeledData struct {
 	Filtered     []LabeledItem
 	TotalCount   int
 	FilterReason string
+
+	// mcpWrapper stores the original MCP response structure for rewrapping
+	mcpWrapper interface{}
+}
+
+// SetMCPWrapper stores the original MCP response structure for rewrapping
+func (f *FilteredCollectionLabeledData) SetMCPWrapper(wrapper interface{}) {
+	f.mcpWrapper = wrapper
 }
 
 func (f *FilteredCollectionLabeledData) Overall() *LabeledResource {
@@ -160,6 +204,12 @@ func (f *FilteredCollectionLabeledData) ToResult() (interface{}, error) {
 	for _, item := range f.Accessible {
 		result = append(result, item.Data)
 	}
+
+	// If we have an original MCP wrapper, rewrap the result
+	if f.mcpWrapper != nil {
+		return rewrapAsMCP(result)
+	}
+
 	return result, nil
 }
 
