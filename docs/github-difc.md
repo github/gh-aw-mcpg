@@ -1203,7 +1203,7 @@ The `LabelResponse` method returns one of several `LabeledData` implementations:
 **SimpleLabeledData** — Uniform labels for entire response:
 ```go
 type SimpleLabeledData struct {
-    Data   interface{}       // The response data
+    Data   interface{}       // The response data (unwrapped JSON)
     Labels *LabeledResource  // Labels for the entire response
 }
 ```
@@ -1215,7 +1215,7 @@ type CollectionLabeledData struct {
 }
 
 type LabeledItem struct {
-    Data   interface{}       // Individual item data
+    Data   interface{}       // Individual item data (unwrapped JSON)
     Labels *LabeledResource  // Labels specific to this item
 }
 ```
@@ -1229,6 +1229,88 @@ type FilteredCollectionLabeledData struct {
     FilterReason string         // Why items were filtered
 }
 ```
+
+##### 11.7.5.1 MCP Response Format Contract
+
+**Critical:** The gateway handles MCP protocol wrapping/unwrapping transparently so guards work with clean JSON data.
+
+**MCP Content Format:**
+Backend MCP servers return responses wrapped in the MCP content format:
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"items\": [{\"id\": 1, ...}, {\"id\": 2, ...}]}"
+    }
+  ]
+}
+```
+
+The `text` field contains a JSON-encoded string with the actual response data.
+
+**Gateway Responsibility (Unwrap Before Guard):**
+
+Before calling `guard.LabelResponse()`, the gateway:
+1. Detects if the response is MCP-wrapped (has `content[0].text` structure)
+2. Extracts and parses the JSON from the `text` field
+3. Passes the **unwrapped** data to the guard
+
+```go
+// Gateway unwraps before calling guard
+unwrappedData, wasMCPWrapped := unwrapMCPResponse(backendResult)
+labeledData := guard.LabelResponse(ctx, toolName, unwrappedData, ...)
+```
+
+**Guard Responsibility (Work with Clean JSON):**
+
+The guard receives **unwrapped** JSON data and returns labeled items:
+```json
+// Guard receives unwrapped data:
+{
+  "tool_name": "list_issues",
+  "tool_result": [
+    {"id": 1, "title": "Bug report", "private": false},
+    {"id": 2, "title": "Security issue", "private": true}
+  ]
+}
+
+// Guard returns labels for each item:
+{
+  "items": [
+    {"index": 0, "secrecy": [], "integrity": ["contributor:owner/repo"]},
+    {"index": 1, "secrecy": ["private:owner/repo"], "integrity": ["maintainer:owner/repo"]}
+  ]
+}
+```
+
+**Gateway Responsibility (Rewrap After Filtering):**
+
+After DIFC filtering, the gateway rewraps the result:
+1. Filters items based on agent clearance and item labels
+2. Reconstructs the MCP content format for the filtered result
+3. Returns the MCP-wrapped response to the client
+
+```go
+// After filtering, ToResult() rewraps as MCP if originally wrapped
+result, err := labeledData.ToResult()
+// Returns: {"content":[{"type":"text","text":"[{...filtered items...}]"}]}
+```
+
+**Contract Summary:**
+
+| Phase | Data Format | Responsibility |
+|-------|-------------|----------------|
+| Backend → Gateway | MCP-wrapped | Backend produces MCP format |
+| Gateway → Guard | **Unwrapped JSON** | Gateway unwraps before guard call |
+| Guard → Gateway | Labels only | Guard labels unwrapped items |
+| Gateway → Client | MCP-wrapped | Gateway rewraps after filtering |
+
+**Rationale:**
+- Guards should not need to understand MCP protocol details
+- Clean JSON makes guard implementation simpler and more testable
+- Gateway handles all protocol-level concerns transparently
+- Preserves MCP compatibility with clients expecting wrapped responses
 
 #### 11.7.6 Backend Caller Interface
 
@@ -1245,7 +1327,7 @@ For example, to label an issue, the guard might call `issue_read` to fetch the i
 
 #### 11.7.7 DIFC Enforcement Flow
 
-The gateway's reference monitor uses guards in this six-phase flow:
+The gateway's reference monitor uses guards in this seven-phase flow:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -1260,18 +1342,65 @@ The gateway's reference monitor uses guards in this six-phase flow:
 │                                                                     │
 │  Phase 3: Execute backend call (if Phase 2 allowed)                 │
 │           → Forward request to GitHub MCP server                    │
+│           → Backend returns MCP-wrapped response                    │
 │                                                                     │
-│  Phase 4: guard.LabelResponse()                                     │
+│  Phase 4: Gateway unwraps MCP response                              │
+│           → Extract JSON from {"content":[{"type":"text","text":…}]}│
+│           → Store wrapper for later rewrapping                      │
+│                                                                     │
+│  Phase 5: guard.LabelResponse(unwrapped_data)                       │
+│           → Guard receives clean JSON, not MCP format               │
 │           → Labels response data for fine-grained filtering         │
 │                                                                     │
-│  Phase 5: Reference Monitor fine-grained filtering                  │
+│  Phase 6: Reference Monitor fine-grained filtering                  │
 │           → Filter collection items based on per-item labels        │
 │           → Remove items agent cannot access                        │
+│           → Rewrap filtered result in MCP format                    │
 │                                                                     │
-│  Phase 6: Label accumulation (for reads)                            │
+│  Phase 7: Label accumulation (for reads)                            │
 │           → Taint agent with secrecy labels from accessed data      │
 │           → Enables information flow tracking across operations     │
 └─────────────────────────────────────────────────────────────────────┘
+```
+
+**Phase 4-6 Detail (MCP Unwrap/Rewrap):**
+
+```
+Backend Response (MCP-wrapped)
+     │
+     ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ {"content":[{"type":"text","text":"[{\"id\":1,...},{\"id\":2,...}]"}]} │
+└─────────────────────────────────────────────────────────────────────┘
+     │
+     │ Phase 4: Gateway unwraps
+     ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ [{"id": 1, "private": false}, {"id": 2, "private": true}]           │
+└─────────────────────────────────────────────────────────────────────┘
+     │
+     │ Phase 5: Guard labels each item
+     ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ Items[0]: secrecy=[], integrity=[contributor:owner/repo]            │
+│ Items[1]: secrecy=[private:owner/repo], integrity=[maintainer:...] │
+└─────────────────────────────────────────────────────────────────────┘
+     │
+     │ Phase 6: Filter (agent lacks private:owner/repo clearance)
+     ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ Accessible: [{"id": 1, "private": false}]                           │
+│ Filtered: [{"id": 2}] (reason: secrecy violation)                   │
+└─────────────────────────────────────────────────────────────────────┘
+     │
+     │ Rewrap in MCP format
+     ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ {"content":[{"type":"text","text":"[{\"id\":1,\"private\":false}]"}]}│
+└─────────────────────────────────────────────────────────────────────┘
+     │
+     ▼
+Client Response
 ```
 
 #### 11.7.8 GitHub Guard Implementation Requirements
@@ -1295,6 +1424,11 @@ A GitHub DIFC guard must:
 5. **Support label accumulation**:
    - Return accurate labels so the reference monitor can track information flow
    - Enables detection of cross-repository information leakage
+
+6. **Work with unwrapped JSON data** (see Section 11.7.5.1):
+   - The gateway unwraps MCP responses before calling `LabelResponse`
+   - Guards receive and label clean JSON data, not MCP-wrapped format
+   - Guards should NOT attempt to parse or produce MCP content wrappers
 
 ---
 
@@ -1522,6 +1656,8 @@ Labels a resource before the operation executes.
 
 Labels response data for fine-grained filtering.
 
+**Important:** The `result` field contains **unwrapped JSON data**, not MCP-wrapped format. The gateway extracts the actual response data from the MCP content wrapper before calling this tool (see Section 11.7.5.1).
+
 ```json
 {
   "name": "guard/label_response",
@@ -1532,6 +1668,15 @@ Labels response data for fine-grained filtering.
     "backend_id": "github"
   }
 }
+```
+
+Note: The `result` above is the unwrapped array, not the MCP format:
+```json
+// Backend returns MCP-wrapped:
+{"content":[{"type":"text","text":"[{\"number\":1,...},{\"number\":2,...}]"}]}
+
+// Gateway unwraps before calling guard/label_response:
+[{"number": 1, "title": "..."}, {"number": 2, "title": "..."}]
 ```
 
 **Response:**
