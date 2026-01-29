@@ -157,6 +157,10 @@ func fetchAndFixSchema(url string) ([]byte, error) {
 		}
 	}
 
+	// Add DIFC guard support to the schema
+	// This extends the upstream schema to support guard configuration for DIFC enforcement
+	addGuardSchemaSupport(schema)
+
 	fixedBytes, err := json.Marshal(schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal fixed schema: %w", err)
@@ -458,4 +462,92 @@ func validateStringPatterns(stdinCfg *StdinConfig) error {
 	}
 
 	return nil
+}
+
+// addGuardSchemaSupport extends the upstream schema to support DIFC guard configuration.
+// This adds:
+// 1. "guard" property to stdioServerConfig and httpServerConfig (optional string reference)
+// 2. "guards" property to the root schema (map of guard configurations)
+//
+// Guard Configuration Schema:
+//
+//	{
+//	  "guards": {
+//	    "my-guard": {
+//	      "type": "wasm",
+//	      "path": "/path/to/guard.wasm",
+//	      "url": "https://example.com/guard.wasm"  // alternative to path
+//	    }
+//	  },
+//	  "mcpServers": {
+//	    "my-server": {
+//	      "guard": "my-guard",
+//	      ...
+//	    }
+//	  }
+//	}
+func addGuardSchemaSupport(schema map[string]interface{}) {
+	// Define the guard reference property (used in server configs)
+	guardRefProperty := map[string]interface{}{
+		"type":        "string",
+		"description": "Reference to a guard defined in the guards section (requires --enable-difc)",
+	}
+
+	// Add "guard" property to stdioServerConfig and httpServerConfig
+	if definitions, ok := schema["definitions"].(map[string]interface{}); ok {
+		// Add to stdioServerConfig
+		if stdioConfig, ok := definitions["stdioServerConfig"].(map[string]interface{}); ok {
+			if properties, ok := stdioConfig["properties"].(map[string]interface{}); ok {
+				properties["guard"] = guardRefProperty
+			}
+		}
+
+		// Add to httpServerConfig
+		if httpConfig, ok := definitions["httpServerConfig"].(map[string]interface{}); ok {
+			if properties, ok := httpConfig["properties"].(map[string]interface{}); ok {
+				properties["guard"] = guardRefProperty
+			}
+		}
+
+		// Add to customServerConfig
+		if customConfig, ok := definitions["customServerConfig"].(map[string]interface{}); ok {
+			if properties, ok := customConfig["properties"].(map[string]interface{}); ok {
+				properties["guard"] = guardRefProperty
+			}
+		}
+
+		// Add guardConfig definition
+		definitions["guardConfig"] = map[string]interface{}{
+			"type":        "object",
+			"description": "WASM guard configuration for DIFC enforcement",
+			"properties": map[string]interface{}{
+				"type": map[string]interface{}{
+					"type":        "string",
+					"enum":        []string{"wasm"},
+					"description": "Guard type (currently only 'wasm' is supported)",
+				},
+				"path": map[string]interface{}{
+					"type":        "string",
+					"description": "Local file path to the WASM guard module",
+				},
+				"url": map[string]interface{}{
+					"type":        "string",
+					"pattern":     "^https?://.+",
+					"description": "URL to download the WASM guard module from",
+				},
+			},
+			"required": []string{"type"},
+		}
+	}
+
+	// Add "guards" property to root schema
+	if properties, ok := schema["properties"].(map[string]interface{}); ok {
+		properties["guards"] = map[string]interface{}{
+			"type":        "object",
+			"description": "DIFC guard definitions (requires --enable-difc flag)",
+			"additionalProperties": map[string]interface{}{
+				"$ref": "#/definitions/guardConfig",
+			},
+		}
+	}
 }
