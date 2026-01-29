@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
 	"github.com/githubnext/gh-aw-mcpg/internal/difc"
 	"github.com/githubnext/gh-aw-mcpg/internal/logger"
@@ -27,6 +28,9 @@ type WasmGuardOptions struct {
 // WasmGuard implements Guard interface by executing a WASM module in-process
 // The WASM module runs sandboxed within the gateway using wazero runtime
 // Guards cannot make direct network calls - they receive a BackendCaller interface via host functions
+//
+// Thread Safety: WASM modules are single-threaded, so all calls to a guard instance
+// are serialized using a mutex. Concurrent requests will queue and execute one at a time.
 type WasmGuard struct {
 	name    string
 	runtime wazero.Runtime
@@ -35,6 +39,10 @@ type WasmGuard struct {
 	// Backend caller provided to the guard via host functions
 	backend BackendCaller
 	ctx     context.Context
+
+	// mu serializes all calls to the WASM module
+	// WASM modules are single-threaded and cannot handle concurrent calls
+	mu sync.Mutex
 }
 
 // NewWasmGuard creates a new WASM guard from a WASM binary file
@@ -276,6 +284,10 @@ func (g *WasmGuard) Name() string {
 func (g *WasmGuard) LabelResource(ctx context.Context, toolName string, args interface{}, backend BackendCaller, caps *difc.Capabilities) (*difc.LabeledResource, difc.OperationType, error) {
 	logWasm.Printf("LabelResource called: toolName=%s", toolName)
 
+	// Serialize access to the WASM module
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	// Update backend caller for this request
 	g.backend = backend
 
@@ -311,6 +323,10 @@ func (g *WasmGuard) LabelResource(ctx context.Context, toolName string, args int
 // LabelResponse calls the WASM module's label_response function
 func (g *WasmGuard) LabelResponse(ctx context.Context, toolName string, result interface{}, backend BackendCaller, caps *difc.Capabilities) (difc.LabeledData, error) {
 	logWasm.Printf("LabelResponse called: toolName=%s", toolName)
+
+	// Serialize access to the WASM module
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
 	// Update backend caller for this request
 	g.backend = backend
