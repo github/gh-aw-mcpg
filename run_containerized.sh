@@ -110,15 +110,15 @@ check_required_env_vars() {
     local missing_vars=""
     
     if [ -z "$MCP_GATEWAY_PORT" ]; then
-        missing_vars="$missing_vars MCP_GATEWAY_PORT"
+        missing_vars="${missing_vars:+$missing_vars }MCP_GATEWAY_PORT"
     fi
     
     if [ -z "$MCP_GATEWAY_DOMAIN" ]; then
-        missing_vars="$missing_vars MCP_GATEWAY_DOMAIN"
+        missing_vars="${missing_vars:+$missing_vars }MCP_GATEWAY_DOMAIN"
     fi
     
     if [ -z "$MCP_GATEWAY_API_KEY" ]; then
-        missing_vars="$missing_vars MCP_GATEWAY_API_KEY"
+        missing_vars="${missing_vars:+$missing_vars }MCP_GATEWAY_API_KEY"
     fi
     
     if [ -n "$missing_vars" ]; then
