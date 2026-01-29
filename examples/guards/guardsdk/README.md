@@ -77,6 +77,111 @@ export GOROOT=$(~/go/bin/go1.23.4 env GOROOT)
 tinygo build -o guard.wasm -target=wasi main.go
 ```
 
+## Host Functions
+
+WASM guards run in a sandboxed wazero runtime inside the gateway process. They cannot make direct network calls or access the filesystem. Instead, the gateway provides **host functions** that guards can import to interact with the outside world.
+
+The Guard SDK wraps these host functions for convenient use. If you're not using the SDK, you can import them directly.
+
+### call_backend
+
+Allows guards to make **read-only** calls to backend MCP servers for gathering metadata needed for labeling decisions.
+
+**SDK Usage (recommended):**
+
+```go
+import sdk "github.com/githubnext/gh-aw-mcpg/examples/guards/guardsdk"
+
+// Generic call - returns interface{}
+result, err := sdk.CallBackend("get_issue", map[string]interface{}{
+    "owner":        "octocat",
+    "repo":         "hello-world",
+    "issue_number": 42,
+})
+
+// Typed call - unmarshals to specific type
+type Issue struct {
+    Number int    `json:"number"`
+    Title  string `json:"title"`
+}
+issue, err := sdk.CallBackendTyped[Issue]("get_issue", args)
+```
+
+**Direct import (without SDK):**
+
+```go
+//go:wasmimport env call_backend
+func callBackend(toolNamePtr, toolNameLen, argsPtr, argsLen, resultPtr, resultSize uint32) int32
+```
+
+**Parameters:**
+- `toolNamePtr`, `toolNameLen`: Pointer and length of the tool name string
+- `argsPtr`, `argsLen`: Pointer and length of JSON-encoded arguments
+- `resultPtr`, `resultSize`: Pointer and size of buffer for result
+
+**Returns:** Result length on success, or `0xFFFFFFFF` (max uint32) on error.
+
+**Limitations:**
+- Read-only: Guards can query backend state but cannot modify it
+- 1MB result buffer limit
+- Calls are synchronous and block the guard execution
+
+### host_log
+
+Allows guards to send log messages back to the gateway for debugging and monitoring.
+
+**SDK Usage (recommended):**
+
+```go
+import sdk "github.com/githubnext/gh-aw-mcpg/examples/guards/guardsdk"
+
+// Log at different levels
+sdk.LogDebug("Processing tool: " + toolName)
+sdk.LogInfo("Starting resource labeling")
+sdk.LogWarn("Fallback to default labels")
+sdk.LogError("Critical error occurred")
+
+// Formatted logging
+sdk.Logf(sdk.LogLevelInfo, "Processing %s with %d args", toolName, len(args))
+```
+
+**Log Levels:**
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `sdk.LogLevelDebug` | 0 | Debug messages (verbose) |
+| `sdk.LogLevelInfo` | 1 | Informational messages |
+| `sdk.LogLevelWarn` | 2 | Warning messages |
+| `sdk.LogLevelError` | 3 | Error messages |
+
+**Direct import (without SDK):**
+
+```go
+//go:wasmimport env host_log
+func hostLog(level, msgPtr, msgLen uint32)
+```
+
+**Parameters:**
+- `level`: Log level (0=debug, 1=info, 2=warn, 3=error)
+- `msgPtr`, `msgLen`: Pointer and length of the message string
+
+**Viewing Guard Logs:**
+
+Guard log messages appear in gateway debug output. Enable with:
+
+```bash
+# Enable all guard logs
+DEBUG=guard:* ./awmg --config config.toml
+
+# Enable specific guard logs
+DEBUG=guard:myguard ./awmg --config config.toml
+```
+
+Log messages are prefixed with the guard name for easy identification:
+```
+[guard:myguard] INFO: Processing create_issue for owner/repo
+```
+
 ## API Reference
 
 ### Types

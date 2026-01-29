@@ -213,24 +213,128 @@ The legacy format copies data for each item. Use path-based format for better pe
 
 **Returns**: Length of output JSON, 0 for no labeling, or negative for error
 
-### Host Functions (from WASM to Gateway)
+### Host Functions (Imported from Gateway)
 
-#### `call_backend(toolNamePtr, toolNameLen, argsPtr, argsLen, resultPtr, resultSize uint32) int32`
-Makes read-only calls to backend MCP server.
+The gateway provides host functions that WASM guards can import to interact with the outside world. These are the only way for sandboxed guards to communicate with external systems.
+
+#### `call_backend`
+
+Makes read-only calls to backend MCP servers for gathering metadata needed for labeling decisions.
+
+```go
+//go:wasmimport env call_backend
+func callBackend(toolNamePtr, toolNameLen, argsPtr, argsLen, resultPtr, resultSize uint32) int32
+```
 
 **Parameters**:
-- Tool name and args as JSON in WASM memory
-- Result buffer for backend response
+- `toolNamePtr`, `toolNameLen`: Pointer and length of the tool name string in WASM memory
+- `argsPtr`, `argsLen`: Pointer and length of JSON-encoded arguments
+- `resultPtr`, `resultSize`: Pointer and size of buffer for the result
 
-**Returns**: Length of result JSON, or negative on error
+**Returns**: 
+- Positive: Length of result JSON written to `resultPtr`
+- `0xFFFFFFFF` (max uint32): Error occurred
 
-**Example**:
+**Example Usage**:
 ```go
-// Inside WASM guard
+func callBackendHelper(toolName string, args interface{}) ([]byte, error) {
+    argsJSON, _ := json.Marshal(args)
+    toolNameBytes := []byte(toolName)
+    resultBuf := make([]byte, 1024*1024) // 1MB buffer
+    
+    resultLen := callBackend(
+        uint32(uintptr(unsafe.Pointer(&toolNameBytes[0]))),
+        uint32(len(toolNameBytes)),
+        uint32(uintptr(unsafe.Pointer(&argsJSON[0]))),
+        uint32(len(argsJSON)),
+        uint32(uintptr(unsafe.Pointer(&resultBuf[0]))),
+        uint32(len(resultBuf)),
+    )
+    
+    if resultLen == 0xFFFFFFFF {
+        return nil, fmt.Errorf("backend call failed")
+    }
+    return resultBuf[:resultLen], nil
+}
+
+// Usage
 repoInfo, err := callBackendHelper("search_repositories", map[string]interface{}{
     "query": "repo:owner/name",
 })
 ```
+
+**Limitations**:
+- Read-only: Guards can query but cannot modify backend state
+- 1MB result buffer limit
+- Synchronous: Blocks guard execution until complete
+
+#### `host_log`
+
+Sends log messages from the guard back to the gateway for debugging and monitoring.
+
+```go
+//go:wasmimport env host_log
+func hostLog(level, msgPtr, msgLen uint32)
+```
+
+**Parameters**:
+- `level`: Log level (0=debug, 1=info, 2=warn, 3=error)
+- `msgPtr`, `msgLen`: Pointer and length of the message string in WASM memory
+
+**Log Levels**:
+| Value | Level | Description |
+|-------|-------|-------------|
+| 0 | Debug | Verbose debugging information |
+| 1 | Info | Informational messages |
+| 2 | Warn | Warning messages |
+| 3 | Error | Error messages |
+
+**Example Usage**:
+```go
+const (
+    LogLevelDebug = 0
+    LogLevelInfo  = 1
+    LogLevelWarn  = 2
+    LogLevelError = 3
+)
+
+func logInfo(msg string) {
+    b := []byte(msg)
+    hostLog(LogLevelInfo, uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+
+func logDebug(msg string) {
+    b := []byte(msg)
+    hostLog(LogLevelDebug, uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+
+// Usage in label_resource
+func labelResource(...) int32 {
+    logInfo("Processing tool: create_issue")
+    // ... labeling logic
+    logDebug("Resource labeled successfully")
+}
+```
+
+**Viewing Guard Logs**:
+
+Guard logs appear in gateway debug output. Enable with:
+
+```bash
+# Enable all guard logs
+DEBUG=guard:* ./awmg --config config.toml
+
+# Enable logs for specific guard
+DEBUG=guard:github ./awmg --config config.toml
+```
+
+Log messages are prefixed with the guard name:
+```
+[guard:github] INFO: Processing tool: create_issue
+[guard:github] DEBUG: Resource labeled successfully
+```
+
+> **Tip**: For simpler logging, use the [Guard SDK](../guardsdk/README.md) which provides `sdk.LogInfo()`, `sdk.LogDebug()`, `sdk.LogWarn()`, and `sdk.LogError()` helper functions.
 
 ## Example Configuration
 
