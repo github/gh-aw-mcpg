@@ -149,11 +149,60 @@ Labels response data for fine-grained filtering.
 ```json
 {
   "tool_name": "list_issues",
-  "tool_result": [...]
+  "tool_result": { "items": [...] }
 }
 ```
 
-**Output** (JSON at outputPtr):
+**Output** (JSON at outputPtr) - **Path-Based Format (Preferred)**:
+
+The path-based format uses JSON Pointer (RFC 6901) paths to label elements in the response without copying data. This is more efficient for large responses.
+
+```json
+{
+  "items_path": "/items",
+  "labeled_paths": [
+    {
+      "path": "/items/0",
+      "labels": {
+        "description": "Issue #1 in public repo",
+        "secrecy": ["public"],
+        "integrity": ["untrusted"]
+      }
+    },
+    {
+      "path": "/items/1",
+      "labels": {
+        "description": "Issue #2 in private repo",
+        "secrecy": ["repo:corp/internal-tools"],
+        "integrity": ["github_verified"]
+      }
+    }
+  ],
+  "default_labels": {
+    "description": "Unlabeled item",
+    "secrecy": ["public"],
+    "integrity": ["untrusted"]
+  }
+}
+```
+
+**Path-Based Response Schema**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `items_path` | string | No | JSON Pointer to the array containing items (e.g., `"/items"`, `""` for root array) |
+| `labeled_paths` | array | Yes | Array of path-label pairs |
+| `labeled_paths[].path` | string | Yes | JSON Pointer (RFC 6901) to the element (e.g., `"/items/0"`) |
+| `labeled_paths[].labels` | object | Yes | DIFC labels for this element |
+| `labeled_paths[].labels.description` | string | No | Human-readable description |
+| `labeled_paths[].labels.secrecy` | string[] | Yes | Secrecy tags (e.g., `["public"]`, `["repo:owner/name"]`) |
+| `labeled_paths[].labels.integrity` | string[] | Yes | Integrity tags (e.g., `["untrusted"]`, `["github_verified"]`) |
+| `default_labels` | object | No | Labels for items not explicitly matched by a path |
+
+**Output** (JSON at outputPtr) - **Legacy Format (Deprecated)**:
+
+The legacy format copies data for each item. Use path-based format for better performance.
+
 ```json
 {
   "items": [
