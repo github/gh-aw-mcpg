@@ -1096,3 +1096,203 @@ args = ["run", "--rm", "-i", "mcp/memory"]
 	_, ok = cfg.Servers["memory"]
 	assert.True(t, ok, "Server 'memory' not found")
 }
+
+// TestLoadFromStdin_WithSessionLabels tests session label configuration from stdin JSON
+func TestLoadFromStdin_WithSessionLabels(t *testing.T) {
+	// Enable config extensions for session label support
+	SetConfigExtensionsEnabled(true)
+	ResetSchemaCache()
+	t.Cleanup(func() {
+		SetConfigExtensionsEnabled(false)
+		ResetSchemaCache()
+	})
+
+	jsonConfig := `{
+		"mcpServers": {
+			"test": {
+				"type": "stdio",
+				"container": "test/server:latest"
+			}
+		},
+		"gateway": {
+			"port": 3000,
+			"domain": "localhost",
+			"apiKey": "test-key",
+			"session": {
+				"secrecy": ["private:github/my-repo"],
+				"integrity": ["contributor:github/my-repo", "maintainer:github/my-repo"]
+			}
+		}
+	}`
+
+	r, w, _ := os.Pipe()
+	oldStdin := os.Stdin
+	os.Stdin = r
+	go func() {
+		w.Write([]byte(jsonConfig))
+		w.Close()
+	}()
+
+	cfg, err := LoadFromStdin()
+	os.Stdin = oldStdin
+
+	require.NoError(t, err, "LoadFromStdin() failed")
+	require.NotNil(t, cfg.Gateway, "Gateway config should not be nil")
+	require.NotNil(t, cfg.Gateway.Session, "Session config should not be nil")
+
+	assert.Equal(t, []string{"private:github/my-repo"}, cfg.Gateway.Session.Secrecy)
+	assert.Equal(t, []string{"contributor:github/my-repo", "maintainer:github/my-repo"}, cfg.Gateway.Session.Integrity)
+}
+
+// TestLoadFromStdin_WithEmptySessionLabels tests that empty session labels are handled correctly
+func TestLoadFromStdin_WithEmptySessionLabels(t *testing.T) {
+	// Enable config extensions for session label support
+	SetConfigExtensionsEnabled(true)
+	t.Cleanup(func() { SetConfigExtensionsEnabled(false) })
+
+	jsonConfig := `{
+		"mcpServers": {
+			"test": {
+				"type": "stdio",
+				"container": "test/server:latest"
+			}
+		},
+		"gateway": {
+			"port": 3000,
+			"domain": "localhost",
+			"apiKey": "test-key",
+			"session": {
+				"secrecy": [],
+				"integrity": []
+			}
+		}
+	}`
+
+	r, w, _ := os.Pipe()
+	oldStdin := os.Stdin
+	os.Stdin = r
+	go func() {
+		w.Write([]byte(jsonConfig))
+		w.Close()
+	}()
+
+	cfg, err := LoadFromStdin()
+	os.Stdin = oldStdin
+
+	require.NoError(t, err, "LoadFromStdin() failed")
+	require.NotNil(t, cfg.Gateway, "Gateway config should not be nil")
+	require.NotNil(t, cfg.Gateway.Session, "Session config should not be nil")
+
+	assert.Empty(t, cfg.Gateway.Session.Secrecy)
+	assert.Empty(t, cfg.Gateway.Session.Integrity)
+}
+
+// TestLoadFromStdin_NoSessionConfig tests that missing session config is handled correctly
+func TestLoadFromStdin_NoSessionConfig(t *testing.T) {
+	// Enable config extensions for session label support
+	SetConfigExtensionsEnabled(true)
+	ResetSchemaCache()
+	t.Cleanup(func() {
+		SetConfigExtensionsEnabled(false)
+		ResetSchemaCache()
+	})
+
+	jsonConfig := `{
+		"mcpServers": {
+			"test": {
+				"type": "stdio",
+				"container": "test/server:latest"
+			}
+		},
+		"gateway": {
+			"port": 3000,
+			"domain": "localhost",
+			"apiKey": "test-key"
+		}
+	}`
+
+	r, w, _ := os.Pipe()
+	oldStdin := os.Stdin
+	os.Stdin = r
+	go func() {
+		w.Write([]byte(jsonConfig))
+		w.Close()
+	}()
+
+	cfg, err := LoadFromStdin()
+	os.Stdin = oldStdin
+
+	require.NoError(t, err, "LoadFromStdin() failed")
+	require.NotNil(t, cfg.Gateway, "Gateway config should not be nil")
+	assert.Nil(t, cfg.Gateway.Session, "Session config should be nil when not specified")
+}
+
+// TestLoadFromFile_WithSessionLabels tests session label configuration from TOML file
+func TestLoadFromFile_WithSessionLabels(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "config.toml")
+
+	tomlContent := `
+[gateway]
+port = 3000
+
+[gateway.session]
+secrecy = ["private:github/my-repo"]
+integrity = ["contributor:github/my-repo", "maintainer:github/my-repo"]
+
+[servers.test]
+command = "docker"
+args = ["run", "--rm", "-i", "test/container:latest"]
+`
+
+	err := os.WriteFile(tmpFile, []byte(tomlContent), 0644)
+	require.NoError(t, err, "Failed to write temp TOML file")
+
+	cfg, err := LoadFromFile(tmpFile)
+	require.NoError(t, err, "LoadFromFile() failed")
+	require.NotNil(t, cfg, "LoadFromFile() returned nil config")
+	require.NotNil(t, cfg.Gateway, "Gateway config should not be nil")
+	require.NotNil(t, cfg.Gateway.Session, "Session config should not be nil")
+
+	assert.Equal(t, []string{"private:github/my-repo"}, cfg.Gateway.Session.Secrecy)
+	assert.Equal(t, []string{"contributor:github/my-repo", "maintainer:github/my-repo"}, cfg.Gateway.Session.Integrity)
+}
+
+// TestLoadFromStdin_SessionLabelsWithoutExtensions tests that session labels are rejected when extensions are disabled
+func TestLoadFromStdin_SessionLabelsWithoutExtensions(t *testing.T) {
+	// Ensure config extensions are disabled
+	SetConfigExtensionsEnabled(false)
+	ResetSchemaCache()
+	t.Cleanup(func() { ResetSchemaCache() })
+
+	jsonConfig := `{
+		"mcpServers": {
+			"test": {
+				"type": "stdio",
+				"container": "test/server:latest"
+			}
+		},
+		"gateway": {
+			"port": 3000,
+			"domain": "localhost",
+			"apiKey": "test-key",
+			"session": {
+				"secrecy": ["private:github/my-repo"]
+			}
+		}
+	}`
+
+	r, w, _ := os.Pipe()
+	oldStdin := os.Stdin
+	os.Stdin = r
+	go func() {
+		w.Write([]byte(jsonConfig))
+		w.Close()
+	}()
+
+	_, err := LoadFromStdin()
+	os.Stdin = oldStdin
+
+	require.Error(t, err, "LoadFromStdin() should fail with session config when extensions are disabled")
+	assert.Contains(t, err.Error(), "session", "Error should mention session field")
+}

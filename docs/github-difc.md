@@ -325,17 +325,23 @@ When an agent connects to the gateway, it must be assigned initial secrecy and i
 
 These initial labels are associated with the session ID provided in the `Authorization` header.
 
+> **Prerequisite:** Session label configuration requires enabling config extensions:
+> ```bash
+> ./awmg --enable-config-extensions --config config.toml ...
+> ```
+> Or via environment variable: `MCP_GATEWAY_CONFIG_EXTENSIONS=1`
+
 #### 11.5.1 Configuration via Flags
 
 The gateway accepts flags to specify initial session labels:
 
 ```bash
 # Specify initial secrecy clearance (agent can read private repo data)
-./awmg --config config.toml \
+./awmg --enable-config-extensions --config config.toml \
   --session-secrecy "private:github/my-private-repo"
 
 # Specify initial integrity clearance (agent operates at maintainer level)
-./awmg --config config.toml \
+./awmg --enable-config-extensions --config config.toml \
   --session-integrity "contributor:github/my-repo,maintainer:github/my-repo"
 
 # Combined: agent can read private data and write as maintainer

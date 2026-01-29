@@ -25,6 +25,10 @@ var (
 	// gatewayVersion stores the version string to include in error messages
 	gatewayVersion = "dev"
 
+	// configExtensionsEnabled controls whether DIFC config extensions (guards, session labels)
+	// are validated. When false, only the upstream MCP Gateway spec is used.
+	configExtensionsEnabled = false
+
 	// logSchema is the debug logger for schema validation
 	logSchema = logger.New("config:validation_schema")
 
@@ -48,6 +52,29 @@ var (
 	cachedSchema *jsonschema.Schema
 	schemaErr    error
 )
+
+// SetConfigExtensionsEnabled enables or disables config extensions (guards, session labels).
+// This must be called before any config loading/validation occurs.
+// When disabled, only the upstream MCP Gateway spec is validated.
+// Note: Changing this after schema compilation requires calling ResetSchemaCache().
+func SetConfigExtensionsEnabled(enabled bool) {
+	configExtensionsEnabled = enabled
+	logSchema.Printf("Config extensions %s", map[bool]string{true: "enabled", false: "disabled"}[enabled])
+}
+
+// ConfigExtensionsEnabled returns whether config extensions are enabled
+func ConfigExtensionsEnabled() bool {
+	return configExtensionsEnabled
+}
+
+// ResetSchemaCache resets the cached schema, forcing recompilation on next use.
+// This is primarily for testing purposes when config extension settings change.
+func ResetSchemaCache() {
+	schemaOnce = sync.Once{}
+	cachedSchema = nil
+	schemaErr = nil
+	logSchema.Print("Schema cache reset")
+}
 
 // SetGatewayVersion sets the gateway version for error reporting
 func SetGatewayVersion(version string) {
@@ -157,9 +184,21 @@ func fetchAndFixSchema(url string) ([]byte, error) {
 		}
 	}
 
-	// Add DIFC guard support to the schema
-	// This extends the upstream schema to support guard configuration for DIFC enforcement
-	addGuardSchemaSupport(schema)
+	// Conditionally add DIFC extensions to the schema
+	// These extensions are only applied when --enable-config-extensions is set
+	if configExtensionsEnabled {
+		logSchema.Print("Applying config extensions (guards, session labels)")
+
+		// Add DIFC guard support to the schema
+		// This extends the upstream schema to support guard configuration for DIFC enforcement
+		addGuardSchemaSupport(schema)
+
+		// Add session label support to the gateway config
+		// This extends the upstream schema to support DIFC session initialization (github-difc.md section 11.5)
+		addSessionSchemaSupport(schema)
+	} else {
+		logSchema.Print("Config extensions disabled - using upstream schema only")
+	}
 
 	fixedBytes, err := json.Marshal(schema)
 	if err != nil {
@@ -548,6 +587,44 @@ func addGuardSchemaSupport(schema map[string]interface{}) {
 			"additionalProperties": map[string]interface{}{
 				"$ref": "#/definitions/guardConfig",
 			},
+		}
+	}
+}
+
+// addSessionSchemaSupport extends the schema to support session label configuration
+// in the gateway config section. See github-difc.md section 11.5 for specification.
+func addSessionSchemaSupport(schema map[string]interface{}) {
+	// Add sessionConfig definition
+	if definitions, ok := schema["definitions"].(map[string]interface{}); ok {
+		definitions["sessionConfig"] = map[string]interface{}{
+			"type":        "object",
+			"description": "DIFC session label configuration for initializing agent clearances",
+			"properties": map[string]interface{}{
+				"secrecy": map[string]interface{}{
+					"type":        "array",
+					"description": "Initial secrecy clearance tags (e.g., private:owner/repo)",
+					"items": map[string]interface{}{
+						"type": "string",
+					},
+				},
+				"integrity": map[string]interface{}{
+					"type":        "array",
+					"description": "Initial integrity clearance tags (e.g., contributor:owner/repo, maintainer:owner/repo)",
+					"items": map[string]interface{}{
+						"type": "string",
+					},
+				},
+			},
+			"additionalProperties": false,
+		}
+
+		// Add "session" property to gatewayConfig
+		if gatewayConfig, ok := definitions["gatewayConfig"].(map[string]interface{}); ok {
+			if properties, ok := gatewayConfig["properties"].(map[string]interface{}); ok {
+				properties["session"] = map[string]interface{}{
+					"$ref": "#/definitions/sessionConfig",
+				}
+			}
 		}
 	}
 }

@@ -29,18 +29,27 @@ type Config struct {
 	Servers          map[string]*ServerConfig `toml:"servers"`
 	Guards           map[string]*GuardConfig  `toml:"guards"`            // Guard configurations (optional, experimental)
 	EnableDIFC       bool                     `toml:"enable_difc"`       // When true, enables DIFC enforcement and requires sys___init call before tool access. Default is false for standard MCP client compatibility.
+	DIFCFilter       bool                     `toml:"difc_filter"`       // When true, filters response data based on DIFC labels. Requires enable_difc to be effective.
 	SequentialLaunch bool                     `toml:"sequential_launch"` // When true, launches MCP servers sequentially during startup. Default is false (parallel launch).
 	Gateway          *GatewayConfig           `toml:"gateway"`           // Gateway configuration (port, API key, etc.)
 }
 
+// SessionConfig represents initial DIFC labels for agent sessions.
+// See github-difc.md section 11.5 for specification.
+type SessionConfig struct {
+	Secrecy   []string `toml:"secrecy" json:"secrecy,omitempty"`     // Initial secrecy clearance tags
+	Integrity []string `toml:"integrity" json:"integrity,omitempty"` // Initial integrity clearance tags
+}
+
 // GatewayConfig represents gateway-level configuration
 type GatewayConfig struct {
-	Port           int    `toml:"port"`
-	APIKey         string `toml:"api_key"`
-	Domain         string `toml:"domain"`
-	StartupTimeout int    `toml:"startup_timeout"` // Seconds
-	ToolTimeout    int    `toml:"tool_timeout"`    // Seconds
-	PayloadDir     string `toml:"payload_dir"`     // Directory for storing large payload files
+	Port           int            `toml:"port"`
+	APIKey         string         `toml:"api_key"`
+	Domain         string         `toml:"domain"`
+	StartupTimeout int            `toml:"startup_timeout"` // Seconds
+	ToolTimeout    int            `toml:"tool_timeout"`    // Seconds
+	PayloadDir     string         `toml:"payload_dir"`     // Directory for storing large payload files
+	Session        *SessionConfig `toml:"session"`         // Initial DIFC labels for sessions
 }
 
 // ServerConfig represents a single MCP server configuration
@@ -101,14 +110,21 @@ type StdinGuardConfig struct {
 	CacheDir string `json:"cacheDir,omitempty"` // Directory to cache downloaded WASM files (optional)
 }
 
+// StdinSessionConfig represents session configuration from stdin JSON
+type StdinSessionConfig struct {
+	Secrecy   []string `json:"secrecy,omitempty"`   // Initial secrecy clearance tags
+	Integrity []string `json:"integrity,omitempty"` // Initial integrity clearance tags
+}
+
 // StdinGatewayConfig represents gateway configuration from stdin JSON
 type StdinGatewayConfig struct {
-	Port           *int   `json:"port,omitempty"`
-	APIKey         string `json:"apiKey,omitempty"`
-	Domain         string `json:"domain,omitempty"`
-	StartupTimeout *int   `json:"startupTimeout,omitempty"` // Seconds to wait for backend startup
-	ToolTimeout    *int   `json:"toolTimeout,omitempty"`    // Seconds to wait for tool execution
-	PayloadDir     string `json:"payloadDir,omitempty"`     // Directory for storing large payload files
+	Port           *int                `json:"port,omitempty"`
+	APIKey         string              `json:"apiKey,omitempty"`
+	Domain         string              `json:"domain,omitempty"`
+	StartupTimeout *int                `json:"startupTimeout,omitempty"` // Seconds to wait for backend startup
+	ToolTimeout    *int                `json:"toolTimeout,omitempty"`    // Seconds to wait for tool execution
+	PayloadDir     string              `json:"payloadDir,omitempty"`     // Directory for storing large payload files
+	Session        *StdinSessionConfig `json:"session,omitempty"`        // Initial DIFC labels for sessions
 }
 
 // LoadFromFile loads configuration from a TOML file
@@ -228,6 +244,15 @@ func LoadFromStdin() (*Config, error) {
 		}
 		if stdinCfg.Gateway.PayloadDir != "" {
 			cfg.Gateway.PayloadDir = stdinCfg.Gateway.PayloadDir
+		}
+		// Copy session config for DIFC labels
+		if stdinCfg.Gateway.Session != nil {
+			cfg.Gateway.Session = &SessionConfig{
+				Secrecy:   stdinCfg.Gateway.Session.Secrecy,
+				Integrity: stdinCfg.Gateway.Session.Integrity,
+			}
+			logConfig.Printf("Session labels configured: secrecy=%v, integrity=%v",
+				cfg.Gateway.Session.Secrecy, cfg.Gateway.Session.Integrity)
 		}
 	}
 

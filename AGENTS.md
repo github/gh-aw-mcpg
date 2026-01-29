@@ -364,8 +364,18 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 - `DEBUG_COLORS` - Control colored output (0 to disable, auto-disabled when piping)
 - `MCP_GATEWAY_LOG_DIR` - Log file directory (sets default for `--log-dir` flag, default: `/tmp/gh-aw/mcp-logs`)
 - `MCP_GATEWAY_PAYLOAD_DIR` - Large payload storage directory (sets default for `--payload-dir` flag, default: `/tmp/jq-payloads`)
-- `MCP_GATEWAY_ENABLE_DIFC` - Enable DIFC enforcement (sets default for `--enable-difc` flag)
-- `MCP_GATEWAY_DIFC_FILTER` - Enable DIFC response filtering (sets default for `--difc-filter` flag, requires DIFC enabled)
+- `MCP_GATEWAY_CONFIG_EXTENSIONS` - Enable config extensions for DIFC features (sets default for `--enable-config-extensions` flag)
+- `MCP_GATEWAY_ENABLE_DIFC` - Enable DIFC enforcement (requires `MCP_GATEWAY_CONFIG_EXTENSIONS=1`)
+- `MCP_GATEWAY_DIFC_FILTER` - Enable DIFC response filtering (requires DIFC enabled)
+- `MCP_GATEWAY_SESSION_SECRECY` - Initial secrecy labels for sessions (requires config extensions)
+- `MCP_GATEWAY_SESSION_INTEGRITY` - Initial integrity labels for sessions (requires config extensions)
+
+**Config Extensions:**
+Config extensions (guards, session labels) require `--enable-config-extensions` or `MCP_GATEWAY_CONFIG_EXTENSIONS=1`.
+This gates all DIFC-related configuration including:
+- `guards` section in config
+- `gateway.session` section in config
+- `--enable-difc`, `--difc-filter`, `--session-secrecy`, `--session-integrity` flags
 
 **File Logging:**
 - Operational logs are always written to `mcp-gateway.log` in the configured log directory

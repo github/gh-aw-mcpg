@@ -115,6 +115,20 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 		payloadDir = cfg.Gateway.PayloadDir
 	}
 
+	// Build default session labels from config (per github-difc.md section 11.5)
+	var defaultSecrecy, defaultIntegrity []difc.Tag
+	if cfg.Gateway != nil && cfg.Gateway.Session != nil {
+		for _, s := range cfg.Gateway.Session.Secrecy {
+			defaultSecrecy = append(defaultSecrecy, difc.Tag(s))
+		}
+		for _, i := range cfg.Gateway.Session.Integrity {
+			defaultIntegrity = append(defaultIntegrity, difc.Tag(i))
+		}
+		if len(defaultSecrecy) > 0 || len(defaultIntegrity) > 0 {
+			logUnified.Printf("Session defaults: secrecy=%v, integrity=%v", defaultSecrecy, defaultIntegrity)
+		}
+	}
+
 	us := &UnifiedServer{
 		launcher:         l,
 		sysServer:        sys.NewSysServer(l.ServerIDs()),
@@ -124,9 +138,9 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 		sequentialLaunch: cfg.SequentialLaunch,
 		payloadDir:       payloadDir,
 
-		// Initialize DIFC components
+		// Initialize DIFC components with default session labels
 		guardRegistry: guard.NewRegistry(),
-		agentRegistry: difc.NewAgentRegistry(),
+		agentRegistry: difc.NewAgentRegistryWithDefaults(defaultSecrecy, defaultIntegrity),
 		capabilities:  difc.NewCapabilities(),
 		evaluator:     difc.NewEvaluator(),
 		enableDIFC:    cfg.EnableDIFC,

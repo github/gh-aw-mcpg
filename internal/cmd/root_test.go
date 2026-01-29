@@ -656,3 +656,176 @@ func TestWriteGatewayConfig(t *testing.T) {
 		assert.Contains(t, output, DefaultListenPort)
 	})
 }
+
+// TestParseSessionLabels tests the parseSessionLabels helper function
+func TestParseSessionLabels(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{
+			name:  "empty string",
+			input: "",
+			want:  nil,
+		},
+		{
+			name:  "single label",
+			input: "private:github/my-repo",
+			want:  []string{"private:github/my-repo"},
+		},
+		{
+			name:  "multiple labels",
+			input: "contributor:github/repo,maintainer:github/repo",
+			want:  []string{"contributor:github/repo", "maintainer:github/repo"},
+		},
+		{
+			name:  "labels with spaces",
+			input: " contributor:github/repo , maintainer:github/repo ",
+			want:  []string{"contributor:github/repo", "maintainer:github/repo"},
+		},
+		{
+			name:  "labels with empty parts",
+			input: "contributor:github/repo,,maintainer:github/repo",
+			want:  []string{"contributor:github/repo", "maintainer:github/repo"},
+		},
+		{
+			name:  "only whitespace",
+			input: "   ",
+			want:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseSessionLabels(tt.input)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestGetDefaultSessionLabels tests the environment variable defaults for session labels
+func TestGetDefaultSessionLabels(t *testing.T) {
+	t.Run("session secrecy from env", func(t *testing.T) {
+		// Save original value
+		original := os.Getenv("MCP_GATEWAY_SESSION_SECRECY")
+		t.Cleanup(func() {
+			if original != "" {
+				os.Setenv("MCP_GATEWAY_SESSION_SECRECY", original)
+			} else {
+				os.Unsetenv("MCP_GATEWAY_SESSION_SECRECY")
+			}
+		})
+
+		os.Setenv("MCP_GATEWAY_SESSION_SECRECY", "private:github/test-repo")
+		got := getDefaultSessionSecrecy()
+		assert.Equal(t, "private:github/test-repo", got)
+	})
+
+	t.Run("session integrity from env", func(t *testing.T) {
+		// Save original value
+		original := os.Getenv("MCP_GATEWAY_SESSION_INTEGRITY")
+		t.Cleanup(func() {
+			if original != "" {
+				os.Setenv("MCP_GATEWAY_SESSION_INTEGRITY", original)
+			} else {
+				os.Unsetenv("MCP_GATEWAY_SESSION_INTEGRITY")
+			}
+		})
+
+		os.Setenv("MCP_GATEWAY_SESSION_INTEGRITY", "contributor:github/test-repo,maintainer:github/test-repo")
+		got := getDefaultSessionIntegrity()
+		assert.Equal(t, "contributor:github/test-repo,maintainer:github/test-repo", got)
+	})
+
+	t.Run("empty session secrecy when env not set", func(t *testing.T) {
+		// Save original value
+		original := os.Getenv("MCP_GATEWAY_SESSION_SECRECY")
+		t.Cleanup(func() {
+			if original != "" {
+				os.Setenv("MCP_GATEWAY_SESSION_SECRECY", original)
+			} else {
+				os.Unsetenv("MCP_GATEWAY_SESSION_SECRECY")
+			}
+		})
+
+		os.Unsetenv("MCP_GATEWAY_SESSION_SECRECY")
+		got := getDefaultSessionSecrecy()
+		assert.Empty(t, got)
+	})
+}
+
+// TestGetDefaultConfigExtensions tests the environment variable default for config extensions
+func TestGetDefaultConfigExtensions(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		want     bool
+	}{
+		{
+			name:     "no environment variable set",
+			envValue: "",
+			want:     false,
+		},
+		{
+			name:     "environment variable set to 1",
+			envValue: "1",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to true",
+			envValue: "true",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to TRUE (uppercase)",
+			envValue: "TRUE",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to yes",
+			envValue: "yes",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to on",
+			envValue: "on",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to 0",
+			envValue: "0",
+			want:     false,
+		},
+		{
+			name:     "environment variable set to false",
+			envValue: "false",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original value and restore after test
+			originalValue := os.Getenv("MCP_GATEWAY_CONFIG_EXTENSIONS")
+			t.Cleanup(func() {
+				if originalValue != "" {
+					os.Setenv("MCP_GATEWAY_CONFIG_EXTENSIONS", originalValue)
+				} else {
+					os.Unsetenv("MCP_GATEWAY_CONFIG_EXTENSIONS")
+				}
+			})
+
+			// Set test environment variable
+			if tt.envValue != "" {
+				os.Setenv("MCP_GATEWAY_CONFIG_EXTENSIONS", tt.envValue)
+			} else {
+				os.Unsetenv("MCP_GATEWAY_CONFIG_EXTENSIONS")
+			}
+
+			// Test getDefaultConfigExtensions
+			got := getDefaultConfigExtensions()
+			assert.Equal(t, tt.want, got, "getDefaultConfigExtensions() should return expected value")
+		})
+	}
+}
