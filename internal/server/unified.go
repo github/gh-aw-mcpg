@@ -93,6 +93,7 @@ type UnifiedServer struct {
 	capabilities  *difc.Capabilities
 	evaluator     *difc.Evaluator
 	enableDIFC    bool // When true, DIFC enforcement and session requirement are enabled
+	difcFilter    bool // When true, filters response data based on DIFC labels
 
 	// Shutdown state tracking
 	isShutdown   bool
@@ -105,7 +106,7 @@ type UnifiedServer struct {
 
 // NewUnified creates a new unified MCP server
 func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error) {
-	logUnified.Printf("Creating new unified server: enableDIFC=%v, sequentialLaunch=%v, servers=%d, guards=%d", cfg.EnableDIFC, cfg.SequentialLaunch, len(cfg.Servers), len(cfg.Guards))
+	logUnified.Printf("Creating new unified server: enableDIFC=%v, difcFilter=%v, sequentialLaunch=%v, servers=%d, guards=%d", cfg.EnableDIFC, cfg.DIFCFilter, cfg.SequentialLaunch, len(cfg.Servers), len(cfg.Guards))
 	l := launcher.New(ctx, cfg)
 
 	// Get payload directory from config, with fallback to default
@@ -129,6 +130,7 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 		capabilities:  difc.NewCapabilities(),
 		evaluator:     difc.NewEvaluator(),
 		enableDIFC:    cfg.EnableDIFC,
+		difcFilter:    cfg.DIFCFilter,
 	}
 
 	// Create MCP server

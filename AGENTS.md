@@ -364,6 +364,8 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 - `DEBUG_COLORS` - Control colored output (0 to disable, auto-disabled when piping)
 - `MCP_GATEWAY_LOG_DIR` - Log file directory (sets default for `--log-dir` flag, default: `/tmp/gh-aw/mcp-logs`)
 - `MCP_GATEWAY_PAYLOAD_DIR` - Large payload storage directory (sets default for `--payload-dir` flag, default: `/tmp/jq-payloads`)
+- `MCP_GATEWAY_ENABLE_DIFC` - Enable DIFC enforcement (sets default for `--enable-difc` flag)
+- `MCP_GATEWAY_DIFC_FILTER` - Enable DIFC response filtering (sets default for `--difc-filter` flag, requires DIFC enabled)
 
 **File Logging:**
 - Operational logs are always written to `mcp-gateway.log` in the configured log directory

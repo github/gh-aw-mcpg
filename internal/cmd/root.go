@@ -46,6 +46,7 @@ var (
 	unifiedMode      bool
 	envFile          string
 	enableDIFC       bool
+	difcFilter       bool
 	logDir           string
 	payloadDir       string
 	validateEnv      bool
@@ -77,6 +78,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&unifiedMode, "unified", defaultUnifiedMode, "Run in unified mode (all backends at /mcp)")
 	rootCmd.Flags().StringVar(&envFile, "env", defaultEnvFile, "Path to .env file to load environment variables")
 	rootCmd.Flags().BoolVar(&enableDIFC, "enable-difc", getDefaultEnableDIFC(), "Enable DIFC enforcement (sessions are auto-created from Authorization header)")
+	rootCmd.Flags().BoolVar(&difcFilter, "difc-filter", getDefaultDIFCFilter(), "Enable DIFC response filtering based on path labels (requires --enable-difc)")
 	rootCmd.Flags().StringVar(&logDir, "log-dir", getDefaultLogDir(), "Directory for log files (falls back to stdout if directory cannot be created)")
 	rootCmd.Flags().StringVar(&payloadDir, "payload-dir", getDefaultPayloadDir(), "Directory for storing large payload files (segmented by session ID)")
 	rootCmd.Flags().BoolVar(&validateEnv, "validate-env", false, "Validate execution environment (Docker, env vars) before starting")
@@ -122,6 +124,19 @@ func getDefaultEnableDIFC() bool {
 		}
 	}
 	return defaultEnableDIFC
+}
+
+// getDefaultDIFCFilter returns the default DIFC filter setting, checking MCP_GATEWAY_DIFC_FILTER
+// environment variable first, then falling back to the hardcoded default (false)
+func getDefaultDIFCFilter() bool {
+	if envDIFCFilter := os.Getenv("MCP_GATEWAY_DIFC_FILTER"); envDIFCFilter != "" {
+		// Accept common truthy values: "1", "true", "yes", "on"
+		switch strings.ToLower(envDIFCFilter) {
+		case "1", "true", "yes", "on":
+			return true
+		}
+	}
+	return false
 }
 
 const (
@@ -275,8 +290,14 @@ func run(cmd *cobra.Command, args []string) error {
 
 	if enableDIFC {
 		log.Println("DIFC enforcement and session requirement enabled")
+		if difcFilter {
+			log.Println("DIFC response filtering enabled")
+		}
 	} else {
 		log.Println("DIFC enforcement disabled (sessions auto-created for standard MCP client compatibility)")
+		if difcFilter {
+			log.Println("Warning: --difc-filter has no effect without --enable-difc")
+		}
 	}
 
 	if sequentialLaunch {

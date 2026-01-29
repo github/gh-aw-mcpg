@@ -62,6 +62,164 @@ func TestGetDefaultLogDir(t *testing.T) {
 	}
 }
 
+func TestGetDefaultEnableDIFC(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		want     bool
+	}{
+		{
+			name:     "no environment variable set",
+			envValue: "",
+			want:     false,
+		},
+		{
+			name:     "environment variable set to 1",
+			envValue: "1",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to true",
+			envValue: "true",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to TRUE (uppercase)",
+			envValue: "TRUE",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to yes",
+			envValue: "yes",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to on",
+			envValue: "on",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to 0",
+			envValue: "0",
+			want:     false,
+		},
+		{
+			name:     "environment variable set to false",
+			envValue: "false",
+			want:     false,
+		},
+		{
+			name:     "environment variable set to invalid value",
+			envValue: "invalid",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original value and restore after test
+			originalValue := os.Getenv("MCP_GATEWAY_ENABLE_DIFC")
+			t.Cleanup(func() {
+				if originalValue != "" {
+					os.Setenv("MCP_GATEWAY_ENABLE_DIFC", originalValue)
+				} else {
+					os.Unsetenv("MCP_GATEWAY_ENABLE_DIFC")
+				}
+			})
+
+			// Set test environment variable
+			if tt.envValue != "" {
+				os.Setenv("MCP_GATEWAY_ENABLE_DIFC", tt.envValue)
+			} else {
+				os.Unsetenv("MCP_GATEWAY_ENABLE_DIFC")
+			}
+
+			// Test getDefaultEnableDIFC
+			got := getDefaultEnableDIFC()
+			assert.Equal(t, tt.want, got, "getDefaultEnableDIFC() should return expected value")
+		})
+	}
+}
+
+func TestGetDefaultDIFCFilter(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		want     bool
+	}{
+		{
+			name:     "no environment variable set",
+			envValue: "",
+			want:     false,
+		},
+		{
+			name:     "environment variable set to 1",
+			envValue: "1",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to true",
+			envValue: "true",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to TRUE (uppercase)",
+			envValue: "TRUE",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to yes",
+			envValue: "yes",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to on",
+			envValue: "on",
+			want:     true,
+		},
+		{
+			name:     "environment variable set to 0",
+			envValue: "0",
+			want:     false,
+		},
+		{
+			name:     "environment variable set to false",
+			envValue: "false",
+			want:     false,
+		},
+		{
+			name:     "environment variable set to invalid value",
+			envValue: "invalid",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original value and restore after test
+			originalValue := os.Getenv("MCP_GATEWAY_DIFC_FILTER")
+			t.Cleanup(func() {
+				if originalValue != "" {
+					os.Setenv("MCP_GATEWAY_DIFC_FILTER", originalValue)
+				} else {
+					os.Unsetenv("MCP_GATEWAY_DIFC_FILTER")
+				}
+			})
+
+			// Set test environment variable
+			if tt.envValue != "" {
+				os.Setenv("MCP_GATEWAY_DIFC_FILTER", tt.envValue)
+			} else {
+				os.Unsetenv("MCP_GATEWAY_DIFC_FILTER")
+			}
+
+			// Test getDefaultDIFCFilter
+			got := getDefaultDIFCFilter()
+			assert.Equal(t, tt.want, got, "getDefaultDIFCFilter() should return expected value")
+		})
+	}
+}
+
 func TestDefaultConfigFile(t *testing.T) {
 	// Verify that the default config file is empty (no default config loading)
 	assert.Empty(t, defaultConfigFile, "defaultConfigFile should be empty string")
