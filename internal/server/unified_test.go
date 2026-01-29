@@ -182,10 +182,17 @@ func TestRequireSession(t *testing.T) {
 	err = us.requireSession(ctxWithSession)
 	assert.NoError(t, err, "requireSession() failed for valid session")
 
-	// Test with invalid session (DIFC enabled)
-	ctxWithInvalidSession := context.WithValue(ctx, SessionIDContextKey, "invalid-session")
-	err = us.requireSession(ctxWithInvalidSession)
-	require.Error(t, err, "requireSession() should fail for invalid session when DIFC is enabled")
+	// Test with new session (DIFC enabled) - should auto-create session
+	ctxWithNewSession := context.WithValue(ctx, SessionIDContextKey, "new-session")
+	err = us.requireSession(ctxWithNewSession)
+	require.NoError(t, err, "requireSession() should auto-create session even when DIFC is enabled")
+
+	// Verify session was created
+	us.sessionMu.RLock()
+	newSession, exists := us.sessions["new-session"]
+	us.sessionMu.RUnlock()
+	require.True(t, exists, "Session should have been auto-created")
+	require.NotNil(t, newSession, "Session should not be nil")
 }
 
 func TestRequireSession_DifcDisabled(t *testing.T) {
@@ -432,8 +439,8 @@ func TestRequireSession_EdgeCases(t *testing.T) {
 			enableDIFC:  true,
 			sessionID:   "nonexistent",
 			preCreate:   false,
-			wantErr:     true,
-			description: "should deny access to nonexistent session when DIFC enabled",
+			wantErr:     false,
+			description: "should auto-create session even when DIFC enabled",
 		},
 		{
 			name:        "DIFC disabled without session",

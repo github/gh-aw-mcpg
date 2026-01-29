@@ -895,48 +895,36 @@ func (us *UnifiedServer) ensureSessionDirectory(sessionID string) error {
 }
 
 // requireSession checks that a session has been initialized for this request
-// When DIFC is disabled (default), automatically creates a session if one doesn't exist
+// Sessions are auto-created from the Authorization header for all modes.
+// When DIFC is enabled, the session ID is used to track labels per-agent.
 func (us *UnifiedServer) requireSession(ctx context.Context) error {
 	sessionID := us.getSessionID(ctx)
 	log.Printf("Checking session for ID: %s", sessionID)
 
-	// If DIFC is disabled (default), use double-checked locking to auto-create session
-	if !us.enableDIFC {
-		us.sessionMu.RLock()
-		session := us.sessions[sessionID]
-		us.sessionMu.RUnlock()
-
-		if session == nil {
-			// Need to create session - acquire write lock
-			us.sessionMu.Lock()
-			// Double-check after acquiring write lock to avoid race condition
-			if us.sessions[sessionID] == nil {
-				log.Printf("DIFC disabled: auto-creating session for ID: %s", sessionID)
-				us.sessions[sessionID] = NewSession(sessionID, "")
-				log.Printf("Session auto-created for ID: %s", sessionID)
-
-				// Ensure session directory exists in payload mount point
-				// This is done after releasing the lock to avoid holding it during I/O
-				us.sessionMu.Unlock()
-				if err := us.ensureSessionDirectory(sessionID); err != nil {
-					logger.LogWarn("client", "Failed to create session directory for session=%s: %v", sessionID, err)
-					// Don't fail - payloads will attempt to create the directory when needed
-				}
-				return nil
-			}
-			us.sessionMu.Unlock()
-		}
-		return nil
-	}
-
-	// DIFC is enabled - require explicit session initialization
+	// Use double-checked locking to auto-create session if needed
 	us.sessionMu.RLock()
 	session := us.sessions[sessionID]
 	us.sessionMu.RUnlock()
 
 	if session == nil {
-		log.Printf("Session not found for ID: %s. Available sessions: %v", sessionID, us.getSessionKeys())
-		return fmt.Errorf("session not initialized: ensure Authorization header is set, or call sys___init (deprecated)")
+		// Need to create session - acquire write lock
+		us.sessionMu.Lock()
+		// Double-check after acquiring write lock to avoid race condition
+		if us.sessions[sessionID] == nil {
+			log.Printf("Auto-creating session for ID: %s (DIFC enabled: %v)", sessionID, us.enableDIFC)
+			us.sessions[sessionID] = NewSession(sessionID, "")
+			log.Printf("Session auto-created for ID: %s", sessionID)
+
+			// Ensure session directory exists in payload mount point
+			// This is done after releasing the lock to avoid holding it during I/O
+			us.sessionMu.Unlock()
+			if err := us.ensureSessionDirectory(sessionID); err != nil {
+				logger.LogWarn("client", "Failed to create session directory for session=%s: %v", sessionID, err)
+				// Don't fail - payloads will attempt to create the directory when needed
+			}
+			return nil
+		}
+		us.sessionMu.Unlock()
 	}
 
 	log.Printf("Session validated for ID: %s", sessionID)
