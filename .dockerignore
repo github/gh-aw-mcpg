@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# GitHub
+.github
+
+# Documentation
+*.md
+docs
+
+# Tests
+test
+
+# Development
+.vscode
+*.log
+coverage.out
+test-result-unit.json
+
+# Build artifacts
+awmg
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Containers
+containers
+
+# Config examples (keep actual config files)
+config.example.toml
+example*.json
+example.env
+
+# Agent configs (not needed in runtime)
+agent-configs

@@ -6,36 +6,36 @@ RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
 
-# Copy go mod files
+# Copy only necessary files for Go build
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
-COPY . .
-RUN go mod tidy
+# Copy Go source files
+COPY *.go ./
+COPY internal ./internal
 
 # Build argument for version (defaults to "dev")
 ARG VERSION=dev
 
-# Build the binary with version information
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION}" -o awmg .
+# Build the binary with version information and more aggressive optimization
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION}" -a -installsuffix cgo -o awmg .
 
-# Runtime stage
-FROM alpine:latest
+# Runtime stage - use specific Alpine version for better layer caching
+FROM alpine:3.21
 
-# Install Docker CLI for launching backend MCP servers
-# Note: bash removed to reduce image size - scripts use POSIX sh
-RUN apk add --no-cache docker-cli
+# Install only Docker CLI (bash removed, using POSIX sh)
+# Combine commands to reduce layers and clean cache
+RUN apk add --no-cache docker-cli && \
+    rm -rf /var/cache/apk/*
 
 WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /app/awmg .
 
-# Copy run scripts
-COPY run.sh .
+# Copy only the containerized run script (run.sh not needed in container)
 COPY run_containerized.sh .
-RUN chmod +x run.sh run_containerized.sh
+RUN chmod +x run_containerized.sh
 
 # Expose default HTTP port
 EXPOSE 8000
