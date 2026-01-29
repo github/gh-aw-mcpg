@@ -252,6 +252,72 @@ gh release create v1.0.0 guard.wasm guard.wasm.sha256 \
 echo "expected_sha256  guard.wasm" | sha256sum -c -
 ```
 
+## Host Functions Available to Guards
+
+WASM guards can import host functions from the `env` module to interact with the gateway:
+
+### call_backend
+
+Allows guards to make read-only calls to backend MCP servers for gathering metadata:
+
+```go
+//go:wasmimport env call_backend
+func callBackend(toolNamePtr, toolNameLen, argsPtr, argsLen, resultPtr, resultSize uint32) int32
+```
+
+### host_log
+
+Allows guards to send log messages back to the gateway host for debugging and monitoring:
+
+```go
+//go:wasmimport env host_log
+func hostLog(level, msgPtr, msgLen uint32)
+
+// Log levels: 0=debug, 1=info, 2=warn, 3=error
+```
+
+**Using the guardsdk for logging** (recommended):
+
+```go
+import sdk "github.com/githubnext/gh-aw-mcpg/examples/guards/guardsdk"
+
+func labelResource(req *sdk.LabelResourceRequest) (*sdk.LabelResourceResponse, error) {
+    // Log at different levels
+    sdk.LogDebug("Processing tool: " + req.ToolName)
+    sdk.LogInfo("Starting resource labeling")
+    sdk.LogWarn("Fallback to default labels")
+    sdk.LogError("Critical error occurred")
+    
+    // Formatted logging
+    sdk.Logf(sdk.LogLevelInfo, "Processing %s with %d args", req.ToolName, len(req.ToolArgs))
+    
+    // ... rest of labeling logic
+}
+```
+
+**Without guardsdk** (direct host function use):
+
+```go
+import "unsafe"
+
+//go:wasmimport env host_log
+func hostLog(level, msgPtr, msgLen uint32)
+
+const (
+    LogLevelDebug = 0
+    LogLevelInfo  = 1
+    LogLevelWarn  = 2
+    LogLevelError = 3
+)
+
+func logInfo(msg string) {
+    b := []byte(msg)
+    hostLog(LogLevelInfo, uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+```
+
+Log messages from guards appear in gateway debug output (with `DEBUG=guard:*` environment variable) and are prefixed with the guard name for easy identification.
+
 ### 2. Use Private Repositories
 
 For sensitive guard logic:

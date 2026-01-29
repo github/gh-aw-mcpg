@@ -21,6 +21,9 @@ func init() {
 }
 
 func labelResource(req *sdk.LabelResourceRequest) (*sdk.LabelResourceResponse, error) {
+	// Log the incoming request using host logging
+	sdk.LogDebug(fmt.Sprintf("labelResource called for tool: %s", req.ToolName))
+
 	// Default response
 	resp := &sdk.LabelResourceResponse{
 		Resource:  sdk.NewPublicResource(fmt.Sprintf("resource:%s", req.ToolName)),

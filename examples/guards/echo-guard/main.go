@@ -22,7 +22,10 @@ func init() {
 }
 
 func labelResource(req *sdk.LabelResourceRequest) (*sdk.LabelResourceResponse, error) {
-	// Print the request for debugging
+	// Log to gateway host using the new logging API
+	sdk.LogInfo(fmt.Sprintf("label_resource called for tool: %s", req.ToolName))
+
+	// Print the request for debugging (goes to WASM stdout)
 	fmt.Println("=== label_resource called ===")
 	fmt.Printf("Tool Name: %s\n", req.ToolName)
 	fmt.Println("Tool Args:")

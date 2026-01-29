@@ -15,6 +15,45 @@ import (
 //go:wasmimport env call_backend
 func callBackend(toolNamePtr, toolNameLen, argsPtr, argsLen, resultPtr, resultSize uint32) int32
 
+// hostLog is imported from the host (gateway) environment
+// It allows the guard to send log messages back to the gateway
+// Log levels: 0=debug, 1=info, 2=warn, 3=error
+//
+//go:wasmimport env host_log
+func hostLog(level, msgPtr, msgLen uint32)
+
+// Log level constants
+const (
+	LogLevelDebug = 0
+	LogLevelInfo  = 1
+	LogLevelWarn  = 2
+	LogLevelError = 3
+)
+
+// logDebug sends a debug level log message to the gateway
+func logDebug(msg string) {
+	b := []byte(msg)
+	hostLog(LogLevelDebug, uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+
+// logInfo sends an info level log message to the gateway
+func logInfo(msg string) {
+	b := []byte(msg)
+	hostLog(LogLevelInfo, uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+
+// logWarn sends a warning level log message to the gateway
+func logWarn(msg string) {
+	b := []byte(msg)
+	hostLog(LogLevelWarn, uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+
+// logError sends an error level log message to the gateway
+func logError(msg string) {
+	b := []byte(msg)
+	hostLog(LogLevelError, uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+
 // Request structures
 type LabelResourceInput struct {
 	ToolName     string                 `json:"tool_name"`
@@ -57,8 +96,11 @@ func labelResource(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 	input := readBytes(inputPtr, inputLen)
 	var req LabelResourceInput
 	if err := json.Unmarshal(input, &req); err != nil {
+		logError("failed to unmarshal label_resource input")
 		return -1
 	}
+
+	logDebug(fmt.Sprintf("labeling resource for tool: %s", req.ToolName))
 
 	// Default labels
 	output := LabelResourceOutput{

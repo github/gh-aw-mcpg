@@ -5,8 +5,28 @@
 // - Native WASM support
 // - Easy to compile and use
 
-// Host function import (provided by gateway via wazero)
-// Note: This is imported automatically by the WASM runtime
+// Host function imports (provided by gateway via wazero)
+// Note: These are imported automatically by the WASM runtime
+//
+// Available host functions:
+// - call_backend(toolNamePtr, toolNameLen, argsPtr, argsLen, resultPtr, resultSize) -> int32
+// - host_log(level, msgPtr, msgLen) -> void
+//
+// Log levels: 0=debug, 1=info, 2=warn, 3=error
+
+const LOG_DEBUG = 0;
+const LOG_INFO = 1;
+const LOG_WARN = 2;
+const LOG_ERROR = 3;
+
+// Helper function to log messages to the gateway host
+function logToHost(level, message) {
+    const msgBytes = new TextEncoder().encode(message);
+    // Allocate memory for the message (simplified - in real use, use proper WASM memory allocation)
+    const ptr = allocateMemory(msgBytes.length);
+    new Uint8Array(memory.buffer, ptr, msgBytes.length).set(msgBytes);
+    host_log(level, ptr, msgBytes.length);
+}
 
 // Guard function: label_resource
 // Called before accessing a resource to determine its DIFC labels
@@ -16,6 +36,11 @@ function label_resource(inputPtr, inputLen, outputPtr, outputSize) {
         const inputBytes = new Uint8Array(memory.buffer, inputPtr, inputLen);
         const inputStr = new TextDecoder().decode(inputBytes);
         const input = JSON.parse(inputStr);
+        
+        // Log the incoming request (if host_log is available)
+        if (typeof host_log !== 'undefined') {
+            logToHost(LOG_DEBUG, `label_resource called for tool: ${input.tool_name}`);
+        }
         
         // Default labels
         const output = {

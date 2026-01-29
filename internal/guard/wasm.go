@@ -130,6 +130,7 @@ func NewWasmGuardWithOptions(ctx context.Context, name string, wasmBytes []byte,
 func (g *WasmGuard) instantiateHostFunctions(ctx context.Context) error {
 	// Create a host module with functions the guard can call
 	_, err := g.runtime.NewHostModuleBuilder("env").
+		// call_backend: allows guards to call MCP tools on the backend
 		NewFunctionBuilder().
 		WithGoModuleFunction(api.GoModuleFunc(g.hostCallBackend), []api.ValueType{
 			api.ValueTypeI32, // ptr to tool name
@@ -140,6 +141,14 @@ func (g *WasmGuard) instantiateHostFunctions(ctx context.Context) error {
 			api.ValueTypeI32, // result buffer size
 		}, []api.ValueType{api.ValueTypeI32}). // returns result length or negative error
 		Export("call_backend").
+		// host_log: allows guards to send log messages to the gateway
+		NewFunctionBuilder().
+		WithGoModuleFunction(api.GoModuleFunc(g.hostLog), []api.ValueType{
+			api.ValueTypeI32, // log level (0=debug, 1=info, 2=warn, 3=error)
+			api.ValueTypeI32, // ptr to message
+			api.ValueTypeI32, // message length
+		}, []api.ValueType{}).
+		Export("host_log").
 		Instantiate(ctx)
 
 	return err
@@ -218,6 +227,44 @@ func (g *WasmGuard) hostCallBackend(ctx context.Context, m api.Module, stack []u
 
 	// Return result length
 	stack[0] = uint64(uint32(len(resultJSON)))
+}
+
+// Log level constants for hostLog
+const (
+	logLevelDebug = 0
+	logLevelInfo  = 1
+	logLevelWarn  = 2
+	logLevelError = 3
+)
+
+// hostLog is called by the WASM module to send log messages to the gateway
+func (g *WasmGuard) hostLog(ctx context.Context, m api.Module, stack []uint64) {
+	level := uint32(stack[0])
+	msgPtr := uint32(stack[1])
+	msgLen := uint32(stack[2])
+
+	// Read message from WASM memory
+	msgBytes, ok := m.Memory().Read(msgPtr, msgLen)
+	if !ok {
+		logWasm.Printf("hostLog: failed to read message from WASM memory")
+		return
+	}
+	msg := string(msgBytes)
+
+	// Log at the appropriate level
+	prefix := fmt.Sprintf("[guard:%s] ", g.name)
+	switch level {
+	case logLevelDebug:
+		logWasm.Printf("%sDEBUG: %s", prefix, msg)
+	case logLevelInfo:
+		logWasm.Printf("%sINFO: %s", prefix, msg)
+	case logLevelWarn:
+		logWasm.Printf("%sWARN: %s", prefix, msg)
+	case logLevelError:
+		logWasm.Printf("%sERROR: %s", prefix, msg)
+	default:
+		logWasm.Printf("%s%s", prefix, msg)
+	}
 }
 
 // Name returns the identifier for this guard

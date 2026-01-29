@@ -224,6 +224,68 @@ func (r *LabelResourceRequest) GetOwnerRepo() (owner, repo string, ok bool) {
 //go:wasmimport env call_backend
 func callBackend(toolNamePtr, toolNameLen, argsPtr, argsLen, resultPtr, resultSize uint32) int32
 
+// hostLog is imported from the host (gateway) environment
+// Log levels: 0=debug, 1=info, 2=warn, 3=error
+//
+//go:wasmimport env host_log
+func hostLog(level, msgPtr, msgLen uint32)
+
+// --- Logging ---
+
+// Log levels for host logging
+const (
+	LogLevelDebug = 0
+	LogLevelInfo  = 1
+	LogLevelWarn  = 2
+	LogLevelError = 3
+)
+
+// LogDebug sends a debug level log message to the gateway host
+func LogDebug(msg string) {
+	if len(msg) == 0 {
+		return
+	}
+	b := []byte(msg)
+	hostLog(LogLevelDebug, uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+
+// LogInfo sends an info level log message to the gateway host
+func LogInfo(msg string) {
+	if len(msg) == 0 {
+		return
+	}
+	b := []byte(msg)
+	hostLog(LogLevelInfo, uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+
+// LogWarn sends a warning level log message to the gateway host
+func LogWarn(msg string) {
+	if len(msg) == 0 {
+		return
+	}
+	b := []byte(msg)
+	hostLog(LogLevelWarn, uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+
+// LogError sends an error level log message to the gateway host
+func LogError(msg string) {
+	if len(msg) == 0 {
+		return
+	}
+	b := []byte(msg)
+	hostLog(LogLevelError, uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+
+// Logf sends a formatted log message at the specified level to the gateway host
+func Logf(level int, format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	if len(msg) == 0 {
+		return
+	}
+	b := []byte(msg)
+	hostLog(uint32(level), uint32(uintptr(unsafe.Pointer(&b[0]))), uint32(len(b)))
+}
+
 // CallBackend calls a tool on the backend MCP server
 // This is a read-only call for gathering metadata to inform labeling decisions
 func CallBackend(toolName string, args interface{}) (interface{}, error) {
