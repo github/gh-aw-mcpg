@@ -448,13 +448,13 @@ func (us *UnifiedServer) registerSysTools() error {
 	us.toolsMu.Lock()
 	us.tools["sys___init"] = &ToolInfo{
 		Name:        "sys___init",
-		Description: "Initialize the MCPG system and get available MCP servers",
+		Description: "[DEPRECATED] Initialize the MCPG system. This tool is no longer required - sessions are automatically created from the Authorization header. Kept for backward compatibility only.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"token": map[string]interface{}{
 					"type":        "string",
-					"description": "Authentication token for session initialization (can be empty for first call)",
+					"description": "Authentication token for session initialization (ignored - session ID is extracted from Authorization header)",
 				},
 			},
 		},
@@ -466,13 +466,13 @@ func (us *UnifiedServer) registerSysTools() error {
 	// Register with SDK
 	sdk.AddTool(us.server, &sdk.Tool{
 		Name:        "sys___init",
-		Description: "Initialize the MCPG system and get available MCP servers",
+		Description: "[DEPRECATED] Initialize the MCPG system. This tool is no longer required - sessions are automatically created from the Authorization header. Kept for backward compatibility only.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"token": map[string]interface{}{
 					"type":        "string",
-					"description": "Authentication token for session initialization (can be empty for first call)",
+					"description": "Authentication token for session initialization (ignored - session ID is extracted from Authorization header)",
 				},
 			},
 		},
@@ -936,7 +936,7 @@ func (us *UnifiedServer) requireSession(ctx context.Context) error {
 
 	if session == nil {
 		log.Printf("Session not found for ID: %s. Available sessions: %v", sessionID, us.getSessionKeys())
-		return fmt.Errorf("sys___init must be called before any other tool calls")
+		return fmt.Errorf("session not initialized: ensure Authorization header is set, or call sys___init (deprecated)")
 	}
 
 	log.Printf("Session validated for ID: %s", sessionID)

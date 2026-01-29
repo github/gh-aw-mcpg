@@ -10,6 +10,7 @@ import (
 
 	"github.com/githubnext/gh-aw-mcpg/internal/auth"
 	"github.com/githubnext/gh-aw-mcpg/internal/difc"
+	"github.com/githubnext/gh-aw-mcpg/internal/mcp"
 )
 
 // mockGuard is a simple guard implementation for testing that can be distinguished by ID
@@ -540,6 +541,25 @@ func TestContextHelpers(t *testing.T) {
 
 		agentID := GetAgentIDFromContext(ctx)
 		assert.Equal(t, "default", agentID, "Should return default for wrong type")
+	})
+
+	t.Run("GetAgentIDFromContext falls back to session ID", func(t *testing.T) {
+		ctx := context.Background()
+		// Set session ID (this is what routed.go does in production)
+		ctx = context.WithValue(ctx, mcp.SessionIDContextKey, "session-123")
+
+		agentID := GetAgentIDFromContext(ctx)
+		assert.Equal(t, "session-123", agentID)
+	})
+
+	t.Run("GetAgentIDFromContext prefers explicit agent ID over session ID", func(t *testing.T) {
+		ctx := context.Background()
+		// Set both session ID and explicit agent ID
+		ctx = context.WithValue(ctx, mcp.SessionIDContextKey, "session-123")
+		ctx = SetAgentIDInContext(ctx, "explicit-agent")
+
+		agentID := GetAgentIDFromContext(ctx)
+		assert.Equal(t, "explicit-agent", agentID)
 	})
 
 	t.Run("auth.ExtractAgentID Bearer", func(t *testing.T) {

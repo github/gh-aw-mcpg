@@ -76,7 +76,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&routedMode, "routed", defaultRoutedMode, "Run in routed mode (each backend at /mcp/<server>)")
 	rootCmd.Flags().BoolVar(&unifiedMode, "unified", defaultUnifiedMode, "Run in unified mode (all backends at /mcp)")
 	rootCmd.Flags().StringVar(&envFile, "env", defaultEnvFile, "Path to .env file to load environment variables")
-	rootCmd.Flags().BoolVar(&enableDIFC, "enable-difc", defaultEnableDIFC, "Enable DIFC enforcement and session requirement (requires sys___init call before tool access)")
+	rootCmd.Flags().BoolVar(&enableDIFC, "enable-difc", getDefaultEnableDIFC(), "Enable DIFC enforcement (sessions are auto-created from Authorization header)")
 	rootCmd.Flags().StringVar(&logDir, "log-dir", getDefaultLogDir(), "Directory for log files (falls back to stdout if directory cannot be created)")
 	rootCmd.Flags().StringVar(&payloadDir, "payload-dir", getDefaultPayloadDir(), "Directory for storing large payload files (segmented by session ID)")
 	rootCmd.Flags().BoolVar(&validateEnv, "validate-env", false, "Validate execution environment (Docker, env vars) before starting")
@@ -109,6 +109,19 @@ func getDefaultPayloadDir() string {
 		return envPayloadDir
 	}
 	return defaultPayloadDir
+}
+
+// getDefaultEnableDIFC returns the default DIFC setting, checking MCP_GATEWAY_ENABLE_DIFC
+// environment variable first, then falling back to the hardcoded default (false)
+func getDefaultEnableDIFC() bool {
+	if envDIFC := os.Getenv("MCP_GATEWAY_ENABLE_DIFC"); envDIFC != "" {
+		// Accept common truthy values: "1", "true", "yes", "on"
+		switch strings.ToLower(envDIFC) {
+		case "1", "true", "yes", "on":
+			return true
+		}
+	}
+	return defaultEnableDIFC
 }
 
 const (

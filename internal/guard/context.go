@@ -24,6 +24,7 @@ import (
 	"context"
 
 	"github.com/githubnext/gh-aw-mcpg/internal/logger"
+	"github.com/githubnext/gh-aw-mcpg/internal/mcp"
 )
 
 var log = logger.New("guard:context")
@@ -33,20 +34,36 @@ type ContextKey string
 
 const (
 	// AgentIDContextKey stores the agent ID in the request context
+	// Deprecated: Use session ID from mcp.SessionIDContextKey instead.
+	// This key is kept for backward compatibility but is no longer set in production.
 	AgentIDContextKey ContextKey = "difc-agent-id"
 
 	// RequestStateContextKey stores guard-specific request state
 	RequestStateContextKey ContextKey = "difc-request-state"
 )
 
-// GetAgentIDFromContext extracts the agent ID from the context
-// Returns "default" if not found
+// GetAgentIDFromContext extracts the agent/session ID from the context.
+// For DIFC purposes, the session ID (from Authorization header) is used as the agent ID.
+// This ensures each session has its own DIFC labels.
+//
+// Lookup order:
+// 1. AgentIDContextKey (for explicit agent ID, rarely used)
+// 2. mcp.SessionIDContextKey (session ID from Authorization header)
+// 3. "default" as fallback
 func GetAgentIDFromContext(ctx context.Context) string {
+	// First check for explicit agent ID (backward compatibility)
 	if agentID, ok := ctx.Value(AgentIDContextKey).(string); ok && agentID != "" {
-		log.Printf("Retrieved agent ID from context: %s", agentID)
+		log.Printf("Retrieved explicit agent ID from context: %s", agentID)
 		return agentID
 	}
-	log.Print("Agent ID not found in context, returning default")
+
+	// Fall back to session ID (the common case in production)
+	if sessionID, ok := ctx.Value(mcp.SessionIDContextKey).(string); ok && sessionID != "" {
+		log.Printf("Using session ID as agent ID: %s", sessionID)
+		return sessionID
+	}
+
+	log.Print("No agent/session ID found in context, returning default")
 	return "default"
 }
 
