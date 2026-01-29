@@ -17,16 +17,14 @@ COPY internal ./internal
 # Build argument for version (defaults to "dev")
 ARG VERSION=dev
 
-# Build the binary with version information and more aggressive optimization
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION}" -a -installsuffix cgo -o awmg .
+# Build the binary with version information
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION}" -o awmg .
 
 # Runtime stage - use specific Alpine version for better layer caching
 FROM alpine:3.21
 
 # Install only Docker CLI (bash removed, using POSIX sh)
-# Combine commands to reduce layers and clean cache
-RUN apk add --no-cache docker-cli && \
-    rm -rf /var/cache/apk/*
+RUN apk add --no-cache docker-cli
 
 WORKDIR /app
 
