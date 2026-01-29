@@ -293,19 +293,41 @@ func (g *WasmGuard) LabelResponse(ctx context.Context, toolName string, result i
 		return nil, nil
 	}
 
-	// Parse result
+	// Parse result - check for new path-based format first
 	var responseMap map[string]interface{}
 	if err := json.Unmarshal(resultJSON, &responseMap); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal WASM response: %w", err)
 	}
 
-	// Check if it's a collection
+	// Check for path-based labeling format (preferred, more efficient)
+	if _, hasLabeledPaths := responseMap["labeled_paths"]; hasLabeledPaths {
+		return parsePathLabeledResponse(resultJSON, result)
+	}
+
+	// Legacy format: check if it's a collection with "items"
 	if items, ok := responseMap["items"].([]interface{}); ok && len(items) > 0 {
 		return parseCollectionLabeledData(items)
 	}
 
 	// No fine-grained labeling
 	return nil, nil
+}
+
+// parsePathLabeledResponse parses the new path-based labeling format
+// This is more efficient as guards don't need to copy data, just return paths and labels
+func parsePathLabeledResponse(responseJSON []byte, originalData interface{}) (difc.LabeledData, error) {
+	pathLabels, err := difc.ParsePathLabels(responseJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse path labels: %w", err)
+	}
+
+	pld, err := difc.NewPathLabeledData(originalData, pathLabels)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply path labels: %w", err)
+	}
+
+	// Convert to CollectionLabeledData for compatibility with existing filtering
+	return pld.ToCollectionLabeledData(), nil
 }
 
 // callWasmFunction calls an exported function in the WASM module
@@ -320,63 +342,119 @@ func (g *WasmGuard) callWasmFunction(funcName string, inputJSON []byte) ([]byte,
 		return nil, fmt.Errorf("WASM module has no memory")
 	}
 
-	// Allocate memory regions
-	// We use the end of memory for our buffers to avoid conflicts
-	memSize := mem.Size()
-	minSize := uint32(4 * 1024 * 1024) // 4MB minimum
+	// Start with 4MB output buffer, can grow up to 16MB if needed
+	initialOutputSize := uint32(4 * 1024 * 1024) // 4MB initial
+	maxOutputSize := uint32(16 * 1024 * 1024)    // 16MB maximum
+	maxInputSize := uint32(8 * 1024 * 1024)      // 8MB max input
 
-	if memSize < minSize {
-		// Try to grow memory
-		pages := (minSize - memSize + 65535) / 65536 // Round up to pages
+	if uint32(len(inputJSON)) > maxInputSize {
+		return nil, fmt.Errorf("input too large: %d bytes (max %d)", len(inputJSON), maxInputSize)
+	}
+
+	// Try with initial buffer size, retry with larger buffer if needed
+	outputSize := initialOutputSize
+	const maxRetries = 3
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		result, requiredSize, err := g.tryCallWasmFunction(fn, mem, inputJSON, outputSize)
+		if err != nil {
+			return nil, err
+		}
+
+		// If we got a result, return it
+		if result != nil {
+			return result, nil
+		}
+
+		// Buffer was too small, check if we can grow
+		if requiredSize == 0 {
+			// Guard didn't tell us the required size, double the buffer
+			requiredSize = outputSize * 2
+		}
+
+		if requiredSize > maxOutputSize {
+			return nil, fmt.Errorf("guard requires buffer of %d bytes which exceeds maximum of %d bytes", requiredSize, maxOutputSize)
+		}
+
+		logWasm.Printf("Buffer too small (%d bytes), retrying with %d bytes", outputSize, requiredSize)
+		outputSize = requiredSize
+	}
+
+	return nil, fmt.Errorf("failed after %d attempts, buffer size %d still insufficient", maxRetries, outputSize)
+}
+
+// tryCallWasmFunction attempts to call the WASM function with the given buffer size
+// Returns (result, 0, nil) on success
+// Returns (nil, requiredSize, nil) if buffer was too small
+// Returns (nil, 0, error) on actual error
+func (g *WasmGuard) tryCallWasmFunction(fn api.Function, mem api.Memory, inputJSON []byte, outputSize uint32) ([]byte, uint32, error) {
+	// Ensure memory is large enough for our buffers
+	// Layout: [...guard memory...][input buffer][output buffer]
+	inputSize := uint32(len(inputJSON))
+	requiredMemory := inputSize + outputSize + uint32(64*1024) // Extra 64KB for safety margin
+
+	memSize := mem.Size()
+	if memSize < requiredMemory {
+		pages := (requiredMemory - memSize + 65535) / 65536 // Round up to pages
 		_, success := mem.Grow(pages)
 		if !success {
-			return nil, fmt.Errorf("failed to grow WASM memory from %d to %d bytes", memSize, minSize)
+			return nil, 0, fmt.Errorf("failed to grow WASM memory from %d to %d bytes", memSize, requiredMemory)
 		}
 		memSize = mem.Size()
 	}
 
-	// Use last 2MB for buffers
-	outputPtr := memSize - 2*1024*1024
-	outputSize := uint32(1024 * 1024)
-	inputPtr := memSize - 1*1024*1024
-
-	if uint32(len(inputJSON)) > 1024*1024 {
-		return nil, fmt.Errorf("input too large: %d bytes", len(inputJSON))
-	}
+	// Place buffers at end of memory
+	outputPtr := memSize - outputSize
+	inputPtr := outputPtr - inputSize
 
 	// Write input to WASM memory
 	if !mem.Write(inputPtr, inputJSON) {
-		return nil, fmt.Errorf("failed to write input to WASM memory")
+		return nil, 0, fmt.Errorf("failed to write input to WASM memory")
 	}
 
 	// Call the WASM function
 	results, err := fn.Call(g.ctx,
 		uint64(inputPtr),
-		uint64(len(inputJSON)),
+		uint64(inputSize),
 		uint64(outputPtr),
 		uint64(outputSize))
 	if err != nil {
-		return nil, fmt.Errorf("WASM function call failed: %w", err)
+		return nil, 0, fmt.Errorf("WASM function call failed: %w", err)
 	}
 
-	// Check result (negative = error)
+	// Check result
 	resultLen := int32(results[0])
+
+	// Error code -2 means "buffer too small"
+	// The guard can optionally return the required size in the output buffer as a uint32
+	if resultLen == -2 {
+		// Try to read the required size from the output buffer (first 4 bytes as uint32)
+		if sizeBytes, ok := mem.Read(outputPtr, 4); ok && len(sizeBytes) == 4 {
+			requiredSize := uint32(sizeBytes[0]) | uint32(sizeBytes[1])<<8 | uint32(sizeBytes[2])<<16 | uint32(sizeBytes[3])<<24
+			if requiredSize > 0 {
+				return nil, requiredSize, nil
+			}
+		}
+		// Guard didn't specify size, return 0 to trigger doubling
+		return nil, 0, nil
+	}
+
+	// Other negative values are errors
 	if resultLen < 0 {
-		return nil, fmt.Errorf("WASM function returned error code: %d", resultLen)
+		return nil, 0, fmt.Errorf("WASM function returned error code: %d", resultLen)
 	}
 
 	if resultLen == 0 {
-		// Empty result
-		return []byte{}, nil
+		return []byte{}, 0, nil
 	}
 
 	// Read output from WASM memory
 	outputJSON, ok := mem.Read(outputPtr, uint32(resultLen))
 	if !ok {
-		return nil, fmt.Errorf("failed to read output from WASM memory (len=%d)", resultLen)
+		return nil, 0, fmt.Errorf("failed to read output from WASM memory (len=%d)", resultLen)
 	}
 
-	return outputJSON, nil
+	return outputJSON, 0, nil
 }
 
 // parseResourceResponse converts guard response to LabeledResource

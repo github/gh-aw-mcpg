@@ -146,7 +146,9 @@ func labelResource(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 	return int32(len(outputJSON))
 }
 
-// label_response is called by the gateway to label response data
+// label_response is called by the gateway to label response data.
+// Uses the path-based labeling format which is more efficient as it doesn't
+// require copying response data - just returns paths and labels.
 //
 //export label_response
 func labelResponse(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
@@ -157,9 +159,166 @@ func labelResponse(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 		return -1
 	}
 
-	// For this sample, we don't do fine-grained labeling
-	// Return 0 to indicate no fine-grained labeling
-	return 0
+	// Check if this is a collection response that needs fine-grained labeling
+	response := labelResponseItems(req.ToolName, req.ToolResult)
+	if response == nil {
+		// No fine-grained labeling needed
+		return 0
+	}
+
+	// Marshal response
+	outputJSON, err := json.Marshal(response)
+	if err != nil {
+		return -1
+	}
+
+	// Check buffer size
+	if uint32(len(outputJSON)) > outputSize {
+		// Return -2 to indicate buffer too small, write required size
+		sizeBytes := []byte{
+			byte(len(outputJSON)),
+			byte(len(outputJSON) >> 8),
+			byte(len(outputJSON) >> 16),
+			byte(len(outputJSON) >> 24),
+		}
+		writeBytes(outputPtr, sizeBytes)
+		return -2
+	}
+
+	writeBytes(outputPtr, outputJSON)
+	return int32(len(outputJSON))
+}
+
+// PathLabelResponse is the path-based labeling format
+type PathLabelResponse struct {
+	LabeledPaths  []PathLabel     `json:"labeled_paths"`
+	DefaultLabels *ResourceLabels `json:"default_labels,omitempty"`
+	ItemsPath     string          `json:"items_path,omitempty"`
+}
+
+// PathLabel associates a JSON Pointer path with labels
+type PathLabel struct {
+	Path   string         `json:"path"`
+	Labels ResourceLabels `json:"labels"`
+}
+
+// labelResponseItems checks if this is a collection and labels each item by path
+func labelResponseItems(toolName string, result interface{}) *PathLabelResponse {
+	// Check common collection patterns
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		// Not a map - might be direct array or single item
+		if arr, ok := result.([]interface{}); ok {
+			return labelArrayItems(toolName, arr, "")
+		}
+		return nil
+	}
+
+	// Check for "items" array (common in GitHub search results)
+	if items, ok := resultMap["items"].([]interface{}); ok && len(items) > 0 {
+		return labelArrayItems(toolName, items, "/items")
+	}
+
+	// Check for direct array results (e.g., list_issues)
+	// No collection found
+	return nil
+}
+
+// labelArrayItems labels each item in an array using path-based format
+func labelArrayItems(toolName string, items []interface{}, itemsPath string) *PathLabelResponse {
+	if len(items) == 0 {
+		return nil
+	}
+
+	labels := make([]PathLabel, 0, len(items))
+
+	for i, item := range items {
+		path := fmt.Sprintf("%s/%d", itemsPath, i)
+		itemLabels := labelSingleItem(toolName, item)
+		labels = append(labels, PathLabel{
+			Path:   path,
+			Labels: itemLabels,
+		})
+	}
+
+	return &PathLabelResponse{
+		ItemsPath:    itemsPath,
+		LabeledPaths: labels,
+		DefaultLabels: &ResourceLabels{
+			Description: "Unlabeled item",
+			Secrecy:     []string{"public"},
+			Integrity:   []string{"untrusted"},
+		},
+	}
+}
+
+// labelSingleItem determines labels for a single item based on its content
+func labelSingleItem(toolName string, item interface{}) ResourceLabels {
+	itemMap, ok := item.(map[string]interface{})
+	if !ok {
+		return ResourceLabels{
+			Description: "Unknown item",
+			Secrecy:     []string{"public"},
+			Integrity:   []string{"untrusted"},
+		}
+	}
+
+	// Check for repository visibility
+	// Items with private repos get repo_private tag
+	if repo, ok := itemMap["repository"].(map[string]interface{}); ok {
+		if private, ok := repo["private"].(bool); ok && private {
+			return ResourceLabels{
+				Description: describeItem(toolName, itemMap),
+				Secrecy:     []string{"repo_private"},
+				Integrity:   []string{"github_verified"},
+			}
+		}
+	}
+
+	// Check for direct "private" field (e.g., in repo objects)
+	if private, ok := itemMap["private"].(bool); ok && private {
+		return ResourceLabels{
+			Description: describeItem(toolName, itemMap),
+			Secrecy:     []string{"repo_private"},
+			Integrity:   []string{"github_verified"},
+		}
+	}
+
+	// Default: public repository
+	return ResourceLabels{
+		Description: describeItem(toolName, itemMap),
+		Secrecy:     []string{"public"},
+		Integrity:   []string{"untrusted"},
+	}
+}
+
+// describeItem generates a human-readable description for an item
+func describeItem(toolName string, item map[string]interface{}) string {
+	// Try common identifier fields
+	if number, ok := item["number"].(float64); ok {
+		if title, ok := item["title"].(string); ok {
+			return fmt.Sprintf("Issue/PR #%d: %s", int(number), truncateString(title, 50))
+		}
+		return fmt.Sprintf("Issue/PR #%d", int(number))
+	}
+
+	if fullName, ok := item["full_name"].(string); ok {
+		return fmt.Sprintf("Repository: %s", fullName)
+	}
+
+	if login, ok := item["login"].(string); ok {
+		return fmt.Sprintf("User: %s", login)
+	}
+
+	return fmt.Sprintf("Item from %s", toolName)
+}
+
+// truncateString truncates a string to maxLen characters
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
 }
 
 // Helper functions

@@ -330,7 +330,7 @@ func TestWasmGuardLabelResponse(t *testing.T) {
 	}
 	defer wasmGuard.Close(ctx)
 
-	// Call LabelResponse
+	// Call LabelResponse with a direct array (path-based labeling should handle this)
 	result, err := wasmGuard.LabelResponse(
 		ctx,
 		"list_issues",
@@ -343,8 +343,26 @@ func TestWasmGuardLabelResponse(t *testing.T) {
 	)
 
 	require.NoError(t, err)
-	// Sample guard returns nil (no fine-grained labeling)
-	assert.Nil(t, result)
+	// Sample guard now uses path-based labeling and returns labeled items
+	require.NotNil(t, result, "Sample guard should return path-based labels for arrays")
+
+	// Verify it's a CollectionLabeledData (converted from path-based format)
+	collectionData, ok := result.(*difc.CollectionLabeledData)
+	require.True(t, ok, "Result should be CollectionLabeledData")
+	require.Len(t, collectionData.Items, 2, "Should have 2 labeled items")
+
+	// Check first item - note: data was re-parsed from original so numbers stay as their Go types
+	firstData := collectionData.Items[0].Data.(map[string]interface{})
+	assert.NotNil(t, firstData["number"], "First item should have number field")
+	assert.NotNil(t, collectionData.Items[0].Labels, "First item should have labels")
+	// Verify labels have secrecy tags (the sample guard assigns "public" to items)
+	firstSecrecyTags := collectionData.Items[0].Labels.Secrecy.Label.GetTags()
+	assert.NotEmpty(t, firstSecrecyTags, "First item should have secrecy tags")
+
+	// Check second item
+	secondData := collectionData.Items[1].Data.(map[string]interface{})
+	assert.NotNil(t, secondData["number"], "Second item should have number field")
+	assert.NotNil(t, collectionData.Items[1].Labels, "Second item should have labels")
 }
 
 // TestWasmGuardConfiguration tests loading guard configuration

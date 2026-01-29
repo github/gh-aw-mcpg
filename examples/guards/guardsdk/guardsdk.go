@@ -69,9 +69,60 @@ type LabelResponseRequest struct {
 	Capabilities interface{} `json:"capabilities,omitempty"`
 }
 
-// LabelResponseResponse contains the output from labeling a response
+// LabelResponseResponse contains the output from labeling a response.
+// Use either the legacy Items format OR the new PathLabels format.
+//
+// Legacy format (requires copying data):
+//
+//	response := &LabelResponseResponse{
+//	    Items: []LabeledItem{
+//	        {Data: originalItem, Labels: labels},
+//	    },
+//	}
+//
+// Path-based format (preferred, no data copying):
+//
+//	response := NewPathLabelResponseResponse("/items",
+//	    PathLabel{Path: "/items/0", Labels: NewPublicResource("Item 0")},
+//	    PathLabel{Path: "/items/1", Labels: NewPrivateResource("Item 1", "verified")},
+//	)
 type LabelResponseResponse struct {
+	// Legacy format: items with copied data
 	Items []LabeledItem `json:"items,omitempty"`
+
+	// Path-based format (preferred): paths and labels without data copying
+	LabeledPaths  []PathLabel     `json:"labeled_paths,omitempty"`
+	DefaultLabels *ResourceLabels `json:"default_labels,omitempty"`
+	ItemsPath     string          `json:"items_path,omitempty"`
+}
+
+// PathLabel associates a JSON Pointer path with labels.
+// Paths use RFC 6901 JSON Pointer syntax: "/items/0", "/results/5", etc.
+type PathLabel struct {
+	Path   string         `json:"path"`
+	Labels ResourceLabels `json:"labels"`
+}
+
+// NewPathLabelResponseResponse creates a path-based label response.
+// This is the preferred format as it doesn't require copying response data.
+//
+// Example:
+//
+//	response := NewPathLabelResponseResponse("/items",
+//	    PathLabel{Path: "/items/0", Labels: NewPublicResource("Issue #1")},
+//	    PathLabel{Path: "/items/1", Labels: NewPrivateResource("Issue #2", "verified")},
+//	)
+func NewPathLabelResponseResponse(itemsPath string, labels ...PathLabel) *LabelResponseResponse {
+	return &LabelResponseResponse{
+		ItemsPath:    itemsPath,
+		LabeledPaths: labels,
+	}
+}
+
+// WithDefaultLabels adds default labels for items not explicitly labeled.
+func (r *LabelResponseResponse) WithDefaultLabels(labels ResourceLabels) *LabelResponseResponse {
+	r.DefaultLabels = &labels
+	return r
 }
 
 // ResourceLabels contains security labels for a resource
@@ -81,7 +132,7 @@ type ResourceLabels struct {
 	Integrity   []string `json:"integrity"`
 }
 
-// LabeledItem represents a single item with its labels
+// LabeledItem represents a single item with its labels (legacy format)
 type LabeledItem struct {
 	Data   interface{}    `json:"data"`
 	Labels ResourceLabels `json:"labels"`
@@ -264,35 +315,60 @@ func RegisterLabelResponse(handler LabelResponseFunc) {
 
 // --- WASM exports (called by the gateway) ---
 
+// Error codes returned by WASM functions
+const (
+	// errGeneral indicates a general error (handler not registered, parse error, etc.)
+	errGeneral = -1
+	// errBufferTooSmall indicates the output buffer is too small
+	// When returning this, the guard should write the required size (as uint32 little-endian)
+	// to the first 4 bytes of the output buffer so the gateway can retry with a larger buffer.
+	errBufferTooSmall = -2
+)
+
+// writeRequiredSize writes the required buffer size to the output buffer (little-endian uint32)
+// This is called when the output is too large to fit in the provided buffer.
+func writeRequiredSize(outputPtr uint32, requiredSize uint32) {
+	sizeBytes := []byte{
+		byte(requiredSize),
+		byte(requiredSize >> 8),
+		byte(requiredSize >> 16),
+		byte(requiredSize >> 24),
+	}
+	writeBytes(outputPtr, sizeBytes)
+}
+
 // label_resource is the WASM export called by the gateway
 //
 //export label_resource
 func labelResource(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 	if labelResourceHandler == nil {
-		return -1 // No handler registered
+		return errGeneral // No handler registered
 	}
 
 	// Read input
 	input := readBytes(inputPtr, inputLen)
 	var req LabelResourceRequest
 	if err := json.Unmarshal(input, &req); err != nil {
-		return -1
+		return errGeneral
 	}
 
 	// Call handler
 	resp, err := labelResourceHandler(&req)
 	if err != nil {
-		return -1
+		return errGeneral
 	}
 
 	// Marshal output
 	outputJSON, err := json.Marshal(resp)
 	if err != nil {
-		return -1
+		return errGeneral
 	}
 
+	// Check if output fits in buffer
 	if uint32(len(outputJSON)) > outputSize {
-		return -1
+		// Signal buffer too small and write required size
+		writeRequiredSize(outputPtr, uint32(len(outputJSON)))
+		return errBufferTooSmall
 	}
 
 	writeBytes(outputPtr, outputJSON)
@@ -311,13 +387,13 @@ func labelResponse(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 	input := readBytes(inputPtr, inputLen)
 	var req LabelResponseRequest
 	if err := json.Unmarshal(input, &req); err != nil {
-		return -1
+		return errGeneral
 	}
 
 	// Call handler
 	resp, err := labelResponseHandler(&req)
 	if err != nil {
-		return -1
+		return errGeneral
 	}
 
 	// If nil response, no fine-grained labeling
@@ -328,11 +404,14 @@ func labelResponse(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 	// Marshal output
 	outputJSON, err := json.Marshal(resp)
 	if err != nil {
-		return -1
+		return errGeneral
 	}
 
+	// Check if output fits in buffer
 	if uint32(len(outputJSON)) > outputSize {
-		return -1
+		// Signal buffer too small and write required size
+		writeRequiredSize(outputPtr, uint32(len(outputJSON)))
+		return errBufferTooSmall
 	}
 
 	writeBytes(outputPtr, outputJSON)
