@@ -317,7 +317,142 @@ If the request is permitted, it is forwarded to GitHub. If not, the module must 
 
 ---
 
-### 11.5 GitHub MCP Interface and Operation Classification
+### 11.5 Session Initialization with DIFC Labels
+
+When an agent connects to the gateway, it must be assigned initial secrecy and integrity labels that define:
+- **Secrecy clearance**: What sensitive data the agent is allowed to read
+- **Integrity clearance**: What trust level the agent operates at for writes
+
+These initial labels are associated with the session ID provided in the `Authorization` header.
+
+#### 11.5.1 Configuration via Flags
+
+The gateway accepts flags to specify initial session labels:
+
+```bash
+# Specify initial secrecy clearance (agent can read private repo data)
+./awmg --config config.toml \
+  --session-secrecy "private:github/my-private-repo"
+
+# Specify initial integrity clearance (agent operates at maintainer level)
+./awmg --config config.toml \
+  --session-integrity "contributor:github/my-repo,maintainer:github/my-repo"
+
+# Combined: agent can read private data and write as maintainer
+./awmg --config config.toml \
+  --session-secrecy "private:github/my-private-repo" \
+  --session-integrity "contributor:github/my-repo,maintainer:github/my-repo"
+
+# Multiple repos (comma-separated tags)
+./awmg --config config.toml \
+  --session-secrecy "private:github/repo-a,private:github/repo-b" \
+  --session-integrity "contributor:github/repo-a,maintainer:github/repo-b"
+```
+
+**Flag Reference:**
+
+| Flag | Description | Example |
+|------|-------------|---------|
+| `--session-secrecy` | Comma-separated secrecy tags for agent clearance | `private:owner/repo,secret` |
+| `--session-integrity` | Comma-separated integrity tags for agent clearance | `contributor:owner/repo,maintainer:owner/repo` |
+
+#### 11.5.2 Configuration via Environment Variables
+
+The same configuration can be provided via environment variables:
+
+```bash
+# Environment variable equivalents
+export MCP_GATEWAY_SESSION_SECRECY="private:github/my-private-repo"
+export MCP_GATEWAY_SESSION_INTEGRITY="contributor:github/my-repo,maintainer:github/my-repo"
+
+./awmg --config config.toml
+```
+
+**Environment Variable Reference:**
+
+| Variable | Description | Equivalent Flag |
+|----------|-------------|-----------------|
+| `MCP_GATEWAY_SESSION_SECRECY` | Initial secrecy clearance tags | `--session-secrecy` |
+| `MCP_GATEWAY_SESSION_INTEGRITY` | Initial integrity clearance tags | `--session-integrity` |
+
+#### 11.5.3 Configuration via Config File
+
+For more complex setups, session labels can be specified in the configuration file:
+
+**TOML Format:**
+```toml
+[gateway]
+port = 3000
+domain = "localhost"
+
+[gateway.session]
+secrecy = ["private:github/my-private-repo"]
+integrity = ["contributor:github/my-repo", "maintainer:github/my-repo"]
+```
+
+**JSON Format (stdin):**
+```json
+{
+  "mcpServers": { ... },
+  "gateway": {
+    "port": 3000,
+    "session": {
+      "secrecy": ["private:github/my-private-repo"],
+      "integrity": ["contributor:github/my-repo", "maintainer:github/my-repo"]
+    }
+  }
+}
+```
+
+#### 11.5.4 Label Semantics for Sessions
+
+**Secrecy Clearance:**
+- An agent with `private:<repo>` clearance can read resources labeled with `private:<repo>` or lower (empty/public)
+- An agent with `secret` clearance can read any resource
+- An agent with no secrecy clearance (empty) can only read public resources
+
+**Integrity Clearance:**
+- An agent with `contributor:<repo>` clearance can write to resources requiring contributor-level integrity
+- An agent with `maintainer:<repo>` clearance can write to resources requiring maintainer-level integrity (and contributor by hierarchical inclusion)
+- An agent with `project:<repo>` clearance can write to any resource in that repo
+- **Important:** Integrity labels must be properly expanded (see Section 3.1)
+
+#### 11.5.5 Example: GitHub Copilot Agent for Private Repo
+
+A typical setup for an agent working on a private GitHub repository:
+
+```bash
+# Agent working on github/private-project as a maintainer
+./awmg --config config.toml \
+  --session-secrecy "private:github/private-project" \
+  --session-integrity "contributor:github/private-project,maintainer:github/private-project"
+```
+
+This configuration:
+1. Allows the agent to **read** issues, PRs, and code from `github/private-project`
+2. Allows the agent to **write** (create issues, submit PRs) at maintainer level
+3. Prevents the agent from accessing other private repos
+4. Prevents the agent from performing project-level operations (e.g., branch protection changes)
+
+#### 11.5.6 Dynamic Label Assignment (Future)
+
+A future enhancement could derive session labels dynamically from the GitHub token:
+
+```bash
+# Auto-derive labels from token permissions (proposed)
+./awmg --config config.toml --session-from-token
+```
+
+This would:
+1. Introspect the GitHub token to determine accessible repos
+2. Query GitHub API to determine user's role in each repo
+3. Automatically assign appropriate secrecy and integrity labels
+
+**Note:** This requires the gateway to have access to the GitHub token and make API calls at session initialization time.
+
+---
+
+### 11.6 GitHub MCP Interface and Operation Classification
 
 The mediator relies on the GitHub MCP server interface to observe and effect GitHub operations. The current open-source GitHub MCP server implementation and interface definition are available at:
 
@@ -328,7 +463,7 @@ The mediator relies on the GitHub MCP server interface to observe and effect Git
 
 This section classifies GitHub MCP server tools according to whether they **read**, **write**, or **read and write** GitHub state. This classification is used as input to DIFC enforcement.
 
-#### 11.5.1 Read-Only Operations
+#### 11.6.1 Read-Only Operations
 
 These operations retrieve GitHub state and do not mutate repository data.
 
@@ -424,7 +559,7 @@ These operations must satisfy **secrecy flow constraints** but do not impose int
 
 ---
 
-#### 11.5.2 Write-Only Operations
+#### 11.6.2 Write-Only Operations
 
 These operations mutate GitHub state without requiring prior reads as part of their semantics.
 
@@ -476,7 +611,7 @@ These operations must satisfy **integrity flow constraints** with respect to the
 
 ---
 
-#### 11.5.3 Read–Write Operations
+#### 11.6.3 Read–Write Operations
 
 These operations read existing GitHub state and conditionally write new state.
 
@@ -503,7 +638,7 @@ These operations must satisfy **both secrecy and integrity constraints**, as the
 
 ---
 
-#### 11.5.4 GitHub Objects Subject to DIFC Labeling
+#### 11.6.4 GitHub Objects Subject to DIFC Labeling
 
 The following GitHub objects can be read or modified by the MCP tools listed above. These are the objects for which integrity and secrecy labels must be computed.
 
@@ -569,7 +704,7 @@ Each object type requires label derivation rules as specified in Sections 5 and 
 
 ---
 
-#### 11.5.5 Label Derivation by Object Type
+#### 11.6.5 Label Derivation by Object Type
 
 This section specifies how to compute integrity and secrecy labels for each GitHub object type using MCP tool calls. All derivations follow the principles in Sections 3–6.
 
@@ -969,7 +1104,7 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 
 ---
 
-#### 11.5.6 Summary of Label Derivation Tools
+#### 11.6.6 Summary of Label Derivation Tools
 
 | Object Category | Primary MCP Tools for Derivation |
 |-----------------|----------------------------------|
@@ -988,11 +1123,11 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 
 ---
 
-### 11.6 Guard Interface Implementation
+### 11.7 Guard Interface Implementation
 
 The MCP Gateway enforces DIFC policies through a **Guard** interface. Each backend MCP server (e.g., GitHub) can have a custom guard that handles resource labeling. This section specifies the interface that a GitHub DIFC guard must implement.
 
-#### 11.6.1 Guard Interface Definition
+#### 11.7.1 Guard Interface Definition
 
 A guard must implement the following interface:
 
@@ -1013,7 +1148,7 @@ type Guard interface {
 }
 ```
 
-#### 11.6.2 Method Specifications
+#### 11.7.2 Method Specifications
 
 | Method | Purpose | Invocation Phase | Return Value |
 |--------|---------|------------------|--------------|
@@ -1021,7 +1156,7 @@ type Guard interface {
 | `LabelResource()` | Labels target resource **before** operation | Phase 1: Pre-execution | `*LabeledResource`, `OperationType`, `error` |
 | `LabelResponse()` | Labels response **after** operation | Phase 4: Post-execution | `LabeledData` or `nil`, `error` |
 
-#### 11.6.3 Operation Types
+#### 11.7.3 Operation Types
 
 The guard must classify each tool call into one of three operation types:
 
@@ -1040,7 +1175,7 @@ This classification determines which DIFC flow rules apply:
 - **Write**: Integrity constraints only (agent must have required integrity endorsement)
 - **ReadWrite**: Both constraints apply
 
-#### 11.6.4 Labeled Resource Structure
+#### 11.7.4 Labeled Resource Structure
 
 The `LabeledResource` type represents a GitHub resource with its computed labels:
 
@@ -1055,7 +1190,7 @@ type LabeledResource struct {
 
 For simple resources, `Structure` is `nil` and the labels apply uniformly. For complex responses (e.g., collections), `Structure` enables per-field or per-item labeling.
 
-#### 11.6.5 Labeled Data Types for Response Filtering
+#### 11.7.5 Labeled Data Types for Response Filtering
 
 The `LabelResponse` method returns one of several `LabeledData` implementations:
 
@@ -1089,7 +1224,7 @@ type FilteredCollectionLabeledData struct {
 }
 ```
 
-#### 11.6.6 Backend Caller Interface
+#### 11.7.6 Backend Caller Interface
 
 Guards may need to make auxiliary read-only calls to the backend to gather metadata for label derivation (e.g., fetching repository visibility, checking user roles):
 
@@ -1102,7 +1237,7 @@ type BackendCaller interface {
 
 For example, to label an issue, the guard might call `issue_read` to fetch the issue author, then determine if the author is a maintainer.
 
-#### 11.6.7 DIFC Enforcement Flow
+#### 11.7.7 DIFC Enforcement Flow
 
 The gateway's reference monitor uses guards in this six-phase flow:
 
@@ -1133,7 +1268,7 @@ The gateway's reference monitor uses guards in this six-phase flow:
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 11.6.8 GitHub Guard Implementation Requirements
+#### 11.7.8 GitHub Guard Implementation Requirements
 
 A GitHub DIFC guard must:
 
@@ -1157,7 +1292,7 @@ A GitHub DIFC guard must:
 
 ---
 
-### 11.7 Remote Guard Architecture
+### 11.8 Remote Guard Architecture
 
 To support guards maintained in separate repositories, the gateway supports a **remote guard protocol**. This enables:
 
@@ -1166,7 +1301,7 @@ To support guards maintained in separate repositories, the gateway supports a **
 - Third-party guard development without modifying the gateway
 - Isolation between the gateway and guard logic
 
-#### 11.7.1 Architectural Options
+#### 11.8.1 Architectural Options
 
 | Approach | Pros | Cons |
 |----------|------|------|
@@ -1343,7 +1478,7 @@ This allows:
 - Compiling to Wasm for production performance
 - Gradual migration as Wasm tooling matures
 
-#### 11.7.2 MCP-Based Remote Guard Protocol
+#### 11.8.2 MCP-Based Remote Guard Protocol
 
 A remote guard is itself an MCP server that exposes two tools corresponding to the Guard interface methods:
 
@@ -1420,7 +1555,7 @@ Allows the gateway to fetch metadata on behalf of the guard when the guard canno
 }
 ```
 
-#### 11.7.3 Gateway Configuration for Remote Guards
+#### 11.8.3 Gateway Configuration for Remote Guards
 
 Remote guards are configured in the gateway configuration file:
 
@@ -1451,7 +1586,7 @@ url = "http://localhost:8081/mcp"
 }
 ```
 
-#### 11.7.4 Guard-Backend Binding
+#### 11.8.4 Guard-Backend Binding
 
 Guards are bound to backends by server ID. The gateway routes guard calls based on the backend being accessed:
 
@@ -1464,7 +1599,7 @@ guard = "github"  # References [guards.github]
 
 If no guard is specified, the gateway uses the built-in `noop` guard (allows all operations).
 
-#### 11.7.5 Metadata Fetch Protocol
+#### 11.8.5 Metadata Fetch Protocol
 
 When a guard needs to call the backend to gather labeling information (e.g., checking if a user is a maintainer, determining repository visibility), several approaches are available:
 
@@ -1692,7 +1827,7 @@ For a **GitHub guard in a separate repository**, **Option B (gateway-proxied)** 
 - Simpler guard implementation
 - Metadata requests are auditable by the gateway
 
-#### 11.7.6 Credential and Trust Model
+#### 11.8.6 Credential and Trust Model
 
 This section clarifies the credential requirements for each component in the remote guard architecture.
 
@@ -2018,7 +2153,7 @@ A compromised guard **cannot**:
 2. Access credentials directly
 3. Bypass the gateway's final DIFC enforcement
 
-#### 11.7.7 Remote Guard Lifecycle
+#### 11.8.7 Remote Guard Lifecycle
 
 1. **Startup**: Gateway launches remote guard process (or connects to URL)
 2. **Initialization**: Gateway calls `initialize` on guard MCP server
