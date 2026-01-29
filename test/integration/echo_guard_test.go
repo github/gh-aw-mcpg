@@ -150,10 +150,12 @@ func TestEchoGuardLabelResourceOutput(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// Verify the returned labels (echo guard returns public/read)
+	// Verify the returned labels (echo guard now uses DIFC-compliant empty labels)
+	// Empty secrecy = public, Empty integrity = no endorsement per DIFC spec
 	assert.Equal(t, difc.OperationRead, operation)
 	secrecyTags := resource.Secrecy.Label.GetTags()
-	assert.Contains(t, secrecyTags, difc.Tag("public"))
+	// Empty secrecy is valid per DIFC spec (means public/no restrictions)
+	assert.Empty(t, secrecyTags, "Echo guard should return empty secrecy (public per DIFC spec)")
 
 	// Verify stdout output contains expected content
 	output := stdout.String()

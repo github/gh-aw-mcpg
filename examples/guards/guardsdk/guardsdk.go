@@ -139,22 +139,64 @@ type LabeledItem struct {
 }
 
 // --- Helper constructors for common label patterns ---
+//
+// Label conventions (consistent with docs/github-difc.md):
+// - Empty secrecy [] means public (no sensitivity restrictions)
+// - Empty integrity [] means no endorsement
+// - Integrity tags must be repo-scoped: contributor:<owner/repo>, maintainer:<owner/repo>, project:<owner/repo>
+// - Secrecy tags must be repo-scoped: private:<owner/repo>
+// - Guards must expand hierarchical integrity tags (maintainer implies contributor, etc.)
 
-// NewPublicResource creates a ResourceLabels for a public, untrusted resource
+// NewPublicResource creates a ResourceLabels for a public resource with no endorsement.
+// Use empty slices for both secrecy and integrity per DIFC conventions.
 func NewPublicResource(description string) ResourceLabels {
 	return ResourceLabels{
 		Description: description,
-		Secrecy:     []string{"public"},
-		Integrity:   []string{"untrusted"},
+		Secrecy:     []string{},
+		Integrity:   []string{},
 	}
 }
 
-// NewPrivateResource creates a ResourceLabels for a private resource
-func NewPrivateResource(description string, integrityLevel string) ResourceLabels {
+// NewPrivateResource creates a ResourceLabels for a private repo resource.
+// The repo parameter should be in "owner/repo" format.
+// integrityTags should already be expanded (e.g., use ContributorIntegrity, MaintainerIntegrity, or ProjectIntegrity).
+func NewPrivateResource(description string, repo string, integrityTags []string) ResourceLabels {
 	return ResourceLabels{
 		Description: description,
-		Secrecy:     []string{"repo_private"},
-		Integrity:   []string{integrityLevel},
+		Secrecy:     []string{"private:" + repo},
+		Integrity:   integrityTags,
+	}
+}
+
+// ContributorIntegrity returns the expanded integrity tags for contributor level.
+func ContributorIntegrity(repo string) []string {
+	return []string{"contributor:" + repo}
+}
+
+// MaintainerIntegrity returns the expanded integrity tags for maintainer level.
+// Per DIFC spec, maintainer implies contributor, so both are included.
+func MaintainerIntegrity(repo string) []string {
+	return []string{"contributor:" + repo, "maintainer:" + repo}
+}
+
+// ProjectIntegrity returns the expanded integrity tags for project level.
+// Per DIFC spec, project implies maintainer and contributor, so all are included.
+func ProjectIntegrity(repo string) []string {
+	return []string{"contributor:" + repo, "maintainer:" + repo, "project:" + repo}
+}
+
+// NewRepoResource creates a ResourceLabels with repo-scoped secrecy.
+// Use isPrivate=true for private repos, false for public repos.
+// integrityTags should already be expanded (use ContributorIntegrity, MaintainerIntegrity, or ProjectIntegrity).
+func NewRepoResource(description string, repo string, isPrivate bool, integrityTags []string) ResourceLabels {
+	secrecy := []string{}
+	if isPrivate {
+		secrecy = []string{"private:" + repo}
+	}
+	return ResourceLabels{
+		Description: description,
+		Secrecy:     secrecy,
+		Integrity:   integrityTags,
 	}
 }
 

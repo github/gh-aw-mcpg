@@ -102,12 +102,20 @@ func labelResource(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 
 	logDebug(fmt.Sprintf("labeling resource for tool: %s", req.ToolName))
 
-	// Default labels
+	// Extract owner/repo for repo-scoped tags
+	owner, _ := req.ToolArgs["owner"].(string)
+	repo, _ := req.ToolArgs["repo"].(string)
+	repoID := ""
+	if owner != "" && repo != "" {
+		repoID = owner + "/" + repo
+	}
+
+	// Default labels - empty secrecy (public) and empty integrity (no endorsement)
 	output := LabelResourceOutput{
 		Resource: ResourceLabels{
 			Description: fmt.Sprintf("resource:%s", req.ToolName),
-			Secrecy:     []string{"public"},
-			Integrity:   []string{"untrusted"},
+			Secrecy:     []string{},
+			Integrity:   []string{},
 		},
 		Operation: "read",
 	}
@@ -116,11 +124,17 @@ func labelResource(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 	switch req.ToolName {
 	case "create_issue", "update_issue", "create_pull_request":
 		output.Operation = "write"
-		output.Resource.Integrity = []string{"contributor"}
+		// Contributor level: only contributor tag
+		if repoID != "" {
+			output.Resource.Integrity = []string{"contributor:" + repoID}
+		}
 
 	case "merge_pull_request":
 		output.Operation = "read-write"
-		output.Resource.Integrity = []string{"maintainer"}
+		// Maintainer level: contributor + maintainer (hierarchical expansion)
+		if repoID != "" {
+			output.Resource.Integrity = []string{"contributor:" + repoID, "maintainer:" + repoID}
+		}
 
 	case "list_issues", "list_pull_requests":
 		output.Operation = "read"
@@ -159,7 +173,8 @@ func labelResource(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 									if labelData, ok := label.(map[string]interface{}); ok {
 										if name, ok := labelData["name"].(string); ok {
 											if name == "security" || name == "confidential" {
-												output.Resource.Secrecy = []string{"repo_private", "sensitive"}
+												// Use repo-scoped private tag plus sensitivity indicator
+												output.Resource.Secrecy = []string{"private:" + owner + "/" + repo, "secret"}
 											}
 										}
 									}
@@ -288,8 +303,8 @@ func labelArrayItems(toolName string, items []interface{}, itemsPath string) *Pa
 		LabeledPaths: labels,
 		DefaultLabels: &ResourceLabels{
 			Description: "Unlabeled item",
-			Secrecy:     []string{"public"},
-			Integrity:   []string{"untrusted"},
+			Secrecy:     []string{}, // empty = public
+			Integrity:   []string{}, // empty = no endorsement
 		},
 	}
 }
@@ -300,37 +315,55 @@ func labelSingleItem(toolName string, item interface{}) ResourceLabels {
 	if !ok {
 		return ResourceLabels{
 			Description: "Unknown item",
-			Secrecy:     []string{"public"},
-			Integrity:   []string{"untrusted"},
+			Secrecy:     []string{}, // empty = public
+			Integrity:   []string{}, // empty = no endorsement
 		}
 	}
 
+	// Extract repo info for scoped tags
+	repoID := ""
+	if repo, ok := itemMap["repository"].(map[string]interface{}); ok {
+		if fullName, ok := repo["full_name"].(string); ok {
+			repoID = fullName
+		}
+	} else if fullName, ok := itemMap["full_name"].(string); ok {
+		repoID = fullName
+	}
+
 	// Check for repository visibility
-	// Items with private repos get repo_private tag
+	// Items with private repos get repo-scoped private tag
 	if repo, ok := itemMap["repository"].(map[string]interface{}); ok {
 		if private, ok := repo["private"].(bool); ok && private {
+			secrecy := []string{}
+			if repoID != "" {
+				secrecy = []string{"private:" + repoID}
+			}
 			return ResourceLabels{
 				Description: describeItem(toolName, itemMap),
-				Secrecy:     []string{"repo_private"},
-				Integrity:   []string{"github_verified"},
+				Secrecy:     secrecy,
+				Integrity:   []string{}, // empty = no endorsement
 			}
 		}
 	}
 
 	// Check for direct "private" field (e.g., in repo objects)
 	if private, ok := itemMap["private"].(bool); ok && private {
+		secrecy := []string{}
+		if repoID != "" {
+			secrecy = []string{"private:" + repoID}
+		}
 		return ResourceLabels{
 			Description: describeItem(toolName, itemMap),
-			Secrecy:     []string{"repo_private"},
-			Integrity:   []string{"github_verified"},
+			Secrecy:     secrecy,
+			Integrity:   []string{}, // empty = no endorsement
 		}
 	}
 
-	// Default: public repository
+	// Default: public repository (empty secrecy and integrity)
 	return ResourceLabels{
 		Description: describeItem(toolName, itemMap),
-		Secrecy:     []string{"public"},
-		Integrity:   []string{"untrusted"},
+		Secrecy:     []string{},
+		Integrity:   []string{},
 	}
 }
 
@@ -367,22 +400,25 @@ func truncateString(s string, maxLen int) string {
 
 // labelByRepoVisibility checks repository visibility and updates secrecy labels
 func labelByRepoVisibility(output *LabelResourceOutput, toolArgs map[string]interface{}) {
-	if owner, ok := toolArgs["owner"].(string); ok {
-		if repo, ok := toolArgs["repo"].(string); ok {
-			// Call the backend via host function to check visibility
-			repoInfo, err := callBackendHelper("search_repositories", map[string]interface{}{
-				"query": fmt.Sprintf("repo:%s/%s", owner, repo),
-			})
+	owner, _ := toolArgs["owner"].(string)
+	repo, _ := toolArgs["repo"].(string)
+	if owner == "" || repo == "" {
+		return
+	}
+	repoID := owner + "/" + repo
 
-			if err == nil {
-				// Check if repository is private
-				if repoData, ok := repoInfo.(map[string]interface{}); ok {
-					if items, ok := repoData["items"].([]interface{}); ok && len(items) > 0 {
-						if firstItem, ok := items[0].(map[string]interface{}); ok {
-							if private, ok := firstItem["private"].(bool); ok && private {
-								output.Resource.Secrecy = []string{"repo_private"}
-							}
-						}
+	// Call the backend via host function to check visibility
+	repoInfo, err := callBackendHelper("search_repositories", map[string]interface{}{
+		"query": fmt.Sprintf("repo:%s", repoID),
+	})
+
+	if err == nil {
+		// Check if repository is private
+		if repoData, ok := repoInfo.(map[string]interface{}); ok {
+			if items, ok := repoData["items"].([]interface{}); ok && len(items) > 0 {
+				if firstItem, ok := items[0].(map[string]interface{}); ok {
+					if private, ok := firstItem["private"].(bool); ok && private {
+						output.Resource.Secrecy = []string{"private:" + repoID}
 					}
 				}
 			}

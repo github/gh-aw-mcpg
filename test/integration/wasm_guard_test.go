@@ -224,19 +224,20 @@ func TestWasmGuardLabelResource(t *testing.T) {
 		{
 			name:              "create_issue - write operation",
 			toolName:          "create_issue",
-			args:              map[string]interface{}{"title": "Test"},
+			args:              map[string]interface{}{"owner": "test-owner", "repo": "test-repo", "title": "Test"},
 			expectedOperation: difc.OperationWrite,
-			expectedSecrecy:   []string{"public"},
-			expectedIntegrity: []string{"contributor"},
+			expectedSecrecy:   []string{}, // empty = public per DIFC spec
+			expectedIntegrity: []string{"contributor:test-owner/test-repo"},
 			expectBackendCall: false,
 		},
 		{
 			name:              "merge_pull_request - read-write operation",
 			toolName:          "merge_pull_request",
-			args:              map[string]interface{}{"number": 1},
+			args:              map[string]interface{}{"owner": "test-owner", "repo": "test-repo", "number": 1},
 			expectedOperation: difc.OperationReadWrite,
-			expectedSecrecy:   []string{"public"},
-			expectedIntegrity: []string{"maintainer"},
+			expectedSecrecy:   []string{}, // empty = public per DIFC spec
+			// Maintainer level expands to contributor + maintainer (hierarchical expansion)
+			expectedIntegrity: []string{"contributor:test-owner/test-repo", "maintainer:test-owner/test-repo"},
 			expectBackendCall: false,
 		},
 		{
@@ -247,8 +248,8 @@ func TestWasmGuardLabelResource(t *testing.T) {
 				"repo":  "test-repo",
 			},
 			expectedOperation: difc.OperationRead,
-			expectedSecrecy:   []string{"repo_private"}, // Set via backend call
-			expectedIntegrity: []string{"untrusted"},
+			expectedSecrecy:   []string{"private:test-owner/test-repo"}, // repo-scoped private tag
+			expectedIntegrity: []string{},                               // empty = no endorsement per DIFC spec
 			expectBackendCall: true,
 		},
 		{
@@ -256,8 +257,8 @@ func TestWasmGuardLabelResource(t *testing.T) {
 			toolName:          "list_issues",
 			args:              map[string]interface{}{},
 			expectedOperation: difc.OperationRead,
-			expectedSecrecy:   []string{"public"},
-			expectedIntegrity: []string{"untrusted"},
+			expectedSecrecy:   []string{}, // empty = public per DIFC spec
+			expectedIntegrity: []string{}, // empty = no endorsement per DIFC spec
 			expectBackendCall: false,
 		},
 	}
@@ -281,16 +282,24 @@ func TestWasmGuardLabelResource(t *testing.T) {
 
 			// Check secrecy tags
 			secrecyTags := resource.Secrecy.Label.GetTags()
-			for _, expectedTag := range tt.expectedSecrecy {
-				assert.Contains(t, secrecyTags, difc.Tag(expectedTag),
-					"Expected secrecy tag %s not found", expectedTag)
+			if len(tt.expectedSecrecy) == 0 {
+				assert.Empty(t, secrecyTags, "Expected empty secrecy (public per DIFC spec)")
+			} else {
+				for _, expectedTag := range tt.expectedSecrecy {
+					assert.Contains(t, secrecyTags, difc.Tag(expectedTag),
+						"Expected secrecy tag %s not found", expectedTag)
+				}
 			}
 
 			// Check integrity tags
 			integrityTags := resource.Integrity.Label.GetTags()
-			for _, expectedTag := range tt.expectedIntegrity {
-				assert.Contains(t, integrityTags, difc.Tag(expectedTag),
-					"Expected integrity tag %s not found", expectedTag)
+			if len(tt.expectedIntegrity) == 0 {
+				assert.Empty(t, integrityTags, "Expected empty integrity (no endorsement per DIFC spec)")
+			} else {
+				for _, expectedTag := range tt.expectedIntegrity {
+					assert.Contains(t, integrityTags, difc.Tag(expectedTag),
+						"Expected integrity tag %s not found", expectedTag)
+				}
 			}
 
 			// Verify backend call was made if expected
@@ -355,9 +364,11 @@ func TestWasmGuardLabelResponse(t *testing.T) {
 	firstData := collectionData.Items[0].Data.(map[string]interface{})
 	assert.NotNil(t, firstData["number"], "First item should have number field")
 	assert.NotNil(t, collectionData.Items[0].Labels, "First item should have labels")
-	// Verify labels have secrecy tags (the sample guard assigns "public" to items)
+	// DIFC spec: empty secrecy = public, so we check that labels exist (not empty by design choice)
+	// The sample guard now uses empty secrecy labels per DIFC spec
 	firstSecrecyTags := collectionData.Items[0].Labels.Secrecy.Label.GetTags()
-	assert.NotEmpty(t, firstSecrecyTags, "First item should have secrecy tags")
+	// Empty secrecy tags are valid per DIFC spec (means public/no restrictions)
+	assert.Empty(t, firstSecrecyTags, "First item should have empty secrecy (public per DIFC spec)")
 
 	// Check second item
 	secondData := collectionData.Items[1].Data.(map[string]interface{})

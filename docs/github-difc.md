@@ -48,18 +48,46 @@ Integrity labels represent *endorsement and trust*, not provenance.
 Integrity classes are ordered from lowest to highest:
 
 ```
-untrusted
-≤ contributor
-≤ maintainer
-≤ project
+∅ (empty)
+≤ contributor:<repo>
+≤ maintainer:<repo>
+≤ project:<repo>
 ```
+
+where `<repo>` is the repository identifier in `owner/name` format (e.g., `github/github-mcp-server`).
 
 Interpretation:
 
-- `untrusted`: No trusted party endorses correctness.
-- `contributor`: Endorsed as originating from a known contributor role.
-- `maintainer`: Endorsed by a project maintainer.
-- `project`: Endorsed as part of the trusted project history (e.g., merged into a protected branch).
+- `∅` (empty): No trusted party endorses correctness. An empty integrity label indicates the absence of endorsement.
+- `contributor:<repo>`: Endorsed as originating from a known contributor role in the specified repository.
+- `maintainer:<repo>`: Endorsed by a maintainer of the specified repository.
+- `project:<repo>`: Endorsed as part of the trusted project history (e.g., merged into a protected branch of the specified repository).
+
+### 3.1 Guard Responsibility for Hierarchical Expansion
+
+The DIFC evaluator treats labels as opaque strings and does **not** understand the hierarchical relationship between GitHub integrity tags. Therefore, the GitHub guard **must explicitly expand** integrity labels to include all implied lower-level tags:
+
+| When assigning... | Guard must include... |
+|-------------------|----------------------|
+| `contributor:<repo>` | `contributor:<repo>` |
+| `maintainer:<repo>` | `contributor:<repo>`, `maintainer:<repo>` |
+| `project:<repo>` | `contributor:<repo>`, `maintainer:<repo>`, `project:<repo>` |
+
+**Example:** When labeling a commit merged to a protected branch:
+
+```json
+{
+  "integrity": [
+    "contributor:github/github-mcp-server",
+    "maintainer:github/github-mcp-server",
+    "project:github/github-mcp-server"
+  ]
+}
+```
+
+This explicit expansion ensures that DIFC flow checks work correctly. An agent with `maintainer:<repo>` clearance can write to resources labeled with `contributor:<repo>` because both tags are present in the resource's integrity label.
+
+**Rationale:** This design keeps the DIFC evaluator domain-agnostic while allowing domain-specific guards (like the GitHub guard) to encode hierarchical trust relationships through label expansion.
 
 Integrity labels **must grow monotonically**. Demotion is not permitted.
 
@@ -70,15 +98,17 @@ Integrity labels **must grow monotonically**. Demotion is not permitted.
 Secrecy labels represent *information sensitivity and release constraints*.
 
 ```
-public
-≤ repo_private
+∅ (empty)
+≤ private:<repo>
 ≤ secret
 ```
 
+where `<repo>` is the repository identifier in `owner/name` format (e.g., `github/github-mcp-server`).
+
 Interpretation:
 
-- `public`: May be disclosed publicly.
-- `repo_private`: Restricted to repository collaborators.
+- `∅` (empty): May be disclosed publicly. An empty secrecy label indicates no sensitivity restrictions.
+- `private:<repo>`: Restricted to collaborators of the specified repository.
 - `secret`: Must not be disclosed via GitHub-visible state.
 
 Secrecy labels are enforced strictly: information may flow only to objects with secrecy labels greater than or equal to the source.
@@ -123,9 +153,9 @@ Given the same repository state and configuration, label computation must yield 
 
 When a commit exists but is not merged into a protected branch:
 
-- `I(commit) = untrusted`
-- `S(commit) = public` (public repo)
-- `S(commit) = repo_private` (private repo)
+- `I(commit) = ∅` (empty — no endorsement)
+- `S(commit) = ∅` (empty — public repo, no sensitivity)
+- `S(commit) = private:<repo>` (private repo)
 
 Authorship information is treated as provenance metadata only.
 
@@ -135,7 +165,7 @@ Authorship information is treated as provenance metadata only.
 
 When a PR is opened:
 
-- `I(PR) = untrusted`
+- `I(PR) = ∅` (empty — no endorsement)
 - `S(PR)` depends on repository visibility
 
 Review comments and CI results do not automatically promote integrity.
@@ -146,7 +176,7 @@ Review comments and CI results do not automatically promote integrity.
 
 Issues and comments are treated as low-integrity inputs:
 
-- `I(issue) = untrusted`
+- `I(issue) = ∅` (empty — no endorsement)
 - `S(issue)` depends on repository visibility
 
 ---
@@ -169,13 +199,13 @@ Integrity promotion is derived from **observable repository events**.
 
 Examples:
 
-- `untrusted → contributor`  
-  If the PR author is a known contributor.
+- `∅ → contributor:<repo>`  
+  If the PR author is a known contributor to the repository.
 
-- `contributor → maintainer`  
+- `contributor:<repo> → maintainer:<repo>`  
   If at least one maintainer-approved review exists and required checks pass.
 
-- `maintainer → project`  
+- `maintainer:<repo> → project:<repo>`  
   If the commit is merged into a protected branch by a maintainer.
 
 These predicates operate on metadata; only the resulting integrity class is recorded logically.
@@ -217,7 +247,7 @@ AI agents are not treated as sources of integrity.
 For any agent-produced artifact:
 
 ```
-I = untrusted
+I = ∅ (empty)
 ```
 
 regardless of the user on whose behalf the agent operates.
@@ -232,7 +262,7 @@ For combined inputs:
 I(output) ≤ min(I(human_input), I(agent_input))
 ```
 
-Since agent input is always `untrusted`, agent outputs require external endorsement to gain integrity.
+Since agent input always has empty integrity (`∅`), agent outputs require external endorsement to gain integrity.
 
 ---
 
@@ -553,33 +583,33 @@ This section specifies how to compute integrity and secrecy labels for each GitH
   - Use `search_users` to get user metadata
   - Integrity is contextual: a user's role relative to a repository determines integrity
   - Check repository collaborator status via `get_file_contents` on `.github/CODEOWNERS` or repository settings
-  - `I(user) = maintainer` if user has admin/maintain permissions on repository
-  - `I(user) = contributor` if user has write/triage permissions
-  - `I(user) = untrusted` otherwise
+  - `I(user) = maintainer:<repo>` if user has admin/maintain permissions on repository
+  - `I(user) = contributor:<repo>` if user has write/triage permissions
+  - `I(user) = ∅` (empty) otherwise
 - **Secrecy Derivation:**
-  - User profiles are generally public: `S(user) = public`
-  - Private user data (email, settings): `S = repo_private`
+  - User profiles are generally public: `S(user) = ∅` (empty)
+  - Private user data (email, settings): `S = private:<repo>`
 
 **Team**
 - **Integrity Derivation:**
   - Use `get_teams` and `get_team_members` to enumerate team membership
   - Team integrity derives from organization role assignments
-  - `I(team) = maintainer` if team has maintain permissions on repositories
-  - `I(team) = contributor` if team has write permissions
+  - `I(team) = maintainer:<repo>` if team has maintain permissions on repositories
+  - `I(team) = contributor:<repo>` if team has write permissions
 - **Secrecy Derivation:**
   - Use `search_orgs` to check organization visibility
-  - Public organizations: `S(team) = public`
-  - Private organizations: `S(team) = repo_private`
+  - Public organizations: `S(team) = ∅` (empty)
+  - Private organizations: `S(team) = private:<org>`
 
 **Organization**
 - **Integrity Derivation:**
   - Use `search_orgs` to retrieve organization metadata
   - Organizations themselves are not integrity principals; members inherit roles
-  - `I(org) = project` (organizations define the trust boundary)
+  - `I(org) = project:<org>` (organizations define the trust boundary)
 - **Secrecy Derivation:**
   - Check organization visibility settings
-  - `S(org) = public` for public organizations
-  - `S(org) = repo_private` for private organizations
+  - `S(org) = ∅` (empty) for public organizations
+  - `S(org) = private:<org>` for private organizations
 
 ---
 
@@ -589,19 +619,19 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `search_repositories` to get repository metadata
   - Repository integrity reflects its protected branch configuration
-  - `I(repo) = project` (repositories define trust boundaries)
+  - `I(repo) = project:<repo>` (repositories define trust boundaries)
 - **Secrecy Derivation:**
   - Use `search_repositories` to check visibility field
-  - `S(repo) = public` for public repositories
-  - `S(repo) = repo_private` for private repositories
+  - `S(repo) = ∅` (empty) for public repositories
+  - `S(repo) = private:<repo>` for private repositories
 
 **Branch**
 - **Integrity Derivation:**
   - Use `list_branches` to enumerate branches
   - Check if branch is protected (default branch, protection rules)
-  - `I(branch) = project` if branch is protected
-  - `I(branch) = maintainer` if branch requires maintainer approval
-  - `I(branch) = untrusted` for unprotected feature branches
+  - `I(branch) = project:<repo>` if branch is protected
+  - `I(branch) = maintainer:<repo>` if branch requires maintainer approval
+  - `I(branch) = ∅` (empty) for unprotected feature branches
 - **Secrecy Derivation:**
   - Inherits from repository: `S(branch) = S(repo)`
 
@@ -609,9 +639,9 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `list_tags` and `get_tag` to retrieve tag metadata
   - Use `get_commit` on tagged commit to check author/committer
-  - `I(tag) = project` if tag points to commit on protected branch
-  - `I(tag) = maintainer` if created by maintainer
-  - `I(tag) = untrusted` otherwise
+  - `I(tag) = project:<repo>` if tag points to commit on protected branch
+  - `I(tag) = maintainer:<repo>` if created by maintainer
+  - `I(tag) = ∅` (empty) otherwise
 - **Secrecy Derivation:**
   - Inherits from repository: `S(tag) = S(repo)`
 
@@ -620,10 +650,10 @@ This section specifies how to compute integrity and secrecy labels for each GitH
   - Use `get_commit` to retrieve commit details
   - Use `list_commits` to check branch membership
   - Check if commit is reachable from protected branch
-  - `I(commit) = project` if merged into protected branch
-  - `I(commit) = maintainer` if approved by maintainer review
-  - `I(commit) = contributor` if authored by contributor
-  - `I(commit) = untrusted` otherwise
+  - `I(commit) = project:<repo>` if merged into protected branch
+  - `I(commit) = maintainer:<repo>` if approved by maintainer review
+  - `I(commit) = contributor:<repo>` if authored by contributor
+  - `I(commit) = ∅` (empty) otherwise
 - **Secrecy Derivation:**
   - Inherits from repository: `S(commit) = S(repo)`
   - Check commit message for sensitive patterns: promote to `S = secret` if found
@@ -652,9 +682,9 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `list_releases`, `get_latest_release`, or `get_release_by_tag` to retrieve release
   - Check release author and associated tag
-  - `I(release) = project` if created by maintainer and tag is on protected branch
-  - `I(release) = maintainer` if created by maintainer
-  - `I(release) = untrusted` otherwise
+  - `I(release) = project:<repo>` if created by maintainer and tag is on protected branch
+  - `I(release) = maintainer:<repo>` if created by maintainer
+  - `I(release) = ∅` (empty) otherwise
 - **Secrecy Derivation:**
   - Inherits from repository: `S(release) = S(repo)`
 
@@ -668,10 +698,10 @@ This section specifies how to compute integrity and secrecy labels for each GitH
   - Use `pull_request_read` with `method: get_reviews` to check approvals
   - Use `pull_request_read` with `method: get_status` to check CI status
   - Check merge status and target branch
-  - `I(PR) = project` if merged into protected branch
-  - `I(PR) = maintainer` if approved by maintainer with passing checks
-  - `I(PR) = contributor` if author is contributor
-  - `I(PR) = untrusted` otherwise
+  - `I(PR) = project:<repo>` if merged into protected branch
+  - `I(PR) = maintainer:<repo>` if approved by maintainer with passing checks
+  - `I(PR) = contributor:<repo>` if author is contributor
+  - `I(PR) = ∅` (empty) otherwise
 - **Secrecy Derivation:**
   - Base: `S(PR) = S(repo)`
   - Scan PR body and diff for sensitive content: promote to `S = secret` if found
@@ -680,9 +710,9 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `pull_request_read` with `method: get_reviews` to retrieve reviews
   - Check reviewer's role relative to repository
-  - `I(review) = maintainer` if reviewer is maintainer
-  - `I(review) = contributor` if reviewer is contributor
-  - `I(review) = untrusted` otherwise
+  - `I(review) = maintainer:<repo>` if reviewer is maintainer
+  - `I(review) = contributor:<repo>` if reviewer is contributor
+  - `I(review) = ∅` (empty) otherwise
 - **Secrecy Derivation:**
   - Inherits from PR: `S(review) = S(PR)`
 
@@ -707,8 +737,8 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `issue_read` with `method: get` to retrieve issue metadata
   - Issues are user-submitted content, generally low integrity
-  - `I(issue) = contributor` if author is contributor
-  - `I(issue) = untrusted` otherwise
+  - `I(issue) = contributor:<repo>` if author is contributor
+  - `I(issue) = ∅` (empty) otherwise
 - **Secrecy Derivation:**
   - Inherits from repository: `S(issue) = S(repo)`
   - Scan issue body for sensitive content
@@ -733,14 +763,14 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `list_label` or `get_label` to retrieve labels
   - Labels are repository configuration, created by maintainers
-  - `I(label) = maintainer` (labels require write access to create)
+  - `I(label) = maintainer:<repo>` (labels require write access to create)
 - **Secrecy Derivation:**
   - Inherits from repository: `S(label) = S(repo)`
 
 **Issue Type**
 - **Integrity Derivation:**
   - Use `list_issue_types` to retrieve organization issue types
-  - `I(issue_type) = project` (organization-level configuration)
+  - `I(issue_type) = project:<org>` (organization-level configuration)
 - **Secrecy Derivation:**
   - Inherits from organization: `S(issue_type) = S(org)`
 
@@ -753,8 +783,8 @@ This section specifies how to compute integrity and secrecy labels for each GitH
   - Use `get_discussion` to retrieve discussion metadata
   - Use `list_discussions` to enumerate discussions
   - Discussions are community content, similar to issues
-  - `I(discussion) = contributor` if author is contributor
-  - `I(discussion) = untrusted` otherwise
+  - `I(discussion) = contributor:<repo>` if author is contributor
+  - `I(discussion) = ∅` (empty) otherwise
 - **Secrecy Derivation:**
   - Inherits from repository: `S(discussion) = S(repo)`
 
@@ -770,7 +800,7 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `list_discussion_categories` to retrieve categories
   - Categories are repository configuration
-  - `I(category) = maintainer`
+  - `I(category) = maintainer:<repo>`
 - **Secrecy Derivation:**
   - Inherits from repository: `S(category) = S(repo)`
 
@@ -782,11 +812,11 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `get_project` and `list_projects` to retrieve project metadata
   - Projects are organizational/repository configuration
-  - `I(project) = maintainer` (requires write access to create)
+  - `I(project) = maintainer:<repo>` (requires write access to create)
 - **Secrecy Derivation:**
   - Check project visibility (public/private)
-  - `S(project) = public` for public projects
-  - `S(project) = repo_private` for private projects
+  - `S(project) = ∅` (empty) for public projects
+  - `S(project) = private:<repo>` for private projects
 
 **Project Item**
 - **Integrity Derivation:**
@@ -800,7 +830,7 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `get_project_field` and `list_project_fields` to retrieve fields
   - Fields are project configuration
-  - `I(field) = maintainer`
+  - `I(field) = maintainer:<repo>`
 - **Secrecy Derivation:**
   - Inherits from project: `S(field) = S(project)`
 
@@ -861,15 +891,15 @@ This section specifies how to compute integrity and secrecy labels for each GitH
   - Notifications reference other objects (issues, PRs, etc.)
   - `I(notification) = I(referenced_object)`
 - **Secrecy Derivation:**
-  - Notifications are user-private: `S(notification) = repo_private`
+  - Notifications are user-private: `S(notification) = private:<repo>`
 
 **Notification Subscription**
 - **Integrity Derivation:**
   - Use `manage_notification_subscription` to manage subscriptions
   - Subscriptions are user preferences
-  - `I(subscription) = contributor` (user controls own subscriptions)
+  - `I(subscription) = contributor:<repo>` (user controls own subscriptions)
 - **Secrecy Derivation:**
-  - `S(subscription) = repo_private` (user preferences are private)
+  - `S(subscription) = private:<repo>` (user preferences are private)
 
 ---
 
@@ -879,12 +909,12 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `get_gist` and `list_gists` to retrieve gists
   - Gists are user-created content
-  - `I(gist) = contributor` if owner is contributor
-  - `I(gist) = untrusted` otherwise
+  - `I(gist) = contributor:<gist_id>` if owner is contributor
+  - `I(gist) = ∅` (empty) otherwise
 - **Secrecy Derivation:**
   - Check gist visibility (public/secret)
-  - `S(gist) = public` for public gists
-  - `S(gist) = repo_private` for secret gists
+  - `S(gist) = ∅` (empty) for public gists
+  - `S(gist) = private:<gist_id>` for secret gists
   - Scan content for credentials: promote to `S = secret` if found
 
 ---
@@ -895,22 +925,22 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `list_code_scanning_alerts` and `get_code_scanning_alert` to retrieve alerts
   - Alerts are generated by security tools
-  - `I(alert) = project` (tool output, not user-controlled)
+  - `I(alert) = project:<repo>` (tool output, not user-controlled)
 - **Secrecy Derivation:**
-  - `S(alert) = repo_private` (security findings are sensitive)
+  - `S(alert) = private:<repo>` (security findings are sensitive)
   - For critical vulnerabilities: `S = secret`
 
 **Dependabot Alert**
 - **Integrity Derivation:**
   - Use `list_dependabot_alerts` and `get_dependabot_alert` to retrieve alerts
-  - `I(alert) = project` (automated dependency analysis)
+  - `I(alert) = project:<repo>` (automated dependency analysis)
 - **Secrecy Derivation:**
-  - `S(alert) = repo_private` (vulnerability information is sensitive)
+  - `S(alert) = private:<repo>` (vulnerability information is sensitive)
 
 **Secret Scanning Alert**
 - **Integrity Derivation:**
   - Use `list_secret_scanning_alerts` and `get_secret_scanning_alert` to retrieve alerts
-  - `I(alert) = project` (automated secret detection)
+  - `I(alert) = project:<repo>` (automated secret detection)
 - **Secrecy Derivation:**
   - `S(alert) = secret` (alerts reference actual secrets)
   - **Critical:** Must never be disclosed publicly
@@ -919,11 +949,11 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `list_global_security_advisories`, `get_global_security_advisory`,
     `list_repository_security_advisories`, `list_org_repository_security_advisories`
-  - Global advisories: `I(advisory) = project` (curated by GitHub)
-  - Repository advisories: `I(advisory) = maintainer` (created by maintainers)
+  - Global advisories: `I(advisory) = project:github` (curated by GitHub)
+  - Repository advisories: `I(advisory) = maintainer:<repo>` (created by maintainers)
 - **Secrecy Derivation:**
-  - Published advisories: `S(advisory) = public`
-  - Draft advisories: `S(advisory) = repo_private`
+  - Published advisories: `S(advisory) = ∅` (empty)
+  - Draft advisories: `S(advisory) = private:<repo>`
 
 ---
 
@@ -933,9 +963,9 @@ This section specifies how to compute integrity and secrecy labels for each GitH
 - **Integrity Derivation:**
   - Use `list_starred_repositories` to retrieve stars
   - Stars are user preferences, not integrity-bearing
-  - `I(star) = untrusted` (no integrity significance)
+  - `I(star) = ∅` (empty, no integrity significance)
 - **Secrecy Derivation:**
-  - Stars are public: `S(star) = public`
+  - Stars are public: `S(star) = ∅` (empty)
 
 ---
 
@@ -1340,7 +1370,7 @@ Labels a resource before the operation executes.
   "resource": {
     "description": "issue:github/github-mcp-server#42",
     "secrecy": ["repo:github/github-mcp-server"],
-    "integrity": ["contributor"]
+    "integrity": ["contributor:github/github-mcp-server"]
   },
   "operation": "read",
   "metadata_requests": []
@@ -1369,8 +1399,8 @@ Labels response data for fine-grained filtering.
 {
   "type": "collection",
   "items": [
-    { "index": 0, "secrecy": ["public"], "integrity": ["contributor"] },
-    { "index": 1, "secrecy": ["repo:github/github-mcp-server"], "integrity": ["maintainer"] }
+    { "index": 0, "secrecy": [], "integrity": ["contributor:github/github-mcp-server"] },
+    { "index": 1, "secrecy": ["repo:github/github-mcp-server"], "integrity": ["contributor:github/github-mcp-server", "maintainer:github/github-mcp-server"] }
   ]
 }
 ```
@@ -1554,8 +1584,8 @@ Phase 2 — Gateway fetches and re-invokes:
   "status": "complete",
   "resource": {
     "description": "issue:github/github-mcp-server#42",
-    "secrecy": ["public"],
-    "integrity": ["maintainer"]
+    "secrecy": [],
+    "integrity": ["contributor:github/github-mcp-server", "maintainer:github/github-mcp-server"]
   },
   "operation": "read"
 }
@@ -1687,7 +1717,7 @@ This section clarifies the credential requirements for each component in the rem
 │       │                                                                     │
 └───────┼─────────────────────────────────────────────────────────────────────┘
         │
-        │  Trust boundary: Agent is untrusted
+        │  Trust boundary: Agent has empty integrity (∅)
         │  Guard is trusted (but credential-less)
         │  Gateway holds all backend credentials
 ```
@@ -1696,7 +1726,7 @@ This section clarifies the credential requirements for each component in the rem
 
 | Component | Credentials Required | Trust Level | Notes |
 |-----------|---------------------|-------------|-------|
-| **Agent** | None (identified by session) | Untrusted | DIFC labels enforce restrictions |
+| **Agent** | None (identified by session) | Empty integrity (∅) | DIFC labels enforce restrictions |
 | **Gateway** | Backend credentials (e.g., `GITHUB_TOKEN`) | Trusted | Single credential holder |
 | **Guard (MCP-based)** | None | Trusted | Relies on gateway for backend access |
 | **Guard (Wasm)** | None | Sandboxed | Host functions provide backend access |

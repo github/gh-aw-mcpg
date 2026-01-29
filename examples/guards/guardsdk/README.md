@@ -118,13 +118,16 @@ type LabelResourceResponse struct {
 
 #### ResourceLabels
 
-Security classification for a resource.
+Security classification for a resource. Per DIFC conventions:
+- Empty secrecy `[]` means public (no sensitivity restrictions)
+- Empty integrity `[]` means no endorsement
+- Tags must be repo-scoped: `contributor:<owner/repo>`, `maintainer:<owner/repo>`, `private:<owner/repo>`
 
 ```go
 type ResourceLabels struct {
     Description string   // Human-readable description
-    Secrecy     []string // Secrecy tags (e.g., "public", "repo_private")
-    Integrity   []string // Integrity tags (e.g., "untrusted", "contributor")
+    Secrecy     []string // Secrecy tags (e.g., [], ["private:owner/repo"], ["secret"])
+    Integrity   []string // Integrity tags (e.g., [], ["contributor:owner/repo"])
 }
 ```
 
@@ -213,15 +216,16 @@ func labelResponse(req *sdk.LabelResponseRequest) (*sdk.LabelResponseResponse, e
     labels := make([]sdk.PathLabel, len(items))
     for i, item := range items {
         // Determine labels based on item content
-        isPrivate := checkItemPrivate(item)
+        repoID, isPrivate := getRepoInfo(item)
         
         labels[i] = sdk.PathLabel{
             Path: fmt.Sprintf("/items/%d", i),
-            Labels: sdk.ResourceLabels{
-                Description: fmt.Sprintf("Item %d", i),
-                Secrecy:     getSecrecyTags(isPrivate),
-                Integrity:   []string{"untrusted"},
-            },
+            Labels: sdk.NewRepoResource(
+                fmt.Sprintf("Item %d", i),
+                repoID,
+                isPrivate,
+                []string{}, // empty = no endorsement
+            ),
         }
     }
     
@@ -233,16 +237,40 @@ func labelResponse(req *sdk.LabelResponseRequest) (*sdk.LabelResponseResponse, e
 ### Label Constructors
 
 ```go
-// Create a public, untrusted resource
+// Create a public resource with no endorsement (empty labels)
 sdk.NewPublicResource("issue:owner/repo#123")
+// → Secrecy: [], Integrity: []
 
-// Create a private resource with specified integrity
-sdk.NewPrivateResource("issue:owner/repo#123", "contributor")
+// Create a repo-scoped private resource with expanded integrity
+sdk.NewPrivateResource("issue:owner/repo#123", "owner/repo", sdk.ContributorIntegrity("owner/repo"))
+// → Secrecy: ["private:owner/repo"], Integrity: ["contributor:owner/repo"]
 
-// Create a resource with custom labels
+// Create a resource with custom secrecy and integrity
 sdk.NewResource("issue:owner/repo#123", 
-    []string{"repo_private", "sensitive"},
-    []string{"maintainer"})
+    []string{"private:owner/repo", "secret"},
+    sdk.MaintainerIntegrity("owner/repo"))
+// → Secrecy: ["private:owner/repo", "secret"], Integrity: ["contributor:owner/repo", "maintainer:owner/repo"]
+
+// Create a repo-scoped resource (public or private based on visibility)
+sdk.NewRepoResource("issue:owner/repo#123", "owner/repo", isPrivate, sdk.ContributorIntegrity("owner/repo"))
+```
+
+### Integrity Hierarchy Helpers
+
+GitHub integrity tags are hierarchical. Guards must expand them to include all implied levels:
+
+```go
+// Contributor level (just contributor)
+sdk.ContributorIntegrity("owner/repo")
+// → ["contributor:owner/repo"]
+
+// Maintainer level (implies contributor)
+sdk.MaintainerIntegrity("owner/repo")
+// → ["contributor:owner/repo", "maintainer:owner/repo"]
+
+// Project level (implies maintainer and contributor)
+sdk.ProjectIntegrity("owner/repo")
+// → ["contributor:owner/repo", "maintainer:owner/repo", "project:owner/repo"]
 ```
 
 ### Operations

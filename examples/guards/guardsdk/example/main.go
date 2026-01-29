@@ -24,21 +24,33 @@ func labelResource(req *sdk.LabelResourceRequest) (*sdk.LabelResourceResponse, e
 	// Log the incoming request using host logging
 	sdk.LogDebug(fmt.Sprintf("labelResource called for tool: %s", req.ToolName))
 
-	// Default response
+	// Extract owner/repo for repo-scoped tags
+	owner, repo, hasRepo := req.GetOwnerRepo()
+	repoID := ""
+	if hasRepo {
+		repoID = owner + "/" + repo
+	}
+
+	// Default response - empty labels (public, no endorsement)
 	resp := &sdk.LabelResourceResponse{
 		Resource:  sdk.NewPublicResource(fmt.Sprintf("resource:%s", req.ToolName)),
 		Operation: sdk.OperationRead,
 	}
 
 	switch req.ToolName {
-	// Write operations
+	// Write operations - contributor level
 	case "create_issue", "update_issue", "create_pull_request":
 		resp.Operation = sdk.OperationWrite
-		resp.Resource.Integrity = []string{"contributor"}
+		if repoID != "" {
+			resp.Resource.Integrity = sdk.ContributorIntegrity(repoID)
+		}
 
+	// Read-write operations - maintainer level (expands to contributor + maintainer)
 	case "merge_pull_request":
 		resp.Operation = sdk.OperationReadWrite
-		resp.Resource.Integrity = []string{"maintainer"}
+		if repoID != "" {
+			resp.Resource.Integrity = sdk.MaintainerIntegrity(repoID)
+		}
 
 	// Read operations with repository visibility check
 	case "list_issues", "list_pull_requests":
@@ -63,21 +75,22 @@ func labelByRepoVisibility(req *sdk.LabelResourceRequest, resp *sdk.LabelResourc
 	if !ok {
 		return
 	}
+	repoID := owner + "/" + repo
 
 	// Call backend to check repository visibility
 	result, err := sdk.CallBackend("search_repositories", map[string]interface{}{
-		"query": fmt.Sprintf("repo:%s/%s", owner, repo),
+		"query": fmt.Sprintf("repo:%s", repoID),
 	})
 	if err != nil {
 		return
 	}
 
-	// Check if private
+	// Check if private - use repo-scoped tag
 	if repoData, ok := result.(map[string]interface{}); ok {
 		if items, ok := repoData["items"].([]interface{}); ok && len(items) > 0 {
 			if firstItem, ok := items[0].(map[string]interface{}); ok {
 				if private, ok := firstItem["private"].(bool); ok && private {
-					resp.Resource.Secrecy = []string{"repo_private"}
+					resp.Resource.Secrecy = []string{"private:" + repoID}
 				}
 			}
 		}
@@ -118,13 +131,13 @@ func labelByIssueDetails(req *sdk.LabelResourceRequest, resp *sdk.LabelResourceR
 		}
 	}
 
-	// Check for sensitive labels
+	// Check for sensitive labels - use "secret" for highest secrecy
 	if labels, ok := issueData["labels"].([]interface{}); ok {
 		for _, label := range labels {
 			if labelData, ok := label.(map[string]interface{}); ok {
 				if name, ok := labelData["name"].(string); ok {
 					if name == "security" || name == "confidential" {
-						resp.Resource.Secrecy = append(resp.Resource.Secrecy, "sensitive")
+						resp.Resource.Secrecy = append(resp.Resource.Secrecy, "secret")
 						break
 					}
 				}

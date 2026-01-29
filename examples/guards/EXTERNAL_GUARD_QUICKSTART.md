@@ -74,14 +74,28 @@ func labelResource(inputPtr, inputLen, outputPtr, outputSize uint32) int32 {
 	var req map[string]interface{}
 	json.Unmarshal(input, &req)
 	
-	// Create response
+	// Extract owner/repo for repo-scoped tags
+	toolArgs, _ := req["tool_args"].(map[string]interface{})
+	owner, _ := toolArgs["owner"].(string)
+	repo, _ := toolArgs["repo"].(string)
+	
+	// Create response with empty labels (public, no endorsement)
+	// Per DIFC spec: empty secrecy = public, empty integrity = no endorsement
 	output := map[string]interface{}{
 		"resource": map[string]interface{}{
 			"description": fmt.Sprintf("resource:%s", req["tool_name"]),
-			"secrecy":     []string{"public"},
-			"integrity":   []string{"untrusted"},
+			"secrecy":     []string{},  // empty = public
+			"integrity":   []string{},  // empty = no endorsement
 		},
 		"operation": "read",
+	}
+	
+	// Example: add repo-scoped contributor tag for write operations
+	if req["tool_name"] == "create_issue" && owner != "" && repo != "" {
+		output["resource"].(map[string]interface{})["integrity"] = []string{
+			"contributor:" + owner + "/" + repo,
+		}
+		output["operation"] = "write"
 	}
 	
 	// Write output
