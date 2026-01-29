@@ -1,6 +1,9 @@
 # Build stage
 FROM golang:1.25-alpine AS builder
 
+# Install ca-certificates for TLS connections
+RUN apk add --no-cache ca-certificates
+
 WORKDIR /app
 
 # Copy go mod files
@@ -20,8 +23,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION}
 # Runtime stage
 FROM alpine:latest
 
-# Install Docker CLI and bash for launching backend MCP servers
-RUN apk add --no-cache docker-cli bash
+# Install Docker CLI for launching backend MCP servers
+# Note: bash removed to reduce image size - scripts use POSIX sh
+RUN apk add --no-cache docker-cli
 
 WORKDIR /app
 

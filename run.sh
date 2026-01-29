@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # run.sh - Startup script for MCP Gateway (non-containerized mode)
 # For containerized deployments, use run_containerized.sh instead.
 
@@ -25,15 +25,15 @@ else
 fi
 
 log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1" >&2
+    printf "${GREEN}[INFO]${NC} %s\n" "$1" >&2
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1" >&2
+    printf "${YELLOW}[WARN]${NC} %s\n" "$1" >&2
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1" >&2
+    printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
 }
 
 # Check if running in a container - if so, redirect to containerized script

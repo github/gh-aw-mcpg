@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # run_containerized.sh - Startup script for containerized MCP Gateway
 # This script should be used when running the gateway inside a Docker container.
 # It performs comprehensive validation of the container environment before starting.
@@ -26,15 +26,15 @@ else
 fi
 
 log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1" >&2
+    printf "${GREEN}[INFO]${NC} %s\n" "$1" >&2
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1" >&2
+    printf "${YELLOW}[WARN]${NC} %s\n" "$1" >&2
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1" >&2
+    printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
 }
 
 # Validate container ID contains only hex characters (security check)
@@ -107,23 +107,23 @@ check_docker_socket() {
 
 # Validate required environment variables
 check_required_env_vars() {
-    local missing_vars=()
+    local missing_vars=""
     
     if [ -z "$MCP_GATEWAY_PORT" ]; then
-        missing_vars+=("MCP_GATEWAY_PORT")
+        missing_vars="$missing_vars MCP_GATEWAY_PORT"
     fi
     
     if [ -z "$MCP_GATEWAY_DOMAIN" ]; then
-        missing_vars+=("MCP_GATEWAY_DOMAIN")
+        missing_vars="$missing_vars MCP_GATEWAY_DOMAIN"
     fi
     
     if [ -z "$MCP_GATEWAY_API_KEY" ]; then
-        missing_vars+=("MCP_GATEWAY_API_KEY")
+        missing_vars="$missing_vars MCP_GATEWAY_API_KEY"
     fi
     
-    if [ ${#missing_vars[@]} -ne 0 ]; then
+    if [ -n "$missing_vars" ]; then
         log_error "Required environment variables not set:"
-        for var in "${missing_vars[@]}"; do
+        for var in $missing_vars; do
             log_error "  - $var"
         done
         log_error ""
