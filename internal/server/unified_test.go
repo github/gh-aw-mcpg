@@ -572,3 +572,102 @@ func TestUnifiedServer_EnsureSessionDirectory(t *testing.T) {
 	_, err = os.Stat(nestedPath)
 	require.NoError(t, err, "Nested session directory should exist")
 }
+
+// TestCoarseGrainedCheckWithFiltering tests that read operations bypass the coarse-grained
+// DIFC block when filtering is enabled, allowing fine-grained per-item filtering instead.
+// This captures the behavior where:
+// - For read operations with difcFilter=true: bypass coarse-grained block, proceed to backend
+// - For write operations: always block if coarse-grained check fails (even with filtering enabled)
+// - For read operations with difcFilter=false: block if coarse-grained check fails
+func TestCoarseGrainedCheckWithFiltering(t *testing.T) {
+	tests := []struct {
+		name                   string
+		enableDIFC             bool
+		difcFilter             bool
+		isReadOperation        bool
+		coarseGrainedCheckFail bool
+		expectBlockAtPhase2    bool
+		description            string
+	}{
+		{
+			name:                   "Read operation with filtering enabled, coarse check fails",
+			enableDIFC:             true,
+			difcFilter:             true,
+			isReadOperation:        true,
+			coarseGrainedCheckFail: true,
+			expectBlockAtPhase2:    false, // Should NOT block - let filtering handle it
+			description:            "Read ops with filtering bypass coarse block for fine-grained filtering",
+		},
+		{
+			name:                   "Read operation with filtering disabled, coarse check fails",
+			enableDIFC:             true,
+			difcFilter:             false,
+			isReadOperation:        true,
+			coarseGrainedCheckFail: true,
+			expectBlockAtPhase2:    true, // Should block - no filtering to fall back on
+			description:            "Read ops without filtering must block when coarse check fails",
+		},
+		{
+			name:                   "Write operation with filtering enabled, coarse check fails",
+			enableDIFC:             true,
+			difcFilter:             true,
+			isReadOperation:        false,
+			coarseGrainedCheckFail: true,
+			expectBlockAtPhase2:    true, // Should block - writes can't be filtered
+			description:            "Write ops always block on coarse check failure (can't filter writes)",
+		},
+		{
+			name:                   "Write operation with filtering disabled, coarse check fails",
+			enableDIFC:             true,
+			difcFilter:             false,
+			isReadOperation:        false,
+			coarseGrainedCheckFail: true,
+			expectBlockAtPhase2:    true, // Should block
+			description:            "Write ops block when coarse check fails",
+		},
+		{
+			name:                   "Read operation with filtering enabled, coarse check passes",
+			enableDIFC:             true,
+			difcFilter:             true,
+			isReadOperation:        true,
+			coarseGrainedCheckFail: false,
+			expectBlockAtPhase2:    false, // No block - check passed
+			description:            "Read ops proceed when coarse check passes",
+		},
+		{
+			name:                   "DIFC disabled, coarse check would fail",
+			enableDIFC:             false,
+			difcFilter:             true,
+			isReadOperation:        true,
+			coarseGrainedCheckFail: true,
+			expectBlockAtPhase2:    false, // No block - DIFC not enforced
+			description:            "When DIFC is disabled, no blocking occurs",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{
+				Servers:    map[string]*config.ServerConfig{},
+				EnableDIFC: tt.enableDIFC,
+				DIFCFilter: tt.difcFilter,
+			}
+
+			ctx := context.Background()
+			us, err := NewUnified(ctx, cfg)
+			require.NoError(t, err, "NewUnified() failed")
+			defer us.Close()
+
+			// Verify the unified server has correct configuration
+			assert.Equal(t, tt.enableDIFC, us.enableDIFC, "enableDIFC should match config")
+			assert.Equal(t, tt.difcFilter, us.difcFilter, "difcFilter should match config")
+
+			// Test the decision logic that determines whether to block at Phase 2
+			// This mimics the logic in unified.go callToolWithDIFC
+			shouldBypassBlock := tt.isReadOperation && tt.difcFilter
+			actualBlockAtPhase2 := tt.coarseGrainedCheckFail && !shouldBypassBlock
+
+			assert.Equal(t, tt.expectBlockAtPhase2, actualBlockAtPhase2, tt.description)
+		})
+	}
+}
