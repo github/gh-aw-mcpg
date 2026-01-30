@@ -87,9 +87,9 @@ args = [
 
 **Benefits:**
 - **First launch**: Indexes workspace and language servers (~10-30 seconds depending on project size)
-- **Subsequent launches**: Uses cached index (<1 second)
-- **Per-workspace isolation**: Cache is shared across all projects in the workspace
-- **Automatic updates**: Cache is refreshed when files change
+- **Subsequent launches**: Reuses cached index (<1 second)
+- **Workspace-specific**: Cache directory stores isolated indexes for each workspace
+- **Smart caching**: Serena manages cache updates as files change
 
 **Note:** The cache directory `${HOME}/.serena-cache` is automatically created on first use. You can use a different location if needed.
 
@@ -206,12 +206,12 @@ If a language server isn't working properly:
 If Serena is slow to start:
 
 1. **Use persistent cache** (recommended): Mount `${HOME}/.serena-cache:/tmp/serena-cache` to cache language server indexes between restarts
-2. Ensure sufficient memory is allocated to Docker (at least 4GB recommended)
+2. Ensure sufficient memory is allocated to Docker (4GB or more recommended for large projects with multiple language servers)
 3. Use read-only mounts when possible (`:ro`) for the workspace
 
 **Cache Benefits:**
 - First launch: 10-30 seconds (indexes workspace)
-- Subsequent launches: <1 second (uses cached index)
+- Subsequent launches: <1 second (reuses cached index)
 - Significantly reduces gateway startup time
 
 ## References

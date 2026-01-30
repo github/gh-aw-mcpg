@@ -86,9 +86,9 @@ You can customize the location by changing the mount path:
 - Startup time: <1 second
 
 **Cache Updates:**
-- Cache is automatically updated when files change
-- No manual cache invalidation needed
-- Old cache entries are cleaned up automatically
+- Serena manages cache updates as workspace files change
+- Language servers maintain their own index lifecycle
+- Consider clearing cache if encountering stale data issues
 
 ### Benefits
 
@@ -96,15 +96,15 @@ You can customize the location by changing the mount path:
 2. **Better Developer Experience**: Near-instant MCP server availability
 3. **Improved CI/CD**: Faster test/build cycles when using Serena
 4. **Resource Efficiency**: Less CPU/memory usage on startup
-5. **Shared Cache**: Single cache directory works for all workspaces
+5. **Unified Cache Location**: Single cache directory efficiently stores isolated indexes for all workspaces
 
 ### Cache Isolation
 
-The cache is workspace-aware and automatically handles multiple projects:
-- Each workspace maintains its own index
-- Cache is keyed by workspace path
+The cache is workspace-aware, with each workspace maintaining its own index:
+- Cache data is keyed by workspace path
+- Multiple workspaces can share the same cache directory
 - No conflicts between different projects
-- Safe to share cache across all Serena instances
+- A single cache directory stores isolated data for all Serena instances
 
 ### Disk Usage
 
@@ -113,7 +113,7 @@ The cache directory size depends on your codebase:
 - **Medium projects** (100-1000 files): ~10-50 MB
 - **Large projects** (1000+ files): ~50-200 MB
 
-The cache automatically cleans up stale entries and limits size growth.
+Serena and its language servers manage the cache lifecycle. Monitor disk usage and clear the cache manually if it grows too large.
 
 ### Troubleshooting
 
