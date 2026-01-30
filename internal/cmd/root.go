@@ -627,12 +627,16 @@ func parseSessionLabels(input string) []string {
 	}
 	labels := strings.Split(input, ",")
 	// Trim whitespace from each label
-	result := make([]string, 0, len(labels))
+	var result []string
 	for _, label := range labels {
 		trimmed := strings.TrimSpace(label)
 		if trimmed != "" {
 			result = append(result, trimmed)
 		}
+	}
+	// Return nil instead of empty slice for consistency
+	if len(result) == 0 {
+		return nil
 	}
 	return result
 }

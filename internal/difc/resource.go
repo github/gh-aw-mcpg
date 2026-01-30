@@ -210,6 +210,31 @@ func (f *FilteredCollectionLabeledData) ToResult() (interface{}, error) {
 		return rewrapAsMCP(result)
 	}
 
+	// No mcpWrapper - handle special cases for MCP compatibility
+
+	// If no items are accessible, return an empty MCP response
+	// This happens when filtering removes all items from a single-object response
+	if len(result) == 0 {
+		return map[string]interface{}{
+			"content": []interface{}{
+				map[string]interface{}{
+					"type": "text",
+					"text": "[]",
+				},
+			},
+		}, nil
+	}
+
+	// Single item that's already MCP-formatted - return it directly
+	// This handles responses where unwrapMCPResponse failed (e.g., multi-content with resource types)
+	if len(result) == 1 {
+		if itemMap, ok := result[0].(map[string]interface{}); ok {
+			if _, hasContent := itemMap["content"]; hasContent {
+				return result[0], nil
+			}
+		}
+	}
+
 	return result, nil
 }
 
