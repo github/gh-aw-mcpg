@@ -55,22 +55,61 @@ Always mount your codebase to `/workspace` for Serena to analyze:
 }
 ```
 
-### Using with MCP Gateway
+#### Persistent Cache for Faster Startup
 
-**config.toml**:
+**⚡️ Performance Optimization:** Mount a persistent cache directory to dramatically reduce startup time (from 10+ seconds to <1 second on subsequent launches).
+
+Serena indexes your workspace and language server data on first use. By default, this cache is stored in `/tmp/serena-cache` inside the container and is lost when the container stops. To persist this cache between restarts:
+
+**Using TOML config:**
 ```toml
 [servers.serena]
 command = "docker"
 args = [
   "run", "--rm", "-i",
   "-v", "/path/to/workspace:/workspace:ro",
+  "-v", "${HOME}/.serena-cache:/tmp/serena-cache",  # Persistent cache
   "-e", "NO_COLOR=1",
   "-e", "TERM=dumb",
   "ghcr.io/githubnext/serena-mcp-server:latest"
 ]
 ```
 
-**config.json**:
+**Using JSON config:**
+```json
+{
+  "mounts": [
+    "/path/to/workspace:/workspace:ro",
+    "${HOME}/.serena-cache:/tmp/serena-cache"
+  ]
+}
+```
+
+**Benefits:**
+- **First launch**: Indexes workspace and language servers (~10-30 seconds depending on project size)
+- **Subsequent launches**: Uses cached index (<1 second)
+- **Per-workspace isolation**: Cache is shared across all projects in the workspace
+- **Automatic updates**: Cache is refreshed when files change
+
+**Note:** The cache directory `${HOME}/.serena-cache` is automatically created on first use. You can use a different location if needed.
+
+### Using with MCP Gateway
+
+**config.toml (with persistent cache)**:
+```toml
+[servers.serena]
+command = "docker"
+args = [
+  "run", "--rm", "-i",
+  "-v", "/path/to/workspace:/workspace:ro",
+  "-v", "${HOME}/.serena-cache:/tmp/serena-cache",
+  "-e", "NO_COLOR=1",
+  "-e", "TERM=dumb",
+  "ghcr.io/githubnext/serena-mcp-server:latest"
+]
+```
+
+**config.json (with persistent cache)**:
 ```json
 {
   "mcpServers": {
@@ -78,7 +117,8 @@ args = [
       "type": "stdio",
       "container": "ghcr.io/githubnext/serena-mcp-server:latest",
       "mounts": [
-        "/path/to/workspace:/workspace:ro"
+        "/path/to/workspace:/workspace:ro",
+        "${HOME}/.serena-cache:/tmp/serena-cache"
       ],
       "env": {
         "NO_COLOR": "1",
@@ -163,11 +203,16 @@ If a language server isn't working properly:
 
 ### Performance Issues
 
-If Serena is slow:
+If Serena is slow to start:
 
-1. Ensure sufficient memory is allocated to Docker
-2. Use read-only mounts when possible (`:ro`)
-3. Consider caching the language server data between runs
+1. **Use persistent cache** (recommended): Mount `${HOME}/.serena-cache:/tmp/serena-cache` to cache language server indexes between restarts
+2. Ensure sufficient memory is allocated to Docker (at least 4GB recommended)
+3. Use read-only mounts when possible (`:ro`) for the workspace
+
+**Cache Benefits:**
+- First launch: 10-30 seconds (indexes workspace)
+- Subsequent launches: <1 second (uses cached index)
+- Significantly reduces gateway startup time
 
 ## References
 

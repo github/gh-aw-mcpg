@@ -19,7 +19,8 @@
             "type": "stdio",
             "container": "ghcr.io/githubnext/serena-mcp-server:latest",
             "mounts": [
-                "${PWD}:/workspace:ro"
+                "${PWD}:/workspace:ro",
+                "${HOME}/.serena-cache:/tmp/serena-cache"
             ],
             "env": {
                 "NO_COLOR": "1",

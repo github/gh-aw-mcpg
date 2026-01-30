@@ -477,7 +477,11 @@ Configure MCP servers to connect directly via stdio transport for optimal perfor
   "mcpServers": {
     "serena": {
       "type": "stdio",
-      "container": "ghcr.io/githubnext/serena-mcp-server:latest"
+      "container": "ghcr.io/githubnext/serena-mcp-server:latest",
+      "mounts": [
+        "${PWD}:/workspace:ro",
+        "${HOME}/.serena-cache:/tmp/serena-cache"
+      ]
     },
     "github": {
       "type": "stdio",
@@ -486,6 +490,10 @@ Configure MCP servers to connect directly via stdio transport for optimal perfor
   }
 }
 ```
+
+**Performance Optimization:**
+- **Serena persistent cache**: Mount `${HOME}/.serena-cache:/tmp/serena-cache` to reduce startup time from 10+ seconds to <1 second on subsequent launches
+- See [containers/serena-mcp-server/README.md](containers/serena-mcp-server/README.md) for detailed caching documentation
 
 **Architecture Considerations:**
 - The gateway manages backend MCP servers using stdio transport via Docker containers

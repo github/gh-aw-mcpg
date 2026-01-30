@@ -76,7 +76,23 @@ args = [
     "mcp/memory"
 ]
 
-# Example 3: Custom MCP Server with Volume Mounts
+# Example 3: Serena MCP Server with Persistent Cache
+# Serena provides AI-powered code intelligence for Python, Java, JavaScript/TypeScript, and Go
+# The persistent cache significantly reduces startup time (from 10s+ to <1s)
+[servers.serena]
+command = "docker"
+args = [
+    "run",
+    "--rm",
+    "-i",
+    "-v", "${PWD}:/workspace:ro",                        # Mount current directory (read-only)
+    "-v", "${HOME}/.serena-cache:/tmp/serena-cache",     # Persistent cache for language servers
+    "-e", "NO_COLOR=1",
+    "-e", "TERM=dumb",
+    "ghcr.io/githubnext/serena-mcp-server:latest"
+]
+
+# Example 4: Custom MCP Server with Volume Mounts
 [servers.custom]
 command = "docker"
 args = [
@@ -89,7 +105,7 @@ args = [
     "custom/mcp-server:latest"
 ]
 
-# Example 4: HTTP-based MCP Server (not implemented yet)
+# Example 5: HTTP-based MCP Server (not implemented yet)
 # [servers.http-example]
 # type = "http"
 # url = "https://example.com/mcp"

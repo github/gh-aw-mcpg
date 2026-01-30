@@ -23,6 +23,7 @@ args = ["run", "--rm", "-i", "-e", "NO_COLOR=1", "-e", "TERM=dumb", "-e", "PYTHO
 command = "docker"
 args = ["run", "--rm", "-i",
         "-v", "${PWD}:/workspace:ro",
+        "-v", "${HOME}/.serena-cache:/tmp/serena-cache",
         "-e", "NO_COLOR=1", "-e", "TERM=dumb",
         "ghcr.io/githubnext/serena-mcp-server:latest"]
 
