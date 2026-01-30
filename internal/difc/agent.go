@@ -57,23 +57,19 @@ func (a *AgentLabels) DropIntegrityTag(tag Tag) {
 	log.Printf("[DIFC] Agent %s dropped integrity tag: %s", a.AgentID, tag)
 }
 
-// AccumulateFromRead updates agent labels after reading data
-// Agent gains secrecy and integrity tags from what they read
+// AccumulateFromRead is a no-op in the current implementation.
+// Agent labels remain fixed at their initial values set during session creation.
+//
+// Automatic label accumulation is disabled because:
+// 1. Secrecy tainting would cause uncontrolled label growth across operations
+// 2. Integrity accumulation is semantically incorrect (integrity = endorsement, not influence)
+//
+// Future versions will support explicit primitives for:
+// - Adding secrecy tags (when agent receives sensitive data it wants to track)
+// - Removing integrity tags (when agent performs untrusted operations)
 func (a *AgentLabels) AccumulateFromRead(resource *LabeledResource) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	// Gain secrecy tags from the data we read
-	if resource.Secrecy.Label != nil && !resource.Secrecy.Label.IsEmpty() {
-		a.Secrecy.Label.Union(resource.Secrecy.Label)
-		log.Printf("[DIFC] Agent %s accumulated secrecy tags from read: %v", a.AgentID, resource.Secrecy.Label.GetTags())
-	}
-
-	// Gain integrity tags from the data we read (we're influenced by it)
-	if resource.Integrity.Label != nil && !resource.Integrity.Label.IsEmpty() {
-		a.Integrity.Label.Union(resource.Integrity.Label)
-		log.Printf("[DIFC] Agent %s accumulated integrity tags from read: %v", a.AgentID, resource.Integrity.Label.GetTags())
-	}
+	// No-op: automatic label accumulation is disabled
+	// Agent labels are immutable after session initialization
 }
 
 // Clone creates a copy of the agent labels

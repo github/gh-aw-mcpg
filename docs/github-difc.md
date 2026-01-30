@@ -1357,11 +1357,17 @@ The gateway's reference monitor uses guards in this seven-phase flow:
 │           → Remove items agent cannot access                        │
 │           → Rewrap filtered result in MCP format                    │
 │                                                                     │
-│  Phase 7: Label accumulation (for reads)                            │
-│           → Taint agent with secrecy labels from accessed data      │
-│           → Enables information flow tracking across operations     │
+│  Phase 7: Return result (labels unchanged)                          │
+│           → Agent labels remain fixed at initial session values     │
+│           → Future: explicit primitives for label changes           │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+> **Note:** Automatic label accumulation is disabled in the current implementation.
+> Agent secrecy and integrity labels remain fixed at their initial session values.
+> Future versions will support explicit primitives for:
+> - Adding secrecy tags (when agent explicitly accepts sensitive data)
+> - Removing integrity tags (when agent performs untrusted operations)
 
 **Phase 4-6 Detail (MCP Unwrap/Rewrap):**
 

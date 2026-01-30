@@ -404,17 +404,25 @@ func TestAgentRegistry(t *testing.T) {
 		assert.True(t, agent2.Secrecy.Label.Contains("secret"), "Expected agent to retain added tags")
 	})
 
-	t.Run("AccumulateFromRead updates agent labels", func(t *testing.T) {
+	t.Run("AccumulateFromRead is a no-op (labels immutable after init)", func(t *testing.T) {
 		agent := registry.GetOrCreate("agent-3")
+
+		// Record initial state
+		initialSecrecyCount := len(agent.Secrecy.Label.GetTags())
+		initialIntegrityCount := len(agent.Integrity.Label.GetTags())
 
 		resource := NewLabeledResource("data-source")
 		resource.Secrecy.Label.Add("confidential")
 		resource.Integrity.Label.Add("verified")
 
+		// AccumulateFromRead should be a no-op
 		agent.AccumulateFromRead(resource)
 
-		assert.True(t, agent.Secrecy.Label.Contains("confidential"), "Expected agent to gain secrecy tag from read")
-		assert.True(t, agent.Integrity.Label.Contains("verified"), "Expected agent to gain integrity tag from read")
+		// Labels should be unchanged
+		assert.Equal(t, initialSecrecyCount, len(agent.Secrecy.Label.GetTags()), "Secrecy labels should not change")
+		assert.Equal(t, initialIntegrityCount, len(agent.Integrity.Label.GetTags()), "Integrity labels should not change")
+		assert.False(t, agent.Secrecy.Label.Contains("confidential"), "Agent should NOT gain secrecy tag from read")
+		assert.False(t, agent.Integrity.Label.Contains("verified"), "Agent should NOT gain integrity tag from read")
 	})
 }
 

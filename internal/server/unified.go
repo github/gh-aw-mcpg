@@ -743,7 +743,6 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 		resource.Description, operation, resource.Secrecy.Label.GetTags(), resource.Integrity.Label.GetTags())
 
 	// **Phase 2: Reference Monitor performs coarse-grained access check**
-	isWrite := (operation == difc.OperationWrite || operation == difc.OperationReadWrite)
 	result := us.evaluator.Evaluate(agentLabels.Secrecy, agentLabels.Integrity, resource, operation)
 
 	if !result.IsAllowed() {
@@ -824,23 +823,12 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 			}
 		}
 
-		// **Phase 6: Accumulate labels from this operation (for reads)**
-		if !isWrite {
-			overall := labeledData.Overall()
-			agentLabels.AccumulateFromRead(overall)
-			log.Printf("[DIFC] Agent %s accumulated labels | Secrecy: %v | Integrity: %v",
-				agentID, agentLabels.GetSecrecyTags(), agentLabels.GetIntegrityTags())
-		}
+		// Note: Automatic label accumulation is disabled.
+		// Agent labels remain fixed at their initial session values.
+		// Future versions will support explicit primitives for label changes.
 	} else {
 		// No fine-grained labeling - use original backend result
 		finalResult = backendResult
-
-		// **Phase 6: Accumulate labels from resource (for reads)**
-		if !isWrite {
-			agentLabels.AccumulateFromRead(resource)
-			log.Printf("[DIFC] Agent %s accumulated labels | Secrecy: %v | Integrity: %v",
-				agentID, agentLabels.GetSecrecyTags(), agentLabels.GetIntegrityTags())
-		}
 	}
 
 	// Convert finalResult to SDK CallToolResult format
