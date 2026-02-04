@@ -1,6 +1,6 @@
 ---
 name: Nightly MCP Server Stress Test
-description: Comprehensive stress test that loads 20 well-known MCP servers, tests their tools, and reports results with automated issue creation for failures
+description: Comprehensive stress test that loads 14 well-known MCP servers, tests their tools, and reports results with automated issue creation for failures
 on:
   schedule: daily
   workflow_dispatch:
@@ -41,9 +41,6 @@ mcp-servers:
   sqlite:
     type: stdio
     container: "mcp/sqlite"
-  postgres:
-    type: stdio
-    container: "mcp/postgres"
   brave-search:
     type: stdio
     container: "mcp/brave-search"
@@ -65,30 +62,15 @@ mcp-servers:
   everart:
     type: stdio
     container: "mcp/everart"
-  sequential-thinking:
-    type: stdio
-    container: "mcp/sequential-thinking"
-  aws-kb-retrieval:
-    type: stdio
-    container: "mcp/aws-kb-retrieval"
-  linear:
-    type: stdio
-    container: "mcp/linear"
   sentry:
     type: stdio
     container: "mcp/sentry"
-  raygun:
-    type: stdio
-    container: "mcp/raygun"
   git:
     type: stdio
     container: "mcp/git"
   time:
     type: stdio
     container: "mcp/time"
-  axiom:
-    type: stdio
-    container: "mcp/axiom"
 
 sandbox:
   mcp:

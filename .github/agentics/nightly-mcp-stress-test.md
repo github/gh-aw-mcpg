@@ -10,7 +10,7 @@
 
 # Nightly MCP Server Stress Test 🧪
 
-You are an AI agent that performs comprehensive stress testing of the MCP Gateway by testing 20 well-known MCP servers that are already configured and accessible through the gateway.
+You are an AI agent that performs comprehensive stress testing of the MCP Gateway by testing 14 well-known MCP servers that are already configured and accessible through the gateway.
 
 ## Mission
 
@@ -18,7 +18,7 @@ Test the MCP Gateway's ability to handle multiple diverse MCP servers simultaneo
 
 ## Important: MCP Gateway is Pre-Configured
 
-**The MCP Gateway is already running and configured with 20 MCP servers via the `mcp-servers` configuration in the workflow.**
+**The MCP Gateway is already running and configured with 14 MCP servers via the `mcp-servers` configuration in the workflow.**
 
 You do NOT need to:
 - ❌ Build the gateway (`make build`)
@@ -30,28 +30,30 @@ The gateway is provided by the workflow infrastructure and handles all Docker co
 
 ## Available MCP Servers
 
-The following 20 MCP servers are pre-configured and accessible via the gateway:
+The following 14 MCP servers are pre-configured and accessible via the gateway:
 
 1. **github** - GitHub MCP Server (ghcr.io/github/github-mcp-server:v0.30.2)
 2. **filesystem** - Filesystem MCP Server (mcp/filesystem)
 3. **memory** - Memory MCP Server (mcp/memory)
 4. **sqlite** - SQLite MCP Server (mcp/sqlite)
-5. **postgres** - Postgres MCP Server (mcp/postgres)
-6. **brave-search** - Brave Search MCP Server (mcp/brave-search)
-7. **fetch** - Fetch MCP Server (mcp/fetch)
-8. **puppeteer** - Puppeteer MCP Server (mcp/puppeteer)
-9. **slack** - Slack MCP Server (mcp/slack)
-10. **gdrive** - Google Drive MCP Server (mcp/gdrive)
-11. **google-maps** - Google Maps MCP Server (mcp/google-maps)
-12. **everart** - EverArt MCP Server (mcp/everart)
-13. **sequential-thinking** - Sequential Thinking MCP Server (mcp/sequential-thinking)
-14. **aws-kb-retrieval** - AWS KB Retrieval MCP Server (mcp/aws-kb-retrieval)
-15. **linear** - Linear MCP Server (mcp/linear)
-16. **sentry** - Sentry MCP Server (mcp/sentry)
-17. **raygun** - Raygun MCP Server (mcp/raygun)
-18. **git** - Git MCP Server (mcp/git)
-19. **time** - Time MCP Server (mcp/time)
-20. **axiom** - Axiom MCP Server (mcp/axiom)
+5. **brave-search** - Brave Search MCP Server (mcp/brave-search)
+6. **fetch** - Fetch MCP Server (mcp/fetch)
+7. **puppeteer** - Puppeteer MCP Server (mcp/puppeteer)
+8. **slack** - Slack MCP Server (mcp/slack)
+9. **gdrive** - Google Drive MCP Server (mcp/gdrive)
+10. **google-maps** - Google Maps MCP Server (mcp/google-maps)
+11. **everart** - EverArt MCP Server (mcp/everart)
+12. **sentry** - Sentry MCP Server (mcp/sentry)
+13. **git** - Git MCP Server (mcp/git)
+14. **time** - Time MCP Server (mcp/time)
+
+**Note:** The following servers were removed due to unavailability in Docker Hub:
+- ~~postgres~~ (archived/read-only)
+- ~~sequential-thinking~~ (not available as mcp/sequential-thinking)
+- ~~aws-kb-retrieval~~ (not available)
+- ~~linear~~ (not available)
+- ~~raygun~~ (not available)
+- ~~axiom~~ (not available)
 
 ## Step 1: Initialize Test Session 📋
 
@@ -82,7 +84,7 @@ The MCP servers are accessible as MCP tools through the gateway. For each server
 
 ### Testing Approach
 
-For each of the 20 configured MCP servers:
+For each of the 14 configured MCP servers:
 
 1. **Attempt to use a simple, safe tool from that server**
    - For `github`: Try calling a read-only tool like `search_repositories` or `list_issues`
@@ -109,7 +111,7 @@ For each of the 20 configured MCP servers:
 - Use **simple operations** that don't require complex parameters
 - Prefer **read-only** operations to avoid side effects
 - If a server requires authentication you don't have, **record it and move on**
-- **Continue testing** all 20 servers even if some fail
+- **Continue testing** all 14 servers even if some fail
 
 ### Example Test Pattern
 
@@ -130,7 +132,7 @@ For servers without authentication:
 
 ## Step 3: Categorize Results 📊
 
-After testing all 20 servers, categorize the results:
+After testing all 14 servers, categorize the results:
 
 **Success Categories:**
 - ✅ **Fully Functional**: Server responded and tool executed successfully
@@ -168,14 +170,14 @@ Create a comprehensive test report with the following sections:
 
 - **Test Session:** {TEST_SESSION}
 - **Date:** {DATE}
-- **Total Servers Tested:** 20
+- **Total Servers Tested:** 14
 - **Successful Servers:** X
 - **Failed Servers:** Y
 - **Authentication Required:** Z
 
 ### Success Rate
 
-- Overall: X% (X/20 servers)
+- Overall: X% (X/14 servers)
 - With Authentication: Y% (Y/Z authenticated servers if applicable)
 - Without Authentication: Z% (Z/W non-authenticated servers if applicable)
 ```
@@ -397,7 +399,7 @@ Save the test report and results:
 cat > /tmp/mcp-stress-results/summary.txt << EOF
 Test Session: ${TEST_SESSION}
 Date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-Total Servers: 20
+Total Servers: 14
 Successful: {count}
 Failed: {count}
 Authentication Required: {count}
@@ -458,12 +460,12 @@ EOF
 
 ### Success Case (All Servers Accessible)
 
-If ALL 20 servers successfully respond to tool calls:
+If ALL 14 servers successfully respond to tool calls:
 
 1. **DO NOT create any issues** (silence is success)
 2. **Log summary to workflow output:**
    ```
-   ✅ All 20 MCP servers passed stress test
+   ✅ All 14 MCP servers passed stress test
    Test Session: stress-test-YYYYMMDD-HHMMSS
    Total Test Duration: Xm Ys
    ```
@@ -478,7 +480,7 @@ If SOME servers fail:
 3. **Log summary:**
    ```
    ⚠️ MCP Stress Test completed with failures
-   Success: X/20 servers
+   Success: X/14 servers
    Auth Required: Y servers (created Y issues)
    Other Failures: Z servers (created 1 summary issue)
    ```
@@ -511,6 +513,6 @@ Ensure you save your test report and results to `/tmp/mcp-stress-results/` for a
 
 ## Summary
 
-**Your task**: Test all 20 pre-configured MCP servers through the MCP Gateway, document which ones work, which ones need authentication, and which ones have other issues. Create appropriate GitHub issues for failures. Save results to `/tmp/mcp-stress-results/` for artifact upload.
+**Your task**: Test all 14 pre-configured MCP servers through the MCP Gateway, document which ones work, which ones need authentication, and which ones have other issues. Create appropriate GitHub issues for failures. Save results to `/tmp/mcp-stress-results/` for artifact upload.
 
 Begin the stress test!
