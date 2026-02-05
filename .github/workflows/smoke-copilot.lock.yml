@@ -151,6 +151,18 @@ jobs:
           go-version: '1.25'
       - name: Capture GOROOT for AWF chroot mode
         run: echo "GOROOT=$(go env GOROOT)" >> $GITHUB_ENV
+      - name: Download gh-aw binary artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: gh-aw-binary
+          path: /tmp/gh-aw-artifact
+      - name: Install gh-aw binary for MCP server
+        run: |
+          mkdir -p /opt/gh-aw
+          cp /tmp/gh-aw-artifact/gh-aw /opt/gh-aw/gh-aw
+          chmod +x /opt/gh-aw/gh-aw
+          /opt/gh-aw/gh-aw --version
+          echo "✓ Installed gh-aw binary at /opt/gh-aw/gh-aw"
       - name: Create gh-aw temp directory
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
       # Cache memory file share configuration from frontmatter processed below
