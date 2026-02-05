@@ -32,7 +32,6 @@ network:
     - github
     - playwright
 tools:
-  agentic-workflows:
   cache-memory: true
   github:
     toolsets: [repos, pull_requests]
@@ -48,6 +47,20 @@ tools:
 runtimes:
   go:
     version: "1.25"
+mcp-servers:
+  agentic_workflows:
+    type: stdio
+    container: "alpine:latest"
+    entrypoint: "/opt/gh-aw/gh-aw"
+    entrypointArgs: ["mcp-server"]
+    mounts: 
+      - "/opt/gh-aw:/opt/gh-aw:ro"
+      - "/usr/bin/gh:/usr/bin/gh:ro"
+      - "${{ github.workspace }}:${{ github.workspace }}:rw"
+      - "/tmp/gh-aw:/tmp/gh-aw:rw"
+    env:
+      GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      PATH: "/opt/gh-aw:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/bin"
 sandbox:
   mcp:
     container: "ghcr.io/github/gh-aw-mcpg"
@@ -67,6 +80,38 @@ safe-outputs:
       run-success: "📰 VERDICT: [{workflow_name}]({run_url}) has concluded. All systems operational. This is a developing story. 🎤"
       run-failure: "📰 DEVELOPING STORY: [{workflow_name}]({run_url}) reports {status}. Our correspondents are investigating the incident..."
 timeout-minutes: 15
+jobs:
+  build-gh-aw:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version: '1.25'
+      - name: Clone and build gh-aw from source
+        run: |
+          # Clone gh-aw repository
+          cd /tmp
+          rm -rf gh-aw
+          git clone https://github.com/github/gh-aw.git
+          echo "✓ Cloned gh-aw repository"
+          
+          # Build gh-aw from source
+          cd /tmp/gh-aw
+          make build
+          echo "✓ Built gh-aw binary"
+          
+          # Upload as artifact
+          mkdir -p /tmp/gh-aw-artifact
+          cp /tmp/gh-aw/gh-aw /tmp/gh-aw-artifact/gh-aw
+          chmod +x /tmp/gh-aw-artifact/gh-aw
+          /tmp/gh-aw-artifact/gh-aw --version
+          echo "✓ Built gh-aw binary"
+      - name: Upload gh-aw binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: gh-aw-binary
+          path: /tmp/gh-aw-artifact/gh-aw
 ---
 
 # Smoke Test: Copilot Engine Validation.
