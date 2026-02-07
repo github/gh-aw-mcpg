@@ -733,7 +733,7 @@ func TestIsConnectionError(t *testing.T) {
 		},
 		{
 			name:     "connection refused in wrapped error",
-			err:      fmt.Errorf("failed to connect: connection refused"),
+			err:      fmt.Errorf("failed to connect: %w", fmt.Errorf("connection refused")),
 			expected: true,
 		},
 		{
