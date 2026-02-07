@@ -703,3 +703,60 @@ func TestNewHTTPConnection(t *testing.T) {
 	assert.Equal(t, httpClient, conn.httpClient, "HTTP client should match")
 	assert.Equal(t, HTTPTransportStreamable, conn.httpTransportType, "Transport type should match")
 }
+
+// TestIsConnectionError tests the isConnectionError helper function
+func TestIsConnectionError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "connection refused error",
+			err:      fmt.Errorf("dial tcp: connection refused"),
+			expected: true,
+		},
+		{
+			name:     "no such host error",
+			err:      fmt.Errorf("dial tcp: lookup example.com: no such host"),
+			expected: true,
+		},
+		{
+			name:     "network is unreachable error",
+			err:      fmt.Errorf("dial tcp: connect: network is unreachable"),
+			expected: true,
+		},
+		{
+			name:     "connection refused in wrapped error",
+			err:      fmt.Errorf("failed to connect: connection refused"),
+			expected: true,
+		},
+		{
+			name:     "other error",
+			err:      fmt.Errorf("some other error"),
+			expected: false,
+		},
+		{
+			name:     "timeout error",
+			err:      fmt.Errorf("context deadline exceeded"),
+			expected: false,
+		},
+		{
+			name:     "EOF error",
+			err:      fmt.Errorf("unexpected EOF"),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isConnectionError(tt.err)
+			assert.Equal(t, tt.expected, result, "isConnectionError(%v) should return %v", tt.err, tt.expected)
+		})
+	}
+}

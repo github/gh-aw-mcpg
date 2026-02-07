@@ -37,6 +37,17 @@ func parseSSEResponse(body []byte) ([]byte, error) {
 	return nil, fmt.Errorf("no data field found in SSE response")
 }
 
+// isConnectionError checks if an error indicates a connection failure
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "no such host") ||
+		strings.Contains(errStr, "network is unreachable")
+}
+
 // ContextKey for session ID
 type ContextKey string
 
@@ -584,9 +595,7 @@ func (c *Connection) initializeHTTPSession() (string, error) {
 	httpResp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		// Check if it's a connection error (cannot connect at all)
-		if strings.Contains(err.Error(), "connection refused") ||
-			strings.Contains(err.Error(), "no such host") ||
-			strings.Contains(err.Error(), "network is unreachable") {
+		if isConnectionError(err) {
 			return "", fmt.Errorf("cannot connect to HTTP backend at %s: %w", c.httpURL, err)
 		}
 		return "", fmt.Errorf("failed to send initialize request to %s: %w", c.httpURL, err)
@@ -698,9 +707,7 @@ func (c *Connection) sendHTTPRequest(ctx context.Context, method string, params 
 	httpResp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		// Check if it's a connection error (cannot connect at all)
-		if strings.Contains(err.Error(), "connection refused") ||
-			strings.Contains(err.Error(), "no such host") ||
-			strings.Contains(err.Error(), "network is unreachable") {
+		if isConnectionError(err) {
 			return nil, fmt.Errorf("cannot connect to HTTP backend at %s: %w", c.httpURL, err)
 		}
 		return nil, fmt.Errorf("failed to send HTTP request to %s: %w", c.httpURL, err)
