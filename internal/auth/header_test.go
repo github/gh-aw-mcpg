@@ -344,3 +344,81 @@ func TestExtractSessionID(t *testing.T) {
 		})
 	}
 }
+
+func TestTruncateSessionID(t *testing.T) {
+	assert := assert.New(t)
+
+	tests := []struct {
+		name      string
+		sessionID string
+		want      string
+	}{
+		{
+			name:      "Empty session ID returns (none)",
+			sessionID: "",
+			want:      "(none)",
+		},
+		{
+			name:      "Single character",
+			sessionID: "a",
+			want:      "a",
+		},
+		{
+			name:      "Short session ID (5 chars)",
+			sessionID: "abc12",
+			want:      "abc12",
+		},
+		{
+			name:      "Exactly 8 characters - not truncated",
+			sessionID: "abcd1234",
+			want:      "abcd1234",
+		},
+		{
+			name:      "Exactly 9 characters - truncated",
+			sessionID: "abcd12345",
+			want:      "abcd1234...",
+		},
+		{
+			name:      "Long session ID (>8 chars)",
+			sessionID: "my-session-id-12345",
+			want:      "my-sessi...",
+		},
+		{
+			name:      "Very long session ID",
+			sessionID: "my-super-long-session-id-with-many-characters-12345678901234567890",
+			want:      "my-super...",
+		},
+		{
+			name:      "Session ID with special characters",
+			sessionID: "key!@#$%^&*()",
+			want:      "key!@#$%...",
+		},
+		{
+			name:      "Session ID with unicode",
+			sessionID: "session-émojis-🔑",
+			want:      "session-...",
+		},
+		{
+			name:      "UUID format",
+			sessionID: "550e8400-e29b-41d4-a716-446655440000",
+			want:      "550e8400...",
+		},
+		{
+			name:      "Whitespace only (under 8 chars)",
+			sessionID: "   ",
+			want:      "   ",
+		},
+		{
+			name:      "Whitespace only (over 8 chars)",
+			sessionID: "         ",
+			want:      "        ...",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitize.TruncateSessionID(tt.sessionID)
+			assert.Equal(tt.want, got)
+		})
+	}
+}
