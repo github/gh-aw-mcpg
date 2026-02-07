@@ -648,3 +648,59 @@ func TestSanitizeArgsDoesNotLeakSecrets(t *testing.T) {
 	assert.Contains(t, resultStr, "GITHUB_TOKEN=ghp_...", "Truncated token should be present")
 	assert.Contains(t, resultStr, "API_KEY=test...", "Truncated API key should be present")
 }
+
+func TestTruncateSessionID(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "Empty session ID",
+			input: "",
+			want:  "(none)",
+		},
+		{
+			name:  "Short session ID (8 chars)",
+			input: "12345678",
+			want:  "12345678",
+		},
+		{
+			name:  "Short session ID (less than 8 chars)",
+			input: "abc",
+			want:  "abc",
+		},
+		{
+			name:  "Long session ID",
+			input: "session-id-with-many-characters-123456789",
+			want:  "session-...",
+		},
+		{
+			name:  "UUID-like session ID",
+			input: "550e8400-e29b-41d4-a716-446655440000",
+			want:  "550e8400...",
+		},
+		{
+			name:  "GitHub token as session ID",
+			input: "ghp_1234567890123456789012345678901234567890",
+			want:  "ghp_1234...",
+		},
+		{
+			name:  "Nine characters",
+			input: "123456789",
+			want:  "12345678...",
+		},
+		{
+			name:  "Exactly 8 characters",
+			input: "abcdefgh",
+			want:  "abcdefgh",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := TruncateSessionID(tt.input)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

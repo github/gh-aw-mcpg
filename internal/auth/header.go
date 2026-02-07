@@ -165,16 +165,3 @@ func ExtractSessionID(authHeader string) string {
 	log.Print("Using plain API key as session ID")
 	return authHeader
 }
-
-// TruncateSessionID returns a truncated session ID for safe logging (first 8 chars).
-// Returns "(none)" for empty session IDs, and appends "..." for truncated values.
-// This is useful for logging session IDs without exposing sensitive information.
-func TruncateSessionID(sessionID string) string {
-	if sessionID == "" {
-		return "(none)"
-	}
-	if len(sessionID) <= 8 {
-		return sessionID
-	}
-	return sessionID[:8] + "..."
-}

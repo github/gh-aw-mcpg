@@ -8,10 +8,15 @@
 //  2. Prefix truncation: TruncateSecret() and TruncateSecretMap() show only the first
 //     4 characters of values, making them safe for logging without exposing full secrets.
 //
+//  3. Session ID truncation: TruncateSessionID() shows only the first 8 characters of
+//     session IDs for safe logging, with special handling for empty IDs.
+//
 // Usage Guidelines:
 //
 //   - Use TruncateSecret()/TruncateSecretMap() for auth headers and environment variables
 //     where you want to preserve a hint of the value for debugging.
+//
+//   - Use TruncateSessionID() for logging session IDs in diagnostic messages and logs.
 //
 //   - Use SanitizeString()/SanitizeJSON() for full payload sanitization where secrets
 //     may appear in various formats throughout the data.
@@ -20,6 +25,9 @@
 //
 //	// For auth headers
 //	log.Printf("Auth: %s", sanitize.TruncateSecret(authHeader)) // "ghp_..." instead of full token
+//
+//	// For session IDs
+//	log.Printf("Session: %s", sanitize.TruncateSessionID(sessionID)) // "session-..." instead of full ID
 //
 //	// For environment variables
 //	log.Printf("Env: %v", sanitize.TruncateSecretMap(envVars))
@@ -126,6 +134,19 @@ func SanitizeJSON(payloadBytes []byte) json.RawMessage {
 	}
 	compactBytes, _ := json.Marshal(tmp)
 	return json.RawMessage(compactBytes)
+}
+
+// TruncateSessionID returns a truncated session ID for safe logging (first 8 chars).
+// Returns "(none)" for empty session IDs, and appends "..." for truncated values.
+// This is useful for logging session IDs without exposing sensitive information.
+func TruncateSessionID(sessionID string) string {
+	if sessionID == "" {
+		return "(none)"
+	}
+	if len(sessionID) <= 8 {
+		return sessionID
+	}
+	return sessionID[:8] + "..."
 }
 
 // SanitizeArgs returns a sanitized version of command arguments for safe logging.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/auth"
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/logger/sanitize"
 )
 
 var logSDK = logger.New("server:sdk-frontend")
@@ -51,7 +52,7 @@ func WithSDKLogging(handler http.Handler, mode string) http.Handler {
 
 		// Log incoming request
 		logSDK.Printf(">>> SDK Request [%s] session=%s mcp-session=%s method=%s path=%s",
-			mode, auth.TruncateSessionID(sessionID), auth.TruncateSessionID(mcpSessionID), r.Method, r.URL.Path)
+			mode, sanitize.TruncateSessionID(sessionID), sanitize.TruncateSessionID(mcpSessionID), r.Method, r.URL.Path)
 
 		// Capture and log request body for POST requests
 		var requestBody []byte
@@ -67,7 +68,7 @@ func WithSDKLogging(handler http.Handler, mode string) http.Handler {
 				if err := json.Unmarshal(requestBody, &jsonrpcReq); err == nil {
 					logSDK.Printf("    JSON-RPC Request: method=%s id=%v", jsonrpcReq.Method, jsonrpcReq.ID)
 					logger.LogDebug("sdk-frontend", "JSON-RPC request parsed: mode=%s, method=%s, id=%v, session=%s",
-						mode, jsonrpcReq.Method, jsonrpcReq.ID, auth.TruncateSessionID(sessionID))
+						mode, jsonrpcReq.Method, jsonrpcReq.ID, sanitize.TruncateSessionID(sessionID))
 				} else {
 					logSDK.Printf("    Failed to parse JSON-RPC request: %v", err)
 					logSDK.Printf("    Raw body: %s", string(requestBody))
@@ -108,7 +109,7 @@ func WithSDKLogging(handler http.Handler, mode string) http.Handler {
 						logSDK.Printf("    ⚠️  TOOL NOT FOUND ERROR")
 						logger.LogWarn("client",
 							"Tool not found: mode=%s, method=%s, session=%s, code=%d, message=%q",
-							mode, jsonrpcReq.Method, auth.TruncateSessionID(sessionID), errorCode, errorMsg)
+							mode, jsonrpcReq.Method, sanitize.TruncateSessionID(sessionID), errorCode, errorMsg)
 					}
 
 					// Log detailed error info for protocol state issues
@@ -116,14 +117,14 @@ func WithSDKLogging(handler http.Handler, mode string) http.Handler {
 						strings.Contains(errorMsg, "invalid during") {
 						logSDK.Printf("    ⚠️  PROTOCOL STATE ERROR DETECTED")
 						logSDK.Printf("    Request method was: %s", jsonrpcReq.Method)
-						logSDK.Printf("    Session ID: %s", auth.TruncateSessionID(sessionID))
-						logSDK.Printf("    MCP-Session-Id header: %s", auth.TruncateSessionID(mcpSessionID))
+						logSDK.Printf("    Session ID: %s", sanitize.TruncateSessionID(sessionID))
+						logSDK.Printf("    MCP-Session-Id header: %s", sanitize.TruncateSessionID(mcpSessionID))
 						logSDK.Printf("    This error indicates SDK's StreamableHTTPHandler created fresh protocol state")
 
 						logger.LogWarn("sdk-frontend",
 							"Protocol state error: mode=%s, method=%s, session=%s, mcp_session=%s, error=%q",
-							mode, jsonrpcReq.Method, auth.TruncateSessionID(sessionID),
-							auth.TruncateSessionID(mcpSessionID), errorMsg)
+							mode, jsonrpcReq.Method, sanitize.TruncateSessionID(sessionID),
+							sanitize.TruncateSessionID(mcpSessionID), errorMsg)
 					} else if (errorCode != -32602 && errorCode != -32601) || jsonrpcReq.Method != "tools/call" {
 						// Only log as general error if not already logged above
 						logger.LogError("sdk-frontend",
