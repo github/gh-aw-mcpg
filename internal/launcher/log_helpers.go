@@ -19,6 +19,30 @@ func sessionSuffix(sessionID string) string {
 	return fmt.Sprintf(" for session '%s'", sessionID)
 }
 
+// tripleLogInfoWithSession encapsulates triple-logging (file, stdout, debug) with session branching.
+// This helper reduces if/else duplication across launcher functions by handling the branching once.
+func tripleLogInfoWithSession(serverID, sessionID, fileSessionFmt, fileNoSessionFmt, stdoutSessionFmt, stdoutNoSessionFmt, debugSessionFmt, debugNoSessionFmt string, fileSessionArgs, fileNoSessionArgs, stdoutSessionArgs, stdoutNoSessionArgs, debugSessionArgs, debugNoSessionArgs []interface{}) {
+	if sessionID != "" {
+		logger.LogInfoWithServer(serverID, "backend", fileSessionFmt, fileSessionArgs...)
+		log.Printf("[LAUNCHER] "+stdoutSessionFmt, stdoutSessionArgs...)
+		logLauncher.Printf(debugSessionFmt, debugSessionArgs...)
+	} else {
+		logger.LogInfoWithServer(serverID, "backend", fileNoSessionFmt, fileNoSessionArgs...)
+		log.Printf("[LAUNCHER] "+stdoutNoSessionFmt, stdoutNoSessionArgs...)
+		logLauncher.Printf(debugNoSessionFmt, debugNoSessionArgs...)
+	}
+}
+
+// debugLogWithSession encapsulates debug logger with session branching.
+// This helper reduces if/else duplication for cases where only debug logging needs session branching.
+func debugLogWithSession(sessionID, sessionFmt, noSessionFmt string, sessionArgs, noSessionArgs []interface{}) {
+	if sessionID != "" {
+		logLauncher.Printf(sessionFmt, sessionArgs...)
+	} else {
+		logLauncher.Printf(noSessionFmt, noSessionArgs...)
+	}
+}
+
 // logSecurityWarning logs container security warnings
 func (l *Launcher) logSecurityWarning(serverID string, serverCfg *config.ServerConfig) {
 	logger.LogWarnWithServer(serverID, "backend", "Server '%s' uses direct command execution inside a container (command: %s)", serverID, serverCfg.Command)
@@ -29,16 +53,21 @@ func (l *Launcher) logSecurityWarning(serverID string, serverCfg *config.ServerC
 
 // logLaunchStart logs server launch initiation
 func (l *Launcher) logLaunchStart(serverID, sessionID string, serverCfg *config.ServerConfig, isDirectCommand bool) {
-	if sessionID != "" {
-		logger.LogInfoWithServer(serverID, "backend", "Launching MCP backend server for session: server=%s, session=%s, command=%s, args=%v", serverID, sessionID, serverCfg.Command, sanitize.SanitizeArgs(serverCfg.Args))
-		log.Printf("[LAUNCHER] Starting MCP server for session: %s (session: %s)", serverID, sessionID)
-		logLauncher.Printf("Launching new session server: serverID=%s, sessionID=%s, command=%s", serverID, sessionID, serverCfg.Command)
-	} else {
-		logger.LogInfoWithServer(serverID, "backend", "Launching MCP backend server: %s, command=%s, args=%v", serverID, serverCfg.Command, sanitize.SanitizeArgs(serverCfg.Args))
-		log.Printf("[LAUNCHER] Starting MCP server: %s", serverID)
-		logLauncher.Printf("Launching new server: serverID=%s, command=%s, inContainer=%v, isDirectCommand=%v",
-			serverID, serverCfg.Command, l.runningInContainer, isDirectCommand)
-	}
+	tripleLogInfoWithSession(
+		serverID, sessionID,
+		"Launching MCP backend server for session: server=%s, session=%s, command=%s, args=%v",
+		"Launching MCP backend server: %s, command=%s, args=%v",
+		"Starting MCP server for session: %s (session: %s)",
+		"Starting MCP server: %s",
+		"Launching new session server: serverID=%s, sessionID=%s, command=%s",
+		"Launching new server: serverID=%s, command=%s, inContainer=%v, isDirectCommand=%v",
+		[]interface{}{serverID, sessionID, serverCfg.Command, sanitize.SanitizeArgs(serverCfg.Args)},
+		[]interface{}{serverID, serverCfg.Command, sanitize.SanitizeArgs(serverCfg.Args)},
+		[]interface{}{serverID, sessionID},
+		[]interface{}{serverID},
+		[]interface{}{serverID, sessionID, serverCfg.Command},
+		[]interface{}{serverID, serverCfg.Command, l.runningInContainer, isDirectCommand},
+	)
 	log.Printf("[LAUNCHER] Command: %s", serverCfg.Command)
 	log.Printf("[LAUNCHER] Args: %v", sanitize.SanitizeArgs(serverCfg.Args))
 }
@@ -98,22 +127,29 @@ func (l *Launcher) logTimeoutError(serverID, sessionID string) {
 	log.Printf("[LAUNCHER] ❌ Server startup timed out after %v", l.startupTimeout)
 	log.Printf("[LAUNCHER] ⚠️  The server may be hanging or taking too long to initialize")
 	log.Printf("[LAUNCHER] ⚠️  Consider increasing 'startupTimeout' in gateway config if server needs more time")
-	if sessionID != "" {
-		logLauncher.Printf("Startup timeout occurred: serverID=%s, sessionID=%s, timeout=%v", serverID, sessionID, l.startupTimeout)
-	} else {
-		logLauncher.Printf("Startup timeout occurred: serverID=%s, timeout=%v", serverID, l.startupTimeout)
-	}
+	debugLogWithSession(sessionID,
+		"Startup timeout occurred: serverID=%s, sessionID=%s, timeout=%v",
+		"Startup timeout occurred: serverID=%s, timeout=%v",
+		[]interface{}{serverID, sessionID, l.startupTimeout},
+		[]interface{}{serverID, l.startupTimeout},
+	)
 }
 
 // logLaunchSuccess logs successful server launch
 func (l *Launcher) logLaunchSuccess(serverID, sessionID string) {
-	if sessionID != "" {
-		logger.LogInfoWithServer(serverID, "backend", "Successfully launched MCP backend server for session: server=%s, session=%s", serverID, sessionID)
-		log.Printf("[LAUNCHER] Successfully launched: %s (session: %s)", serverID, sessionID)
-		logLauncher.Printf("Session connection established: serverID=%s, sessionID=%s", serverID, sessionID)
-	} else {
-		logger.LogInfoWithServer(serverID, "backend", "Successfully launched MCP backend server: %s", serverID)
-		log.Printf("[LAUNCHER] Successfully launched: %s", serverID)
-		logLauncher.Printf("Connection established: serverID=%s", serverID)
-	}
+	tripleLogInfoWithSession(
+		serverID, sessionID,
+		"Successfully launched MCP backend server for session: server=%s, session=%s",
+		"Successfully launched MCP backend server: %s",
+		"Successfully launched: %s (session: %s)",
+		"Successfully launched: %s",
+		"Session connection established: serverID=%s, sessionID=%s",
+		"Connection established: serverID=%s",
+		[]interface{}{serverID, sessionID},
+		[]interface{}{serverID},
+		[]interface{}{serverID, sessionID},
+		[]interface{}{serverID},
+		[]interface{}{serverID, sessionID},
+		[]interface{}{serverID},
+	)
 }
