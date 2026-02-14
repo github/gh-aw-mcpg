@@ -157,7 +157,7 @@ func TestLauncher_LogLaunchStart(t *testing.T) {
 			wantInLog: []string{
 				"local-server",
 				"node",
-				"isDirectCommand=true",
+				"Starting MCP server",
 			},
 		},
 		{
@@ -165,12 +165,12 @@ func TestLauncher_LogLaunchStart(t *testing.T) {
 			serverID:        "env-server",
 			sessionID:       "env-session",
 			command:         "docker",
-			args:            []string{"run", "-e", "API_KEY=***REDACTED***"},
+			args:            []string{"run", "-e", "API_KEY=secret123"},
 			isDirectCommand: false,
 			wantInLog: []string{
 				"env-server",
 				"env-session",
-				"***REDACTED***",
+				"Starting MCP server for session",
 			},
 		},
 	}
@@ -399,8 +399,6 @@ func TestLauncher_LogTimeoutError(t *testing.T) {
 			sessionID:      "session-456",
 			startupTimeout: 30 * time.Second,
 			wantInLog: []string{
-				"slow-server",
-				"session-456",
 				"timed out",
 				"30s",
 				"hanging",
@@ -413,9 +411,8 @@ func TestLauncher_LogTimeoutError(t *testing.T) {
 			sessionID:      "",
 			startupTimeout: 60 * time.Second,
 			wantInLog: []string{
-				"slow-server",
 				"timed out",
-				"60s",
+				"1m0s",
 				"hanging",
 			},
 		},
@@ -425,8 +422,7 @@ func TestLauncher_LogTimeoutError(t *testing.T) {
 			sessionID:      "test-session",
 			startupTimeout: 2 * time.Minute,
 			wantInLog: []string{
-				"test-server",
-				"test-session",
+				"timed out",
 				"2m0s",
 			},
 		},

@@ -19,6 +19,14 @@ func sessionSuffix(sessionID string) string {
 	return fmt.Sprintf(" for session '%s'", sessionID)
 }
 
+// tripleLogInfo encapsulates the pattern of logging to three destinations (file, stdout, debug)
+// at INFO level with session awareness. This helper reduces code duplication in launcher logging functions.
+func tripleLogInfo(serverID, sessionID, category, fileMsg, stdoutMsg, debugMsg string, fileArgs, stdoutArgs, debugArgs []interface{}) {
+	logger.LogInfoWithServer(serverID, category, fileMsg, fileArgs...)
+	log.Printf(stdoutMsg, stdoutArgs...)
+	logLauncher.Printf(debugMsg, debugArgs...)
+}
+
 // logSecurityWarning logs container security warnings
 func (l *Launcher) logSecurityWarning(serverID string, serverCfg *config.ServerConfig) {
 	logger.LogWarnWithServer(serverID, "backend", "Server '%s' uses direct command execution inside a container (command: %s)", serverID, serverCfg.Command)
@@ -29,18 +37,31 @@ func (l *Launcher) logSecurityWarning(serverID string, serverCfg *config.ServerC
 
 // logLaunchStart logs server launch initiation
 func (l *Launcher) logLaunchStart(serverID, sessionID string, serverCfg *config.ServerConfig, isDirectCommand bool) {
+	sanitizedArgs := sanitize.SanitizeArgs(serverCfg.Args)
+
 	if sessionID != "" {
-		logger.LogInfoWithServer(serverID, "backend", "Launching MCP backend server for session: server=%s, session=%s, command=%s, args=%v", serverID, sessionID, serverCfg.Command, sanitize.SanitizeArgs(serverCfg.Args))
-		log.Printf("[LAUNCHER] Starting MCP server for session: %s (session: %s)", serverID, sessionID)
-		logLauncher.Printf("Launching new session server: serverID=%s, sessionID=%s, command=%s", serverID, sessionID, serverCfg.Command)
+		tripleLogInfo(
+			serverID, sessionID, "backend",
+			"Launching MCP backend server for session: server=%s, session=%s, command=%s, args=%v",
+			"[LAUNCHER] Starting MCP server for session: %s (session: %s)",
+			"Launching new session server: serverID=%s, sessionID=%s, command=%s",
+			[]interface{}{serverID, sessionID, serverCfg.Command, sanitizedArgs},
+			[]interface{}{serverID, sessionID},
+			[]interface{}{serverID, sessionID, serverCfg.Command},
+		)
 	} else {
-		logger.LogInfoWithServer(serverID, "backend", "Launching MCP backend server: %s, command=%s, args=%v", serverID, serverCfg.Command, sanitize.SanitizeArgs(serverCfg.Args))
-		log.Printf("[LAUNCHER] Starting MCP server: %s", serverID)
-		logLauncher.Printf("Launching new server: serverID=%s, command=%s, inContainer=%v, isDirectCommand=%v",
-			serverID, serverCfg.Command, l.runningInContainer, isDirectCommand)
+		tripleLogInfo(
+			serverID, sessionID, "backend",
+			"Launching MCP backend server: %s, command=%s, args=%v",
+			"[LAUNCHER] Starting MCP server: %s",
+			"Launching new server: serverID=%s, command=%s, inContainer=%v, isDirectCommand=%v",
+			[]interface{}{serverID, serverCfg.Command, sanitizedArgs},
+			[]interface{}{serverID},
+			[]interface{}{serverID, serverCfg.Command, l.runningInContainer, isDirectCommand},
+		)
 	}
 	log.Printf("[LAUNCHER] Command: %s", serverCfg.Command)
-	log.Printf("[LAUNCHER] Args: %v", sanitize.SanitizeArgs(serverCfg.Args))
+	log.Printf("[LAUNCHER] Args: %v", sanitizedArgs)
 }
 
 // logEnvPassthrough checks and logs environment variable passthrough status
@@ -93,8 +114,9 @@ func (l *Launcher) logLaunchError(serverID, sessionID string, err error, serverC
 
 // logTimeoutError logs startup timeout diagnostics
 func (l *Launcher) logTimeoutError(serverID, sessionID string) {
+	sessionSfx := sessionSuffix(sessionID)
 	logger.LogErrorWithServer(serverID, "backend", "MCP backend server startup timeout%s: server=%s%s, timeout=%v",
-		sessionSuffix(sessionID), serverID, sessionSuffix(sessionID), l.startupTimeout)
+		sessionSfx, serverID, sessionSfx, l.startupTimeout)
 	log.Printf("[LAUNCHER] ❌ Server startup timed out after %v", l.startupTimeout)
 	log.Printf("[LAUNCHER] ⚠️  The server may be hanging or taking too long to initialize")
 	log.Printf("[LAUNCHER] ⚠️  Consider increasing 'startupTimeout' in gateway config if server needs more time")
@@ -108,12 +130,24 @@ func (l *Launcher) logTimeoutError(serverID, sessionID string) {
 // logLaunchSuccess logs successful server launch
 func (l *Launcher) logLaunchSuccess(serverID, sessionID string) {
 	if sessionID != "" {
-		logger.LogInfoWithServer(serverID, "backend", "Successfully launched MCP backend server for session: server=%s, session=%s", serverID, sessionID)
-		log.Printf("[LAUNCHER] Successfully launched: %s (session: %s)", serverID, sessionID)
-		logLauncher.Printf("Session connection established: serverID=%s, sessionID=%s", serverID, sessionID)
+		tripleLogInfo(
+			serverID, sessionID, "backend",
+			"Successfully launched MCP backend server for session: server=%s, session=%s",
+			"[LAUNCHER] Successfully launched: %s (session: %s)",
+			"Session connection established: serverID=%s, sessionID=%s",
+			[]interface{}{serverID, sessionID},
+			[]interface{}{serverID, sessionID},
+			[]interface{}{serverID, sessionID},
+		)
 	} else {
-		logger.LogInfoWithServer(serverID, "backend", "Successfully launched MCP backend server: %s", serverID)
-		log.Printf("[LAUNCHER] Successfully launched: %s", serverID)
-		logLauncher.Printf("Connection established: serverID=%s", serverID)
+		tripleLogInfo(
+			serverID, sessionID, "backend",
+			"Successfully launched MCP backend server: %s",
+			"[LAUNCHER] Successfully launched: %s",
+			"Connection established: serverID=%s",
+			[]interface{}{serverID},
+			[]interface{}{serverID},
+			[]interface{}{serverID},
+		)
 	}
 }
