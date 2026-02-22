@@ -59,6 +59,7 @@ func (a *AgentLabels) AddIntegrityTag(tag Tag) {
 
 // DropIntegrityTag removes an integrity tag from the agent
 func (a *AgentLabels) DropIntegrityTag(tag Tag) {
+	logAgent.Printf("Agent %s dropping integrity tag: %s", a.AgentID, tag)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	// Remove from the underlying label
@@ -69,6 +70,7 @@ func (a *AgentLabels) DropIntegrityTag(tag Tag) {
 // AccumulateFromRead updates agent labels after reading data
 // Agent gains secrecy and integrity tags from what they read
 func (a *AgentLabels) AccumulateFromRead(resource *LabeledResource) {
+	logAgent.Printf("Agent %s accumulating labels from read: resource=%s", a.AgentID, resource.Description)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -123,6 +125,7 @@ type AgentRegistry struct {
 
 // NewAgentRegistry creates a new agent registry
 func NewAgentRegistry() *AgentRegistry {
+	logAgent.Print("Creating new agent registry")
 	return &AgentRegistry{
 		agents:           make(map[string]*AgentLabels),
 		defaultSecrecy:   []Tag{},
@@ -174,14 +177,17 @@ func (r *AgentRegistry) GetOrCreate(agentID string) *AgentLabels {
 
 // Get retrieves an agent's labels if they exist
 func (r *AgentRegistry) Get(agentID string) (*AgentLabels, bool) {
+	logAgent.Printf("Getting agent labels: agentID=%s", agentID)
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	labels, ok := r.agents[agentID]
+	logAgent.Printf("Agent lookup result: agentID=%s, found=%v", agentID, ok)
 	return labels, ok
 }
 
 // Register creates a new agent with specific initial labels
 func (r *AgentRegistry) Register(agentID string, secrecyTags []Tag, integrityTags []Tag) *AgentLabels {
+	logAgent.Printf("Registering agent: agentID=%s, secrecyTags=%v, integrityTags=%v", agentID, secrecyTags, integrityTags)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
