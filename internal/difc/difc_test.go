@@ -69,7 +69,7 @@ func TestEvaluator(t *testing.T) {
 
 		assert.False(t, result.IsAllowed(), "Expected access to be denied for read with insufficient secrecy")
 
-		assert.False(t, len(result.SecrecyToAdd) == 0, "Expected SecrecyToAdd to contain required tags")
+		assert.NotEmpty(t, result.SecrecyToAdd, "Expected SecrecyToAdd to contain required tags")
 	})
 
 	t.Run("Read operation - allowed with matching labels", func(t *testing.T) {
@@ -83,9 +83,7 @@ func TestEvaluator(t *testing.T) {
 
 		result := eval.Evaluate(agentSecrecy, agentIntegrity, resource, OperationRead)
 
-		if !result.IsAllowed() {
-			t.Errorf("Expected access to be allowed: %s", result.Reason)
-		}
+		assert.True(t, result.IsAllowed(), "Expected access to be allowed: %s", result.Reason)
 	})
 
 	t.Run("Write operation - integrity check", func(t *testing.T) {
@@ -100,7 +98,7 @@ func TestEvaluator(t *testing.T) {
 
 		assert.False(t, result.IsAllowed(), "Expected access to be denied for write with insufficient integrity")
 
-		assert.False(t, len(result.IntegrityToDrop) == 0, "Expected IntegrityToDrop to contain required tags")
+		assert.NotEmpty(t, result.IntegrityToDrop, "Expected IntegrityToDrop to contain required tags")
 	})
 
 	t.Run("Write operation - allowed with matching integrity", func(t *testing.T) {
@@ -114,9 +112,7 @@ func TestEvaluator(t *testing.T) {
 
 		result := eval.Evaluate(agentSecrecy, agentIntegrity, resource, OperationWrite)
 
-		if !result.IsAllowed() {
-			t.Errorf("Expected access to be allowed: %s", result.Reason)
-		}
+		assert.True(t, result.IsAllowed(), "Expected access to be allowed: %s", result.Reason)
 	})
 
 	t.Run("Empty resource allows all operations", func(t *testing.T) {
@@ -131,12 +127,8 @@ func TestEvaluator(t *testing.T) {
 		readResult := eval.Evaluate(agentSecrecy, agentIntegrity, resource, OperationRead)
 		writeResult := eval.Evaluate(agentSecrecy, agentIntegrity, resource, OperationWrite)
 
-		if !readResult.IsAllowed() {
-			t.Errorf("Expected read to be allowed for empty resource: %s", readResult.Reason)
-		}
-		if !writeResult.IsAllowed() {
-			t.Errorf("Expected write to be allowed for empty resource: %s", writeResult.Reason)
-		}
+		assert.True(t, readResult.IsAllowed(), "Expected read to be allowed for empty resource: %s", readResult.Reason)
+		assert.True(t, writeResult.IsAllowed(), "Expected write to be allowed for empty resource: %s", writeResult.Reason)
 	})
 }
 
@@ -385,9 +377,7 @@ func TestAgentRegistry(t *testing.T) {
 
 	t.Run("GetOrCreate creates new agent", func(t *testing.T) {
 		agent := registry.GetOrCreate("agent-1")
-		if agent.AgentID != "agent-1" {
-			t.Errorf("Expected agent ID to be 'agent-1', got %s", agent.AgentID)
-		}
+		assert.Equal(t, "agent-1", agent.AgentID, "Expected agent ID to be 'agent-1'")
 
 		// Should have empty labels initially
 		assert.True(t, agent.Secrecy.Label.IsEmpty(), "Expected new agent to have empty secrecy labels")
@@ -451,11 +441,7 @@ func TestCollectionFiltering(t *testing.T) {
 
 		filtered := eval.FilterCollection(agentSecrecy, agentIntegrity, collection, OperationRead)
 
-		if filtered.GetAccessibleCount() != 1 {
-			t.Errorf("Expected 1 accessible item, got %d", filtered.GetAccessibleCount())
-		}
-		if filtered.GetFilteredCount() != 1 {
-			t.Errorf("Expected 1 filtered item, got %d", filtered.GetFilteredCount())
-		}
+		assert.Equal(t, 1, filtered.GetAccessibleCount(), "Expected 1 accessible item")
+		assert.Equal(t, 1, filtered.GetFilteredCount(), "Expected 1 filtered item")
 	})
 }
