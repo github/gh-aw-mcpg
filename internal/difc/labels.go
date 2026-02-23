@@ -3,7 +3,11 @@ package difc
 import (
 	"fmt"
 	"sync"
+
+	"github.com/github/gh-aw-mcpg/internal/logger"
 )
+
+var logLabels = logger.New("difc:labels")
 
 // Tag represents a single DIFC tag (e.g., "repo:owner/name", "agent:demo-agent")
 type Tag string
@@ -22,6 +26,7 @@ func NewLabel() *Label {
 // newLabelWithTags is a helper function that creates a label with the given tags.
 // This helper reduces duplication in NewSecrecyLabelWithTags and NewIntegrityLabelWithTags.
 func newLabelWithTags(tags []Tag) *Label {
+	logLabels.Printf("Creating label with %d initial tags", len(tags))
 	label := NewLabel()
 	label.AddAll(tags)
 	return label
@@ -36,6 +41,7 @@ func (l *Label) Add(tag Tag) {
 
 // AddAll adds multiple tags to this label
 func (l *Label) AddAll(tags []Tag) {
+	logLabels.Printf("AddAll: adding %d tags to label", len(tags))
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for _, tag := range tags {
@@ -58,6 +64,7 @@ func (l *Label) Union(other *Label) {
 	}
 	other.mu.RLock()
 	defer other.mu.RUnlock()
+	logLabels.Printf("Union: merging %d tags from other label", len(other.tags))
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for tag := range other.tags {
