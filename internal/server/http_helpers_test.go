@@ -226,66 +226,66 @@ func TestInjectSessionContext_PreservesExistingContext(t *testing.T) {
 
 func TestSetupSessionCallback(t *testing.T) {
 	tests := []struct {
-		name              string
-		authHeader        string
-		backendID         string
-		serverValue       interface{}
-		expectedResult    interface{}
-		expectNil         bool
+		name               string
+		authHeader         string
+		backendID          string
+		serverValue        interface{}
+		expectedResult     interface{}
+		expectNil          bool
 		expectSessionInCtx bool
 	}{
 		{
-			name:              "Unified mode with valid session",
-			authHeader:        "test-session-123",
-			backendID:         "",
-			serverValue:       "mock-server-unified",
-			expectedResult:    "mock-server-unified",
-			expectNil:         false,
+			name:               "Unified mode with valid session",
+			authHeader:         "test-session-123",
+			backendID:          "",
+			serverValue:        "mock-server-unified",
+			expectedResult:     "mock-server-unified",
+			expectNil:          false,
 			expectSessionInCtx: true,
 		},
 		{
-			name:              "Routed mode with valid session",
-			authHeader:        "test-session-456",
-			backendID:         "github",
-			serverValue:       "mock-server-github",
-			expectedResult:    "mock-server-github",
-			expectNil:         false,
+			name:               "Routed mode with valid session",
+			authHeader:         "test-session-456",
+			backendID:          "github",
+			serverValue:        "mock-server-github",
+			expectedResult:     "mock-server-github",
+			expectNil:          false,
 			expectSessionInCtx: true,
 		},
 		{
-			name:              "Unified mode with missing auth header",
-			authHeader:        "",
-			backendID:         "",
-			serverValue:       "mock-server",
-			expectedResult:    nil,
-			expectNil:         true,
+			name:               "Unified mode with missing auth header",
+			authHeader:         "",
+			backendID:          "",
+			serverValue:        "mock-server",
+			expectedResult:     nil,
+			expectNil:          true,
 			expectSessionInCtx: false,
 		},
 		{
-			name:              "Routed mode with missing auth header",
-			authHeader:        "",
-			backendID:         "slack",
-			serverValue:       "mock-server",
-			expectedResult:    nil,
-			expectNil:         true,
+			name:               "Routed mode with missing auth header",
+			authHeader:         "",
+			backendID:          "slack",
+			serverValue:        "mock-server",
+			expectedResult:     nil,
+			expectNil:          true,
 			expectSessionInCtx: false,
 		},
 		{
-			name:              "Unified mode with Bearer token",
-			authHeader:        "Bearer my-token-789",
-			backendID:         "",
-			serverValue:       "mock-server-bearer",
-			expectedResult:    "mock-server-bearer",
-			expectNil:         false,
+			name:               "Unified mode with Bearer token",
+			authHeader:         "Bearer my-token-789",
+			backendID:          "",
+			serverValue:        "mock-server-bearer",
+			expectedResult:     "mock-server-bearer",
+			expectNil:          false,
 			expectSessionInCtx: true,
 		},
 		{
-			name:              "Routed mode with Bearer token",
-			authHeader:        "Bearer my-token-abc",
-			backendID:         "codex",
-			serverValue:       "mock-server-codex",
-			expectedResult:    "mock-server-codex",
-			expectNil:         false,
+			name:               "Routed mode with Bearer token",
+			authHeader:         "Bearer my-token-abc",
+			backendID:          "codex",
+			serverValue:        "mock-server-codex",
+			expectedResult:     "mock-server-codex",
+			expectNil:          false,
 			expectSessionInCtx: true,
 		},
 	}
