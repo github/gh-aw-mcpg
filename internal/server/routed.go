@@ -106,32 +106,18 @@ func CreateHTTPServerForRoutedMode(addr string, unifiedServer *UnifiedServer, ap
 
 		// Create StreamableHTTP handler for this route
 		routeHandler := sdk.NewStreamableHTTPHandler(func(r *http.Request) *sdk.Server {
-			// Extract and validate session ID from Authorization header
-			sessionID := extractAndValidateSession(r)
-			if sessionID == "" {
+			// Use common session setup logic (routed mode: with backend ID)
+			result := setupSessionCallback(r, backendID, func(sessionID string) interface{} {
+				// Return a cached filtered proxy server for this backend and session
+				// This ensures the same server instance is reused for all requests in a session
+				return serverCache.getOrCreate(backendID, sessionID, func() *sdk.Server {
+					return createFilteredServer(unifiedServer, backendID)
+				})
+			})
+			if result == nil {
 				return nil
 			}
-
-			logger.LogInfo("client", "New MCP client connection, remote=%s, method=%s, path=%s, backend=%s, session=%s",
-				r.RemoteAddr, r.Method, r.URL.Path, backendID, sessionID)
-			log.Printf("=== NEW STREAMABLE HTTP CONNECTION (ROUTED) ===")
-			log.Printf("[%s] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
-			log.Printf("Backend: %s", backendID)
-			log.Printf("Authorization (Session ID): %s", sessionID)
-
-			// Log request body for debugging
-			logHTTPRequestBody(r, sessionID, backendID)
-
-			// Store session ID and backend ID in request context
-			*r = *injectSessionContext(r, sessionID, backendID)
-			log.Printf("✓ Injected session ID and backend ID into context")
-			log.Printf("===================================\n")
-
-			// Return a cached filtered proxy server for this backend and session
-			// This ensures the same server instance is reused for all requests in a session
-			return serverCache.getOrCreate(backendID, sessionID, func() *sdk.Server {
-				return createFilteredServer(unifiedServer, backendID)
-			})
+			return result.(*sdk.Server)
 		}, &sdk.StreamableHTTPOptions{
 			Stateless: false,
 		})

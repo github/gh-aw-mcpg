@@ -85,3 +85,56 @@ func injectSessionContext(r *http.Request, sessionID, backendID string) *http.Re
 	logHelpers.Print("Session context injected successfully")
 	return r.WithContext(ctx)
 }
+
+// setupSessionCallback handles the common session establishment logic for both unified and routed modes.
+// It extracts and validates the session, logs the connection, logs the request body, and injects context.
+// The serverProvider function is called to get the SDK server instance if session validation succeeds.
+// Returns the SDK server instance or nil if validation fails.
+func setupSessionCallback(r *http.Request, backendID string, serverProvider func(sessionID string) interface{}) interface{} {
+	logHelpers.Printf("Setting up session callback: backendID=%s", backendID)
+
+	// Extract and validate session ID from Authorization header
+	sessionID := extractAndValidateSession(r)
+	if sessionID == "" {
+		// Return nil to reject the connection
+		// The SDK will handle sending an appropriate error response
+		return nil
+	}
+
+	// Log connection with appropriate message based on mode
+	if backendID != "" {
+		// Routed mode: include backend ID
+		logger.LogInfo("client", "New MCP client connection, remote=%s, method=%s, path=%s, backend=%s, session=%s",
+			r.RemoteAddr, r.Method, r.URL.Path, backendID, sessionID)
+		log.Printf("=== NEW STREAMABLE HTTP CONNECTION (ROUTED) ===")
+		log.Printf("[%s] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
+		log.Printf("Backend: %s", backendID)
+		log.Printf("Authorization (Session ID): %s", sessionID)
+	} else {
+		// Unified mode: no backend ID
+		logger.LogInfo("client", "MCP connection established, remote=%s, method=%s, path=%s, session=%s",
+			r.RemoteAddr, r.Method, r.URL.Path, sessionID)
+		log.Printf("=== NEW STREAMABLE HTTP CONNECTION ===")
+		log.Printf("[%s] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
+		log.Printf("Authorization (Session ID): %s", sanitize.TruncateSecret(sessionID))
+		log.Printf("DEBUG: About to check request body, Method=%s, Body!=nil: %v", r.Method, r.Body != nil)
+	}
+
+	// Log request body for debugging (typically the 'initialize' request)
+	logHTTPRequestBody(r, sessionID, backendID)
+
+	// Store session ID (and backend ID if routed) in request context
+	// This context will be passed to all tool handlers for this connection
+	*r = *injectSessionContext(r, sessionID, backendID)
+
+	if backendID != "" {
+		log.Printf("✓ Injected session ID and backend ID into context")
+		log.Printf("===================================\n")
+	} else {
+		log.Printf("✓ Injected session ID into context")
+		log.Printf("==========================\n")
+	}
+
+	// Call the server provider function to get the SDK server instance
+	return serverProvider(sessionID)
+}

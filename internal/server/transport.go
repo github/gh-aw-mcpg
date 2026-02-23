@@ -83,31 +83,14 @@ func CreateHTTPServerForMCP(addr string, unifiedServer *UnifiedServer, apiKey st
 		// We use the Authorization header value as the session ID
 		// This groups all requests from the same agent (same auth value) into one session
 
-		// Extract and validate session ID from Authorization header
-		sessionID := extractAndValidateSession(r)
-		if sessionID == "" {
-			// Return nil to reject the connection
-			// The SDK will handle sending an appropriate error response
+		// Use common session setup logic (unified mode: no backend ID)
+		result := setupSessionCallback(r, "", func(sessionID string) interface{} {
+			return unifiedServer.server
+		})
+		if result == nil {
 			return nil
 		}
-
-		logger.LogInfo("client", "MCP connection established, remote=%s, method=%s, path=%s, session=%s", r.RemoteAddr, r.Method, r.URL.Path, sessionID)
-		log.Printf("=== NEW STREAMABLE HTTP CONNECTION ===")
-		log.Printf("[%s] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
-		log.Printf("Authorization (Session ID): %s", sanitize.TruncateSecret(sessionID))
-
-		log.Printf("DEBUG: About to check request body, Method=%s, Body!=nil: %v", r.Method, r.Body != nil)
-
-		// Log request body for debugging (typically the 'initialize' request)
-		logHTTPRequestBody(r, sessionID, "")
-
-		// Store session ID in request context
-		// This context will be passed to all tool handlers for this connection
-		*r = *injectSessionContext(r, sessionID, "")
-		log.Printf("✓ Injected session ID into context")
-		log.Printf("==========================\n")
-
-		return unifiedServer.server
+		return result.(*sdk.Server)
 	}, &sdk.StreamableHTTPOptions{
 		Stateless:      false,                                         // Support stateful sessions
 		Logger:         logger.NewSlogLoggerWithHandler(logTransport), // Integrate SDK logging with project logger

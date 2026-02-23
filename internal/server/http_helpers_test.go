@@ -223,3 +223,168 @@ func TestInjectSessionContext_PreservesExistingContext(t *testing.T) {
 	existingValue := modifiedReq.Context().Value(testContextKey("existing-key"))
 	assert.Equal(t, "existing-value", existingValue, "Existing context value should be preserved")
 }
+
+func TestSetupSessionCallback(t *testing.T) {
+	tests := []struct {
+		name              string
+		authHeader        string
+		backendID         string
+		serverValue       interface{}
+		expectedResult    interface{}
+		expectNil         bool
+		expectSessionInCtx bool
+	}{
+		{
+			name:              "Unified mode with valid session",
+			authHeader:        "test-session-123",
+			backendID:         "",
+			serverValue:       "mock-server-unified",
+			expectedResult:    "mock-server-unified",
+			expectNil:         false,
+			expectSessionInCtx: true,
+		},
+		{
+			name:              "Routed mode with valid session",
+			authHeader:        "test-session-456",
+			backendID:         "github",
+			serverValue:       "mock-server-github",
+			expectedResult:    "mock-server-github",
+			expectNil:         false,
+			expectSessionInCtx: true,
+		},
+		{
+			name:              "Unified mode with missing auth header",
+			authHeader:        "",
+			backendID:         "",
+			serverValue:       "mock-server",
+			expectedResult:    nil,
+			expectNil:         true,
+			expectSessionInCtx: false,
+		},
+		{
+			name:              "Routed mode with missing auth header",
+			authHeader:        "",
+			backendID:         "slack",
+			serverValue:       "mock-server",
+			expectedResult:    nil,
+			expectNil:         true,
+			expectSessionInCtx: false,
+		},
+		{
+			name:              "Unified mode with Bearer token",
+			authHeader:        "Bearer my-token-789",
+			backendID:         "",
+			serverValue:       "mock-server-bearer",
+			expectedResult:    "mock-server-bearer",
+			expectNil:         false,
+			expectSessionInCtx: true,
+		},
+		{
+			name:              "Routed mode with Bearer token",
+			authHeader:        "Bearer my-token-abc",
+			backendID:         "codex",
+			serverValue:       "mock-server-codex",
+			expectedResult:    "mock-server-codex",
+			expectNil:         false,
+			expectSessionInCtx: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(`{"method":"initialize"}`))
+			if tt.authHeader != "" {
+				req.Header.Set("Authorization", tt.authHeader)
+			}
+
+			// Track if server provider was called
+			providerCalled := false
+			var capturedSessionID string
+
+			// Call setupSessionCallback
+			result := setupSessionCallback(req, tt.backendID, func(sessionID string) interface{} {
+				providerCalled = true
+				capturedSessionID = sessionID
+				return tt.serverValue
+			})
+
+			if tt.expectNil {
+				assert.Nil(t, result, "Result should be nil when validation fails")
+				assert.False(t, providerCalled, "Server provider should not be called when validation fails")
+			} else {
+				require.NotNil(t, result, "Result should not be nil")
+				assert.Equal(t, tt.expectedResult, result, "Result mismatch")
+				assert.True(t, providerCalled, "Server provider should be called when validation succeeds")
+
+				// Verify session ID was captured
+				assert.NotEmpty(t, capturedSessionID, "Session ID should be captured")
+
+				// Verify context was injected into the request
+				if tt.expectSessionInCtx {
+					sessionFromCtx := req.Context().Value(SessionIDContextKey)
+					require.NotNil(t, sessionFromCtx, "Session ID should be in context")
+					assert.Equal(t, capturedSessionID, sessionFromCtx, "Session ID in context should match")
+
+					// Verify backend ID in context for routed mode
+					if tt.backendID != "" {
+						backendFromCtx := req.Context().Value(mcp.ContextKey("backend-id"))
+						require.NotNil(t, backendFromCtx, "Backend ID should be in context for routed mode")
+						assert.Equal(t, tt.backendID, backendFromCtx, "Backend ID in context should match")
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestSetupSessionCallback_RequestBodyPreserved(t *testing.T) {
+	// Test that the request body can still be read after setupSessionCallback
+	originalBody := `{"jsonrpc":"2.0","method":"initialize","params":{"clientInfo":{"name":"test"}}}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(originalBody))
+	req.Header.Set("Authorization", "test-session")
+
+	// Call setupSessionCallback
+	result := setupSessionCallback(req, "", func(sessionID string) interface{} {
+		return "mock-server"
+	})
+
+	require.NotNil(t, result, "Result should not be nil")
+
+	// Verify body can still be read
+	bodyBytes, err := io.ReadAll(req.Body)
+	require.NoError(t, err, "Should be able to read body after setupSessionCallback")
+	assert.Equal(t, originalBody, string(bodyBytes), "Body should be preserved")
+}
+
+func TestSetupSessionCallback_UnifiedVsRoutedLogging(t *testing.T) {
+	// This test verifies that different logging paths are taken for unified vs routed mode
+	// We can't easily verify the log output, but we can verify the function completes without error
+
+	tests := []struct {
+		name      string
+		backendID string
+	}{
+		{
+			name:      "Unified mode logging",
+			backendID: "",
+		},
+		{
+			name:      "Routed mode logging",
+			backendID: "github",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(`{"method":"initialize"}`))
+			req.Header.Set("Authorization", "test-session-logging")
+
+			// Call setupSessionCallback and verify it doesn't panic
+			result := setupSessionCallback(req, tt.backendID, func(sessionID string) interface{} {
+				return "mock-server"
+			})
+
+			assert.NotNil(t, result, "Result should not be nil")
+		})
+	}
+}
