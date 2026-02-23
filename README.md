@@ -195,6 +195,8 @@ For the complete JSON configuration specification with all validation rules, see
   - Variable expansion with `${VAR_NAME}` fails fast on undefined variables
   - All validation errors include JSONPath and helpful suggestions
   - **Mount specifications** must follow `"source:dest:mode"` format
+    - `source` must be an absolute path (e.g., `/host/data`)
+    - `dest` must be an absolute path (e.g., `/app/data`)
     - `mode` must be either `"ro"` or `"rw"`
     - Both source and destination paths are required (cannot be empty)
 

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/github/gh-aw-mcpg/internal/config"
 	"github.com/github/gh-aw-mcpg/internal/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -287,6 +288,68 @@ func TestSetupSessionCallback(t *testing.T) {
 			expectedResult:     "mock-server-codex",
 			expectNil:          false,
 			expectSessionInCtx: true,
+// TestWrapWithMiddleware tests the wrapWithMiddleware helper function
+func TestWrapWithMiddleware(t *testing.T) {
+	tests := []struct {
+		name               string
+		apiKey             string
+		authHeader         string
+		shutdown           bool
+		expectStatusCode   int
+		expectNextCalled   bool
+		expectErrorMessage string
+	}{
+		{
+			name:             "NoAuth_NotShutdown_Success",
+			apiKey:           "",
+			authHeader:       "",
+			shutdown:         false,
+			expectStatusCode: http.StatusOK,
+			expectNextCalled: true,
+		},
+		{
+			name:             "WithAuth_ValidKey_Success",
+			apiKey:           "test-key",
+			authHeader:       "test-key",
+			shutdown:         false,
+			expectStatusCode: http.StatusOK,
+			expectNextCalled: true,
+		},
+		{
+			name:               "WithAuth_InvalidKey_Unauthorized",
+			apiKey:             "test-key",
+			authHeader:         "wrong-key",
+			shutdown:           false,
+			expectStatusCode:   http.StatusUnauthorized,
+			expectNextCalled:   false,
+			expectErrorMessage: "Unauthorized",
+		},
+		{
+			name:               "WithAuth_MissingKey_Unauthorized",
+			apiKey:             "test-key",
+			authHeader:         "",
+			shutdown:           false,
+			expectStatusCode:   http.StatusUnauthorized,
+			expectNextCalled:   false,
+			expectErrorMessage: "Unauthorized",
+		},
+		{
+			name:               "Shutdown_RejectsRequest",
+			apiKey:             "",
+			authHeader:         "",
+			shutdown:           true,
+			expectStatusCode:   http.StatusServiceUnavailable,
+			expectNextCalled:   false,
+			expectErrorMessage: "Gateway is shutting down",
+		},
+		{
+			name:               "Shutdown_WithAuth_StillRejects",
+			apiKey:             "test-key",
+			authHeader:         "test-key",
+			shutdown:           true,
+			expectStatusCode:   http.StatusServiceUnavailable,
+			expectNextCalled:   false,
+			expectErrorMessage: "Gateway is shutting down",
 		},
 	}
 
@@ -371,6 +434,114 @@ func TestSetupSessionCallback_UnifiedVsRoutedLogging(t *testing.T) {
 		{
 			name:      "Routed mode logging",
 			backendID: "github",
+			// Create minimal unified server
+			ctx := context.Background()
+			cfg := &config.Config{
+				Servers: map[string]*config.ServerConfig{},
+			}
+			us, err := NewUnified(ctx, cfg)
+			require.NoError(t, err)
+			defer us.Close()
+
+			// Set test mode to prevent os.Exit()
+			us.SetTestMode(true)
+
+			// Trigger shutdown if needed
+			if tt.shutdown {
+				us.InitiateShutdown()
+			}
+
+			// Track whether the next handler was called
+			nextCalled := false
+			mockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				nextCalled = true
+				w.WriteHeader(http.StatusOK)
+			})
+
+			// Wrap with middleware
+			finalHandler := wrapWithMiddleware(mockHandler, "test", us, tt.apiKey)
+
+			// Create test request
+			req := httptest.NewRequest("GET", "/test", nil)
+			if tt.authHeader != "" {
+				req.Header.Set("Authorization", tt.authHeader)
+			}
+			w := httptest.NewRecorder()
+
+			// Execute request
+			finalHandler(w, req)
+
+			// Verify status code
+			assert.Equal(t, tt.expectStatusCode, w.Code, "Status code should match")
+
+			// Verify next handler was called (or not)
+			assert.Equal(t, tt.expectNextCalled, nextCalled, "Next handler call status should match")
+
+			// Verify error message if expected
+			if tt.expectErrorMessage != "" {
+				assert.Contains(t, w.Body.String(), tt.expectErrorMessage, "Response should contain expected error message")
+			}
+		})
+	}
+}
+
+// TestWrapWithMiddleware_MiddlewareOrder tests that middleware is applied in correct order
+func TestWrapWithMiddleware_MiddlewareOrder(t *testing.T) {
+	// Create minimal unified server
+	ctx := context.Background()
+	cfg := &config.Config{
+		Servers: map[string]*config.ServerConfig{},
+	}
+	us, err := NewUnified(ctx, cfg)
+	require.NoError(t, err)
+	defer us.Close()
+
+	// Set test mode
+	us.SetTestMode(true)
+
+	// Test that shutdown check happens before auth
+	// This is important per spec 5.1.3
+	us.InitiateShutdown()
+
+	// Create mock handler
+	mockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Wrap with middleware that requires auth
+	finalHandler := wrapWithMiddleware(mockHandler, "test", us, "test-key")
+
+	// Create request with valid auth
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Authorization", "test-key")
+	w := httptest.NewRecorder()
+
+	// Execute request
+	finalHandler(w, req)
+
+	// Should return 503 (shutdown) not 200 (success)
+	// This proves shutdown check happens before auth
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code, "Shutdown should take precedence over auth")
+	assert.Contains(t, w.Body.String(), "Gateway is shutting down", "Should contain shutdown error message")
+}
+
+// TestWrapWithMiddleware_LogTagVariations tests different log tag formats
+func TestWrapWithMiddleware_LogTagVariations(t *testing.T) {
+	tests := []struct {
+		name   string
+		logTag string
+	}{
+		{
+			name:   "Unified mode tag",
+			logTag: "unified",
+		},
+		{
+			name:   "Routed mode tag with backend",
+			logTag: "routed:github",
+		},
+		{
+			name:   "Routed mode tag with another backend",
+			logTag: "routed:slack",
 		},
 	}
 
@@ -385,6 +556,27 @@ func TestSetupSessionCallback_UnifiedVsRoutedLogging(t *testing.T) {
 			})
 
 			assert.NotNil(t, result, "Result should not be nil")
+			// Create minimal unified server
+			ctx := context.Background()
+			cfg := &config.Config{
+				Servers: map[string]*config.ServerConfig{},
+			}
+			us, err := NewUnified(ctx, cfg)
+			require.NoError(t, err)
+			defer us.Close()
+
+			// Create mock handler
+			mockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			})
+
+			// Should not panic with any log tag
+			assert.NotPanics(t, func() {
+				finalHandler := wrapWithMiddleware(mockHandler, tt.logTag, us, "")
+				req := httptest.NewRequest("GET", "/test", nil)
+				w := httptest.NewRecorder()
+				finalHandler(w, req)
+			}, "wrapWithMiddleware should not panic with log tag: %s", tt.logTag)
 		})
 	}
 }

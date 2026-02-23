@@ -122,15 +122,8 @@ func CreateHTTPServerForRoutedMode(addr string, unifiedServer *UnifiedServer, ap
 			Stateless: false,
 		})
 
-		// Wrap SDK handler with detailed logging for JSON-RPC translation debugging
-		loggedHandler := WithSDKLogging(routeHandler, "routed:"+backendID)
-
-		// Apply shutdown check middleware (spec 5.1.3)
-		// This must come before auth to ensure shutdown takes precedence
-		shutdownHandler := rejectIfShutdown(unifiedServer, loggedHandler, "server:routed")
-
-		// Apply auth middleware if API key is configured (spec 7.1)
-		finalHandler := applyAuthIfConfigured(apiKey, shutdownHandler.ServeHTTP)
+		// Apply standard middleware stack (SDK logging → shutdown check → auth)
+		finalHandler := wrapWithMiddleware(routeHandler, "routed:"+backendID, unifiedServer, apiKey)
 
 		// Mount the handler at both /mcp/<server> and /mcp/<server>/
 		mux.Handle(route+"/", finalHandler)

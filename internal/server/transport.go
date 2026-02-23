@@ -97,15 +97,8 @@ func CreateHTTPServerForMCP(addr string, unifiedServer *UnifiedServer, apiKey st
 		SessionTimeout: 30 * time.Minute,                              // Prevent resource leaks from idle connections
 	})
 
-	// Wrap SDK handler with detailed logging for JSON-RPC translation debugging
-	loggedHandler := WithSDKLogging(streamableHandler, "unified")
-
-	// Apply shutdown check middleware (spec 5.1.3)
-	// This must come before auth to ensure shutdown takes precedence
-	shutdownHandler := rejectIfShutdown(unifiedServer, loggedHandler, "server:transport")
-
-	// Apply auth middleware if API key is configured (spec 7.1)
-	finalHandler := applyAuthIfConfigured(apiKey, shutdownHandler.ServeHTTP)
+	// Apply standard middleware stack (SDK logging → shutdown check → auth)
+	finalHandler := wrapWithMiddleware(streamableHandler, "unified", unifiedServer, apiKey)
 
 	// Mount handler at /mcp endpoint (logging is done in the callback above)
 	mux.Handle("/mcp/", finalHandler)

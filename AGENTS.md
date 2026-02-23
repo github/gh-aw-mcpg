@@ -366,7 +366,7 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 ## Environment Variables
 
 - `GITHUB_PERSONAL_ACCESS_TOKEN` - GitHub auth
-- `DOCKER_API_VERSION` - 1.43 (arm64) or 1.44 (amd64)
+- `DOCKER_API_VERSION` - Set by querying Docker daemon's current API version; falls back to `1.44` for all architectures if detection fails
 - `DEBUG` - Enable debug logging (e.g., `DEBUG=*`, `DEBUG=server:*,launcher:*`)
 - `DEBUG_COLORS` - Control colored output (0 to disable, auto-disabled when piping)
 - `MCP_GATEWAY_LOG_DIR` - Log file directory (sets default for `--log-dir` flag, default: `/tmp/gh-aw/mcp-logs`)
