@@ -232,6 +232,11 @@ func LoadFromFile(path string) (*Config, error) {
 	// Apply feature-specific defaults
 	applyDefaults(&cfg)
 
+	// Validate guard policies
+	if err := validateGuardPolicies(&cfg); err != nil {
+		return nil, err
+	}
+
 	logConfig.Printf("Successfully loaded %d servers from TOML file", len(cfg.Servers))
 	return &cfg, nil
 }

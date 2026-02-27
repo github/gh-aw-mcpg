@@ -191,6 +191,11 @@ func LoadFromStdin() (*Config, error) {
 		return nil, err
 	}
 
+	// Validate guard policies
+	if err := validateGuardPolicies(cfg); err != nil {
+		return nil, err
+	}
+
 	logConfig.Printf("Converted stdin config to internal format with %d servers", len(cfg.Servers))
 	return cfg, nil
 }
