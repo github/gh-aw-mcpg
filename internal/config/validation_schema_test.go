@@ -1,11 +1,11 @@
 package config
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/version"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateJSONSchema(t *testing.T) {
@@ -311,9 +311,9 @@ func TestValidateJSONSchema(t *testing.T) {
 			err := validateJSONSchema([]byte(tt.config))
 
 			if tt.shouldErr {
-				assert.Error(t, err)
-				if tt.errorMsg != "" && err != nil && !strings.Contains(err.Error(), tt.errorMsg) {
-					t.Errorf("Expected error containing %q, got: %v", tt.errorMsg, err)
+				require.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
 				}
 			} else {
 				assert.NoError(t, err, "Unexpected error")
@@ -515,9 +515,9 @@ func TestValidateStringPatterns(t *testing.T) {
 			err := validateStringPatterns(tt.config)
 
 			if tt.shouldErr {
-				assert.Error(t, err)
-				if tt.errorMsg != "" && err != nil && !strings.Contains(err.Error(), tt.errorMsg) {
-					t.Errorf("Expected error containing %q, got: %v", tt.errorMsg, err)
+				require.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
 				}
 			} else {
 				assert.NoError(t, err, "Unexpected error")
@@ -605,16 +605,11 @@ func TestEnhancedErrorMessages(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateJSONSchema([]byte(tt.config))
 
-			if err == nil {
-				t.Errorf("Expected error but got none")
-				return
-			}
+			require.Error(t, err, "Expected validation to fail")
 
 			errStr := err.Error()
 			for _, expected := range tt.expectInError {
-				if !strings.Contains(errStr, expected) {
-					t.Errorf("Expected error to contain %q, but it didn't.\nFull error:\n%s", expected, errStr)
-				}
+				assert.Contains(t, errStr, expected, "Error should contain %q", expected)
 			}
 		})
 	}
@@ -635,9 +630,7 @@ func TestSchemaCaching(t *testing.T) {
 
 	// Verify that both calls return the exact same schema instance (pointer equality)
 	// This confirms caching is working correctly
-	if schema1 != schema2 {
-		t.Error("Expected both calls to return the same cached schema instance")
-	}
+	assert.Same(t, schema1, schema2, "Expected both calls to return the same cached schema instance")
 
 	// Verify the cached schema can actually validate configurations
 	validConfig := `{
