@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -481,4 +482,244 @@ func TestSlogHandler_Handle_EdgeCases(t *testing.T) {
 		enabled := handler.Enabled(context.TODO(), slog.LevelInfo)
 		assert.Equal(logger.Enabled(), enabled)
 	})
+}
+
+// withEnabledLogger sets DEBUG to enable a specific namespace for the duration of the test,
+// creates an enabled Logger, and returns it along with a cleanup function.
+func withEnabledLogger(t *testing.T, namespace string) *Logger {
+	t.Helper()
+	oldDebug := os.Getenv("DEBUG")
+	os.Setenv("DEBUG", namespace)
+	t.Cleanup(func() {
+		if oldDebug == "" {
+			os.Unsetenv("DEBUG")
+		} else {
+			os.Setenv("DEBUG", oldDebug)
+		}
+	})
+	return New(namespace)
+}
+
+// TestSlogHandler_Handle_DirectCall tests Handle directly without relying on the slog
+// dispatch mechanism, ensuring the function is covered regardless of the DEBUG env var.
+func TestSlogHandler_Handle_DirectCall(t *testing.T) {
+	tests := []struct {
+		name          string
+		level         slog.Level
+		message       string
+		attrs         []slog.Attr
+		wantSubstrs   []string
+		wantAbsent    []string
+	}{
+		{
+			name:        "info level no attrs",
+			level:       slog.LevelInfo,
+			message:     "simple info message",
+			attrs:       nil,
+			wantSubstrs: []string{"[INFO] ", "simple info message"},
+		},
+		{
+			name:        "debug level no attrs",
+			level:       slog.LevelDebug,
+			message:     "debug message",
+			attrs:       nil,
+			wantSubstrs: []string{"[DEBUG] ", "debug message"},
+		},
+		{
+			name:        "warn level no attrs",
+			level:       slog.LevelWarn,
+			message:     "warning message",
+			attrs:       nil,
+			wantSubstrs: []string{"[WARN] ", "warning message"},
+		},
+		{
+			name:        "error level no attrs",
+			level:       slog.LevelError,
+			message:     "error message",
+			attrs:       nil,
+			wantSubstrs: []string{"[ERROR] ", "error message"},
+		},
+		{
+			name:    "custom level (not in switch) no prefix",
+			level:   slog.Level(99),
+			message: "custom level",
+			attrs:   nil,
+			// No known level prefix, but message should appear
+			wantSubstrs: []string{"custom level"},
+			wantAbsent:  []string{"[DEBUG]", "[INFO]", "[WARN]", "[ERROR]"},
+		},
+		{
+			name:    "with string attribute",
+			level:   slog.LevelInfo,
+			message: "msg with attr",
+			attrs:   []slog.Attr{slog.String("key", "value")},
+			wantSubstrs: []string{"[INFO] ", "msg with attr", "key=value"},
+		},
+		{
+			name:    "with multiple attributes",
+			level:   slog.LevelInfo,
+			message: "multi attr msg",
+			attrs: []slog.Attr{
+				slog.String("host", "localhost"),
+				slog.Int("port", 8080),
+				slog.Bool("tls", true),
+			},
+			wantSubstrs: []string{"multi attr msg", "host=localhost", "port=8080", "tls=true"},
+		},
+		{
+			name:        "empty message with attrs",
+			level:       slog.LevelInfo,
+			message:     "",
+			attrs:       []slog.Attr{slog.String("k", "v")},
+			wantSubstrs: []string{"k=v"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert := assert.New(t)
+
+			// Create an enabled logger by setting DEBUG before New()
+			l := withEnabledLogger(t, "test:slog:handle")
+			handler := NewSlogHandler(l)
+
+			// Capture stderr output
+			output := captureStderr(func() {
+				r := slog.NewRecord(time.Now(), tt.level, tt.message, 0)
+				for _, a := range tt.attrs {
+					r.AddAttrs(a)
+				}
+				err := handler.Handle(context.Background(), r)
+				assert.NoError(err, "Handle should not return an error")
+			})
+
+			for _, want := range tt.wantSubstrs {
+				assert.Contains(output, want, "expected %q in output", want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(output, absent, "expected %q to be absent from output", absent)
+			}
+		})
+	}
+}
+
+// TestSlogHandler_Handle_DisabledLogger tests that Handle returns nil immediately
+// and produces no output when the logger is disabled.
+func TestSlogHandler_Handle_DisabledLogger(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	// Ensure DEBUG is not set for this logger namespace
+	os.Unsetenv("DEBUG")
+	l := New("test:slog:disabled:handle")
+	require.False(l.Enabled(), "logger should be disabled when DEBUG is not set")
+
+	handler := NewSlogHandler(l)
+
+	output := captureStderr(func() {
+		r := slog.NewRecord(time.Now(), slog.LevelInfo, "should not appear", 0)
+		err := handler.Handle(context.Background(), r)
+		assert.NoError(err, "Handle should not return an error even when disabled")
+	})
+
+	assert.Empty(output, "disabled logger should produce no stderr output")
+}
+
+// TestFormatSlogValue tests the formatSlogValue helper with various input types.
+func TestFormatSlogValue(t *testing.T) {
+	tests := []struct {
+		name  string
+		input any
+		want  string
+	}{
+		{
+			name:  "slog.Value string",
+			input: slog.StringValue("hello"),
+			want:  "hello",
+		},
+		{
+			name:  "slog.Value int",
+			input: slog.IntValue(42),
+			want:  "42",
+		},
+		{
+			name:  "slog.Value bool true",
+			input: slog.BoolValue(true),
+			want:  "true",
+		},
+		{
+			name:  "slog.Value bool false",
+			input: slog.BoolValue(false),
+			want:  "false",
+		},
+		{
+			name:  "slog.Value float",
+			input: slog.Float64Value(3.14),
+			want:  "3.14",
+		},
+		{
+			name:  "plain string (not slog.Value)",
+			input: "plain string",
+			want:  "plain string",
+		},
+		{
+			name:  "plain int (not slog.Value)",
+			input: 100,
+			want:  "100",
+		},
+		{
+			name:  "nil input",
+			input: nil,
+			want:  "<nil>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatSlogValue(tt.input)
+			assert.Equal(t, tt.want, result, "formatSlogValue(%v)", tt.input)
+		})
+	}
+}
+
+// TestNewSlogLoggerWithHandler_WhenEnabled verifies that NewSlogLoggerWithHandler
+// creates a functional slog.Logger that routes output through the provided Logger.
+func TestNewSlogLoggerWithHandler_WhenEnabled(t *testing.T) {
+	assert := assert.New(t)
+
+	l := withEnabledLogger(t, "test:slog:withhandler")
+	slogLogger := NewSlogLoggerWithHandler(l)
+	require.NotNil(t, slogLogger, "NewSlogLoggerWithHandler should return non-nil logger")
+
+	output := captureStderr(func() {
+		slogLogger.Info("handler test message", "key", "val")
+	})
+
+	assert.Contains(output, "handler test message", "output should contain the message")
+	assert.Contains(output, "key=val", "output should contain attributes")
+}
+
+// TestSlogHandler_Handle_IntegrationViaLogger tests the full path through
+// slog.Logger → SlogHandler.Handle when the logger is enabled.
+func TestSlogHandler_Handle_IntegrationViaLogger(t *testing.T) {
+	assert := assert.New(t)
+
+	l := withEnabledLogger(t, "test:slog:integration")
+	slogLogger := NewSlogLoggerWithHandler(l)
+
+	output := captureStderr(func() {
+		slogLogger.Debug("debug via integration", "x", 1)
+		slogLogger.Info("info via integration", "y", 2)
+		slogLogger.Warn("warn via integration", "z", 3)
+		slogLogger.Error("error via integration", "w", 4)
+	})
+
+	assert.Contains(output, "[DEBUG] debug via integration")
+	assert.Contains(output, "[INFO] info via integration")
+	assert.Contains(output, "[WARN] warn via integration")
+	assert.Contains(output, "[ERROR] error via integration")
+	assert.Contains(output, "x=1")
+	assert.Contains(output, "y=2")
+	assert.Contains(output, "z=3")
+	assert.Contains(output, "w=4")
 }
