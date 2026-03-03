@@ -58,11 +58,8 @@ func TestFormatRPCMessage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := formatRPCMessage(tt.info)
-
 			for _, expected := range tt.want {
-				if !strings.Contains(result, expected) {
-					t.Errorf("Expected result to contain %q, got: %s", expected, result)
-				}
+				assert.Contains(t, result, expected)
 			}
 		})
 	}
@@ -184,13 +181,11 @@ func TestFormatRPCMessageMarkdown(t *testing.T) {
 			result := formatRPCMessageMarkdown(tt.info)
 
 			for _, expected := range tt.want {
-				if !strings.Contains(result, expected) {
-					t.Errorf("Expected result to contain %q, got:\n%s", expected, result)
-				}
+				assert.Contains(t, result, expected)
 			}
 
 			for _, notExpected := range tt.notWant {
-				assert.False(t, strings.Contains(result, notExpected), "Expected result NOT to contain %q, got:\n%s")
+				assert.NotContains(t, result, notExpected)
 			}
 		})
 	}
@@ -266,220 +261,175 @@ func TestFormatJSONWithoutFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, isValid, isEmpty := formatJSONWithoutFields(tt.input, tt.fieldsToRemove)
 
-			assert.Equal(t, tt.wantValid, isValid, "isValid=%v, got %v")
-
-			assert.Equal(t, tt.wantEmpty, isEmpty, "isEmpty=%v, got %v")
+			assert.Equal(t, tt.wantValid, isValid)
+			assert.Equal(t, tt.wantEmpty, isEmpty)
 
 			for _, want := range tt.wantContains {
-				if !strings.Contains(result, want) {
-					t.Errorf("Expected result to contain %q, got:\n%s", want, result)
-				}
+				assert.Contains(t, result, want)
 			}
 
 			for _, notWant := range tt.wantNotContain {
-				assert.False(t, strings.Contains(result, notWant), "Expected result NOT to contain %q, got:\n%s")
+				assert.NotContains(t, result, notWant)
 			}
 		})
 	}
 }
 
-func TestLogRPCRequest(t *testing.T) {
+// setupRPCLoggers initializes file and markdown loggers in a temporary directory.
+// Returns the log directory path. Loggers are closed automatically via t.Cleanup.
+func setupRPCLoggers(t *testing.T) string {
+	t.Helper()
 	tmpDir := t.TempDir()
 	logDir := filepath.Join(tmpDir, "logs")
+	require.NoError(t, InitFileLogger(logDir, "test.log"), "InitFileLogger failed")
+	t.Cleanup(CloseGlobalLogger)
+	require.NoError(t, InitMarkdownLogger(logDir, "test.md"), "InitMarkdownLogger failed")
+	t.Cleanup(CloseMarkdownLogger)
+	return logDir
+}
 
-	// Initialize both loggers
-	if err := InitFileLogger(logDir, "test.log"); err != nil {
-		t.Fatalf("InitFileLogger failed: %v", err)
-	}
-	defer CloseGlobalLogger()
+func TestLogRPCRequest(t *testing.T) {
+	logDir := setupRPCLoggers(t)
 
-	if err := InitMarkdownLogger(logDir, "test.md"); err != nil {
-		t.Fatalf("InitMarkdownLogger failed: %v", err)
-	}
-	defer CloseMarkdownLogger()
-
-	// Log an RPC request
 	payload := []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`)
 	LogRPCRequest(RPCDirectionOutbound, "github", "tools/list", payload)
 
-	// Close loggers to flush
+	// Close loggers to flush before reading
 	CloseGlobalLogger()
 	CloseMarkdownLogger()
 
-	// Check text log
-	textLog := filepath.Join(logDir, "test.log")
-	textContent, err := os.ReadFile(textLog)
+	textContent, err := os.ReadFile(filepath.Join(logDir, "test.log"))
 	require.NoError(t, err, "Failed to read text log")
-
 	textStr := string(textContent)
-	expectedInText := []string{"github→tools/list", "58b"}
-	for _, expected := range expectedInText {
-		if !strings.Contains(textStr, expected) {
-			t.Errorf("Text log does not contain %q", expected)
-		}
-	}
+	assert.Contains(t, textStr, "github→tools/list")
+	assert.Contains(t, textStr, "58b")
 
-	// Check markdown log
-	mdLog := filepath.Join(logDir, "test.md")
-	mdContent, err := os.ReadFile(mdLog)
+	mdContent, err := os.ReadFile(filepath.Join(logDir, "test.md"))
 	require.NoError(t, err, "Failed to read markdown log")
-
-	mdStr := string(mdContent)
-	expectedInMd := []string{"**github**→`tools/list`"}
-	for _, expected := range expectedInMd {
-		if !strings.Contains(mdStr, expected) {
-			t.Errorf("Markdown log does not contain %q", expected)
-		}
-	}
+	assert.Contains(t, string(mdContent), "**github**→`tools/list`")
 }
 
 func TestLogRPCResponse(t *testing.T) {
-	tmpDir := t.TempDir()
-	logDir := filepath.Join(tmpDir, "logs")
+	logDir := setupRPCLoggers(t)
 
-	// Initialize both loggers
-	if err := InitFileLogger(logDir, "test.log"); err != nil {
-		t.Fatalf("InitFileLogger failed: %v", err)
-	}
-	defer CloseGlobalLogger()
-
-	if err := InitMarkdownLogger(logDir, "test.md"); err != nil {
-		t.Fatalf("InitMarkdownLogger failed: %v", err)
-	}
-	defer CloseMarkdownLogger()
-
-	// Log an RPC response with error
 	payload := []byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid request"}}`)
-	err := errors.New("backend connection failed")
-	LogRPCResponse(RPCDirectionInbound, "github", payload, err)
+	rpcErr := errors.New("backend connection failed")
+	LogRPCResponse(RPCDirectionInbound, "github", payload, rpcErr)
 
-	// Close loggers to flush
+	// Close loggers to flush before reading
 	CloseGlobalLogger()
 	CloseMarkdownLogger()
 
-	// Check text log
-	textLog := filepath.Join(logDir, "test.log")
-	textContent, err := os.ReadFile(textLog)
+	textContent, err := os.ReadFile(filepath.Join(logDir, "test.log"))
 	require.NoError(t, err, "Failed to read text log")
-
 	textStr := string(textContent)
-	expectedInText := []string{"github←resp", "err:backend connection failed"}
-	for _, expected := range expectedInText {
-		if !strings.Contains(textStr, expected) {
-			t.Errorf("Text log does not contain %q", expected)
-		}
-	}
+	assert.Contains(t, textStr, "github←resp")
+	assert.Contains(t, textStr, "err:backend connection failed")
 
-	// Check markdown log
-	mdLog := filepath.Join(logDir, "test.md")
-	mdContent, err := os.ReadFile(mdLog)
+	mdContent, err := os.ReadFile(filepath.Join(logDir, "test.md"))
 	require.NoError(t, err, "Failed to read markdown log")
-
 	mdStr := string(mdContent)
-	expectedInMd := []string{"**github**←`resp`", "⚠️`backend connection failed`"}
-	for _, expected := range expectedInMd {
-		if !strings.Contains(mdStr, expected) {
-			t.Errorf("Markdown log does not contain %q", expected)
-		}
-	}
+	assert.Contains(t, mdStr, "**github**←`resp`")
+	assert.Contains(t, mdStr, "⚠️`backend connection failed`")
+}
+
+func TestLogRPCResponse_NilError(t *testing.T) {
+	logDir := setupRPCLoggers(t)
+
+	payload := []byte(`{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}`)
+	LogRPCResponse(RPCDirectionInbound, "github", payload, nil)
+
+	// Close loggers to flush before reading
+	CloseGlobalLogger()
+	CloseMarkdownLogger()
+
+	textContent, err := os.ReadFile(filepath.Join(logDir, "test.log"))
+	require.NoError(t, err)
+	textStr := string(textContent)
+	assert.Contains(t, textStr, "github←resp")
+	assert.NotContains(t, textStr, "err:")
+
+	mdContent, err := os.ReadFile(filepath.Join(logDir, "test.md"))
+	require.NoError(t, err)
+	mdStr := string(mdContent)
+	assert.Contains(t, mdStr, "**github**←`resp`")
+	assert.NotContains(t, mdStr, "⚠️")
 }
 
 func TestLogRPCRequestWithSecrets(t *testing.T) {
-	tmpDir := t.TempDir()
-	logDir := filepath.Join(tmpDir, "logs")
+	logDir := setupRPCLoggers(t)
 
-	// Initialize both loggers
-	if err := InitFileLogger(logDir, "test.log"); err != nil {
-		t.Fatalf("InitFileLogger failed: %v", err)
-	}
-	defer CloseGlobalLogger()
-
-	if err := InitMarkdownLogger(logDir, "test.md"); err != nil {
-		t.Fatalf("InitMarkdownLogger failed: %v", err)
-	}
-	defer CloseMarkdownLogger()
-
-	// Log an RPC request with a secret
 	payload := []byte(`{"jsonrpc":"2.0","id":1,"method":"authenticate","params":{"token":"ghp_1234567890123456789012345678901234567890"}}`)
 	LogRPCRequest(RPCDirectionInbound, "client", "authenticate", payload)
 
-	// Close loggers to flush
+	// Close loggers to flush before reading
 	CloseGlobalLogger()
 	CloseMarkdownLogger()
 
-	// Check text log - should NOT contain the actual token
-	textLog := filepath.Join(logDir, "test.log")
-	textContent, err := os.ReadFile(textLog)
-	require.NoError(t, err, "Failed to read text log")
-
+	textContent, err := os.ReadFile(filepath.Join(logDir, "test.log"))
+	require.NoError(t, err)
 	textStr := string(textContent)
-	if strings.Contains(textStr, "ghp_1234567890123456789012345678901234567890") {
-		t.Errorf("Text log contains secret that should be redacted")
-	}
-	assert.True(t, strings.Contains(textStr, "[REDACTED]"), "Text log does not contain [REDACTED] marker")
+	assert.NotContains(t, textStr, "ghp_1234567890123456789012345678901234567890", "Text log should not contain secret")
+	assert.Contains(t, textStr, "[REDACTED]", "Text log should contain redaction marker")
 
-	// Check markdown log - should NOT contain the actual token
-	mdLog := filepath.Join(logDir, "test.md")
-	mdContent, err := os.ReadFile(mdLog)
-	require.NoError(t, err, "Failed to read markdown log")
-
+	mdContent, err := os.ReadFile(filepath.Join(logDir, "test.md"))
+	require.NoError(t, err)
 	mdStr := string(mdContent)
-	if strings.Contains(mdStr, "ghp_1234567890123456789012345678901234567890") {
-		t.Errorf("Markdown log contains secret that should be redacted")
-	}
-	assert.True(t, strings.Contains(mdStr, "[REDACTED]"), "Markdown log does not contain [REDACTED] marker")
+	assert.NotContains(t, mdStr, "ghp_1234567890123456789012345678901234567890", "Markdown log should not contain secret")
+	assert.Contains(t, mdStr, "[REDACTED]", "Markdown log should contain redaction marker")
 }
 
 func TestLogRPCRequestPayloadTruncation(t *testing.T) {
-	tmpDir := t.TempDir()
-	logDir := filepath.Join(tmpDir, "logs")
-
-	// Initialize both loggers
-	if err := InitFileLogger(logDir, "test.log"); err != nil {
-		t.Fatalf("InitFileLogger failed: %v", err)
-	}
-	defer CloseGlobalLogger()
-
-	if err := InitMarkdownLogger(logDir, "test.md"); err != nil {
-		t.Fatalf("InitMarkdownLogger failed: %v", err)
-	}
-	defer CloseMarkdownLogger()
+	logDir := setupRPCLoggers(t)
 
 	// Create a large payload (> 10KB for text, > 512 chars for markdown)
 	largeData := strings.Repeat("x", 12*1024) // 12KB of x's
 	payload := []byte(`{"jsonrpc":"2.0","id":1,"method":"test","params":{"data":"` + largeData + `"}}`)
 	LogRPCRequest(RPCDirectionOutbound, "backend", "test", payload)
 
-	// Close loggers to flush
+	// Close loggers to flush before reading
 	CloseGlobalLogger()
 	CloseMarkdownLogger()
 
 	// Check text log - payload should be truncated at 10KB
-	textLog := filepath.Join(logDir, "test.log")
-	textContent, err := os.ReadFile(textLog)
-	require.NoError(t, err, "Failed to read text log")
-
+	textContent, err := os.ReadFile(filepath.Join(logDir, "test.log"))
+	require.NoError(t, err)
 	textStr := string(textContent)
-	assert.True(t, strings.Contains(textStr, "..."), "Text log does not show truncation marker")
-
-	// The logged payload should not contain the full 12KB of x's
-	// (it should be truncated to 10KB + "...")
-	xCount := strings.Count(textStr, strings.Repeat("x", 11*1024))
-	if xCount > 0 {
-		t.Errorf("Text log contains more data than expected after truncation (should be ~10KB)")
-	}
+	assert.Contains(t, textStr, "...", "Text log should show truncation marker")
+	assert.Equal(t, 0, strings.Count(textStr, strings.Repeat("x", 11*1024)), "Text log should not contain more than 10KB of data")
 
 	// Check markdown log - should be truncated at 512 chars
-	mdLog := filepath.Join(logDir, "test.md")
-	mdContent, err := os.ReadFile(mdLog)
-	require.NoError(t, err, "Failed to read markdown log")
-
+	mdContent, err := os.ReadFile(filepath.Join(logDir, "test.md"))
+	require.NoError(t, err)
 	mdStr := string(mdContent)
-	assert.True(t, strings.Contains(mdStr, "..."), "Markdown log does not show truncation marker")
+	assert.Contains(t, mdStr, "...", "Markdown log should show truncation marker")
+	assert.Equal(t, 0, strings.Count(mdStr, strings.Repeat("x", 600)), "Markdown log should be truncated at 512 chars")
+}
 
-	// Markdown should have much less data (truncated at 512 chars)
-	xCountMd := strings.Count(mdStr, strings.Repeat("x", 600))
-	if xCountMd > 0 {
-		t.Errorf("Markdown log contains more data than expected after truncation (should be ~512 chars)")
+func TestLogRPCMessage(t *testing.T) {
+	logDir := setupRPCLoggers(t)
+
+	info := &RPCMessageInfo{
+		Direction:   RPCDirectionOutbound,
+		MessageType: RPCMessageRequest,
+		ServerID:    "github",
+		Method:      "tools/call",
+		PayloadSize: 42,
+		Payload:     `{"tool":"search_code"}`,
 	}
+	LogRPCMessage(info)
+
+	// Close loggers to flush before reading
+	CloseGlobalLogger()
+	CloseMarkdownLogger()
+
+	textContent, err := os.ReadFile(filepath.Join(logDir, "test.log"))
+	require.NoError(t, err)
+	textStr := string(textContent)
+	assert.Contains(t, textStr, "github→tools/call")
+	assert.Contains(t, textStr, "42b")
+
+	mdContent, err := os.ReadFile(filepath.Join(logDir, "test.md"))
+	require.NoError(t, err)
+	assert.Contains(t, string(mdContent), "**github**→`tools/call`")
 }
