@@ -415,6 +415,7 @@ func (us *UnifiedServer) registerToolsFromBackend(serverID string) error {
 // in the internal tools map and registering it with the SDK. This eliminates duplication
 // of tool metadata (Name, Description, InputSchema) that was previously defined twice.
 func (us *UnifiedServer) registerSysTool(name, description string, inputSchema map[string]interface{}, handler func(context.Context, *sdk.CallToolRequest, interface{}) (*sdk.CallToolResult, interface{}, error)) {
+	logUnified.Printf("Registering sys tool: name=%s", name)
 	// Store tool info
 	us.toolsMu.Lock()
 	us.tools[name] = &ToolInfo{
@@ -624,6 +625,8 @@ func convertToCallToolResult(data interface{}) (*sdk.CallToolResult, error) {
 	if err := json.Unmarshal(dataBytes, &backendResult); err != nil {
 		return nil, fmt.Errorf("failed to parse backend result structure: %w", err)
 	}
+
+	logUnified.Printf("Converting backend result: content_items=%d, isError=%v", len(backendResult.Content), backendResult.IsError)
 
 	// Convert content items to SDK Content format
 	content := make([]sdk.Content, 0, len(backendResult.Content))
@@ -921,6 +924,7 @@ func (us *UnifiedServer) GetServerStatus() map[string]ServerStatus {
 
 	// Get all configured servers
 	serverIDs := us.launcher.ServerIDs()
+	logUnified.Printf("Getting server status: server_count=%d", len(serverIDs))
 
 	for _, serverID := range serverIDs {
 		// Check if server has been launched by checking launcher connections
@@ -942,6 +946,7 @@ func (us *UnifiedServer) GetToolsForBackend(backendID string) []ToolInfo {
 	us.toolsMu.RLock()
 	defer us.toolsMu.RUnlock()
 
+	logUnified.Printf("Getting tools for backend: backendID=%s, total_tools=%d", backendID, len(us.tools))
 	prefix := backendID + "___"
 	filtered := make([]ToolInfo, 0)
 
@@ -965,13 +970,16 @@ func (us *UnifiedServer) GetToolHandler(backendID string, toolName string) func(
 
 	prefixedName := backendID + "___" + toolName
 	if toolInfo, ok := us.tools[prefixedName]; ok {
+		logUnified.Printf("Found tool handler: backend=%s, tool=%s", backendID, toolName)
 		return toolInfo.Handler
 	}
+	logUnified.Printf("No tool handler found: backend=%s, tool=%s", backendID, toolName)
 	return nil
 }
 
 // Close cleans up resources
 func (us *UnifiedServer) Close() error {
+	logUnified.Print("Closing unified server and all backend connections")
 	us.launcher.Close()
 	return nil
 }
