@@ -27,7 +27,7 @@ func (g *NoopGuard) Name() string {
 // LabelResource returns an empty resource with no label requirements
 // Conservatively assumes all operations could be writes
 func (g *NoopGuard) LabelResource(ctx context.Context, toolName string, args interface{}, backend BackendCaller, caps *difc.Capabilities) (*difc.LabeledResource, difc.OperationType, error) {
-	log.Printf("Labeling resource: tool=%s, operation=write (conservative)", toolName)
+	logNoop.Printf("Labeling resource: tool=%s, operation=write (conservative)", toolName)
 
 	// Empty resource = no label requirements = all operations allowed
 	resource := &difc.LabeledResource{
@@ -37,7 +37,7 @@ func (g *NoopGuard) LabelResource(ctx context.Context, toolName string, args int
 		Structure:   nil, // No fine-grained labeling
 	}
 
-	log.Printf("Resource labeled with no restrictions: tool=%s", toolName)
+	logNoop.Printf("Resource labeled with no restrictions: tool=%s", toolName)
 
 	// Conservatively treat as write to be safe
 	// (writes are more restrictive than reads in DIFC)
@@ -47,7 +47,7 @@ func (g *NoopGuard) LabelResource(ctx context.Context, toolName string, args int
 // LabelResponse returns nil, indicating no fine-grained labeling
 // The reference monitor will use the resource labels for the entire response
 func (g *NoopGuard) LabelResponse(ctx context.Context, toolName string, result interface{}, backend BackendCaller, caps *difc.Capabilities) (difc.LabeledData, error) {
-	log.Printf("Labeling response: tool=%s, using resource labels (no fine-grained labeling)", toolName)
+	logNoop.Printf("Labeling response: tool=%s, using resource labels (no fine-grained labeling)", toolName)
 
 	// No fine-grained labeling - return nil
 	// Reference monitor will use LabelResource result for entire response
