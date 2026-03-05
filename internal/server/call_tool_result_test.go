@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -185,8 +186,135 @@ func TestNewErrorCallToolResult(t *testing.T) {
 			// Verify CallToolResult is properly structured
 			require.NotNil(t, result, "CallToolResult should not be nil")
 			assert.True(t, result.IsError, "IsError should be true")
+			assert.Empty(t, result.Content, "Content should be empty for error results")
 
 			t.Logf("✓ Error CallToolResult properly created with IsError=%v", result.IsError)
+		})
+	}
+}
+
+// TestConvertToCallToolResult_UnknownContentType tests the default branch of the
+// content type switch, which handles content types other than "text".
+func TestConvertToCallToolResult_UnknownContentType(t *testing.T) {
+	tests := []struct {
+		name        string
+		contentType string
+	}{
+		{name: "image type", contentType: "image"},
+		{name: "resource type", contentType: "resource"},
+		{name: "unknown type", contentType: "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := map[string]interface{}{
+				"content": []interface{}{
+					map[string]interface{}{
+						"type": tt.contentType,
+						"text": "fallback text",
+					},
+				},
+				"isError": false,
+			}
+
+			result, err := convertToCallToolResult(input)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Len(t, result.Content, 1, "Unknown content type should still produce one content item")
+			assert.False(t, result.IsError)
+		})
+	}
+}
+
+// TestConvertToCallToolResult_Errors tests error paths in convertToCallToolResult.
+func TestConvertToCallToolResult_Errors(t *testing.T) {
+	t.Run("unmarshalable input", func(t *testing.T) {
+		// Pass a channel, which cannot be JSON-marshaled
+		input := make(chan int)
+
+		result, err := convertToCallToolResult(input)
+		assert.Error(t, err, "Should fail to marshal channel type")
+		assert.Nil(t, result, "Result should be nil on marshal error")
+	})
+
+	t.Run("non-object input fails to parse as result struct", func(t *testing.T) {
+		// An integer marshals fine but can't be unmarshaled into the backend struct
+		input := 42
+
+		result, err := convertToCallToolResult(input)
+		assert.Error(t, err, "Should fail to unmarshal integer as result struct")
+		assert.Nil(t, result, "Result should be nil on unmarshal error")
+	})
+}
+
+// TestParseToolArguments tests the parseToolArguments function which extracts
+// tool arguments from a CallToolRequest.
+func TestParseToolArguments(t *testing.T) {
+	tests := []struct {
+		name      string
+		arguments json.RawMessage
+		wantArgs  map[string]interface{}
+		wantErr   bool
+	}{
+		{
+			name:      "nil arguments returns empty map",
+			arguments: nil,
+			wantArgs:  map[string]interface{}{},
+			wantErr:   false,
+		},
+		{
+			name:      "empty object",
+			arguments: json.RawMessage(`{}`),
+			wantArgs:  map[string]interface{}{},
+			wantErr:   false,
+		},
+		{
+			name:      "simple string argument",
+			arguments: json.RawMessage(`{"key":"value"}`),
+			wantArgs:  map[string]interface{}{"key": "value"},
+			wantErr:   false,
+		},
+		{
+			name:      "multiple arguments",
+			arguments: json.RawMessage(`{"repo":"owner/repo","limit":10}`),
+			wantArgs:  map[string]interface{}{"repo": "owner/repo", "limit": float64(10)},
+			wantErr:   false,
+		},
+		{
+			name:      "nested object argument",
+			arguments: json.RawMessage(`{"options":{"deep":true}}`),
+			wantArgs:  map[string]interface{}{"options": map[string]interface{}{"deep": true}},
+			wantErr:   false,
+		},
+		{
+			name:      "invalid JSON returns error",
+			arguments: json.RawMessage(`not valid json`),
+			wantArgs:  nil,
+			wantErr:   true,
+		},
+		{
+			name:      "JSON array returns error - cannot unmarshal into map",
+			arguments: json.RawMessage(`[1,2,3]`),
+			wantArgs:  nil,
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &sdk.CallToolRequest{}
+			req.Params.Arguments = tt.arguments
+
+			got, err := parseToolArguments(req)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Nil(t, got)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantArgs, got)
+			}
 		})
 	}
 }
