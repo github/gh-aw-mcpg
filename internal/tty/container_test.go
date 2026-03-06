@@ -8,6 +8,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// clearContainerEnv unsets RUNNING_IN_CONTAINER for the duration of the test
+// and restores its original value (or absence) via t.Cleanup.
+func clearContainerEnv(t *testing.T) {
+	t.Helper()
+	orig, had := os.LookupEnv("RUNNING_IN_CONTAINER")
+	t.Cleanup(func() {
+		if had {
+			os.Setenv("RUNNING_IN_CONTAINER", orig)
+		} else {
+			os.Unsetenv("RUNNING_IN_CONTAINER")
+		}
+	})
+	os.Unsetenv("RUNNING_IN_CONTAINER")
+}
+
 func TestIsRunningInContainer_EnvironmentVariable(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -45,21 +60,11 @@ func TestIsRunningInContainer_EnvironmentVariable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original environment variable
-			originalValue, originalExists := os.LookupEnv("RUNNING_IN_CONTAINER")
-			defer func() {
-				if originalExists {
-					os.Setenv("RUNNING_IN_CONTAINER", originalValue)
-				} else {
-					os.Unsetenv("RUNNING_IN_CONTAINER")
-				}
-			}()
-
-			// Set test environment variable
+			// Configure environment variable for this test case.
 			if tt.envValue == "__UNSET__" {
-				os.Unsetenv("RUNNING_IN_CONTAINER")
+				clearContainerEnv(t)
 			} else {
-				os.Setenv("RUNNING_IN_CONTAINER", tt.envValue)
+				t.Setenv("RUNNING_IN_CONTAINER", tt.envValue)
 			}
 
 			result := IsRunningInContainer()
@@ -76,15 +81,7 @@ func TestIsRunningInContainer_EnvironmentVariable(t *testing.T) {
 
 func TestIsRunningInContainer_FileBasedDetection(t *testing.T) {
 	// Clear the environment variable to test only file-based detection
-	originalValue, originalExists := os.LookupEnv("RUNNING_IN_CONTAINER")
-	defer func() {
-		if originalExists {
-			os.Setenv("RUNNING_IN_CONTAINER", originalValue)
-		} else {
-			os.Unsetenv("RUNNING_IN_CONTAINER")
-		}
-	}()
-	os.Unsetenv("RUNNING_IN_CONTAINER")
+	clearContainerEnv(t)
 
 	result := IsRunningInContainer()
 
@@ -193,16 +190,6 @@ func TestIsRunningInContainer_AllMethodsCombined(t *testing.T) {
 }
 
 func TestIsRunningInContainer_EdgeCases(t *testing.T) {
-	// Save original environment
-	originalValue, originalExists := os.LookupEnv("RUNNING_IN_CONTAINER")
-	defer func() {
-		if originalExists {
-			os.Setenv("RUNNING_IN_CONTAINER", originalValue)
-		} else {
-			os.Unsetenv("RUNNING_IN_CONTAINER")
-		}
-	}()
-
 	tests := []struct {
 		name     string
 		envValue string
@@ -237,7 +224,7 @@ func TestIsRunningInContainer_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("RUNNING_IN_CONTAINER", tt.envValue)
+			t.Setenv("RUNNING_IN_CONTAINER", tt.envValue)
 
 			result := IsRunningInContainer()
 
@@ -254,17 +241,7 @@ func TestIsRunningInContainer_EdgeCases(t *testing.T) {
 
 func TestIsRunningInContainer_Consistency(t *testing.T) {
 	// Test that multiple calls return the same result (no race conditions)
-	// Save original environment
-	originalValue, originalExists := os.LookupEnv("RUNNING_IN_CONTAINER")
-	defer func() {
-		if originalExists {
-			os.Setenv("RUNNING_IN_CONTAINER", originalValue)
-		} else {
-			os.Unsetenv("RUNNING_IN_CONTAINER")
-		}
-	}()
-
-	os.Unsetenv("RUNNING_IN_CONTAINER")
+	clearContainerEnv(t)
 
 	// Call multiple times and verify consistency
 	results := make([]bool, 10)
@@ -281,17 +258,7 @@ func TestIsRunningInContainer_Consistency(t *testing.T) {
 
 func TestIsRunningInContainer_ConcurrentAccess(t *testing.T) {
 	// Test thread safety with concurrent calls
-	// Save original environment
-	originalValue, originalExists := os.LookupEnv("RUNNING_IN_CONTAINER")
-	defer func() {
-		if originalExists {
-			os.Setenv("RUNNING_IN_CONTAINER", originalValue)
-		} else {
-			os.Unsetenv("RUNNING_IN_CONTAINER")
-		}
-	}()
-
-	os.Setenv("RUNNING_IN_CONTAINER", "true")
+	t.Setenv("RUNNING_IN_CONTAINER", "true")
 
 	// Run 100 concurrent checks
 	done := make(chan bool, 100)
@@ -308,6 +275,15 @@ func TestIsRunningInContainer_ConcurrentAccess(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		<-done
 	}
+}
+
+// TestIsStderrTerminal verifies that IsStderrTerminal returns a consistent boolean
+// without panicking. The function wraps term.IsTerminal for os.Stderr.
+func TestIsStderrTerminal(t *testing.T) {
+	// Call twice to verify the function is deterministic.
+	first := IsStderrTerminal()
+	second := IsStderrTerminal()
+	assert.Equal(t, first, second, "IsStderrTerminal should return consistent results across calls")
 }
 
 // Helper function to check if a string contains any of the given substrings
