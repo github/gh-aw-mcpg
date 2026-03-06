@@ -299,6 +299,7 @@ func convertStdinServerConfig(name string, server *StdinServerConfig, customSche
 
 // buildStdioServerConfig builds a ServerConfig for a stdio server.
 func buildStdioServerConfig(name string, server *StdinServerConfig) *ServerConfig {
+	logStdin.Printf("Building stdio server config: name=%q, container=%s, mounts=%d, env_vars=%d", name, server.Container, len(server.Mounts), len(server.Env))
 	args := []string{
 		"run",
 		"--rm",
@@ -319,6 +320,9 @@ func buildStdioServerConfig(name string, server *StdinServerConfig) *ServerConfi
 	for _, mount := range server.Mounts {
 		args = append(args, "-v", mount)
 	}
+	if len(server.Mounts) > 0 {
+		logStdin.Printf("Server %q: added %d volume mount(s)", name, len(server.Mounts))
+	}
 
 	// Add user-specified environment variables
 	// Empty string "" means passthrough from host (just -e KEY)
@@ -333,9 +337,15 @@ func buildStdioServerConfig(name string, server *StdinServerConfig) *ServerConfi
 			args = append(args, fmt.Sprintf("%s=%s", k, v))
 		}
 	}
+	if len(server.Env) > 0 {
+		logStdin.Printf("Server %q: added %d environment variable(s)", name, len(server.Env))
+	}
 
 	// Add additional Docker runtime arguments (passed before container image)
 	// e.g., "--network", "host"
+	if len(server.Args) > 0 {
+		logStdin.Printf("Server %q: adding %d additional Docker runtime arg(s)", name, len(server.Args))
+	}
 	args = append(args, server.Args...)
 
 	// Add container name
@@ -344,6 +354,7 @@ func buildStdioServerConfig(name string, server *StdinServerConfig) *ServerConfi
 	// Add entrypoint args
 	args = append(args, server.EntrypointArgs...)
 
+	logStdin.Printf("Server %q: stdio config built with %d total Docker args", name, len(args))
 	logConfig.Printf("Configured stdio MCP server: name=%s, container=%s", name, server.Container)
 
 	return &ServerConfig{
