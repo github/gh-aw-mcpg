@@ -1,5 +1,9 @@
 package difc
 
+import "github.com/github/gh-aw-mcpg/internal/logger"
+
+var logResource = logger.New("difc:resource")
+
 // Resource represents an external system with label requirements (deprecated - use LabeledResource)
 type Resource struct {
 	Description string
@@ -40,6 +44,7 @@ type LabeledResource struct {
 
 // NewLabeledResource creates a new labeled resource with the given description
 func NewLabeledResource(description string) *LabeledResource {
+	logResource.Printf("Creating labeled resource: description=%s", description)
 	return &LabeledResource{
 		Description: description,
 		Secrecy:     *NewSecrecyLabel(),
@@ -103,6 +108,7 @@ type LabeledItem struct {
 
 func (c *CollectionLabeledData) Overall() *LabeledResource {
 	// Aggregate labels from all items - most restrictive
+	logResource.Printf("Aggregating labels for collection: items=%d", len(c.Items))
 	if len(c.Items) == 0 {
 		return NewLabeledResource("empty collection")
 	}
@@ -139,6 +145,7 @@ type FilteredCollectionLabeledData struct {
 
 func (f *FilteredCollectionLabeledData) Overall() *LabeledResource {
 	// Only aggregate labels from accessible items
+	logResource.Printf("Aggregating labels for filtered collection: accessible=%d, filtered=%d", len(f.Accessible), len(f.Filtered))
 	if len(f.Accessible) == 0 {
 		return NewLabeledResource("empty filtered collection")
 	}
@@ -156,6 +163,7 @@ func (f *FilteredCollectionLabeledData) Overall() *LabeledResource {
 
 func (f *FilteredCollectionLabeledData) ToResult() (interface{}, error) {
 	// Return only accessible items
+	logResource.Printf("Returning filtered collection result: accessible=%d, total=%d", len(f.Accessible), f.TotalCount)
 	result := make([]interface{}, 0, len(f.Accessible))
 	for _, item := range f.Accessible {
 		result = append(result, item.Data)
