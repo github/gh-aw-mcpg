@@ -13,10 +13,8 @@ import (
 )
 
 func TestSlogAdapter(t *testing.T) {
-	// Only run if DEBUG is enabled
-	if os.Getenv(EnvDebug) == "" {
-		t.Skip("Skipping test: DEBUG environment variable not set")
-	}
+	// Enable debug logging for this test
+	t.Setenv("DEBUG", "*")
 
 	assert := assert.New(t)
 
@@ -28,7 +26,7 @@ func TestSlogAdapter(t *testing.T) {
 		os.Stderr = oldStderr
 	})
 
-	// Create slog logger using our adapter
+	// Create slog logger using our adapter (must be created AFTER t.Setenv)
 	slogLogger := NewSlogLogger("test:slog")
 
 	// Test different log levels
@@ -55,10 +53,8 @@ func TestSlogAdapter(t *testing.T) {
 }
 
 func TestSlogAdapterDisabled(t *testing.T) {
-	// Only run if DEBUG is not set
-	if os.Getenv(EnvDebug) != "" {
-		t.Skip("Skipping test: DEBUG environment variable is set")
-	}
+	// Ensure DEBUG is not set so the logger is disabled
+	t.Setenv("DEBUG", "")
 
 	assert := assert.New(t)
 
@@ -70,7 +66,7 @@ func TestSlogAdapterDisabled(t *testing.T) {
 		os.Stderr = oldStderr
 	})
 
-	// Create slog logger using our adapter
+	// Create slog logger using our adapter (must be created AFTER t.Setenv)
 	slogLogger := NewSlogLogger("test:slog")
 
 	// Test logging (should be disabled)
@@ -88,10 +84,8 @@ func TestSlogAdapterDisabled(t *testing.T) {
 }
 
 func TestNewSlogLoggerWithHandler(t *testing.T) {
-	// Only run if DEBUG is enabled
-	if os.Getenv(EnvDebug) == "" {
-		t.Skip("Skipping test: DEBUG environment variable not set")
-	}
+	// Enable debug logging for this test
+	t.Setenv("DEBUG", "*")
 
 	assert := assert.New(t)
 
@@ -103,7 +97,7 @@ func TestNewSlogLoggerWithHandler(t *testing.T) {
 		os.Stderr = oldStderr
 	})
 
-	// Create logger and then slog logger from it
+	// Create logger and then slog logger from it (must be created AFTER t.Setenv)
 	logger := New("test:handler")
 	slogLogger := NewSlogLoggerWithHandler(logger)
 
@@ -185,10 +179,8 @@ func TestSlogHandler_Enabled(t *testing.T) {
 }
 
 func TestSlogHandler_Handle_Levels(t *testing.T) {
-	// Only run if DEBUG is enabled
-	if os.Getenv("DEBUG") == "" {
-		t.Skip("Skipping test: DEBUG environment variable not set")
-	}
+	// Enable debug logging for this test
+	t.Setenv("DEBUG", "*")
 
 	tests := []struct {
 		name          string
@@ -234,7 +226,7 @@ func TestSlogHandler_Handle_Levels(t *testing.T) {
 				os.Stderr = oldStderr
 			})
 
-			// Create slog logger
+			// Create slog logger (must be created AFTER parent t.Setenv)
 			slogLogger := NewSlogLogger("test:levels")
 
 			// Log at the specified level
@@ -254,10 +246,8 @@ func TestSlogHandler_Handle_Levels(t *testing.T) {
 }
 
 func TestSlogHandler_Handle_Attributes(t *testing.T) {
-	// Only run if DEBUG is enabled
-	if os.Getenv("DEBUG") == "" {
-		t.Skip("Skipping test: DEBUG environment variable not set")
-	}
+	// Enable debug logging for this test
+	t.Setenv("DEBUG", "*")
 
 	tests := []struct {
 		name     string
@@ -315,7 +305,7 @@ func TestSlogHandler_Handle_Attributes(t *testing.T) {
 				os.Stderr = oldStderr
 			})
 
-			// Create slog logger
+			// Create slog logger (must be created AFTER parent t.Setenv)
 			slogLogger := NewSlogLogger("test:attrs")
 
 			// Log with attributes
@@ -406,10 +396,8 @@ func TestDiscard(t *testing.T) {
 }
 
 func TestSlogHandler_Handle_EdgeCases(t *testing.T) {
-	// Only run if DEBUG is enabled
-	if os.Getenv("DEBUG") == "" {
-		t.Skip("Skipping test: DEBUG environment variable not set")
-	}
+	// Enable debug logging for this test
+	t.Setenv("DEBUG", "*")
 
 	t.Run("many attributes", func(t *testing.T) {
 		assert := assert.New(t)
@@ -422,7 +410,7 @@ func TestSlogHandler_Handle_EdgeCases(t *testing.T) {
 			os.Stderr = oldStderr
 		})
 
-		// Create slog logger
+		// Create slog logger (enabled via parent t.Setenv)
 		slogLogger := NewSlogLogger("test:many")
 
 		// Log with many attributes
@@ -454,7 +442,7 @@ func TestSlogHandler_Handle_EdgeCases(t *testing.T) {
 			os.Stderr = oldStderr
 		})
 
-		// Create slog logger
+		// Create slog logger (enabled via parent t.Setenv)
 		slogLogger := NewSlogLogger("test:special")
 
 		// Log with special characters
@@ -473,7 +461,7 @@ func TestSlogHandler_Handle_EdgeCases(t *testing.T) {
 	t.Run("nil context", func(t *testing.T) {
 		assert := assert.New(t)
 
-		// Create handler
+		// Create handler (enabled via parent t.Setenv)
 		logger := New("test:nilctx")
 		handler := NewSlogHandler(logger)
 
@@ -481,4 +469,54 @@ func TestSlogHandler_Handle_EdgeCases(t *testing.T) {
 		enabled := handler.Enabled(context.TODO(), slog.LevelInfo)
 		assert.Equal(logger.Enabled(), enabled)
 	})
+}
+
+// TestFormatSlogValue tests the formatSlogValue helper function directly,
+// verifying both the slog.Value path and the defensive fallback path.
+func TestFormatSlogValue(t *testing.T) {
+	tests := []struct {
+		name  string
+		input any
+		want  string
+	}{
+		{
+			name:  "slog.Value string",
+			input: slog.StringValue("hello"),
+			want:  "hello",
+		},
+		{
+			name:  "slog.Value integer",
+			input: slog.IntValue(42),
+			want:  "42",
+		},
+		{
+			name:  "slog.Value bool true",
+			input: slog.BoolValue(true),
+			want:  "true",
+		},
+		{
+			name:  "slog.Value bool false",
+			input: slog.BoolValue(false),
+			want:  "false",
+		},
+		{
+			// Defensive path: non-slog.Value types are wrapped in slog.AnyValue
+			name:  "plain string (non-slog.Value)",
+			input: "plain string",
+			want:  "plain string",
+		},
+		{
+			// Defensive path: integers are wrapped in slog.AnyValue
+			name:  "integer (non-slog.Value)",
+			input: 123,
+			want:  "123",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatSlogValue(tt.input)
+			assert.Equal(t, tt.want, result)
+		})
+	}
 }
