@@ -1,5 +1,9 @@
 package difc
 
+import "github.com/github/gh-aw-mcpg/internal/logger"
+
+var logResource = logger.New("difc:resource")
+
 // Resource represents an external system with label requirements (deprecated - use LabeledResource)
 type Resource struct {
 	Description string
@@ -102,6 +106,7 @@ type LabeledItem struct {
 }
 
 func (c *CollectionLabeledData) Overall() *LabeledResource {
+	logResource.Printf("Aggregating labels for collection: items=%d", len(c.Items))
 	// Aggregate labels from all items - most restrictive
 	if len(c.Items) == 0 {
 		return NewLabeledResource("empty collection")
@@ -138,6 +143,7 @@ type FilteredCollectionLabeledData struct {
 }
 
 func (f *FilteredCollectionLabeledData) Overall() *LabeledResource {
+	logResource.Printf("Aggregating labels for filtered collection: accessible=%d, filtered=%d", len(f.Accessible), len(f.Filtered))
 	// Only aggregate labels from accessible items
 	if len(f.Accessible) == 0 {
 		return NewLabeledResource("empty filtered collection")
@@ -155,6 +161,8 @@ func (f *FilteredCollectionLabeledData) Overall() *LabeledResource {
 }
 
 func (f *FilteredCollectionLabeledData) ToResult() (interface{}, error) {
+	logResource.Printf("Producing filtered collection result: accessible=%d, filtered=%d, reason=%s",
+		len(f.Accessible), len(f.Filtered), f.FilterReason)
 	// Return only accessible items
 	result := make([]interface{}, 0, len(f.Accessible))
 	for _, item := range f.Accessible {
