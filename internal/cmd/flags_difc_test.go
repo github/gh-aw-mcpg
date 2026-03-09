@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"os"
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
@@ -121,22 +120,7 @@ func TestGetDefaultEnableDIFC(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save and restore original env
-			originalEnv := os.Getenv("MCP_GATEWAY_ENABLE_GUARDS")
-			defer func() {
-				if originalEnv != "" {
-					os.Setenv("MCP_GATEWAY_ENABLE_GUARDS", originalEnv)
-				} else {
-					os.Unsetenv("MCP_GATEWAY_ENABLE_GUARDS")
-				}
-			}()
-
-			if tt.envValue != "" {
-				os.Setenv("MCP_GATEWAY_ENABLE_GUARDS", tt.envValue)
-			} else {
-				os.Unsetenv("MCP_GATEWAY_ENABLE_GUARDS")
-			}
-
+			t.Setenv("MCP_GATEWAY_ENABLE_GUARDS", tt.envValue)
 			got := getDefaultEnableDIFC()
 			assert.Equal(t, tt.want, got)
 		})
@@ -183,22 +167,7 @@ func TestGetDefaultDIFCMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save and restore original env
-			originalEnv := os.Getenv("MCP_GATEWAY_GUARDS_MODE")
-			defer func() {
-				if originalEnv != "" {
-					os.Setenv("MCP_GATEWAY_GUARDS_MODE", originalEnv)
-				} else {
-					os.Unsetenv("MCP_GATEWAY_GUARDS_MODE")
-				}
-			}()
-
-			if tt.envValue != "" {
-				os.Setenv("MCP_GATEWAY_GUARDS_MODE", tt.envValue)
-			} else {
-				os.Unsetenv("MCP_GATEWAY_GUARDS_MODE")
-			}
-
+			t.Setenv("MCP_GATEWAY_GUARDS_MODE", tt.envValue)
 			got := getDefaultDIFCMode()
 			assert.Equal(t, tt.want, got)
 		})
@@ -247,21 +216,7 @@ func TestGetDefaultConfigExtensions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalEnv := os.Getenv("MCP_GATEWAY_CONFIG_EXTENSIONS")
-			defer func() {
-				if originalEnv != "" {
-					os.Setenv("MCP_GATEWAY_CONFIG_EXTENSIONS", originalEnv)
-				} else {
-					os.Unsetenv("MCP_GATEWAY_CONFIG_EXTENSIONS")
-				}
-			}()
-
-			if tt.envValue != "" {
-				os.Setenv("MCP_GATEWAY_CONFIG_EXTENSIONS", tt.envValue)
-			} else {
-				os.Unsetenv("MCP_GATEWAY_CONFIG_EXTENSIONS")
-			}
-
+			t.Setenv("MCP_GATEWAY_CONFIG_EXTENSIONS", tt.envValue)
 			got := getDefaultConfigExtensions()
 			assert.Equal(t, tt.want, got)
 		})
@@ -269,58 +224,77 @@ func TestGetDefaultConfigExtensions(t *testing.T) {
 }
 
 func TestGetDefaultSessionSecrecy(t *testing.T) {
-	originalEnv := os.Getenv("MCP_GATEWAY_SESSION_SECRECY")
-	defer func() {
-		if originalEnv != "" {
-			os.Setenv("MCP_GATEWAY_SESSION_SECRECY", originalEnv)
-		} else {
-			os.Unsetenv("MCP_GATEWAY_SESSION_SECRECY")
-		}
-	}()
+	tests := []struct {
+		name     string
+		envValue string
+		want     string
+	}{
+		{
+			name:     "no env var returns empty string",
+			envValue: "",
+			want:     "",
+		},
+		{
+			name:     "single label",
+			envValue: "secret",
+			want:     "secret",
+		},
+		{
+			name:     "multiple labels comma-separated",
+			envValue: "secret,confidential",
+			want:     "secret,confidential",
+		},
+	}
 
-	// Test empty
-	os.Unsetenv("MCP_GATEWAY_SESSION_SECRECY")
-	assert.Equal(t, "", getDefaultSessionSecrecy())
-
-	// Test with value
-	os.Setenv("MCP_GATEWAY_SESSION_SECRECY", "secret,confidential")
-	assert.Equal(t, "secret,confidential", getDefaultSessionSecrecy())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("MCP_GATEWAY_SESSION_SECRECY", tt.envValue)
+			assert.Equal(t, tt.want, getDefaultSessionSecrecy())
+		})
+	}
 }
 
 func TestGetDefaultSessionIntegrity(t *testing.T) {
-	originalEnv := os.Getenv("MCP_GATEWAY_SESSION_INTEGRITY")
-	defer func() {
-		if originalEnv != "" {
-			os.Setenv("MCP_GATEWAY_SESSION_INTEGRITY", originalEnv)
-		} else {
-			os.Unsetenv("MCP_GATEWAY_SESSION_INTEGRITY")
-		}
-	}()
+	tests := []struct {
+		name     string
+		envValue string
+		want     string
+	}{
+		{
+			name:     "no env var returns empty string",
+			envValue: "",
+			want:     "",
+		},
+		{
+			name:     "single label",
+			envValue: "trusted",
+			want:     "trusted",
+		},
+		{
+			name:     "multiple labels comma-separated",
+			envValue: "trusted,verified",
+			want:     "trusted,verified",
+		},
+	}
 
-	// Test empty
-	os.Unsetenv("MCP_GATEWAY_SESSION_INTEGRITY")
-	assert.Equal(t, "", getDefaultSessionIntegrity())
-
-	// Test with value
-	os.Setenv("MCP_GATEWAY_SESSION_INTEGRITY", "trusted,verified")
-	assert.Equal(t, "trusted,verified", getDefaultSessionIntegrity())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("MCP_GATEWAY_SESSION_INTEGRITY", tt.envValue)
+			assert.Equal(t, tt.want, getDefaultSessionIntegrity())
+		})
+	}
 }
 
 func TestGetDefaultDIFCSinkServerIDs(t *testing.T) {
-	originalEnv := os.Getenv("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS")
-	defer func() {
-		if originalEnv != "" {
-			os.Setenv("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS", originalEnv)
-		} else {
-			os.Unsetenv("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS")
-		}
-	}()
+	t.Run("no env var returns empty string", func(t *testing.T) {
+		t.Setenv("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS", "")
+		assert.Equal(t, "", getDefaultDIFCSinkServerIDs())
+	})
 
-	os.Unsetenv("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS")
-	assert.Equal(t, "", getDefaultDIFCSinkServerIDs())
-
-	os.Setenv("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS", "safeoutputs,github")
-	assert.Equal(t, "safeoutputs,github", getDefaultDIFCSinkServerIDs())
+	t.Run("env var set returns value", func(t *testing.T) {
+		t.Setenv("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS", "safeoutputs,github")
+		assert.Equal(t, "safeoutputs,github", getDefaultDIFCSinkServerIDs())
+	})
 }
 
 func TestParseSessionLabels(t *testing.T) {
@@ -442,6 +416,33 @@ func TestBuildAllowOnlyPolicy(t *testing.T) {
 		assert.Equal(t, config.IntegrityUnapproved, policy.AllowOnly.MinIntegrity)
 	})
 
+	t.Run("owner without repo creates wildcard", func(t *testing.T) {
+		policy, err := buildAllowOnlyPolicy(false, "lpcox", "", "none")
+		require.NoError(t, err)
+		require.NotNil(t, policy)
+		repos, ok := policy.AllowOnly.Repos.([]string)
+		require.True(t, ok)
+		assert.Equal(t, []string{"lpcox/*"}, repos)
+	})
+
+	t.Run("both public and owner set fails", func(t *testing.T) {
+		_, err := buildAllowOnlyPolicy(true, "lpcox", "", "none")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exactly one")
+	})
+
+	t.Run("no scope with integrity set fails", func(t *testing.T) {
+		_, err := buildAllowOnlyPolicy(false, "", "", "none")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exactly one")
+	})
+
+	t.Run("all empty returns nil", func(t *testing.T) {
+		policy, err := buildAllowOnlyPolicy(false, "", "", "")
+		require.NoError(t, err)
+		assert.Nil(t, policy)
+	})
+
 	t.Run("repo without owner invalid", func(t *testing.T) {
 		_, err := buildAllowOnlyPolicy(false, "", "repo", "unapproved")
 		require.Error(t, err)
@@ -454,44 +455,11 @@ func TestBuildAllowOnlyPolicy(t *testing.T) {
 }
 
 func TestGetDefaultGuardPolicyInputs(t *testing.T) {
-	originalJSON := os.Getenv("MCP_GATEWAY_GUARD_POLICY_JSON")
-	originalPublic := os.Getenv("MCP_GATEWAY_ALLOWONLY_SCOPE_PUBLIC")
-	originalOwner := os.Getenv("MCP_GATEWAY_ALLOWONLY_SCOPE_OWNER")
-	originalRepo := os.Getenv("MCP_GATEWAY_ALLOWONLY_SCOPE_REPO")
-	originalMin := os.Getenv("MCP_GATEWAY_ALLOWONLY_MIN_INTEGRITY")
-	defer func() {
-		if originalJSON != "" {
-			os.Setenv("MCP_GATEWAY_GUARD_POLICY_JSON", originalJSON)
-		} else {
-			os.Unsetenv("MCP_GATEWAY_GUARD_POLICY_JSON")
-		}
-		if originalPublic != "" {
-			os.Setenv("MCP_GATEWAY_ALLOWONLY_SCOPE_PUBLIC", originalPublic)
-		} else {
-			os.Unsetenv("MCP_GATEWAY_ALLOWONLY_SCOPE_PUBLIC")
-		}
-		if originalOwner != "" {
-			os.Setenv("MCP_GATEWAY_ALLOWONLY_SCOPE_OWNER", originalOwner)
-		} else {
-			os.Unsetenv("MCP_GATEWAY_ALLOWONLY_SCOPE_OWNER")
-		}
-		if originalRepo != "" {
-			os.Setenv("MCP_GATEWAY_ALLOWONLY_SCOPE_REPO", originalRepo)
-		} else {
-			os.Unsetenv("MCP_GATEWAY_ALLOWONLY_SCOPE_REPO")
-		}
-		if originalMin != "" {
-			os.Setenv("MCP_GATEWAY_ALLOWONLY_MIN_INTEGRITY", originalMin)
-		} else {
-			os.Unsetenv("MCP_GATEWAY_ALLOWONLY_MIN_INTEGRITY")
-		}
-	}()
-
-	os.Setenv("MCP_GATEWAY_GUARD_POLICY_JSON", `{"allow-only":{"repos":"public","min-integrity":"none"}}`)
-	os.Setenv("MCP_GATEWAY_ALLOWONLY_SCOPE_PUBLIC", "1")
-	os.Setenv("MCP_GATEWAY_ALLOWONLY_SCOPE_OWNER", "lpcox")
-	os.Setenv("MCP_GATEWAY_ALLOWONLY_SCOPE_REPO", "gh-aw-mcpg")
-	os.Setenv("MCP_GATEWAY_ALLOWONLY_MIN_INTEGRITY", "unapproved")
+	t.Setenv("MCP_GATEWAY_GUARD_POLICY_JSON", `{"allow-only":{"repos":"public","min-integrity":"none"}}`)
+	t.Setenv("MCP_GATEWAY_ALLOWONLY_SCOPE_PUBLIC", "1")
+	t.Setenv("MCP_GATEWAY_ALLOWONLY_SCOPE_OWNER", "lpcox")
+	t.Setenv("MCP_GATEWAY_ALLOWONLY_SCOPE_REPO", "gh-aw-mcpg")
+	t.Setenv("MCP_GATEWAY_ALLOWONLY_MIN_INTEGRITY", "unapproved")
 
 	assert.NotEmpty(t, getDefaultGuardPolicyJSON())
 	assert.True(t, getDefaultAllowOnlyScopePublic())
