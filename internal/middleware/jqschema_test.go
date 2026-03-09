@@ -3,12 +3,14 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/itchyny/gojq"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1255,4 +1257,198 @@ func TestThresholdBehavior_ConfigurableThresholds(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestApplyJqSchema_UncoveredPaths covers edge cases not tested by existing tests:
+// - No results from iterator (jq "empty" program)
+// - HaltError with nil value (jq "halt" - clean halt)
+// - HaltError with non-nil value (jq halt_error with message)
+// - Generic jq error (type error from invalid operation)
+func TestApplyJqSchema_UncoveredPaths(t *testing.T) {
+originalCode := jqSchemaCode
+originalErr := jqSchemaCompileErr
+defer func() {
+jqSchemaCode = originalCode
+jqSchemaCompileErr = originalErr
+}()
+
+t.Run("no results from iterator", func(t *testing.T) {
+// Compile "empty" which produces no output
+q, err := gojq.Parse("empty")
+require.NoError(t, err)
+code, err := gojq.Compile(q)
+require.NoError(t, err)
+jqSchemaCode = code
+
+_, err = applyJqSchema(context.Background(), map[string]interface{}{"key": "value"})
+require.Error(t, err)
+assert.Contains(t, err.Error(), "no results")
+})
+
+t.Run("HaltError with nil value (clean halt)", func(t *testing.T) {
+// "halt" produces HaltError with nil value
+q, err := gojq.Parse("halt")
+require.NoError(t, err)
+code, err := gojq.Compile(q)
+require.NoError(t, err)
+jqSchemaCode = code
+
+_, err = applyJqSchema(context.Background(), nil)
+require.Error(t, err)
+assert.Contains(t, err.Error(), "halted cleanly")
+})
+
+t.Run("HaltError with non-nil value (error halt)", func(t *testing.T) {
+// `"msg" | halt_error` produces HaltError with non-nil value
+q, err := gojq.Parse(`"error message" | halt_error`)
+require.NoError(t, err)
+code, err := gojq.Compile(q)
+require.NoError(t, err)
+jqSchemaCode = code
+
+_, err = applyJqSchema(context.Background(), nil)
+require.Error(t, err)
+assert.Contains(t, err.Error(), "halted with error")
+})
+
+t.Run("generic jq error (type error)", func(t *testing.T) {
+// ". + 1" on a string produces a type error
+q, err := gojq.Parse(". + 1")
+require.NoError(t, err)
+code, err := gojq.Compile(q)
+require.NoError(t, err)
+jqSchemaCode = code
+
+_, err = applyJqSchema(context.Background(), "not-a-number")
+require.Error(t, err)
+assert.Contains(t, err.Error(), "jq schema filter error")
+})
+}
+
+// TestSavePayload_ErrorCases covers error paths in savePayload not covered by existing tests
+func TestSavePayload_ErrorCases(t *testing.T) {
+t.Run("directory creation failure with read-only parent", func(t *testing.T) {
+// Create a read-only directory to simulate MkdirAll failure
+readOnlyDir := t.TempDir()
+if err := os.Chmod(readOnlyDir, 0444); err != nil {
+t.Skip("Cannot set read-only permissions, skipping")
+}
+defer os.Chmod(readOnlyDir, 0755) // Restore so TempDir cleanup works
+
+_, err := savePayload(readOnlyDir, "", "session1", "query1", []byte(`{"test": "data"}`))
+require.Error(t, err, "Should fail when directory cannot be created")
+assert.Contains(t, err.Error(), "failed to create payload directory")
+})
+
+t.Run("file write failure with read-only directory", func(t *testing.T) {
+// Create the target directory first, then make it read-only
+baseDir := t.TempDir()
+targetDir := filepath.Join(baseDir, "session1", "query1")
+require.NoError(t, os.MkdirAll(targetDir, 0755))
+
+// Make the directory read-only so WriteFile fails
+if err := os.Chmod(targetDir, 0444); err != nil {
+t.Skip("Cannot set read-only permissions, skipping")
+}
+defer os.Chmod(targetDir, 0755) // Restore so cleanup works
+
+_, err := savePayload(baseDir, "", "session1", "query1", []byte(`{"test": "data"}`))
+require.Error(t, err, "Should fail when file cannot be written")
+assert.Contains(t, err.Error(), "failed to write payload file")
+})
+}
+
+// TestWrapToolHandler_NilAndErrorResultCases covers the uncovered result==nil and result.IsError branches
+func TestWrapToolHandler_NilAndErrorResultCases(t *testing.T) {
+baseDir := t.TempDir()
+
+t.Run("handler returns nil result", func(t *testing.T) {
+// Handler returns nil result, nil data, no error
+mockHandler := func(ctx context.Context, req *sdk.CallToolRequest, args interface{}) (*sdk.CallToolResult, interface{}, error) {
+return nil, nil, nil
+}
+
+wrapped := WrapToolHandler(mockHandler, "test_tool", baseDir, "", 10, testGetSessionID)
+result, data, err := wrapped(context.Background(), &sdk.CallToolRequest{}, nil)
+
+assert.NoError(t, err, "Should not return error")
+assert.Nil(t, result, "Result should be nil (pass-through)")
+assert.Nil(t, data, "Data should be nil (pass-through)")
+})
+
+t.Run("handler returns IsError=true with no error", func(t *testing.T) {
+// Handler returns an error result (IsError=true) but no Go error
+errData := map[string]interface{}{"error": "tool failed"}
+mockHandler := func(ctx context.Context, req *sdk.CallToolRequest, args interface{}) (*sdk.CallToolResult, interface{}, error) {
+return &sdk.CallToolResult{IsError: true}, errData, nil
+}
+
+wrapped := WrapToolHandler(mockHandler, "test_tool", baseDir, "", 10, testGetSessionID)
+result, data, err := wrapped(context.Background(), &sdk.CallToolRequest{}, nil)
+
+assert.NoError(t, err, "Should not return error")
+require.NotNil(t, result, "Result should not be nil")
+assert.True(t, result.IsError, "Result.IsError should be true")
+assert.Equal(t, errData, data, "Data should be returned as-is")
+})
+}
+
+// TestWrapToolHandler_SavePayloadFailure tests that WrapToolHandler continues
+// returning the original response even when payload save fails
+func TestWrapToolHandler_SavePayloadFailure(t *testing.T) {
+// Use a non-writable base directory to cause save failure
+readOnlyDir := t.TempDir()
+if err := os.Chmod(readOnlyDir, 0444); err != nil {
+t.Skip("Cannot set read-only permissions, skipping")
+}
+defer os.Chmod(readOnlyDir, 0755)
+
+largeData := map[string]interface{}{
+"message": strings.Repeat("x", 2000),
+}
+mockHandler := func(ctx context.Context, req *sdk.CallToolRequest, args interface{}) (*sdk.CallToolResult, interface{}, error) {
+return &sdk.CallToolResult{IsError: false}, largeData, nil
+}
+
+// Use a threshold of 10 bytes so the payload exceeds it
+wrapped := WrapToolHandler(mockHandler, "test_tool", readOnlyDir, "", 10, testGetSessionID)
+_, _, err := wrapped(context.Background(), &sdk.CallToolRequest{}, nil)
+
+// Should not return an error even when save fails - continues with schema extraction
+// The function returns original response on schema error if save also failed
+assert.NoError(t, err, "Should not propagate save failure as error")
+}
+
+// TestWrapToolHandler_SchemaExtractionFailure tests that WrapToolHandler
+// returns the original response when jq schema extraction fails
+func TestWrapToolHandler_SchemaExtractionFailure(t *testing.T) {
+baseDir := t.TempDir()
+
+// Sabotage the jq schema code to cause applyJqSchema to fail
+originalCode := jqSchemaCode
+originalErr := jqSchemaCompileErr
+defer func() {
+jqSchemaCode = originalCode
+jqSchemaCompileErr = originalErr
+}()
+
+// Simulate compilation failure
+jqSchemaCode = nil
+jqSchemaCompileErr = fmt.Errorf("simulated compilation failure")
+
+largeData := map[string]interface{}{
+"message": strings.Repeat("x", 2000),
+}
+mockHandler := func(ctx context.Context, req *sdk.CallToolRequest, args interface{}) (*sdk.CallToolResult, interface{}, error) {
+return &sdk.CallToolResult{IsError: false}, largeData, nil
+}
+
+wrapped := WrapToolHandler(mockHandler, "test_tool", baseDir, "", 10, testGetSessionID)
+result, data, err := wrapped(context.Background(), &sdk.CallToolRequest{}, nil)
+
+// On schema failure, the middleware returns the original result/data
+assert.NoError(t, err, "Should not return error on schema failure")
+require.NotNil(t, result, "Result should not be nil")
+// Data returned is the original data map (not PayloadMetadata) when schema fails
+assert.Equal(t, largeData, data, "Should return original data on schema failure")
 }
