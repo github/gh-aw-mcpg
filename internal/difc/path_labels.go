@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/github/gh-aw-mcpg/internal/logger"
 )
+
+var logPathLabels = logger.New("difc:path_labels")
 
 // PathLabels represents a collection of labeled paths in a JSON response.
 // Guards return this structure to indicate which elements in the response
@@ -74,7 +78,11 @@ type PathLabeledData struct {
 // It automatically detects and unwraps MCP-formatted responses ({"content":[{"text":"..."}]})
 // so that path labels can be applied to the inner JSON structure.
 func NewPathLabeledData(originalData interface{}, pathLabels *PathLabels) (*PathLabeledData, error) {
+	logPathLabels.Printf("Creating PathLabeledData: labeled_paths=%d, items_path=%q", len(pathLabels.LabeledPaths), pathLabels.ItemsPath)
 	unwrapped, isMCPWrapped := unwrapMCPResponse(originalData)
+	if isMCPWrapped {
+		logPathLabels.Print("Detected MCP-wrapped response, using unwrapped inner JSON for path resolution")
+	}
 
 	pld := &PathLabeledData{
 		OriginalData:  originalData,
@@ -142,6 +150,7 @@ func (p *PathLabeledData) resolve() error {
 
 	if items == nil {
 		// No collection to label, treat as single item
+		logPathLabels.Print("No items collection found, treating data as single labeled item")
 		p.resolvedItems = []LabeledItem{{
 			Data:   p.OriginalData,
 			Labels: p.pathEntryToResource(p.PathLabels.DefaultLabels),
@@ -161,6 +170,8 @@ func (p *PathLabeledData) resolve() error {
 		entry := pl.Labels // Create a copy
 		indexLabels[idx] = &entry
 	}
+
+	logPathLabels.Printf("Resolved %d labeled paths into index map, building %d labeled items", len(indexLabels), len(items))
 
 	// Build labeled items
 	p.resolvedItems = make([]LabeledItem, len(items))
@@ -185,12 +196,14 @@ func (p *PathLabeledData) getItems() ([]interface{}, error) {
 	if p.PathLabels.ItemsPath == "" {
 		// Root-level array
 		if arr, ok := p.UnwrappedData.([]interface{}); ok {
+			logPathLabels.Printf("Found root-level array with %d items", len(arr))
 			return arr, nil
 		}
 		// Not an array, return nil (single item)
 		return nil, nil
 	}
 
+	logPathLabels.Printf("Navigating to items_path=%q", p.PathLabels.ItemsPath)
 	// Navigate to the items path using UnwrappedData (which may have been extracted from MCP wrapper)
 	current := p.UnwrappedData
 	parts := splitJSONPointer(p.PathLabels.ItemsPath)
@@ -222,6 +235,7 @@ func (p *PathLabeledData) getItems() ([]interface{}, error) {
 	}
 
 	if arr, ok := current.([]interface{}); ok {
+		logPathLabels.Printf("Found items array at path %q with %d items", p.PathLabels.ItemsPath, len(arr))
 		return arr, nil
 	}
 
