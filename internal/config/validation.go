@@ -159,6 +159,15 @@ func validateStandardServerConfig(name string, server *StdinServerConfig, jsonPa
 		}
 	}
 
+	// Validate guards-mode if specified
+	if server.GuardsMode != "" {
+		validModes := map[string]bool{"strict": true, "filter": true, "propagate": true}
+		if !validModes[strings.ToLower(server.GuardsMode)] {
+			logValidation.Printf("Validation failed: invalid guards-mode %q for server %s", server.GuardsMode, name)
+			return fmt.Errorf("configuration error at %s: invalid guards-mode %q (must be one of: strict, filter, propagate)", jsonPath, server.GuardsMode)
+		}
+	}
+
 	logValidation.Printf("Server config validation passed: name=%s", name)
 	return nil
 }

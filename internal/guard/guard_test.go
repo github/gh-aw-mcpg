@@ -756,3 +756,34 @@ func TestParseLabelAgentResponse(t *testing.T) {
 		assert.Contains(t, err.Error(), "missing field allow-only")
 	})
 }
+
+func TestRegistryHasNonNoopGuard(t *testing.T) {
+	t.Run("empty registry returns false", func(t *testing.T) {
+		r := NewRegistry()
+		assert.False(t, r.HasNonNoopGuard())
+	})
+
+	t.Run("only noop guards returns false", func(t *testing.T) {
+		r := NewRegistry()
+		r.Register("server1", NewNoopGuard())
+		r.Register("server2", NewNoopGuard())
+		assert.False(t, r.HasNonNoopGuard())
+	})
+
+	t.Run("mixed guards returns true", func(t *testing.T) {
+		r := NewRegistry()
+		r.Register("server1", NewNoopGuard())
+		r.Register("server2", &mockNonNoopGuard{})
+		assert.True(t, r.HasNonNoopGuard())
+	})
+
+	t.Run("all non-noop returns true", func(t *testing.T) {
+		r := NewRegistry()
+		r.Register("server1", &mockNonNoopGuard{})
+		assert.True(t, r.HasNonNoopGuard())
+	})
+}
+
+type mockNonNoopGuard struct{ NoopGuard }
+
+func (m *mockNonNoopGuard) Name() string { return "mock-guard" }

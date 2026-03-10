@@ -1308,6 +1308,18 @@ func (us *UnifiedServer) ensureGuardInitialized(
 ) (difc.EnforcementMode, error) {
 	defaultMode := us.evaluator.GetMode()
 
+	// Check for per-server mode override from config
+	if us.cfg != nil {
+		if serverCfg, ok := us.cfg.Servers[serverID]; ok && serverCfg != nil && serverCfg.GuardsMode != "" {
+			if parsed, err := difc.ParseEnforcementMode(serverCfg.GuardsMode); err == nil {
+				defaultMode = parsed
+				logUnified.Printf("Using per-server guards mode for %s: %s", serverID, serverCfg.GuardsMode)
+			} else {
+				log.Printf("[DIFC] WARNING: invalid guards_mode %q for server %s: %v (using global default)", serverCfg.GuardsMode, serverID, err)
+			}
+		}
+	}
+
 	policy, source, err := us.resolveGuardPolicy(serverID)
 	if err != nil {
 		return defaultMode, fmt.Errorf("failed to resolve guard policy: %w", err)

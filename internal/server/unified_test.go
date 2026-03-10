@@ -563,3 +563,55 @@ func TestUnifiedServer_EnsureSessionDirectory(t *testing.T) {
 	_, err = os.Stat(nestedPath)
 	require.NoError(t, err, "Nested session directory should exist")
 }
+
+func TestPerServerGuardsMode(t *testing.T) {
+	t.Run("per-server mode applied from config", func(t *testing.T) {
+		cfg := &config.Config{
+			Servers: map[string]*config.ServerConfig{
+				"github": {
+					Command:    "docker",
+					Args:       []string{},
+					GuardsMode: "filter",
+				},
+				"jira": {
+					Command:    "docker",
+					Args:       []string{},
+					GuardsMode: "propagate",
+				},
+			},
+		}
+
+		ctx := context.Background()
+		us, err := NewUnified(ctx, cfg)
+		require.NoError(t, err)
+		defer us.Close()
+
+		// Verify the config is stored and accessible
+		github := us.cfg.Servers["github"]
+		assert.Equal(t, "filter", github.GuardsMode)
+
+		jira := us.cfg.Servers["jira"]
+		assert.Equal(t, "propagate", jira.GuardsMode)
+	})
+
+	t.Run("empty mode falls through to global", func(t *testing.T) {
+		cfg := &config.Config{
+			DIFCMode: "filter",
+			Servers: map[string]*config.ServerConfig{
+				"github": {
+					Command: "docker",
+					Args:    []string{},
+					// No GuardsMode set — should use global
+				},
+			},
+		}
+
+		ctx := context.Background()
+		us, err := NewUnified(ctx, cfg)
+		require.NoError(t, err)
+		defer us.Close()
+
+		github := us.cfg.Servers["github"]
+		assert.Empty(t, github.GuardsMode, "should be empty, falling through to global")
+	})
+}

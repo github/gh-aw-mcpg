@@ -380,3 +380,140 @@ func TestGuardPolicies_PreservesOtherServerConfig(t *testing.T) {
 	assert.True(t, hasDebug, "DEBUG env var should be present")
 	assert.True(t, hasToken, "GITHUB_PERSONAL_ACCESS_TOKEN should be present")
 }
+
+// TestGuardsMode_PerServerMode tests per-server guards-mode override
+func TestGuardsMode_PerServerMode(t *testing.T) {
+	jsonConfig := `{
+		"mcpServers": {
+			"github": {
+				"type": "stdio",
+				"container": "ghcr.io/github/github-mcp-server:latest",
+				"guards-mode": "filter",
+				"guard-policies": {"allow-only": {"repos": "public", "min-integrity": "none"}}
+			},
+			"jira": {
+				"type": "stdio",
+				"container": "ghcr.io/example/jira-mcp-server:latest",
+				"guards-mode": "propagate",
+				"guard-policies": {"allow-only": {"repos": "all", "min-integrity": "none"}}
+			}
+		},
+		"gateway": {"port": 3000, "domain": "localhost", "apiKey": "test-key"}
+	}`
+
+	r, w, _ := os.Pipe()
+	oldStdin := os.Stdin
+	os.Stdin = r
+	go func() {
+		w.Write([]byte(jsonConfig))
+		w.Close()
+	}()
+
+	cfg, err := LoadFromStdin()
+	os.Stdin = oldStdin
+
+	require.NoError(t, err, "LoadFromStdin() should succeed with per-server guards-mode")
+	require.NotNil(t, cfg)
+
+	github := cfg.Servers["github"]
+	require.NotNil(t, github)
+	assert.Equal(t, "filter", github.GuardsMode, "github should have filter mode")
+
+	jira := cfg.Servers["jira"]
+	require.NotNil(t, jira)
+	assert.Equal(t, "propagate", jira.GuardsMode, "jira should have propagate mode")
+}
+
+// TestGuardsMode_EmptyUsesGlobalDefault tests that empty guards-mode falls through to global
+func TestGuardsMode_EmptyUsesGlobalDefault(t *testing.T) {
+	jsonConfig := `{
+		"mcpServers": {
+			"github": {
+				"type": "stdio",
+				"container": "ghcr.io/github/github-mcp-server:latest"
+			}
+		},
+		"gateway": {"port": 3000, "domain": "localhost", "apiKey": "test-key"}
+	}`
+
+	r, w, _ := os.Pipe()
+	oldStdin := os.Stdin
+	os.Stdin = r
+	go func() {
+		w.Write([]byte(jsonConfig))
+		w.Close()
+	}()
+
+	cfg, err := LoadFromStdin()
+	os.Stdin = oldStdin
+
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	github := cfg.Servers["github"]
+	require.NotNil(t, github)
+	assert.Empty(t, github.GuardsMode, "guards-mode should be empty when not specified")
+}
+
+// TestGuardsMode_InvalidModeRejected tests that invalid guards-mode values are rejected
+func TestGuardsMode_InvalidModeRejected(t *testing.T) {
+	jsonConfig := `{
+		"mcpServers": {
+			"github": {
+				"type": "stdio",
+				"container": "ghcr.io/github/github-mcp-server:latest",
+				"guards-mode": "invalid-mode"
+			}
+		},
+		"gateway": {"port": 3000, "domain": "localhost", "apiKey": "test-key"}
+	}`
+
+	r, w, _ := os.Pipe()
+	oldStdin := os.Stdin
+	os.Stdin = r
+	go func() {
+		w.Write([]byte(jsonConfig))
+		w.Close()
+	}()
+
+	_, err := LoadFromStdin()
+	os.Stdin = oldStdin
+
+	require.Error(t, err, "LoadFromStdin() should fail with invalid guards-mode")
+	assert.Contains(t, err.Error(), "invalid guards-mode", "Error should mention invalid guards-mode")
+}
+
+// TestGuardsMode_TOMLPerServerMode tests per-server guards_mode in TOML config
+func TestGuardsMode_TOMLPerServerMode(t *testing.T) {
+	tomlConfig := `
+[gateway]
+port = 3000
+api_key = "test-key"
+
+[servers.github]
+command = "docker"
+args = ["run", "--rm", "-i", "ghcr.io/github/github-mcp-server:latest"]
+guards_mode = "filter"
+
+[servers.jira]
+command = "docker"
+args = ["run", "--rm", "-i", "ghcr.io/example/jira-mcp-server:latest"]
+guards_mode = "propagate"
+`
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.toml")
+	err := os.WriteFile(configPath, []byte(tomlConfig), 0644)
+	require.NoError(t, err)
+
+	cfg, err := LoadFromFile(configPath)
+	require.NoError(t, err, "LoadFromFile() should succeed with per-server guards_mode")
+	require.NotNil(t, cfg)
+
+	github := cfg.Servers["github"]
+	require.NotNil(t, github)
+	assert.Equal(t, "filter", github.GuardsMode, "github should have filter mode")
+
+	jira := cfg.Servers["jira"]
+	require.NotNil(t, jira)
+	assert.Equal(t, "propagate", jira.GuardsMode, "jira should have propagate mode")
+}
