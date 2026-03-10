@@ -97,10 +97,6 @@ type StdinServerConfig struct {
 	// Guard is the name of the guard to use for this server (requires DIFC)
 	Guard string `json:"guard,omitempty"`
 
-	// GuardsMode overrides the global guards enforcement mode for this server.
-	// Valid values: "strict", "filter", "propagate". If empty, the global mode is used.
-	GuardsMode string `json:"guards-mode,omitempty"`
-
 	// AdditionalProperties stores any extra fields for custom server types
 	// This allows custom schemas to define their own fields beyond the standard ones
 	AdditionalProperties map[string]interface{} `json:"-"`
@@ -142,7 +138,6 @@ func (s *StdinServerConfig) UnmarshalJSON(data []byte) error {
 		"registry":       true,
 		"guard-policies": true,
 		"guard":          true,
-		"guards-mode":    true,
 	}
 
 	// Store additional properties (fields not in the struct)
@@ -334,7 +329,6 @@ func convertStdinServerConfig(name string, server *StdinServerConfig, customSche
 			Registry:      server.Registry,
 			GuardPolicies: server.GuardPolicies,
 			Guard:         server.Guard,
-			GuardsMode:    server.GuardsMode,
 		}, nil
 	}
 
@@ -401,7 +395,6 @@ func buildStdioServerConfig(name string, server *StdinServerConfig) *ServerConfi
 		Registry:      server.Registry,
 		GuardPolicies: server.GuardPolicies,
 		Guard:         server.Guard,
-		GuardsMode:    server.GuardsMode,
 	}
 }
 

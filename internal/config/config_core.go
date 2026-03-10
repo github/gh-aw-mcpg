@@ -146,10 +146,6 @@ type ServerConfig struct {
 
 	// Guard is the name of the guard to use for this server (requires DIFC)
 	Guard string `toml:"guard" json:"guard,omitempty"`
-
-	// GuardsMode overrides the global guards enforcement mode for this server.
-	// Valid values: "strict", "filter", "propagate". If empty, the global mode is used.
-	GuardsMode string `toml:"guards_mode" json:"guards-mode,omitempty"`
 }
 
 // GuardConfig represents a guard configuration for DIFC enforcement.
