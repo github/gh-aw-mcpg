@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/github/gh-aw-mcpg/internal/logger"
 )
+
+var logPathLabels = logger.New("difc:path-labels")
 
 // PathLabels represents a collection of labeled paths in a JSON response.
 // Guards return this structure to indicate which elements in the response
@@ -74,6 +78,7 @@ type PathLabeledData struct {
 // It automatically detects and unwraps MCP-formatted responses ({"content":[{"text":"..."}]})
 // so that path labels can be applied to the inner JSON structure.
 func NewPathLabeledData(originalData interface{}, pathLabels *PathLabels) (*PathLabeledData, error) {
+	logPathLabels.Printf("Creating PathLabeledData: itemsPath=%q, labeledPaths=%d", pathLabels.ItemsPath, len(pathLabels.LabeledPaths))
 	unwrapped, isMCPWrapped := unwrapMCPResponse(originalData)
 
 	pld := &PathLabeledData{
@@ -125,6 +130,7 @@ func unwrapMCPResponse(data interface{}) (interface{}, bool) {
 		return data, false
 	}
 
+	logPathLabels.Print("Detected MCP-wrapped response, unwrapped inner JSON")
 	return inner, true
 }
 
@@ -134,6 +140,8 @@ func (p *PathLabeledData) resolve() error {
 		return nil
 	}
 
+	logPathLabels.Printf("Resolving path labels: isMCPWrapped=%v, itemsPath=%q", p.IsMCPWrapped, p.PathLabels.ItemsPath)
+
 	// Get the items array from the original data
 	items, err := p.getItems()
 	if err != nil {
@@ -142,6 +150,7 @@ func (p *PathLabeledData) resolve() error {
 
 	if items == nil {
 		// No collection to label, treat as single item
+		logPathLabels.Print("No collection found, treating as single item")
 		p.resolvedItems = []LabeledItem{{
 			Data:   p.OriginalData,
 			Labels: p.pathEntryToResource(p.PathLabels.DefaultLabels),
@@ -176,6 +185,7 @@ func (p *PathLabeledData) resolve() error {
 		}
 	}
 
+	logPathLabels.Printf("Resolved %d items with %d explicit path labels", len(items), len(indexLabels))
 	p.resolved = true
 	return nil
 }
@@ -354,9 +364,11 @@ func (p *PathLabeledData) ToCollectionLabeledData() *CollectionLabeledData {
 
 // ParsePathLabels parses a JSON response from a guard into PathLabels
 func ParsePathLabels(data []byte) (*PathLabels, error) {
+	logPathLabels.Printf("Parsing path labels: dataLen=%d", len(data))
 	var pl PathLabels
 	if err := json.Unmarshal(data, &pl); err != nil {
 		return nil, fmt.Errorf("failed to parse path labels: %w", err)
 	}
+	logPathLabels.Printf("Parsed path labels: labeledPaths=%d, hasDefault=%v, itemsPath=%q", len(pl.LabeledPaths), pl.DefaultLabels != nil, pl.ItemsPath)
 	return &pl, nil
 }
