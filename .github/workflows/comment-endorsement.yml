@@ -18,6 +18,10 @@ permissions:
   issues: write
   models: read
 
+concurrency:
+  group: comment-endorsement-${{ github.repository }}-${{ (github.event.issue && github.event.issue.number) || inputs.issue_number || github.run_id }}
+  cancel-in-progress: false
+
 env:
   # Positive reactions that count as endorsements
   POSITIVE_REACTIONS: "+1,heart,hooray,rocket"
