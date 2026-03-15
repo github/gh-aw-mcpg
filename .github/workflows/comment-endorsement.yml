@@ -328,33 +328,61 @@ jobs:
 
                   if (filterResult.endorsed) {
                     // The high-integrity comment is endorsing *something*.
-                    // Find the most likely target: the low-integrity comment
-                    // closest before this one in the thread.
-                    const hicCreated = new Date(hic.created_at).getTime();
-                    let bestTarget = null;
-                    let bestDist = Infinity;
+                    // Require an explicit, uniquely resolvable reference to a
+                    // specific low-integrity comment (or its author) instead of
+                    // relying on timestamp proximity.
+                    const body = hic.body || "";
 
-                    for (const lic of stillUnendorsed) {
-                      const licCreated = new Date(lic.created_at).getTime();
-                      // Only consider comments that came before the endorser
-                      if (licCreated < hicCreated) {
-                        const dist = hicCreated - licCreated;
-                        if (dist < bestDist) {
-                          bestDist = dist;
-                          bestTarget = lic;
+                    // First, look for explicit issue comment links like #issuecomment-<id>.
+                    const commentIdMatches = Array.from(
+                      body.matchAll(/#issuecomment-(\d+)/g)
+                    ).map(match => match[1]);
+
+                    const explicitTargetsSet = new Set();
+
+                    for (const idStr of commentIdMatches) {
+                      for (const lic of stillUnendorsed) {
+                        if (String(lic.id) === idStr) {
+                          explicitTargetsSet.add(lic);
                         }
                       }
                     }
 
-                    if (bestTarget && !endorsedIds.has(bestTarget.id)) {
-                      core.info(`✅ Keyword endorsement: ${hic.user.login} endorsed comment ${bestTarget.id} (reason: ${filterResult.reason})`);
-                      newEndorsements.push({
-                        commentId: bestTarget.id,
-                        endorsedBy: hic.user.login,
-                        endorsedAt: hic.created_at,
-                        via: `keyword:${filterResult.reason.substring(0, 50)}`
-                      });
-                      endorsedIds.add(bestTarget.id);
+                    // If no explicit comment IDs matched, fall back to @username mentions.
+                    if (explicitTargetsSet.size === 0) {
+                      const usernameMatches = Array.from(
+                        body.matchAll(/@([a-zA-Z0-9-]+)/g)
+                      ).map(match => match[1]);
+
+                      for (const username of usernameMatches) {
+                        for (const lic of stillUnendorsed) {
+                          if (lic.user && lic.user.login === username) {
+                            explicitTargetsSet.add(lic);
+                          }
+                        }
+                      }
+                    }
+
+                    const explicitTargets = Array.from(explicitTargetsSet);
+
+                    if (explicitTargets.length === 1) {
+                      const target = explicitTargets[0];
+                      if (!endorsedIds.has(target.id)) {
+                        core.info(`✅ Keyword endorsement: ${hic.user.login} explicitly endorsed comment ${target.id} (reason: ${filterResult.reason})`);
+                        newEndorsements.push({
+                          commentId: target.id,
+                          endorsedBy: hic.user.login,
+                          endorsedAt: hic.created_at,
+                          via: `keyword:${filterResult.reason.substring(0, 50)}`
+                        });
+                        endorsedIds.add(target.id);
+                      }
+                    } else {
+                      if (explicitTargets.length > 1) {
+                        core.info(`ℹ️ Skipping keyword endorsement from ${hic.user.login} due to multiple possible targets (${explicitTargets.length}).`);
+                      } else {
+                        core.info(`ℹ️ Skipping keyword endorsement from ${hic.user.login} because no explicit target was found.`);
+                      }
                     }
                   }
                 }
