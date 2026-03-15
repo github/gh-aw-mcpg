@@ -67,7 +67,7 @@ jobs:
             // Parse existing ledger from comment body
             function parseLedger(body) {
               const entries = [];
-              const regex = /<!-- endorsed:(\d+) by:(\S+) at:(\S+) via:(\S+) -->/g;
+              const regex = /<!-- endorsed:(\d+) by:(\S+) at:(\S+) via:(.*?) -->/g;
               let match;
               while ((match = regex.exec(body)) !== null) {
                 entries.push({
