@@ -192,8 +192,13 @@ jobs:
 
             } else if (context.eventName === 'workflow_dispatch') {
               const input = context.payload.inputs?.issue_number;
-              if (input) {
-                issueNumbers = [parseInt(input)];
+              if (input && input.trim() !== '') {
+                const issueNumber = Number.parseInt(input.trim(), 10);
+                if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+                  core.setFailed(`Invalid issue_number input "${input}": must be a positive integer.`);
+                  return;
+                }
+                issueNumbers = [issueNumber];
               } else {
                 // Process recently active issues
                 const issues = await github.rest.issues.listForRepo({
