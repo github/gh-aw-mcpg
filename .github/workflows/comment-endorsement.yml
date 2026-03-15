@@ -202,7 +202,9 @@ jobs:
                   sort: 'updated',
                   per_page: 10
                 });
-                issueNumbers = issues.data.map(i => i.number);
+                issueNumbers = issues.data
+                  .filter(i => !i.pull_request) // exclude PRs
+                  .map(i => i.number);
               }
 
             } else {
