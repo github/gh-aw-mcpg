@@ -285,19 +285,39 @@ jobs:
 
                   // Check reactor's association with the repo
                   // The reactions API doesn't include author_association, so we need
-                  // to check the user's role via the collaborators API
-                  let isCollaborator = false;
+                  // to classify the user's role as OWNER/MEMBER/COLLABORATOR where possible.
+                  let isHighIntegrity = false;
+
+                  // First, attempt to treat the repo owner as an organization and
+                  // check if the reacting user is an org member/owner.
                   try {
-                    const { status } = await github.request('GET /repos/{owner}/{repo}/collaborators/{username}', {
-                      ...context.repo,
+                    const orgMembership = await github.request('GET /orgs/{org}/members/{username}', {
+                      org: context.repo.owner,
                       username: reaction.user.login
                     });
-                    isCollaborator = (status === 204);
+                    if (orgMembership.status === 204) {
+                      isHighIntegrity = true;
+                    }
                   } catch {
-                    isCollaborator = false;
+                    // Owner may not be an org, or user is not an org member/owner.
                   }
 
-                  if (isCollaborator) {
+                  // If not an org owner/member, fall back to checking repo collaboration.
+                  if (!isHighIntegrity) {
+                    try {
+                      const { status } = await github.request('GET /repos/{owner}/{repo}/collaborators/{username}', {
+                        ...context.repo,
+                        username: reaction.user.login
+                      });
+                      if (status === 204) {
+                        isHighIntegrity = true;
+                      }
+                    } catch {
+                      // User is not a collaborator or request failed; leave as not high-integrity.
+                    }
+                  }
+
+                  if (isHighIntegrity) {
                     core.info(`✅ Reaction endorsement: ${reaction.user.login} reacted ${reaction.content} on comment ${lic.id}`);
                     newEndorsements.push({
                       commentId: lic.id,
