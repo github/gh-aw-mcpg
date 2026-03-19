@@ -340,9 +340,26 @@ func (us *UnifiedServer) registerToolsFromBackend(serverID string) error {
 		return fmt.Errorf("failed to parse tools: %w", err)
 	}
 
+	// Build allow-list set from ServerConfig.Tools (if configured).
+	// A nil/empty Tools list means expose all tools; a non-empty list restricts to only those tools.
+	var allowedTools map[string]struct{}
+	if serverCfg, ok := us.cfg.Servers[serverID]; ok && serverCfg != nil && len(serverCfg.Tools) > 0 {
+		allowedTools = make(map[string]struct{}, len(serverCfg.Tools))
+		for _, t := range serverCfg.Tools {
+			allowedTools[t] = struct{}{}
+		}
+		logUnified.Printf("Tool allow-list configured for %s: %v", serverID, serverCfg.Tools)
+		logger.LogInfo("backend", "Tool allow-list configured for server %s: %v", serverID, serverCfg.Tools)
+	}
+
 	// Collect tools for logging
 	toolsForLogging := make([]logger.ToolInfo, 0, len(listResult.Tools))
 	for _, tool := range listResult.Tools {
+		if allowedTools != nil {
+			if _, allowed := allowedTools[tool.Name]; !allowed {
+				continue
+			}
+		}
 		toolsForLogging = append(toolsForLogging, logger.ToolInfo{
 			Name:        tool.Name,
 			Description: tool.Description,
@@ -355,6 +372,13 @@ func (us *UnifiedServer) registerToolsFromBackend(serverID string) error {
 	// Register each tool with prefixed name
 	toolNames := []string{}
 	for _, tool := range listResult.Tools {
+		// Skip tools not in the allow-list (if configured)
+		if allowedTools != nil {
+			if _, allowed := allowedTools[tool.Name]; !allowed {
+				logUnified.Printf("Skipping tool not in allow-list: %s (server=%s)", tool.Name, serverID)
+				continue
+			}
+		}
 		prefixedName := fmt.Sprintf("%s___%s", serverID, tool.Name)
 		toolDesc := fmt.Sprintf("[%s] %s", serverID, tool.Description)
 		logName := fmt.Sprintf("%s-%s", serverID, tool.Name)

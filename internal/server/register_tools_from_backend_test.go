@@ -793,3 +793,150 @@ func TestRegisterToolsFromBackend_HandlerCreation(t *testing.T) {
 	require.NotNil(tool)
 	require.NotNil(tool.Handler, "Handler should be created during registration")
 }
+
+// newMultiToolBackend creates a mock HTTP backend that serves three tools:
+// "tool_alpha", "tool_beta", and "tool_gamma". It is used by allow-list tests.
+func newMultiToolBackend(t *testing.T) *httptest.Server {
+t.Helper()
+return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+var req map[string]interface{}
+if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+w.WriteHeader(http.StatusBadRequest)
+return
+}
+method, _ := req["method"].(string)
+switch method {
+case "initialize":
+w.Header().Set("Content-Type", "application/json")
+json.NewEncoder(w).Encode(map[string]interface{}{
+"jsonrpc": "2.0",
+"id":      req["id"],
+"result": map[string]interface{}{
+"protocolVersion": "2024-11-05",
+"capabilities":    map[string]interface{}{},
+"serverInfo": map[string]interface{}{
+"name":    "multi-tool-backend",
+"version": "1.0.0",
+},
+},
+})
+case "tools/list":
+w.Header().Set("Content-Type", "application/json")
+json.NewEncoder(w).Encode(map[string]interface{}{
+"jsonrpc": "2.0",
+"id":      req["id"],
+"result": map[string]interface{}{
+"tools": []map[string]interface{}{
+{"name": "tool_alpha", "description": "Alpha tool", "inputSchema": map[string]interface{}{"type": "object"}},
+{"name": "tool_beta", "description": "Beta tool", "inputSchema": map[string]interface{}{"type": "object"}},
+{"name": "tool_gamma", "description": "Gamma tool", "inputSchema": map[string]interface{}{"type": "object"}},
+},
+},
+})
+}
+}))
+}
+
+// TestRegisterToolsFromBackend_ToolsAllowList tests that when ServerConfig.Tools is set,
+// only the listed tools are registered and unlisted tools are skipped.
+func TestRegisterToolsFromBackend_ToolsAllowList(t *testing.T) {
+require := require.New(t)
+assert := assert.New(t)
+
+backend := newMultiToolBackend(t)
+defer backend.Close()
+
+cfg := &config.Config{
+Servers: map[string]*config.ServerConfig{
+"allowlist-backend": {
+Type:  "http",
+URL:   backend.URL,
+Tools: []string{"tool_alpha", "tool_gamma"},
+},
+},
+}
+
+us, err := NewUnified(context.Background(), cfg)
+require.NoError(err)
+defer us.Close()
+
+err = us.registerToolsFromBackend("allowlist-backend")
+require.NoError(err)
+
+us.toolsMu.RLock()
+defer us.toolsMu.RUnlock()
+
+// Only tool_alpha and tool_gamma should be registered
+assert.Len(us.tools, 2, "Should register only 2 allowed tools")
+assert.NotNil(us.tools["allowlist-backend___tool_alpha"], "tool_alpha should be registered")
+assert.NotNil(us.tools["allowlist-backend___tool_gamma"], "tool_gamma should be registered")
+assert.Nil(us.tools["allowlist-backend___tool_beta"], "tool_beta should be filtered out")
+}
+
+// TestRegisterToolsFromBackend_ToolsAllowListEmpty tests that when ServerConfig.Tools is
+// nil or empty, all backend tools are registered (no filtering applied).
+func TestRegisterToolsFromBackend_ToolsAllowListEmpty(t *testing.T) {
+require := require.New(t)
+assert := assert.New(t)
+
+backend := newMultiToolBackend(t)
+defer backend.Close()
+
+cfg := &config.Config{
+Servers: map[string]*config.ServerConfig{
+"nofilter-backend": {
+Type:  "http",
+URL:   backend.URL,
+Tools: nil, // nil means expose all
+},
+},
+}
+
+us, err := NewUnified(context.Background(), cfg)
+require.NoError(err)
+defer us.Close()
+
+err = us.registerToolsFromBackend("nofilter-backend")
+require.NoError(err)
+
+us.toolsMu.RLock()
+defer us.toolsMu.RUnlock()
+
+// All 3 tools should be registered when no allow-list is configured
+assert.Len(us.tools, 3, "Should register all tools when Tools list is nil")
+assert.NotNil(us.tools["nofilter-backend___tool_alpha"])
+assert.NotNil(us.tools["nofilter-backend___tool_beta"])
+assert.NotNil(us.tools["nofilter-backend___tool_gamma"])
+}
+
+// TestRegisterToolsFromBackend_ToolsAllowListNoneMatch tests that when ServerConfig.Tools
+// is set but no tools match, nothing is registered.
+func TestRegisterToolsFromBackend_ToolsAllowListNoneMatch(t *testing.T) {
+require := require.New(t)
+assert := assert.New(t)
+
+backend := newMultiToolBackend(t)
+defer backend.Close()
+
+cfg := &config.Config{
+Servers: map[string]*config.ServerConfig{
+"nomatch-backend": {
+Type:  "http",
+URL:   backend.URL,
+Tools: []string{"nonexistent_tool"},
+},
+},
+}
+
+us, err := NewUnified(context.Background(), cfg)
+require.NoError(err)
+defer us.Close()
+
+err = us.registerToolsFromBackend("nomatch-backend")
+require.NoError(err)
+
+us.toolsMu.RLock()
+defer us.toolsMu.RUnlock()
+
+assert.Empty(us.tools, "Should register no tools when allow-list matches nothing")
+}
