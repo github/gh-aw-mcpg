@@ -73,8 +73,10 @@ type Connection struct {
 	httpTransportType HTTPTransportType // Type of HTTP transport in use
 }
 
-// NewConnection creates a new MCP connection using the official SDK
-func NewConnection(ctx context.Context, serverID, command string, args []string, env map[string]string) (*Connection, error) {
+// NewConnection creates a new MCP connection using the official SDK.
+// workingDir sets the working directory for the launched process; if empty, the
+// current directory of the parent process is used.
+func NewConnection(ctx context.Context, serverID, command string, args []string, env map[string]string, workingDir string) (*Connection, error) {
 	logger.LogInfo("backend", "Creating new MCP backend connection, command=%s, args=%v", command, sanitize.SanitizeArgs(args))
 	logConn.Printf("Creating new MCP connection: command=%s, args=%v", command, sanitize.SanitizeArgs(args))
 	ctx, cancel := context.WithCancel(ctx)
@@ -89,6 +91,12 @@ func NewConnection(ctx context.Context, serverID, command string, args []string,
 
 	// Create command transport
 	cmd := exec.CommandContext(ctx, command, expandedArgs...)
+
+	// Set working directory if configured
+	if workingDir != "" {
+		cmd.Dir = workingDir
+		logConn.Printf("Working directory set: %s", workingDir)
+	}
 
 	// Start with parent's environment to inherit shell variables
 	cmd.Env = append([]string{}, cmd.Environ()...)

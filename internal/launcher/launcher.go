@@ -207,6 +207,11 @@ func (l *Launcher) launchStdioConnection(serverID, sessionID string, serverCfg *
 		log.Printf("[LAUNCHER] Additional env vars: %v", sanitize.TruncateSecretMap(serverCfg.Env))
 	}
 
+	if serverCfg.WorkingDirectory != "" {
+		log.Printf("[LAUNCHER] Working directory: %s", serverCfg.WorkingDirectory)
+		logLauncher.Printf("Working directory: serverID=%s, dir=%s", serverID, serverCfg.WorkingDirectory)
+	}
+
 	log.Printf("[LAUNCHER] Starting server with %v timeout", l.startupTimeout)
 	logLauncher.Printf("Starting server with timeout: serverID=%s, sessionID=%s, timeout=%v", serverID, sessionID, l.startupTimeout)
 
@@ -217,7 +222,7 @@ func (l *Launcher) launchStdioConnection(serverID, sessionID string, serverCfg *
 	logLauncher.Printf("Starting connection goroutine: serverID=%s", serverID)
 	// Launch connection in a goroutine
 	go func() {
-		conn, err := mcp.NewConnection(l.ctx, serverID, serverCfg.Command, serverCfg.Args, serverCfg.Env)
+		conn, err := mcp.NewConnection(l.ctx, serverID, serverCfg.Command, serverCfg.Args, serverCfg.Env, serverCfg.WorkingDirectory)
 		resultChan <- connectionResult{conn, err}
 	}()
 
