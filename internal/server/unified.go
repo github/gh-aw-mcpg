@@ -340,6 +340,27 @@ func (us *UnifiedServer) registerToolsFromBackend(serverID string) error {
 		return fmt.Errorf("failed to parse tools: %w", err)
 	}
 
+	// Apply tools allow-list if configured: when ServerConfig.Tools is non-empty,
+	// only register the named tools and silently skip the rest.
+	if serverCfg, ok := us.cfg.Servers[serverID]; ok && serverCfg != nil && len(serverCfg.Tools) > 0 {
+		allowedTools := make(map[string]struct{}, len(serverCfg.Tools))
+		for _, name := range serverCfg.Tools {
+			allowedTools[name] = struct{}{}
+		}
+		originalCount := len(listResult.Tools)
+		filtered := listResult.Tools[:0]
+		for _, tool := range listResult.Tools {
+			if _, allowed := allowedTools[tool.Name]; allowed {
+				filtered = append(filtered, tool)
+			}
+		}
+		listResult.Tools = filtered
+		if skipped := originalCount - len(filtered); skipped > 0 {
+			log.Printf("Applied tools allow-list for %s: registering %d/%d tools (%d filtered out)",
+				serverID, len(filtered), originalCount, skipped)
+		}
+	}
+
 	// Collect tools for logging
 	toolsForLogging := make([]logger.ToolInfo, 0, len(listResult.Tools))
 	for _, tool := range listResult.Tools {

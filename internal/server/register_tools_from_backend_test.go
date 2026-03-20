@@ -793,3 +793,135 @@ func TestRegisterToolsFromBackend_HandlerCreation(t *testing.T) {
 	require.NotNil(tool)
 	require.NotNil(tool.Handler, "Handler should be created during registration")
 }
+
+// TestRegisterToolsFromBackend_ToolsAllowList tests that only the tools listed in
+// ServerConfig.Tools are registered when that field is non-empty.
+func TestRegisterToolsFromBackend_ToolsAllowList(t *testing.T) {
+	require := require.New(t)
+	assert := assert.New(t)
+
+	// Backend returns three tools
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		method, _ := req["method"].(string)
+		w.Header().Set("Content-Type", "application/json")
+		switch method {
+		case "initialize":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      req["id"],
+				"result": map[string]interface{}{
+					"protocolVersion": "2024-11-05",
+					"capabilities":    map[string]interface{}{},
+					"serverInfo":      map[string]interface{}{"name": "allow-backend", "version": "1.0.0"},
+				},
+			})
+		case "tools/list":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      req["id"],
+				"result": map[string]interface{}{
+					"tools": []map[string]interface{}{
+						{"name": "allowed_tool_a", "description": "Tool A", "inputSchema": map[string]interface{}{"type": "object"}},
+						{"name": "allowed_tool_b", "description": "Tool B", "inputSchema": map[string]interface{}{"type": "object"}},
+						{"name": "excluded_tool", "description": "Excluded", "inputSchema": map[string]interface{}{"type": "object"}},
+					},
+				},
+			})
+		}
+	}))
+	defer backend.Close()
+
+	cfg := &config.Config{
+		Servers: map[string]*config.ServerConfig{
+			"allow-backend": {
+				Type:  "http",
+				URL:   backend.URL,
+				Tools: []string{"allowed_tool_a", "allowed_tool_b"},
+			},
+		},
+	}
+
+	us, err := NewUnified(context.Background(), cfg)
+	require.NoError(err)
+	defer us.Close()
+
+	err = us.registerToolsFromBackend("allow-backend")
+	require.NoError(err)
+
+	us.toolsMu.RLock()
+	defer us.toolsMu.RUnlock()
+
+	// Only the two allow-listed tools should be registered
+	assert.Contains(us.tools, "allow-backend___allowed_tool_a", "allowed_tool_a should be registered")
+	assert.Contains(us.tools, "allow-backend___allowed_tool_b", "allowed_tool_b should be registered")
+	assert.NotContains(us.tools, "allow-backend___excluded_tool", "excluded_tool should not be registered")
+	assert.Len(us.tools, 2, "Exactly 2 tools should be registered")
+}
+
+// TestRegisterToolsFromBackend_EmptyToolsAllowList tests that all tools are registered
+// when ServerConfig.Tools is empty (default behaviour).
+func TestRegisterToolsFromBackend_EmptyToolsAllowList(t *testing.T) {
+	require := require.New(t)
+	assert := assert.New(t)
+
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		method, _ := req["method"].(string)
+		w.Header().Set("Content-Type", "application/json")
+		switch method {
+		case "initialize":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      req["id"],
+				"result": map[string]interface{}{
+					"protocolVersion": "2024-11-05",
+					"capabilities":    map[string]interface{}{},
+					"serverInfo":      map[string]interface{}{"name": "no-filter-backend", "version": "1.0.0"},
+				},
+			})
+		case "tools/list":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      req["id"],
+				"result": map[string]interface{}{
+					"tools": []map[string]interface{}{
+						{"name": "tool_x", "description": "Tool X", "inputSchema": map[string]interface{}{"type": "object"}},
+						{"name": "tool_y", "description": "Tool Y", "inputSchema": map[string]interface{}{"type": "object"}},
+					},
+				},
+			})
+		}
+	}))
+	defer backend.Close()
+
+	// Tools field is nil/empty — all tools must be exposed
+	cfg := &config.Config{
+		Servers: map[string]*config.ServerConfig{
+			"no-filter-backend": {
+				Type: "http",
+				URL:  backend.URL,
+			},
+		},
+	}
+
+	us, err := NewUnified(context.Background(), cfg)
+	require.NoError(err)
+	defer us.Close()
+
+	err = us.registerToolsFromBackend("no-filter-backend")
+	require.NoError(err)
+
+	us.toolsMu.RLock()
+	defer us.toolsMu.RUnlock()
+
+	assert.Len(us.tools, 2, "All 2 tools should be registered when Tools allow-list is empty")
+}
