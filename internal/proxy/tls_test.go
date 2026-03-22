@@ -147,6 +147,6 @@ func TestGenerateSelfSignedTLS(t *testing.T) {
 		require.NoError(t, err)
 
 		validity := leaf.NotAfter.Sub(leaf.NotBefore)
-		assert.InDelta(t, 25*3600, validity.Seconds(), 3600, "cert validity should be ~25h (24h + 1h backdate)")
+		assert.InDelta(t, 24*3600, validity.Seconds(), 60, "cert validity should be 24h (same window as CA)")
 	})
 }

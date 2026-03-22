@@ -118,8 +118,8 @@ func GenerateSelfSignedTLS(dir string) (*TLSConfig, error) {
 		},
 		DNSNames:    []string{"localhost"},
 		IPAddresses: []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
-		NotBefore:   time.Now().Add(-1 * time.Hour),
-		NotAfter:    time.Now().Add(24 * time.Hour),
+		NotBefore:   notBefore,
+		NotAfter:    notAfter,
 		KeyUsage:    x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}

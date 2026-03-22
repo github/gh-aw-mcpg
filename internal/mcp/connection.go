@@ -37,10 +37,6 @@ type AgentTagsSnapshot struct {
 	Integrity []string
 }
 
-func getAgentTagsSnapshotFromContext(ctx context.Context) (*AgentTagsSnapshot, bool) {
-	return GetAgentTagsSnapshotFromContext(ctx)
-}
-
 // GetAgentTagsSnapshotFromContext extracts the agent DIFC tag snapshot from the request context.
 // Used by guards (e.g., write-sink) that need the agent's current labels to mirror onto resources.
 func GetAgentTagsSnapshotFromContext(ctx context.Context) (*AgentTagsSnapshot, bool) {
@@ -293,7 +289,7 @@ func (c *Connection) SendRequest(method string, params interface{}) (*Response, 
 // SendRequestWithServerID sends a JSON-RPC request with server ID for logging
 // The ctx parameter is used to extract session ID for HTTP MCP servers
 func (c *Connection) SendRequestWithServerID(ctx context.Context, method string, params interface{}, serverID string) (*Response, error) {
-	snapshot, hasSnapshot := getAgentTagsSnapshotFromContext(ctx)
+	snapshot, hasSnapshot := GetAgentTagsSnapshotFromContext(ctx)
 	shouldAttachAgentTags := hasSnapshot && difc.IsSinkServerID(serverID)
 
 	// Log the outbound request to backend server

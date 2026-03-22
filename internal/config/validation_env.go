@@ -148,8 +148,14 @@ func ValidateContainerizedEnvironment(containerID string) *EnvValidationResult {
 }
 
 // detectContainerized checks if we're running inside a Docker container
-// It examines /proc/self/cgroup to detect container environment and extract container ID
+// It examines /proc/self/cgroup to detect container environment and extract container ID.
+// Also honours the RUNNING_IN_CONTAINER environment variable override.
 func detectContainerized() (bool, string) {
+	// Check environment variable override (documented in AGENTS.md and README)
+	if os.Getenv("RUNNING_IN_CONTAINER") == "true" {
+		return true, ""
+	}
+
 	file, err := os.Open("/proc/self/cgroup")
 	if err != nil {
 		// If we can't read cgroup, we're likely not in a container
