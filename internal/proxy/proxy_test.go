@@ -170,7 +170,7 @@ func TestMatchRoute(t *testing.T) {
 		{
 			name:     "list labels",
 			path:     "/repos/org/repo/labels",
-			wantTool: "list_labels",
+			wantTool: "list_label",
 			wantArgs: map[string]interface{}{"owner": "org", "repo": "repo"},
 		},
 

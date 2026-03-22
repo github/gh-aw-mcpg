@@ -50,7 +50,7 @@ func TestMatchRoute_AdditionalRoutes(t *testing.T) {
 		{
 			name:     "list labels",
 			path:     "/repos/org/repo/labels",
-			wantTool: "list_labels",
+			wantTool: "list_label",
 			wantArgs: map[string]interface{}{"owner": "org", "repo": "repo"},
 		},
 
@@ -86,11 +86,11 @@ func TestMatchRoute_AdditionalRoutes(t *testing.T) {
 			wantArgs: map[string]interface{}{},
 		},
 
-		// Generic repo-scoped fallback — bare repo root
+		// Bare repo root — maps to get_repository (not the generic fallback)
 		{
-			name:     "bare repo root fallback",
+			name:     "bare repo root",
 			path:     "/repos/org/repo",
-			wantTool: "get_file_contents",
+			wantTool: "get_repository",
 			wantArgs: map[string]interface{}{"owner": "org", "repo": "repo"},
 		},
 		// Generic repo-scoped fallback — unrecognised sub-path

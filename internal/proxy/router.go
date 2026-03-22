@@ -191,7 +191,7 @@ var routes = []route{
 	},
 	{
 		pattern:  regexp.MustCompile(`^/repos/([^/]+)/([^/]+)/labels$`),
-		toolName: "list_labels",
+		toolName: "list_label",
 		extractArgs: func(m []string) map[string]interface{} {
 			return repoArgs(m[1], m[2])
 		},
@@ -394,9 +394,18 @@ var routes = []route{
 		},
 	},
 
-	// Generic repo-scoped fallback (must be last)
+	// Generic repo-scoped fallback (must be last).
+	// The bare /repos/{owner}/{repo} path uses get_repository; any other
+	// unrecognised sub-path falls back to get_file_contents.
 	{
-		pattern:  regexp.MustCompile(`^/repos/([^/]+)/([^/]+)(?:/.*)?$`),
+		pattern:  regexp.MustCompile(`^/repos/([^/]+)/([^/]+)$`),
+		toolName: "get_repository",
+		extractArgs: func(m []string) map[string]interface{} {
+			return repoArgs(m[1], m[2])
+		},
+	},
+	{
+		pattern:  regexp.MustCompile(`^/repos/([^/]+)/([^/]+)/.*$`),
 		toolName: "get_file_contents",
 		extractArgs: func(m []string) map[string]interface{} {
 			return repoArgs(m[1], m[2])
