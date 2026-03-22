@@ -21,6 +21,15 @@ import (
 
 var logConn = logger.New("mcp:connection")
 
+// jsonrpcLogPayload is used exclusively for marshaling outbound RPC requests
+// into log entries. Using a typed struct instead of map[string]interface{}
+// avoids a per-call heap allocation for the hash table.
+type jsonrpcLogPayload struct {
+	JSONRPC string      `json:"jsonrpc"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params"`
+}
+
 // ContextKey for session ID
 type ContextKey string
 
@@ -297,10 +306,10 @@ func (c *Connection) SendRequestWithServerID(ctx context.Context, method string,
 	shouldAttachAgentTags := hasSnapshot && difc.IsSinkServerID(serverID)
 
 	// Log the outbound request to backend server
-	requestPayload, _ := json.Marshal(map[string]interface{}{
-		"jsonrpc": "2.0",
-		"method":  method,
-		"params":  params,
+	requestPayload, _ := json.Marshal(jsonrpcLogPayload{
+		JSONRPC: "2.0",
+		Method:  method,
+		Params:  params,
 	})
 	if shouldAttachAgentTags {
 		logger.LogRPCRequestWithAgentSnapshot(logger.RPCDirectionOutbound, serverID, method, requestPayload, snapshot.Secrecy, snapshot.Integrity)

@@ -179,13 +179,23 @@ func newHTTPConnection(ctx context.Context, cancel context.CancelFunc, client *s
 	}
 }
 
-// createJSONRPCRequest creates a JSON-RPC 2.0 request map
-func createJSONRPCRequest(requestID uint64, method string, params interface{}) map[string]interface{} {
-	return map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      requestID,
-		"method":  method,
-		"params":  params,
+// jsonrpcRequest is the JSON-RPC 2.0 request envelope.
+// Using a typed struct instead of map[string]interface{} avoids a heap
+// allocation for the hash table on every outbound RPC call.
+type jsonrpcRequest struct {
+	JSONRPC string      `json:"jsonrpc"`
+	ID      uint64      `json:"id"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params"`
+}
+
+// createJSONRPCRequest creates a JSON-RPC 2.0 request struct
+func createJSONRPCRequest(requestID uint64, method string, params interface{}) jsonrpcRequest {
+	return jsonrpcRequest{
+		JSONRPC: "2.0",
+		ID:      requestID,
+		Method:  method,
+		Params:  params,
 	}
 }
 

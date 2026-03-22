@@ -376,11 +376,10 @@ func TestCreateJSONRPCRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := createJSONRPCRequest(tt.requestID, tt.method, tt.params)
 
-			require.NotNil(t, req)
-			assert.Equal(t, "2.0", req["jsonrpc"])
-			assert.Equal(t, tt.requestID, req["id"])
-			assert.Equal(t, tt.method, req["method"])
-			assert.Equal(t, tt.params, req["params"])
+			assert.Equal(t, "2.0", req.JSONRPC)
+			assert.Equal(t, tt.requestID, req.ID)
+			assert.Equal(t, tt.method, req.Method)
+			assert.Equal(t, tt.params, req.Params)
 		})
 	}
 }
@@ -388,15 +387,11 @@ func TestCreateJSONRPCRequest(t *testing.T) {
 func TestCreateJSONRPCRequest_HasAllRequiredFields(t *testing.T) {
 	req := createJSONRPCRequest(1, "test/method", nil)
 
-	_, hasJSONRPC := req["jsonrpc"]
-	_, hasID := req["id"]
-	_, hasMethod := req["method"]
-	_, hasParams := req["params"]
-
-	assert.True(t, hasJSONRPC, "should have jsonrpc field")
-	assert.True(t, hasID, "should have id field")
-	assert.True(t, hasMethod, "should have method field")
-	assert.True(t, hasParams, "should have params field")
+	assert.Equal(t, "2.0", req.JSONRPC, "should have jsonrpc field")
+	assert.NotZero(t, req.ID, "should have id field")
+	assert.Equal(t, "test/method", req.Method, "should have method field")
+	// Params is nil here — field exists on the struct, just unset
+	_ = req.Params
 }
 
 func TestCreateJSONRPCRequest_IsSerializable(t *testing.T) {
