@@ -14,6 +14,17 @@ import (
 
 var logHandler = logger.New("proxy:handler")
 
+// Pre-computed JSON response bodies for static responses on the hot path.
+// Using []byte literals avoids allocating a map and a json.Encoder on every call.
+var (
+	// healthOKJSON is the response body for /health and /healthz endpoints.
+	healthOKJSON = []byte("{\"status\":\"ok\"}\n")
+
+	// graphQLAccessDeniedJSON is the response body when an unrecognised GraphQL
+	// query is blocked at the fail-closed gate.
+	graphQLAccessDeniedJSON = []byte("{\"errors\":[{\"message\":\"access denied: unrecognized GraphQL operation\"}],\"data\":null}\n")
+)
+
 // proxyHandler implements http.Handler and runs the DIFC pipeline on proxied requests.
 type proxyHandler struct {
 	server *Server
@@ -34,7 +45,7 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if rawPath == "/health" || rawPath == "/healthz" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		w.Write(healthOKJSON) //nolint:errcheck
 		return
 	}
 
@@ -68,10 +79,7 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			logHandler.Printf("unknown GraphQL query, blocking request: %s", truncateForLog(string(graphQLBody), 500))
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"errors": []map[string]string{{"message": "access denied: unrecognized GraphQL operation"}},
-				"data":   nil,
-			})
+			w.Write(graphQLAccessDeniedJSON) //nolint:errcheck
 			return
 		}
 		// Schema introspection (__type, __schema) is safe metadata — passthrough without DIFC

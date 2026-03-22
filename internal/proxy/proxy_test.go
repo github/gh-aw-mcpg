@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -630,4 +631,41 @@ func TestCopyResponseHeaders(t *testing.T) {
 		assert.Empty(t, w.Header().Get("X-Custom-Header"))
 		assert.Empty(t, w.Header().Get("Authorization"))
 	})
+}
+
+// TestStaticJSONResponsesAreValid verifies that the pre-computed static JSON
+// response literals are well-formed and contain the expected fields.
+func TestStaticJSONResponsesAreValid(t *testing.T) {
+	t.Run("healthOKJSON is valid JSON with status ok", func(t *testing.T) {
+		var got map[string]string
+		require.NoError(t, json.Unmarshal(healthOKJSON, &got))
+		assert.Equal(t, "ok", got["status"])
+	})
+
+	t.Run("graphQLAccessDeniedJSON is valid JSON with expected error message", func(t *testing.T) {
+		var got struct {
+			Errors []struct {
+				Message string `json:"message"`
+			} `json:"errors"`
+			Data interface{} `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(graphQLAccessDeniedJSON, &got))
+		require.Len(t, got.Errors, 1)
+		assert.Equal(t, "access denied: unrecognized GraphQL operation", got.Errors[0].Message)
+		assert.Nil(t, got.Data)
+	})
+}
+
+// BenchmarkHealthCheck measures the allocation cost of the health check handler path.
+func BenchmarkHealthCheck(b *testing.B) {
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		w := httptest.NewRecorder()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(healthOKJSON) //nolint:errcheck
+	}
+	_ = req
 }
