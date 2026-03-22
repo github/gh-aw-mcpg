@@ -1,1 +1,1 @@
-{"lr":"2026-03-22T23:25Z","prs":18,"m":2278,"c":{"2301":"2026-03-22","2302":"2026-03-22"},"n":"18 open Repo Assist PRs - avoid more until backlog clears. PR #2352 links resolved. #2339 fully addressed."}
+{"lr":"2026-03-22T23:48Z","prs":18,"m":2278,"c":{"2301":"2026-03-22","2302":"2026-03-22"},"n":"18 open Repo Assist PRs all with clean CI and mergeable_state=clean. Do not create new PRs until maintainers review queue reduces. Issues #2301 #2302 still open - awaiting PR #2320/#2333 merge."}
