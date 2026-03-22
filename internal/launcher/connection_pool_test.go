@@ -463,6 +463,52 @@ func TestCleanupIdleConnections_ClosedConnectionSkipsDoubleClose(t *testing.T) {
 		"idle+closed connection should be cleaned up exactly once")
 }
 
+// TestConnectionPoolGetConcurrentDelete verifies that concurrent Get and Delete
+// operations do not race or return a connection that was concurrently removed.
+// The old lock-upgrade pattern in Get (RUnlock → Lock → Unlock → RLock) left a
+// window where cleanupIdleConnections or Delete could remove the connection after
+// the initial nil-check but before the state update, causing Get to overwrite the
+// ConnectionStateClosed state with ConnectionStateActive on the freed metadata.
+// Running with -race should detect any data race with the previous implementation.
+func TestConnectionPoolGetConcurrentDelete(t *testing.T) {
+	ctx := context.Background()
+	pool := NewSessionConnectionPool(ctx)
+	defer pool.Stop()
+
+	const goroutines = 8
+	const iterations = 500
+	done := make(chan struct{}, goroutines*2)
+
+	// Seed the pool.
+	mockConn := &mcp.Connection{}
+	pool.Set("backend1", "session1", mockConn)
+
+	// Half the goroutines repeatedly call Get.
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer func() { done <- struct{}{} }()
+			for j := 0; j < iterations; j++ {
+				pool.Get("backend1", "session1")
+			}
+		}()
+	}
+
+	// The other half repeatedly Delete and re-Set.
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer func() { done <- struct{}{} }()
+			for j := 0; j < iterations; j++ {
+				pool.Delete("backend1", "session1")
+				pool.Set("backend1", "session1", mockConn)
+			}
+		}()
+	}
+
+	for i := 0; i < goroutines*2; i++ {
+		<-done
+	}
+}
+
 func TestConnectionCleanupWithActivity(t *testing.T) {
 	ctx := context.Background()
 	config := PoolConfig{

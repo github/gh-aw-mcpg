@@ -204,10 +204,14 @@ func (p *SessionConnectionPool) Stop() {
 	logPool.Print("Connection pool stopped")
 }
 
-// Get retrieves a connection from the pool
+// Get retrieves a connection from the pool.
+// A write lock is held for the full duration because Get always updates
+// metadata (LastUsedAt, RequestCount, State), and the state must be
+// re-validated after acquiring the write lock to prevent returning a
+// connection that was concurrently cleaned up or closed.
 func (p *SessionConnectionPool) Get(backendID, sessionID string) (*mcp.Connection, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	key := ConnectionKey{BackendID: backendID, SessionID: sessionID}
 	metadata, exists := p.connections[key]
@@ -225,14 +229,9 @@ func (p *SessionConnectionPool) Get(backendID, sessionID string) (*mcp.Connectio
 	logPool.Printf("Reusing connection: backend=%s, session=%s, requests=%d",
 		backendID, sessionID, metadata.RequestCount)
 
-	// Update last used time and state (need write lock for this)
-	p.mu.RUnlock()
-	p.mu.Lock()
 	metadata.LastUsedAt = time.Now()
 	metadata.RequestCount++
 	metadata.State = ConnectionStateActive
-	p.mu.Unlock()
-	p.mu.RLock()
 
 	return metadata.Connection, true
 }
