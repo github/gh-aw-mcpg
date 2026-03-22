@@ -672,3 +672,69 @@ func TestWrapWithMiddleware_LogTagVariations(t *testing.T) {
 		})
 	}
 }
+
+// TestWriteJSONResponse verifies that writeJSONResponse sets the correct
+// Content-Type header, status code, and serialises the body as JSON.
+func TestWriteJSONResponse(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		body       interface{}
+		wantStatus int
+		wantBody   string
+	}{
+		{
+			name:       "200 with map body",
+			statusCode: http.StatusOK,
+			body:       map[string]string{"status": "ok"},
+			wantStatus: http.StatusOK,
+			wantBody:   `{"status":"ok"}`,
+		},
+		{
+			name:       "410 Gone with structured body",
+			statusCode: http.StatusGone,
+			body:       map[string]interface{}{"error": "server shutting down", "code": 410},
+			wantStatus: http.StatusGone,
+			wantBody:   `{"code":410,"error":"server shutting down"}`,
+		},
+		{
+			name:       "503 with string slice body",
+			statusCode: http.StatusServiceUnavailable,
+			body:       []string{"unavailable"},
+			wantStatus: http.StatusServiceUnavailable,
+			wantBody:   `["unavailable"]`,
+		},
+		{
+			name:       "200 with null body",
+			statusCode: http.StatusOK,
+			body:       nil,
+			wantStatus: http.StatusOK,
+			wantBody:   "null",
+		},
+		{
+			name:       "content-type is always application/json",
+			statusCode: http.StatusCreated,
+			body:       map[string]bool{"created": true},
+			wantStatus: http.StatusCreated,
+			wantBody:   `{"created":true}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			writeJSONResponse(w, tt.statusCode, tt.body)
+
+			result := w.Result()
+			defer result.Body.Close()
+
+			assert.Equal(t, tt.wantStatus, result.StatusCode)
+			assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
+
+			body, err := io.ReadAll(result.Body)
+			require.NoError(t, err)
+			// json.Encoder appends a newline; trim it for comparison.
+			assert.JSONEq(t, tt.wantBody, string(bytes.TrimSpace(body)))
+		})
+	}
+}
