@@ -1,1 +1,1 @@
-{"lr":"2026-03-22T19:43Z","prs":[2333,2331,2330,2328,2326,2322,2321,2320,2318,2312,2311,2308,2307,2234,2181],"monthly":2278,"notes":"Monthly issue #2235 closed (duplicate). PR refs corrected: was #2332, is #2333 for pre-compute static JSON responses."}
+{"lr":"2026-03-22T19:55Z","prs":[2333,2331,2330,2328,2326,2322,2321,2320,2318,2312,2311,2308,2307,2234,2181],"new_prs":["aw_pr2226fix"],"monthly":2278,"notes":"PR #2332 ref corrected to #2333. New PR created for issue #2226: fix double extract_repo_info + remove stale dead_code. PR number TBD (aw_pr2226fix)."}
