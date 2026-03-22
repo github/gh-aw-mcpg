@@ -97,7 +97,6 @@ unsafe extern "C" fn host_log(_level: u32, _msg_ptr: u32, _msg_len: u32) {
 
 /// Call a backend tool and return the result
 /// This is a helper wrapper around call_backend with logging
-#[allow(dead_code)]
 pub fn invoke_backend(
     tool_name: &str,
     args_json: &str,
@@ -135,7 +134,6 @@ pub fn invoke_backend(
 
 /// Log levels matching the gateway's expectations
 #[repr(u32)]
-#[allow(dead_code)]
 pub enum LogLevel {
     Debug = 0,
     Info = 1,
@@ -154,22 +152,18 @@ fn log(level: LogLevel, msg: &str) {
     }
 }
 
-#[allow(dead_code)]
 fn log_debug(msg: &str) {
     log(LogLevel::Debug, msg);
 }
 
-#[allow(dead_code)]
 fn log_info(msg: &str) {
     log(LogLevel::Info, msg);
 }
 
-#[allow(dead_code)]
 fn log_warn(msg: &str) {
     log(LogLevel::Warn, msg);
 }
 
-#[allow(dead_code)]
 fn log_error(msg: &str) {
     log(LogLevel::Error, msg);
 }

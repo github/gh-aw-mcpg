@@ -349,8 +349,7 @@ pub fn label_response_paths(
 
         // === File Contents - repo-scoped secrecy ===
         "get_file_contents" => {
-            let (_arg_owner, _arg_repo, arg_repo_full) = extract_repo_info(tool_args);
-            let (arg_owner, arg_repo, _) = extract_repo_info(tool_args);
+            let (arg_owner, arg_repo, arg_repo_full) = extract_repo_info(tool_args);
             let secrecy = repo_visibility_secrecy(&arg_owner, &arg_repo, &arg_repo_full, ctx);
             let branch_ref = tool_args.get("ref").and_then(|v| v.as_str()).unwrap_or("");
             let file_integrity = if is_default_branch_ref(branch_ref) {
