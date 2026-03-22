@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/github/gh-aw-mcpg/internal/auth"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
@@ -54,7 +55,7 @@ func authMiddleware(apiKey string, next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Spec 7.1: Authorization header must contain API key directly (not Bearer scheme)
-		if authHeader != apiKey {
+		if !auth.ValidateAPIKey(authHeader, apiKey) {
 			logAuth.Printf("Authentication failed: invalid API key")
 			logger.LogErrorMd("auth", "Authentication failed: invalid API key, remote=%s, path=%s", r.RemoteAddr, r.URL.Path)
 			logRuntimeError("authentication_failed", "invalid_api_key", r, nil)

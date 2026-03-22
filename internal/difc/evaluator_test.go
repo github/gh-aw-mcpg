@@ -411,7 +411,6 @@ func TestEvaluator_FilterCollection_Advanced(t *testing.T) {
 		assert.Equal(t, 0, filtered.TotalCount)
 		assert.Equal(t, 0, filtered.GetAccessibleCount())
 		assert.Equal(t, 0, filtered.GetFilteredCount())
-		assert.Equal(t, "DIFC policy", filtered.FilterReason)
 	})
 
 	t.Run("Filter collection with all items accessible", func(t *testing.T) {

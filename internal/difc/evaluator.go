@@ -423,10 +423,9 @@ func (e *Evaluator) FilterCollection(
 	logEvaluator.Printf("Filtering collection: operation=%s, totalItems=%d", operation, len(collection.Items))
 
 	filtered := &FilteredCollectionLabeledData{
-		Accessible:   []LabeledItem{},
-		Filtered:     []FilteredItemDetail{},
-		TotalCount:   len(collection.Items),
-		FilterReason: "DIFC policy",
+		Accessible: []LabeledItem{},
+		Filtered:   []FilteredItemDetail{},
+		TotalCount: len(collection.Items),
 	}
 
 	for _, item := range collection.Items {

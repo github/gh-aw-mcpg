@@ -31,6 +31,9 @@ const SessionIDContextKey ContextKey = "awmg-session-id"
 // AgentTagsSnapshotContextKey stores a per-request snapshot of agent DIFC tags for enriched logging.
 const AgentTagsSnapshotContextKey ContextKey = "awmg-agent-tags-snapshot"
 
+// BackendIDContextKey stores the routed server backend ID in context.
+const BackendIDContextKey ContextKey = "awmg-backend-id"
+
 // AgentTagsSnapshot contains agent secrecy/integrity tag snapshots for log enrichment.
 type AgentTagsSnapshot struct {
 	Secrecy   []string

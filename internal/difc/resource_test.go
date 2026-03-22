@@ -278,8 +278,7 @@ func TestFilteredCollectionLabeledData_Overall_EmptyAccessible(t *testing.T) {
 				Reason: "test",
 			},
 		},
-		TotalCount:   1,
-		FilterReason: "insufficient clearance",
+		TotalCount: 1,
 	}
 
 	result := f.Overall()
@@ -375,10 +374,9 @@ func TestFilteredCollectionLabeledData_Overall_WithAccessibleItems(t *testing.T)
 			assert := assert.New(t)
 
 			f := &FilteredCollectionLabeledData{
-				Accessible:   tt.accessible,
-				Filtered:     tt.filtered,
-				TotalCount:   len(tt.accessible) + len(tt.filtered),
-				FilterReason: "test",
+				Accessible: tt.accessible,
+				Filtered:   tt.filtered,
+				TotalCount: len(tt.accessible) + len(tt.filtered),
 			}
 
 			result := f.Overall()
@@ -437,10 +435,9 @@ func TestFilteredCollectionLabeledData_ToResult(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &FilteredCollectionLabeledData{
-				Accessible:   tt.accessible,
-				Filtered:     tt.filtered,
-				TotalCount:   len(tt.accessible) + len(tt.filtered),
-				FilterReason: "test",
+				Accessible: tt.accessible,
+				Filtered:   tt.filtered,
+				TotalCount: len(tt.accessible) + len(tt.filtered),
 			}
 
 			result, err := f.ToResult()
@@ -563,10 +560,9 @@ func TestFilteredCollectionLabeledData_Integration(t *testing.T) {
 	}
 
 	f := &FilteredCollectionLabeledData{
-		Accessible:   accessible,
-		Filtered:     filtered,
-		TotalCount:   3,
-		FilterReason: "insufficient clearance",
+		Accessible: accessible,
+		Filtered:   filtered,
+		TotalCount: 3,
 	}
 
 	// Counts

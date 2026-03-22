@@ -102,7 +102,7 @@ func injectSessionContext(r *http.Request, sessionID, backendID string) *http.Re
 
 	if backendID != "" {
 		logHelpers.Printf("Adding backend ID to context: backendID=%s", backendID)
-		ctx = context.WithValue(ctx, mcp.ContextKey("backend-id"), backendID)
+		ctx = context.WithValue(ctx, mcp.BackendIDContextKey, backendID)
 	}
 
 	logHelpers.Print("Session context injected successfully")

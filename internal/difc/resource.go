@@ -137,10 +137,9 @@ type FilteredItemDetail struct {
 
 // FilteredCollectionLabeledData represents a collection with some items filtered out
 type FilteredCollectionLabeledData struct {
-	Accessible   []LabeledItem
-	Filtered     []FilteredItemDetail
-	TotalCount   int
-	FilterReason string
+	Accessible []LabeledItem
+	Filtered   []FilteredItemDetail
+	TotalCount int
 }
 
 func (f *FilteredCollectionLabeledData) Overall() *LabeledResource {

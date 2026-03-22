@@ -104,11 +104,11 @@ func TestSetupSessionCallback(t *testing.T) {
 				assert.Equal(t, tt.expectedSession, ctxSessionID, "context session ID should match")
 
 				if tt.expectBackendInCtx {
-					ctxBackendID := req.Context().Value(mcp.ContextKey("backend-id"))
+					ctxBackendID := req.Context().Value(mcp.BackendIDContextKey)
 					require.NotNil(t, ctxBackendID, "backend ID should be in context for routed mode")
 					assert.Equal(t, tt.backendID, ctxBackendID, "context backend ID should match")
 				} else {
-					ctxBackendID := req.Context().Value(mcp.ContextKey("backend-id"))
+					ctxBackendID := req.Context().Value(mcp.BackendIDContextKey)
 					assert.Nil(t, ctxBackendID, "backend ID should not be in context for unified mode")
 				}
 
@@ -428,11 +428,11 @@ func TestInjectSessionContext(t *testing.T) {
 
 			// Verify backend ID if expected
 			if tt.expectBackendID {
-				backendIDFromCtx := modifiedReq.Context().Value(mcp.ContextKey("backend-id"))
+				backendIDFromCtx := modifiedReq.Context().Value(mcp.BackendIDContextKey)
 				require.NotNil(t, backendIDFromCtx, "Backend ID should be in context")
 				assert.Equal(t, tt.backendID, backendIDFromCtx, "Backend ID mismatch")
 			} else {
-				backendIDFromCtx := modifiedReq.Context().Value(mcp.ContextKey("backend-id"))
+				backendIDFromCtx := modifiedReq.Context().Value(mcp.BackendIDContextKey)
 				assert.Nil(t, backendIDFromCtx, "Backend ID should not be in context for unified mode")
 			}
 
@@ -461,7 +461,7 @@ func TestInjectSessionContext_PreservesExistingContext(t *testing.T) {
 	agentID := guard.GetAgentIDFromContext(modifiedReq.Context())
 	assert.Equal(t, "session-123", agentID, "Agent ID should match session ID")
 
-	backendID := modifiedReq.Context().Value(mcp.ContextKey("backend-id"))
+	backendID := modifiedReq.Context().Value(mcp.BackendIDContextKey)
 	assert.Equal(t, "backend-1", backendID, "Backend ID should be present")
 
 	existingValue := modifiedReq.Context().Value(testContextKey("existing-key"))
