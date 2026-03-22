@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -10,98 +11,73 @@ import (
 
 var logToolResult = logger.New("mcp:tool_result")
 
+// backendResult is the expected standard MCP CallToolResult structure from backends.
+// Using a pointer for Content allows detection of a missing "content" field (nil pointer)
+// vs an explicitly empty array (non-nil pointer to empty slice).
+type backendResult struct {
+	Content *[]struct {
+		Type string `json:"type"`
+		Text string `json:"text,omitempty"`
+	} `json:"content"`
+	IsError bool `json:"isError,omitempty"`
+}
+
+// wrapAsText returns a CallToolResult wrapping the raw JSON bytes as a single text item.
+func wrapAsText(dataBytes []byte) *sdk.CallToolResult {
+	return &sdk.CallToolResult{
+		Content: []sdk.Content{
+			&sdk.TextContent{Text: string(dataBytes)},
+		},
+	}
+}
+
 // ConvertToCallToolResult converts backend result data to SDK CallToolResult format.
 // The backend returns a JSON object with a "content" field containing an array of content items.
+//
+// Performance: uses a byte-peek for the array check and a single json.Unmarshal call,
+// replacing the previous three-unmarshal approach.
 func ConvertToCallToolResult(data interface{}) (*sdk.CallToolResult, error) {
 	logToolResult.Print("Converting backend result to CallToolResult")
-	// Try to marshal and unmarshal to get the structure
 	dataBytes, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal backend result: %w", err)
 	}
 
-	// First, try to detect if the response is an array (some backends return arrays directly)
-	var rawArray []json.RawMessage
-	if err := json.Unmarshal(dataBytes, &rawArray); err == nil {
-		// It's an array - wrap it as a single text content item
-		logToolResult.Printf("Backend returned array with %d items, wrapping as text", len(rawArray))
-		return &sdk.CallToolResult{
-			Content: []sdk.Content{
-				&sdk.TextContent{
-					Text: string(dataBytes),
-				},
-			},
-			IsError: false,
-		}, nil
+	// Use a byte peek to detect JSON arrays without a full unmarshal.
+	// Some backends return arrays directly; wrap them as a single text content item.
+	if first := bytes.TrimSpace(dataBytes); len(first) > 0 && first[0] == '[' {
+		logToolResult.Printf("Backend returned array, wrapping as text")
+		return wrapAsText(dataBytes), nil
 	}
 
-	// Check if response is an object with a "content" field (standard MCP format)
-	// We need to distinguish between:
-	// 1. {"content": []} - empty array, should preserve as 0 content items
-	// 2. {"content": [...]} - has items, process normally
-	// 3. {"some": "other"} - no content field, wrap as text
-	var hasContentField struct {
-		Content *json.RawMessage `json:"content"`
-		IsError bool             `json:"isError,omitempty"`
-	}
-
-	if err := json.Unmarshal(dataBytes, &hasContentField); err != nil || hasContentField.Content == nil {
-		// No "content" field or parse error - wrap raw response as text
+	// Single unmarshal into a combined struct.
+	// Content being nil means the "content" key was absent → wrap as text.
+	// Content being non-nil (even if empty slice) means standard MCP format → process normally.
+	var result backendResult
+	if err := json.Unmarshal(dataBytes, &result); err != nil || result.Content == nil {
 		logToolResult.Printf("No content field found, wrapping raw response as text")
-		return &sdk.CallToolResult{
-			Content: []sdk.Content{
-				&sdk.TextContent{
-					Text: string(dataBytes),
-				},
-			},
-			IsError: false,
-		}, nil
+		return wrapAsText(dataBytes), nil
 	}
 
-	// Parse the backend result structure (standard MCP CallToolResult format)
-	var backendResult struct {
-		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text,omitempty"`
-		} `json:"content"`
-		IsError bool `json:"isError,omitempty"`
-	}
-
-	if err := json.Unmarshal(dataBytes, &backendResult); err != nil {
-		// If parsing fails, wrap the raw response as text content
-		logToolResult.Printf("Failed to parse as CallToolResult, wrapping raw response: %v", err)
-		return &sdk.CallToolResult{
-			Content: []sdk.Content{
-				&sdk.TextContent{
-					Text: string(dataBytes),
-				},
-			},
-			IsError: false,
-		}, nil
-	}
-
-	// Convert content items to SDK Content format
-	// Note: Empty content array is valid and should be preserved (0 items)
-	content := make([]sdk.Content, 0, len(backendResult.Content))
-	for _, item := range backendResult.Content {
+	// Convert content items to SDK Content format.
+	// Note: empty content array is valid and should be preserved (0 items).
+	items := *result.Content
+	content := make([]sdk.Content, 0, len(items))
+	for _, item := range items {
 		switch item.Type {
 		case "text":
-			content = append(content, &sdk.TextContent{
-				Text: item.Text,
-			})
+			content = append(content, &sdk.TextContent{Text: item.Text})
 		default:
-			// For unknown types, try to preserve as text
+			// For unknown types, preserve as text.
 			logToolResult.Printf("Unknown content type '%s', treating as text", item.Type)
-			content = append(content, &sdk.TextContent{
-				Text: item.Text,
-			})
+			content = append(content, &sdk.TextContent{Text: item.Text})
 		}
 	}
 
-	logToolResult.Printf("Converted result: content_items=%d, is_error=%v", len(content), backendResult.IsError)
+	logToolResult.Printf("Converted result: content_items=%d, is_error=%v", len(content), result.IsError)
 	return &sdk.CallToolResult{
 		Content: content,
-		IsError: backendResult.IsError,
+		IsError: result.IsError,
 	}, nil
 }
 

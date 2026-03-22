@@ -232,3 +232,35 @@ func TestParseToolArguments(t *testing.T) {
 		assert.Empty(t, args)
 	})
 }
+
+// BenchmarkConvertToCallToolResult measures the per-call cost of ConvertToCallToolResult
+// across the three structural variants (array, object with content, plain object).
+func BenchmarkConvertToCallToolResult(b *testing.B) {
+	arrayInput := []interface{}{"item1", "item2", "item3"}
+	mcpInput := map[string]interface{}{
+		"content": []interface{}{
+			map[string]interface{}{"type": "text", "text": "hello"},
+			map[string]interface{}{"type": "text", "text": "world"},
+		},
+		"isError": false,
+	}
+	plainInput := map[string]interface{}{"some": "value", "count": 42}
+
+	b.Run("array", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_, _ = ConvertToCallToolResult(arrayInput)
+		}
+	})
+
+	b.Run("mcp_format", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_, _ = ConvertToCallToolResult(mcpInput)
+		}
+	})
+
+	b.Run("plain_object", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_, _ = ConvertToCallToolResult(plainInput)
+		}
+	})
+}
