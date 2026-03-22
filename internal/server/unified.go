@@ -353,7 +353,7 @@ func (us *UnifiedServer) registerToolsFromBackend(serverID string) error {
 	logger.LogToolsForServer(serverID, toolsForLogging)
 
 	// Register each tool with prefixed name
-	toolNames := []string{}
+	toolNames := make([]string, 0, len(listResult.Tools))
 	for _, tool := range listResult.Tools {
 		prefixedName := fmt.Sprintf("%s___%s", serverID, tool.Name)
 		toolDesc := fmt.Sprintf("[%s] %s", serverID, tool.Description)

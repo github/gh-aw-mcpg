@@ -47,7 +47,7 @@ func newFilteredServerCache() *filteredServerCache {
 
 // getOrCreate returns a cached server or creates a new one
 func (c *filteredServerCache) getOrCreate(backendID, sessionID string, creator func() *sdk.Server) *sdk.Server {
-	key := fmt.Sprintf("%s/%s", backendID, sessionID)
+	key := backendID + "/" + sessionID
 
 	// Try read lock first
 	c.mu.RLock()

@@ -351,23 +351,21 @@ func WrapToolHandler(
 			return result, data, err
 		}
 
-		// Calculate schema size for logging (marshal temporarily)
-		schemaBytes, _ := json.Marshal(schemaObj)
-		logger.LogDebug("payload", "Schema transformation completed: tool=%s, queryID=%s, schemaSize=%d bytes",
-			toolName, queryID, len(schemaBytes))
+		logger.LogDebug("payload", "Schema transformation completed: tool=%s, queryID=%s", toolName, queryID)
 
-		// Build the transformed response: first PayloadPreviewSize chars + schema
-		payloadStr := string(payloadJSON)
+		// Build the transformed response: first PayloadPreviewSize chars + schema.
+		// Avoid converting the entire (potentially large) payloadJSON to a string — only
+		// convert the bytes we actually need for the preview.
+		truncated := len(payloadJSON) > PayloadPreviewSize
 		var preview string
-		truncated := len(payloadStr) > PayloadPreviewSize
 		if truncated {
-			preview = payloadStr[:PayloadPreviewSize] + "..."
+			preview = string(payloadJSON[:PayloadPreviewSize]) + "..."
 			logger.LogInfo("payload", "Payload truncated for preview: tool=%s, queryID=%s, originalSize=%d bytes, previewSize=%d bytes",
-				toolName, queryID, len(payloadStr), PayloadPreviewSize)
+				toolName, queryID, len(payloadJSON), PayloadPreviewSize)
 		} else {
-			preview = payloadStr
+			preview = string(payloadJSON)
 			logger.LogDebug("payload", "Payload small enough for full preview: tool=%s, queryID=%s, size=%d bytes",
-				toolName, queryID, len(payloadStr))
+				toolName, queryID, len(payloadJSON))
 		}
 
 		// Create rewritten response using the PayloadMetadata struct
