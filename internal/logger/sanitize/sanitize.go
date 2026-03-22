@@ -49,6 +49,10 @@ var SecretPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)"(token|password|passwd|pwd|apikey|api_key|api-key|secret|client_secret|api_secret|authorization|auth|key|private_key|public_key|credentials|credential|access_token|refresh_token|bearer_token)"\s*:\s*"[^"]{1,}"`),
 }
 
+// keyValueSplitPattern splits a key=value or key:value match at the separator.
+// Pre-compiled to avoid per-call regexp compilation inside SanitizeString.
+var keyValueSplitPattern = regexp.MustCompile(`[=:]\s*`)
+
 // SanitizeString replaces potential secrets in a string with [REDACTED]
 func SanitizeString(message string) string {
 	result := message
@@ -56,7 +60,7 @@ func SanitizeString(message string) string {
 		result = pattern.ReplaceAllStringFunc(result, func(match string) string {
 			// Keep the prefix (key name) but redact the value
 			if strings.Contains(match, "=") || strings.Contains(match, ":") {
-				parts := regexp.MustCompile(`[=:]\s*`).Split(match, 2)
+				parts := keyValueSplitPattern.Split(match, 2)
 				if len(parts) == 2 {
 					return parts[0] + "=[REDACTED]"
 				}

@@ -640,3 +640,22 @@ func TestSanitizeArgsDoesNotLeakSecrets(t *testing.T) {
 	assert.Contains(t, resultStr, "GITHUB_TOKEN=ghp_...", "Truncated token should be present")
 	assert.Contains(t, resultStr, "API_KEY=test...", "Truncated API key should be present")
 }
+
+// BenchmarkSanitizeString measures the per-call cost of SanitizeString across
+// a clean message (no matches) and a message containing a secret token.
+func BenchmarkSanitizeString(b *testing.B) {
+clean := "Processing request for user 42 in repository owner/repo"
+withSecret := "Authorization: ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890 is set"
+
+b.Run("no_secrets", func(b *testing.B) {
+for i := 0; i < b.N; i++ {
+_ = SanitizeString(clean)
+}
+})
+
+b.Run("with_secret", func(b *testing.B) {
+for i := 0; i < b.N; i++ {
+_ = SanitizeString(withSecret)
+}
+})
+}
