@@ -1,3 +1,6 @@
+// Package version manages the MCP gateway version string.
+// The version is set once at application startup and read across multiple packages
+// for error reporting, health checks, and MCP client implementation info.
 package version
 
 // gatewayVersion stores the gateway version string, used across multiple packages

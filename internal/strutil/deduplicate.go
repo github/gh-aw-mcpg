@@ -1,3 +1,5 @@
+// Package strutil provides general-purpose string manipulation utilities,
+// including deduplication and truncation helpers.
 package strutil
 
 import (

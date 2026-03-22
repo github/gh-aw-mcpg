@@ -1,3 +1,5 @@
+// Package sys implements the MCPG system tools server, which exposes gateway
+// metadata and backend server information to MCP clients via tool calls.
 package sys
 
 import (

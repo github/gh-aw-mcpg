@@ -9,6 +9,7 @@ linters:
   enable:
     - misspell
     - unconvert
+    - revive
     # testifylint disabled due to requiring extensive test refactoring
     # Re-enable after addressing existing issues: golangci-lint run --enable=testifylint
     # gosec disabled in golangci-lint due to configuration complexity
@@ -16,11 +17,13 @@ linters:
   disable:
     - errcheck
     - gocritic
-    - revive
     - testifylint
     - gosec
 
 linters-settings:
+  revive:
+    rules:
+      - name: package-comments
   testifylint:
     enable-all: true
   # Configuration for disabled linters is kept for reference if they are re-enabled

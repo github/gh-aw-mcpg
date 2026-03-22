@@ -1,3 +1,5 @@
+// Package timeutil provides duration formatting utilities for human-readable
+// time display, following the style of the npm debug package.
 package timeutil
 
 import (

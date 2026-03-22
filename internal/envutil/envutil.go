@@ -1,3 +1,6 @@
+// Package envutil provides helper functions for reading environment variables
+// with typed defaults. It supports string, int, and bool types with consistent
+// fallback behaviour when variables are unset or have invalid values.
 package envutil
 
 import (
