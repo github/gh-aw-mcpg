@@ -631,3 +631,168 @@ func TestCopyResponseHeaders(t *testing.T) {
 		assert.Empty(t, w.Header().Get("Authorization"))
 	})
 }
+
+// TestRebuildGraphQLCollectionResponse verifies that RebuildGraphQLCollectionResponse
+// replaces the nodes array in known GraphQL collection paths and returns nil for
+// unknown or non-collection shapes.
+func TestRebuildGraphQLCollectionResponse(t *testing.T) {
+	item1 := map[string]interface{}{"number": float64(1), "title": "First issue"}
+	item2 := map[string]interface{}{"number": float64(2), "title": "Second issue"}
+	accessible := []interface{}{item1}
+
+	t.Run("issues nodes replaced", func(t *testing.T) {
+		original := map[string]interface{}{
+			"data": map[string]interface{}{
+				"repository": map[string]interface{}{
+					"issues": map[string]interface{}{
+						"nodes":      []interface{}{item1, item2},
+						"totalCount": float64(2),
+						"pageInfo":   map[string]interface{}{"hasNextPage": false},
+					},
+				},
+			},
+		}
+		result := RebuildGraphQLCollectionResponse(original, accessible)
+		require.NotNil(t, result)
+		data := result.(map[string]interface{})["data"].(map[string]interface{})
+		repo := data["repository"].(map[string]interface{})
+		issues := repo["issues"].(map[string]interface{})
+		// nodes replaced with accessible items only
+		assert.Equal(t, accessible, issues["nodes"])
+		// other fields preserved
+		assert.Equal(t, float64(2), issues["totalCount"])
+		assert.NotNil(t, issues["pageInfo"])
+	})
+
+	t.Run("pullRequests nodes replaced", func(t *testing.T) {
+		original := map[string]interface{}{
+			"data": map[string]interface{}{
+				"repository": map[string]interface{}{
+					"pullRequests": map[string]interface{}{
+						"nodes": []interface{}{item1, item2},
+					},
+				},
+			},
+		}
+		result := RebuildGraphQLCollectionResponse(original, accessible)
+		require.NotNil(t, result)
+		data := result.(map[string]interface{})["data"].(map[string]interface{})
+		repo := data["repository"].(map[string]interface{})
+		prs := repo["pullRequests"].(map[string]interface{})
+		assert.Equal(t, accessible, prs["nodes"])
+	})
+
+	t.Run("discussions nodes replaced", func(t *testing.T) {
+		original := map[string]interface{}{
+			"data": map[string]interface{}{
+				"repository": map[string]interface{}{
+					"discussions": map[string]interface{}{
+						"nodes": []interface{}{item1, item2},
+					},
+				},
+			},
+		}
+		result := RebuildGraphQLCollectionResponse(original, accessible)
+		require.NotNil(t, result)
+		data := result.(map[string]interface{})["data"].(map[string]interface{})
+		repo := data["repository"].(map[string]interface{})
+		assert.Equal(t, accessible, repo["discussions"].(map[string]interface{})["nodes"])
+	})
+
+	t.Run("search nodes replaced", func(t *testing.T) {
+		original := map[string]interface{}{
+			"data": map[string]interface{}{
+				"search": map[string]interface{}{
+					"nodes":      []interface{}{item1, item2},
+					"issueCount": float64(2),
+				},
+			},
+		}
+		result := RebuildGraphQLCollectionResponse(original, accessible)
+		require.NotNil(t, result)
+		data := result.(map[string]interface{})["data"].(map[string]interface{})
+		search := data["search"].(map[string]interface{})
+		assert.Equal(t, accessible, search["nodes"])
+		assert.Equal(t, float64(2), search["issueCount"])
+	})
+
+	t.Run("empty accessible items yields empty nodes", func(t *testing.T) {
+		original := map[string]interface{}{
+			"data": map[string]interface{}{
+				"repository": map[string]interface{}{
+					"issues": map[string]interface{}{
+						"nodes": []interface{}{item1, item2},
+					},
+				},
+			},
+		}
+		result := RebuildGraphQLCollectionResponse(original, []interface{}{})
+		require.NotNil(t, result)
+		data := result.(map[string]interface{})["data"].(map[string]interface{})
+		repo := data["repository"].(map[string]interface{})
+		issues := repo["issues"].(map[string]interface{})
+		assert.Equal(t, []interface{}{}, issues["nodes"])
+	})
+
+	t.Run("does not mutate original data", func(t *testing.T) {
+		nodes := []interface{}{item1, item2}
+		original := map[string]interface{}{
+			"data": map[string]interface{}{
+				"repository": map[string]interface{}{
+					"issues": map[string]interface{}{
+						"nodes": nodes,
+					},
+				},
+			},
+		}
+		_ = RebuildGraphQLCollectionResponse(original, accessible)
+		// Original nodes array must still have both items
+		repo := original["data"].(map[string]interface{})["repository"].(map[string]interface{})
+		origNodes := repo["issues"].(map[string]interface{})["nodes"]
+		assert.Equal(t, nodes, origNodes)
+	})
+
+	t.Run("returns nil for non-data wrapper", func(t *testing.T) {
+		original := []interface{}{item1, item2}
+		result := RebuildGraphQLCollectionResponse(original, accessible)
+		assert.Nil(t, result)
+	})
+
+	t.Run("returns nil for graphql object with no known collection", func(t *testing.T) {
+		original := map[string]interface{}{
+			"data": map[string]interface{}{
+				"repository": map[string]interface{}{
+					"description": "no collection here",
+				},
+			},
+		}
+		result := RebuildGraphQLCollectionResponse(original, accessible)
+		assert.Nil(t, result)
+	})
+
+	t.Run("returns nil when data is not a map", func(t *testing.T) {
+		original := map[string]interface{}{
+			"data": "not a map",
+		}
+		result := RebuildGraphQLCollectionResponse(original, accessible)
+		assert.Nil(t, result)
+	})
+
+	t.Run("discussionCategories nodes replaced", func(t *testing.T) {
+		cat := map[string]interface{}{"id": "cat1", "name": "General"}
+		original := map[string]interface{}{
+			"data": map[string]interface{}{
+				"repository": map[string]interface{}{
+					"discussionCategories": map[string]interface{}{
+						"nodes": []interface{}{cat},
+					},
+				},
+			},
+		}
+		result := RebuildGraphQLCollectionResponse(original, []interface{}{})
+		require.NotNil(t, result)
+		data := result.(map[string]interface{})["data"].(map[string]interface{})
+		repo := data["repository"].(map[string]interface{})
+		assert.Equal(t, []interface{}{}, repo["discussionCategories"].(map[string]interface{})["nodes"])
+	})
+}

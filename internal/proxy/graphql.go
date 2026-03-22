@@ -180,3 +180,65 @@ func IsGraphQLPath(path string) bool {
 	cleaned := strings.TrimSuffix(path, "/")
 	return cleaned == "/graphql" || cleaned == "/api/v3/graphql" || cleaned == "/api/graphql"
 }
+
+// graphqlCollectionRepoFields lists the known collection fields under data.repository
+// that contain a "nodes" array. Order matches the guard's GRAPHQL_COLLECTION_FIELDS.
+var graphqlCollectionRepoFields = []string{
+	"issues",
+	"pullRequests",
+	"discussions",
+	"discussionCategories",
+}
+
+// RebuildGraphQLCollectionResponse returns a modified deep-copy of originalData
+// with the nodes array replaced by accessibleItems. It finds the first known
+// collection path in the response:
+//   - data.repository.<field>.nodes  (issues, pullRequests, discussions, discussionCategories)
+//   - data.search.nodes
+//
+// Returns nil if originalData doesn't contain any of these paths.
+// This is used so that a partially-filtered GraphQL response returns
+// the accessible items in their original structure instead of {"data":null}.
+func RebuildGraphQLCollectionResponse(originalData interface{}, accessibleItems []interface{}) interface{} {
+	// Deep copy via JSON round-trip to avoid mutating the caller's data.
+	b, err := json.Marshal(originalData)
+	if err != nil {
+		logGraphQL.Printf("RebuildGraphQLCollectionResponse: marshal failed: %v", err)
+		return nil
+	}
+	var cp map[string]interface{}
+	if err := json.Unmarshal(b, &cp); err != nil {
+		logGraphQL.Printf("RebuildGraphQLCollectionResponse: unmarshal failed: %v", err)
+		return nil
+	}
+
+	data, ok := cp["data"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	// Try data.repository.<field>.nodes
+	if repo, ok := data["repository"].(map[string]interface{}); ok {
+		for _, field := range graphqlCollectionRepoFields {
+			if coll, ok := repo[field].(map[string]interface{}); ok {
+				if _, hasNodes := coll["nodes"]; hasNodes {
+					coll["nodes"] = accessibleItems
+					logGraphQL.Printf("RebuildGraphQLCollectionResponse: replaced nodes at data.repository.%s.nodes (%d items)", field, len(accessibleItems))
+					return cp
+				}
+			}
+		}
+	}
+
+	// Try data.search.nodes
+	if search, ok := data["search"].(map[string]interface{}); ok {
+		if _, hasNodes := search["nodes"]; hasNodes {
+			search["nodes"] = accessibleItems
+			logGraphQL.Printf("RebuildGraphQLCollectionResponse: replaced nodes at data.search.nodes (%d items)", len(accessibleItems))
+			return cp
+		}
+	}
+
+	logGraphQL.Printf("RebuildGraphQLCollectionResponse: no known collection path found in response")
+	return nil
+}

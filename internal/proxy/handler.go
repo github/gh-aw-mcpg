@@ -240,12 +240,33 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 			if graphQLBody != nil && filtered.GetFilteredCount() == 0 {
 				useOriginalBody = true
 			} else if graphQLBody != nil {
-				// GraphQL with filtered items: return valid empty GraphQL response
-				// (ToResult returns an array which breaks gh CLI's GraphQL parser)
-				logHandler.Printf("[DIFC] GraphQL response: %d/%d items filtered, returning empty GraphQL response",
-					filtered.GetFilteredCount(), filtered.TotalCount)
-				h.writeEmptyResponse(w, resp, responseData)
-				return
+				// GraphQL with filtered items: rebuild the response with only the accessible
+				// nodes, preserving pagination metadata and the rest of the structure.
+				// ToResult() returns a flat array which breaks the gh CLI's GraphQL parser,
+				// so we patch the nodes key in the original response structure instead.
+				rawResult, toResultErr := filtered.ToResult()
+				if toResultErr != nil {
+					logHandler.Printf("[DIFC] GraphQL response: ToResult failed: %v", toResultErr)
+					h.writeEmptyResponse(w, resp, responseData)
+					return
+				}
+				accessibleItems, ok := rawResult.([]interface{})
+				if !ok {
+					accessibleItems = []interface{}{}
+				}
+				rebuilt := RebuildGraphQLCollectionResponse(responseData, accessibleItems)
+				if rebuilt != nil {
+					logHandler.Printf("[DIFC] GraphQL response: rebuilt with %d/%d accessible items",
+						filtered.GetAccessibleCount(), filtered.TotalCount)
+					finalData = rebuilt
+				} else {
+					// Response doesn't match a known collection structure (e.g. single-object
+					// query or unrecognized shape) — fall back to an empty sentinel.
+					logHandler.Printf("[DIFC] GraphQL response: could not rebuild (%d/%d filtered), returning empty",
+						filtered.GetFilteredCount(), filtered.TotalCount)
+					h.writeEmptyResponse(w, resp, responseData)
+					return
+				}
 			} else {
 				finalData, err = filtered.ToResult()
 				if err != nil {
