@@ -1,1 +1,10 @@
-{"lr":"2026-03-22T15:17Z","prs_open":[2318,2312,2311,2308,2307,2234,2181],"monthly":2278,"new_pr_branch":"repo-assist/improve-proxy-handler-helpers-2026-03-22"}
+{
+  "lr": "2026-03-22T16:17Z",
+  "prs_open": [2318, 2312, 2311, 2308, 2307, 2234, 2181, 2320, 2321, 2322],
+  "new_pr_branches": [
+    "repo-assist/perf-tool-result-single-unmarshal",
+    "repo-assist/eng-sanitize-regexp-and-benchmarks"
+  ],
+  "monthly": 2278,
+  "notes": "Many open Repo Assist PRs pending review. New PRs this run: perf(mcp) ConvertToCallToolResult 3->1 unmarshal, eng(sanitize) inline regexp fix + benchmarks."
+}
