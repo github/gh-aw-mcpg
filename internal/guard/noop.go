@@ -26,7 +26,7 @@ func (g *NoopGuard) Name() string {
 
 // LabelAgent initializes noop guard session state.
 func (g *NoopGuard) LabelAgent(ctx context.Context, policy interface{}, backend BackendCaller, caps *difc.Capabilities) (*LabelAgentResult, error) {
-	log.Printf("Initializing agent labels with noop guard")
+	logNoop.Printf("Initializing agent labels with noop guard")
 	return &LabelAgentResult{
 		Agent: AgentLabelsPayload{
 			Secrecy:   []string{},
@@ -39,7 +39,7 @@ func (g *NoopGuard) LabelAgent(ctx context.Context, policy interface{}, backend 
 // LabelResource returns an empty resource with no label requirements
 // Treats all operations as read-write (most conservative assumption)
 func (g *NoopGuard) LabelResource(ctx context.Context, toolName string, args interface{}, backend BackendCaller, caps *difc.Capabilities) (*difc.LabeledResource, difc.OperationType, error) {
-	log.Printf("Labeling resource: tool=%s, operation=read-write (conservative)", toolName)
+	logNoop.Printf("Labeling resource: tool=%s, operation=read-write (conservative)", toolName)
 
 	// Empty resource = no label requirements = all operations allowed
 	resource := &difc.LabeledResource{
@@ -49,7 +49,7 @@ func (g *NoopGuard) LabelResource(ctx context.Context, toolName string, args int
 		Structure:   nil, // No fine-grained labeling
 	}
 
-	log.Printf("Resource labeled with no restrictions: tool=%s", toolName)
+	logNoop.Printf("Resource labeled with no restrictions: tool=%s", toolName)
 
 	// Conservatively treat as read-write (most restrictive)
 	return resource, difc.OperationReadWrite, nil
@@ -58,7 +58,7 @@ func (g *NoopGuard) LabelResource(ctx context.Context, toolName string, args int
 // LabelResponse returns nil, indicating no fine-grained labeling
 // The reference monitor will use the resource labels for the entire response
 func (g *NoopGuard) LabelResponse(ctx context.Context, toolName string, result interface{}, backend BackendCaller, caps *difc.Capabilities) (difc.LabeledData, error) {
-	log.Printf("Labeling response: tool=%s, using resource labels (no fine-grained labeling)", toolName)
+	logNoop.Printf("Labeling response: tool=%s, using resource labels (no fine-grained labeling)", toolName)
 
 	// No fine-grained labeling - return nil
 	// Reference monitor will use LabelResource result for entire response

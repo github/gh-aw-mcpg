@@ -302,6 +302,41 @@ func TestGuardRegistry(t *testing.T) {
 		list2 := registry.List()
 		assert.Equal(t, "server1", list2[0], "Registry internal state should not be affected by slice modification")
 	})
+
+	t.Run("HasNonNoopGuard with empty registry", func(t *testing.T) {
+		registry := NewRegistry()
+		assert.False(t, registry.HasNonNoopGuard())
+	})
+
+	t.Run("HasNonNoopGuard with only noop guards", func(t *testing.T) {
+		registry := NewRegistry()
+		registry.Register("server1", NewNoopGuard())
+		registry.Register("server2", NewNoopGuard())
+		assert.False(t, registry.HasNonNoopGuard())
+	})
+
+	t.Run("HasNonNoopGuard with one non-noop guard", func(t *testing.T) {
+		registry := NewRegistry()
+		registry.Register("server1", &mockGuard{id: "custom"})
+		assert.True(t, registry.HasNonNoopGuard())
+	})
+
+	t.Run("HasNonNoopGuard with mix of noop and non-noop", func(t *testing.T) {
+		registry := NewRegistry()
+		registry.Register("server1", NewNoopGuard())
+		registry.Register("server2", &mockGuard{id: "custom"})
+		registry.Register("server3", NewNoopGuard())
+		assert.True(t, registry.HasNonNoopGuard())
+	})
+
+	t.Run("HasNonNoopGuard returns false after removing non-noop guard", func(t *testing.T) {
+		registry := NewRegistry()
+		registry.Register("server1", &mockGuard{id: "custom"})
+		assert.True(t, registry.HasNonNoopGuard())
+
+		registry.Remove("server1")
+		assert.False(t, registry.HasNonNoopGuard())
+	})
 }
 
 func TestGuardRegistryConcurrency(t *testing.T) {
