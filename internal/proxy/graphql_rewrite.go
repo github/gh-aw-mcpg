@@ -69,23 +69,29 @@ func missingFields(query string, fields []guardFieldSet) []string {
 // Returns the (possibly modified) body. If injection is not needed or fails,
 // the original body is returned unchanged.
 func InjectGuardFields(body []byte, toolName string) []byte {
+	logGraphQL.Printf("InjectGuardFields: toolName=%s bodyLen=%d", toolName, len(body))
+
 	fields := fieldsForTool(toolName)
 	if fields == nil {
+		logGraphQL.Printf("no guard fields needed for tool=%s", toolName)
 		return body
 	}
 
 	var gql GraphQLRequest
 	if err := json.Unmarshal(body, &gql); err != nil {
+		logGraphQL.Printf("failed to unmarshal GraphQL body for tool=%s: %v", toolName, err)
 		return body
 	}
 
 	if gql.Query == "" || allFieldsPresent(gql.Query, fields) {
+		logGraphQL.Printf("skipping injection for tool=%s: query empty or all fields already present", toolName)
 		return body
 	}
 
 	missing := missingFields(gql.Query, fields)
 	modified := injectFieldsIntoQuery(gql.Query, missing)
 	if modified == gql.Query {
+		logGraphQL.Printf("injection produced no change for tool=%s fields=%v", toolName, missing)
 		return body
 	}
 
@@ -110,15 +116,18 @@ func injectFieldsIntoQuery(query string, fields []string) string {
 	fragmentInNodes := regexp.MustCompile(`nodes\s*\{\s*\.\.\.(\w+)`)
 	if m := fragmentInNodes.FindStringSubmatch(query); m != nil {
 		fragName := m[1]
+		logGraphQL.Printf("injecting fields via fragment: fragName=%s fields=%s", fragName, injection)
 		return injectIntoFragment(query, fragName, injection)
 	}
 
 	// Step 2: No fragment — inject directly into nodes { ... }
 	nodesPattern := regexp.MustCompile(`(nodes\s*\{)`)
 	if nodesPattern.MatchString(query) {
+		logGraphQL.Printf("injecting fields directly into nodes block: fields=%s", injection)
 		return nodesPattern.ReplaceAllString(query, "${1}"+injection+",")
 	}
 
+	logGraphQL.Printf("no injection point found in query for fields=%s", injection)
 	return query
 }
 
