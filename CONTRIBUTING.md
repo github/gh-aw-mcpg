@@ -99,6 +99,13 @@ make test-serena          # Direct connection tests
 make test-serena-gateway  # Tests routed via the MCP Gateway
 ```
 
+#### Container Proxy Tests (Optional)
+Run container proxy integration tests (requires Docker daemon and a GitHub token):
+```bash
+make test-container-proxy  # Build Docker image, test proxy mode with TLS
+```
+This requires: Docker daemon, a GitHub token (`GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth login`), and a network connection.
+
 ### Linting
 
 Run all linters (go vet, gofmt check, and golangci-lint):
