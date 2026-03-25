@@ -49,6 +49,7 @@ func newFilteredServerCache() *filteredServerCache {
 // getOrCreate returns a cached server or creates a new one
 func (c *filteredServerCache) getOrCreate(backendID, sessionID string, creator func() *sdk.Server) *sdk.Server {
 	key := fmt.Sprintf("%s/%s", backendID, sessionID)
+	// Error is intentionally ignored: the creator closure never returns an error.
 	server, _ := syncutil.GetOrCreate(&c.mu, c.servers, key, func() (*sdk.Server, error) {
 		logRouted.Printf("[CACHE] Creating new filtered server: backend=%s, session=%s", backendID, sessionID)
 		return creator(), nil

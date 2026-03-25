@@ -116,7 +116,7 @@ func TestGetOrCreate_RaceCondition(t *testing.T) {
 	mu.RUnlock()
 	assert.Equal(t, 1, cacheSize, "cache should contain exactly one entry")
 
-	// create should have been called at most once (double-check locking ensures this)
+	// create should have been called exactly once (double-check locking ensures this)
 	assert.Equal(t, 1, createCalls, "create should be called exactly once")
 }
 

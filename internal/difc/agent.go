@@ -232,6 +232,7 @@ func NewAgentRegistryWithDefaults(defaultSecrecy []Tag, defaultIntegrity []Tag) 
 func (r *AgentRegistry) GetOrCreate(agentID string) *AgentLabels {
 	logAgent.Printf("GetOrCreate called for agentID=%s", agentID)
 
+	// Error is intentionally ignored: the creator closure never returns an error.
 	labels, _ := syncutil.GetOrCreate(&r.mu, r.agents, agentID, func() (*AgentLabels, error) {
 		labels := NewAgentLabelsWithTags(agentID, r.defaultSecrecy, r.defaultIntegrity)
 		log.Printf("[DIFC] Created new agent: %s with default labels (secrecy: %v, integrity: %v)",
