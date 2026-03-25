@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/syncutil"
 	"github.com/github/gh-aw-mcpg/internal/version"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -48,30 +49,10 @@ func newFilteredServerCache() *filteredServerCache {
 // getOrCreate returns a cached server or creates a new one
 func (c *filteredServerCache) getOrCreate(backendID, sessionID string, creator func() *sdk.Server) *sdk.Server {
 	key := fmt.Sprintf("%s/%s", backendID, sessionID)
-
-	// Try read lock first
-	c.mu.RLock()
-	if server, exists := c.servers[key]; exists {
-		c.mu.RUnlock()
-		logRouted.Printf("[CACHE] Reusing cached filtered server: backend=%s, session=%s", backendID, sessionID)
-		return server
-	}
-	c.mu.RUnlock()
-
-	// Need to create, acquire write lock
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Double-check after acquiring write lock
-	if server, exists := c.servers[key]; exists {
-		logRouted.Printf("[CACHE] Filtered server created by another goroutine: backend=%s, session=%s", backendID, sessionID)
-		return server
-	}
-
-	// Create new server
-	logRouted.Printf("[CACHE] Creating new filtered server: backend=%s, session=%s", backendID, sessionID)
-	server := creator()
-	c.servers[key] = server
+	server, _ := syncutil.GetOrCreate(&c.mu, c.servers, key, func() (*sdk.Server, error) {
+		logRouted.Printf("[CACHE] Creating new filtered server: backend=%s, session=%s", backendID, sessionID)
+		return creator(), nil
+	})
 	return server
 }
 

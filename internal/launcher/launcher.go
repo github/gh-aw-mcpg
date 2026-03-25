@@ -11,6 +11,7 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/logger/sanitize"
 	"github.com/github/gh-aw-mcpg/internal/mcp"
+	"github.com/github/gh-aw-mcpg/internal/syncutil"
 	"github.com/github/gh-aw-mcpg/internal/tty"
 )
 
@@ -66,69 +67,42 @@ func GetOrLaunch(l *Launcher, serverID string) (*mcp.Connection, error) {
 	logger.LogDebugWithServer(serverID, "backend", "GetOrLaunch called for server: %s", serverID)
 	logLauncher.Printf("GetOrLaunch called: serverID=%s", serverID)
 
-	// Check if already exists
-	l.mu.RLock()
-	if conn, ok := l.connections[serverID]; ok {
-		l.mu.RUnlock()
-		logger.LogDebugWithServer(serverID, "backend", "Reusing existing backend connection: %s", serverID)
-		logLauncher.Printf("Reusing existing connection: serverID=%s", serverID)
-		return conn, nil
-	}
-	l.mu.RUnlock()
+	return syncutil.GetOrCreate(&l.mu, l.connections, serverID, func() (*mcp.Connection, error) {
+		// Get server config
+		serverCfg, ok := l.config.Servers[serverID]
+		if !ok {
+			logger.LogErrorWithServer(serverID, "backend", "Backend server not found in config: %s", serverID)
+			logLauncher.Printf("Server not found in config: serverID=%s", serverID)
+			return nil, fmt.Errorf("server '%s' not found in config", serverID)
+		}
+		logLauncher.Printf("Retrieved server config: serverID=%s, type=%s", serverID, serverCfg.Type)
 
-	logLauncher.Printf("Connection not found in cache, launching new: serverID=%s", serverID)
+		// Handle HTTP backends differently
+		if serverCfg.Type == "http" {
+			logger.LogInfoWithServer(serverID, "backend", "Configuring HTTP MCP backend: %s, url=%s", serverID, serverCfg.URL)
+			log.Printf("[LAUNCHER] Configuring HTTP MCP backend: %s", serverID)
+			log.Printf("[LAUNCHER] URL: %s", serverCfg.URL)
+			logLauncher.Printf("HTTP backend: serverID=%s, url=%s", serverID, serverCfg.URL)
 
-	// Launch new connection
-	l.mu.Lock()
-	defer l.mu.Unlock()
+			// Create an HTTP connection
+			conn, err := mcp.NewHTTPConnection(l.ctx, serverID, serverCfg.URL, serverCfg.Headers)
+			if err != nil {
+				logger.LogErrorWithServer(serverID, "backend", "Failed to create HTTP connection: %s, error=%v", serverID, err)
+				log.Printf("[LAUNCHER] ❌ FAILED to create HTTP connection for '%s'", serverID)
+				log.Printf("[LAUNCHER] Error: %v", err)
+				return nil, fmt.Errorf("failed to create HTTP connection: %w", err)
+			}
 
-	// Double-check after acquiring write lock
-	if conn, ok := l.connections[serverID]; ok {
-		logger.LogDebugWithServer(serverID, "backend", "Backend connection created by another goroutine: %s", serverID)
-		logLauncher.Printf("Connection created by another goroutine: serverID=%s", serverID)
-		return conn, nil
-	}
+			logger.LogInfoWithServer(serverID, "backend", "Successfully configured HTTP MCP backend: %s", serverID)
+			log.Printf("[LAUNCHER] Successfully configured HTTP backend: %s", serverID)
+			logLauncher.Printf("HTTP connection configured: serverID=%s", serverID)
 
-	// Get server config
-	serverCfg, ok := l.config.Servers[serverID]
-	if !ok {
-		logger.LogErrorWithServer(serverID, "backend", "Backend server not found in config: %s", serverID)
-		logLauncher.Printf("Server not found in config: serverID=%s", serverID)
-		return nil, fmt.Errorf("server '%s' not found in config", serverID)
-	}
-	logLauncher.Printf("Retrieved server config: serverID=%s, type=%s", serverID, serverCfg.Type)
-
-	// Handle HTTP backends differently
-	if serverCfg.Type == "http" {
-		logger.LogInfoWithServer(serverID, "backend", "Configuring HTTP MCP backend: %s, url=%s", serverID, serverCfg.URL)
-		log.Printf("[LAUNCHER] Configuring HTTP MCP backend: %s", serverID)
-		log.Printf("[LAUNCHER] URL: %s", serverCfg.URL)
-		logLauncher.Printf("HTTP backend: serverID=%s, url=%s", serverID, serverCfg.URL)
-
-		// Create an HTTP connection
-		conn, err := mcp.NewHTTPConnection(l.ctx, serverID, serverCfg.URL, serverCfg.Headers)
-		if err != nil {
-			logger.LogErrorWithServer(serverID, "backend", "Failed to create HTTP connection: %s, error=%v", serverID, err)
-			log.Printf("[LAUNCHER] ❌ FAILED to create HTTP connection for '%s'", serverID)
-			log.Printf("[LAUNCHER] Error: %v", err)
-			return nil, fmt.Errorf("failed to create HTTP connection: %w", err)
+			return conn, nil
 		}
 
-		logger.LogInfoWithServer(serverID, "backend", "Successfully configured HTTP MCP backend: %s", serverID)
-		log.Printf("[LAUNCHER] Successfully configured HTTP backend: %s", serverID)
-		logLauncher.Printf("HTTP connection configured: serverID=%s", serverID)
-
-		l.connections[serverID] = conn
-		return conn, nil
-	}
-
-	// stdio backends from this point
-	conn, err := l.launchStdioConnection(serverID, "", serverCfg)
-	if err != nil {
-		return nil, err
-	}
-	l.connections[serverID] = conn
-	return conn, nil
+		// stdio backends from this point
+		return l.launchStdioConnection(serverID, "", serverCfg)
+	})
 }
 
 // GetOrLaunchForSession returns a session-aware connection or launches a new one

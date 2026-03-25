@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/syncutil"
 )
 
 var logAgent = logger.New("difc:agent")
@@ -231,32 +232,12 @@ func NewAgentRegistryWithDefaults(defaultSecrecy []Tag, defaultIntegrity []Tag) 
 func (r *AgentRegistry) GetOrCreate(agentID string) *AgentLabels {
 	logAgent.Printf("GetOrCreate called for agentID=%s", agentID)
 
-	// Try to get existing agent first (read lock)
-	r.mu.RLock()
-	if labels, ok := r.agents[agentID]; ok {
-		r.mu.RUnlock()
-		logAgent.Printf("Found existing agent: %s", agentID)
-		return labels
-	}
-	r.mu.RUnlock()
-
-	// Need to create new agent (write lock)
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	// Double-check after acquiring write lock
-	if labels, ok := r.agents[agentID]; ok {
-		logAgent.Printf("Agent %s created by another goroutine", agentID)
-		return labels
-	}
-
-	// Initialize new agent with default labels
-	labels := NewAgentLabelsWithTags(agentID, r.defaultSecrecy, r.defaultIntegrity)
-	r.agents[agentID] = labels
-
-	log.Printf("[DIFC] Created new agent: %s with default labels (secrecy: %v, integrity: %v)",
-		agentID, r.defaultSecrecy, r.defaultIntegrity)
-
+	labels, _ := syncutil.GetOrCreate(&r.mu, r.agents, agentID, func() (*AgentLabels, error) {
+		labels := NewAgentLabelsWithTags(agentID, r.defaultSecrecy, r.defaultIntegrity)
+		log.Printf("[DIFC] Created new agent: %s with default labels (secrecy: %v, integrity: %v)",
+			agentID, r.defaultSecrecy, r.defaultIntegrity)
+		return labels, nil
+	})
 	return labels
 }
 
