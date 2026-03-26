@@ -57,6 +57,25 @@ func (a *AgentLabels) modifyTag(labelType, action, pastTense string, tag Tag, fn
 	log.Printf("[DIFC] Agent %s %s %s tag: %s", a.AgentID, pastTense, labelType, tag)
 }
 
+// modifyTags is a helper for bulk label mutations, analogous to modifyTag.
+// It handles the mutex lock, executes the modification action, and conditionally logs the operation.
+//
+// Parameters:
+//   - labelType: The type of label being modified ("secrecy" or "integrity")
+//   - action: The verb describing the action ("adding", "dropping", etc.)
+//   - pastTense: The past tense verb for the operational log ("gained", "dropped", etc.)
+//   - tags: The tags being modified
+//   - fn: The function that performs the actual label modification
+func (a *AgentLabels) modifyTags(labelType, action, pastTense string, tags []Tag, fn func()) {
+	logAgent.Printf("Agent %s %s %d %s tags", a.AgentID, action, len(tags), labelType)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	fn()
+	if len(tags) > 0 {
+		log.Printf("[DIFC] Agent %s %s %s tags: %v", a.AgentID, pastTense, labelType, tags)
+	}
+}
+
 // AddSecrecyTag adds a secrecy tag to the agent
 func (a *AgentLabels) AddSecrecyTag(tag Tag) {
 	a.modifyTag("secrecy", "adding", "gained", tag, func() {
@@ -80,35 +99,23 @@ func (a *AgentLabels) DropIntegrityTag(tag Tag) {
 
 // DropIntegrityTags removes multiple integrity tags from the agent
 func (a *AgentLabels) DropIntegrityTags(tags []Tag) {
-	logAgent.Printf("Agent %s dropping %d integrity tags", a.AgentID, len(tags))
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.Integrity.Label.RemoveAll(tags)
-	if len(tags) > 0 {
-		log.Printf("[DIFC] Agent %s dropped integrity tags: %v", a.AgentID, tags)
-	}
+	a.modifyTags("integrity", "dropping", "dropped", tags, func() {
+		a.Integrity.Label.RemoveAll(tags)
+	})
 }
 
 // AddSecrecyTags adds multiple secrecy tags to the agent
 func (a *AgentLabels) AddSecrecyTags(tags []Tag) {
-	logAgent.Printf("Agent %s adding %d secrecy tags", a.AgentID, len(tags))
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.Secrecy.Label.AddAll(tags)
-	if len(tags) > 0 {
-		log.Printf("[DIFC] Agent %s gained secrecy tags: %v", a.AgentID, tags)
-	}
+	a.modifyTags("secrecy", "adding", "gained", tags, func() {
+		a.Secrecy.Label.AddAll(tags)
+	})
 }
 
 // AddIntegrityTags adds multiple integrity tags to the agent
 func (a *AgentLabels) AddIntegrityTags(tags []Tag) {
-	logAgent.Printf("Agent %s adding %d integrity tags", a.AgentID, len(tags))
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.Integrity.Label.AddAll(tags)
-	if len(tags) > 0 {
-		log.Printf("[DIFC] Agent %s gained integrity tags: %v", a.AgentID, tags)
-	}
+	a.modifyTags("integrity", "adding", "gained", tags, func() {
+		a.Integrity.Label.AddAll(tags)
+	})
 }
 
 // ApplyPropagation applies label changes from a propagate-mode evaluation result
