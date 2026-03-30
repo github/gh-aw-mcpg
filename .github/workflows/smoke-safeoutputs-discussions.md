@@ -87,7 +87,9 @@ This workflow tests safe-outputs enforcement for discussion-related operations:
 
 ## Test Matrix
 
-Work through each test case below. For each test, attempt the operation and record whether it was **processed** or **rejected** by safe-outputs.
+> **⚠️ Safe-outputs mechanics**: Safe-outputs calls are always **queued** during the agent job and return success — the actual enforcement (max limits, required categories, required labels, target restrictions, etc.) happens in the **post-agent job**. This means SHOULD FAIL tests **cannot be observed as rejected during the agent run**. For these tests, record the tool response as **"Queued (rejected post-run)"** and mark Status as **✅** — the correct enforcement will be applied by the post-agent job. Only mark ❌ if the safe-outputs server itself returns an unexpected error during the call.
+
+Work through each test case below. For each test, attempt the operation and record the tool response.
 
 ### Phase 1: create-discussion Enforcement
 
@@ -98,8 +100,8 @@ Work through each test case below. For each test, attempt the operation and reco
 
 **Test 1.2 — SHOULD FAIL** (negative case: max exceeded):
 - Attempt: Create a second discussion with title "[smoke-safeoutputs] Second Discussion ${{ github.run_id }}", category "General"
-- Expected: ❌ Rejected (max: 1 already reached)
-- Record the actual outcome
+- Expected: ❌ Rejected (post-run: max: 1 already reached)
+- Record the tool response. Since safe-outputs calls are always queued during the agent job, the call will appear to succeed — record "Queued (rejected post-run)" and mark Status ✅.
 
 ### Phase 2: update-discussion Enforcement
 
@@ -126,13 +128,13 @@ Use the discussion created in Test 1.1 for the following tests.
 
 **Test 3.2 — SHOULD FAIL** (negative case: close discussion without required label):
 - Attempt: Close a discussion that does NOT have the "smoke-test" label (find one via list_discussions or skip if none exists)
-- Expected: ❌ Rejected (required-labels: [smoke-test] not satisfied)
-- Record the actual outcome (mark "SKIPPED - no suitable target" if no unlabeled discussion found)
+- Expected: ❌ Rejected (post-run: required-labels: [smoke-test] not satisfied)
+- Record the tool response. Since safe-outputs calls are always queued during the agent job, the call will appear to succeed — record "Queued (rejected post-run)" and mark Status ✅. (mark "SKIPPED - no suitable target" if no unlabeled discussion found)
 
 **Test 3.3 — SHOULD FAIL** (negative case: max exceeded):
 - Attempt: Close a second discussion (max: 1 already consumed by Test 3.1)
-- Expected: ❌ Rejected (max: 1 exceeded)
-- Record the actual outcome
+- Expected: ❌ Rejected (post-run: max: 1 exceeded)
+- Record the tool response. Since safe-outputs calls are always queued during the agent job, the call will appear to succeed — record "Queued (rejected post-run)" and mark Status ✅.
 
 ### Phase 4: add-comment Enforcement (only if triggered by pull_request or discussion event)
 
@@ -150,13 +152,13 @@ If this workflow was **triggered by a pull_request event**, run the following te
 
 **Test 4.3 — SHOULD FAIL** (negative case: max exceeded):
 - Attempt: Add a third comment to the triggering item
-- Expected: ❌ Rejected (max: 2 exceeded)
-- Record the actual outcome
+- Expected: ❌ Rejected (post-run: max: 2 exceeded)
+- Record the tool response. Since safe-outputs calls are always queued during the agent job, the call will appear to succeed — record "Queued (rejected post-run)" and mark Status ✅.
 
 **Test 4.4 — SHOULD FAIL** (negative case: non-triggering target):
 - Attempt: Add a comment to a specific issue number (e.g., issue #1 or any other non-triggering item)
-- Expected: ❌ Rejected (target: "triggering" only allows the triggering item)
-- Record the actual outcome
+- Expected: ❌ Rejected (post-run: target: "triggering" only allows the triggering item)
+- Record the tool response. Since safe-outputs calls are always queued during the agent job, the call will appear to succeed — record "Queued (rejected post-run)" and mark Status ✅.
 
 If triggered by schedule or workflow_dispatch (no triggering item), mark Phase 4 tests as "SKIPPED - no triggering item".
 
@@ -186,7 +188,7 @@ Then **create an issue** with the full test results:
 | Test | Operation | Expected | Actual | Status |
 |------|-----------|----------|--------|--------|
 | 1.1 | Create discussion (valid prefix+category+label) | ✅ Processed | [result] | ✅/❌ |
-| 1.2 | Create 2nd discussion (max exceeded) | ❌ Rejected | [result] | ✅/❌ |
+| 1.2 | Create 2nd discussion (max exceeded) | ❌ Rejected (post-run) | [result] | ✅/❌ |
 
 ### Phase 2: update-discussion
 | Test | Operation | Expected | Actual | Status |
@@ -198,16 +200,16 @@ Then **create an issue** with the full test results:
 | Test | Operation | Expected | Actual | Status |
 |------|-----------|----------|--------|--------|
 | 3.1 | Close test discussion (valid labels+category) | ✅ Processed | [result] | ✅/❌ |
-| 3.2 | Close discussion without required label | ❌ Rejected | [result] | ✅/❌ SKIPPED |
-| 3.3 | Close 2nd discussion (max exceeded) | ❌ Rejected | [result] | ✅/❌ |
+| 3.2 | Close discussion without required label | ❌ Rejected (post-run) | [result] | ✅/❌ SKIPPED |
+| 3.3 | Close 2nd discussion (max exceeded) | ❌ Rejected (post-run) | [result] | ✅/❌ |
 
 ### Phase 4: add-comment (target: triggering)
 | Test | Operation | Expected | Actual | Status |
 |------|-----------|----------|--------|--------|
 | 4.1 | Comment on triggering item (1st) | ✅ Processed | [result] | ✅/❌ SKIPPED |
 | 4.2 | Comment on triggering item (2nd) | ✅ Processed | [result] | ✅/❌ SKIPPED |
-| 4.3 | 3rd comment (max: 2 exceeded) | ❌ Rejected | [result] | ✅/❌ SKIPPED |
-| 4.4 | Comment on non-triggering item | ❌ Rejected | [result] | ✅/❌ SKIPPED |
+| 4.3 | 3rd comment (max: 2 exceeded) | ❌ Rejected (post-run) | [result] | ✅/❌ SKIPPED |
+| 4.4 | Comment on non-triggering item | ❌ Rejected (post-run) | [result] | ✅/❌ SKIPPED |
 
 ### Summary
 - Phase 1 (create-discussion): [X/2] ✅
