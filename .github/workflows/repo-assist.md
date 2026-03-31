@@ -70,7 +70,7 @@ tools:
   github:
     toolsets: [all]
     allowed-repos: ["github/*"]
-    min-integrity: merged
+    min-integrity: unapproved
   bash: true
   repo-memory: true
 
