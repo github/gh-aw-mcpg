@@ -115,10 +115,10 @@
       "version": "v2.1.0",
       "sha": "9e2237c30f869ad3bcaed6a4be2cd43564dd421b"
     },
-    "denoland/setup-deno@v2": {
+    "denoland/setup-deno@v2.0.4": {
       "repo": "denoland/setup-deno",
-      "version": "v2.0.3",
-      "sha": "e95548e56dfa95d4e1a28d6f422fafe75c4c26fb"
+      "version": "v2.0.4",
+      "sha": "667a34cdef165d8d2b2e98dde39547c9daac7282"
     },
     "docker/build-push-action@v6": {
       "repo": "docker/build-push-action",
@@ -135,10 +135,10 @@
       "version": "v3",
       "sha": "c94ce9fb468520275223c153574b00df6fe4bcc9"
     },
-    "docker/login-action@v4.0.0": {
+    "docker/login-action@v4.1.0": {
       "repo": "docker/login-action",
-      "version": "v4.0.0",
-      "sha": "b45d80f862d83dbcd57f89517bcf500b2ab88fb2"
+      "version": "v4.1.0",
+      "sha": "4907a6ddec9925e35a0a9e82d7399ccc52663121"
     },
     "docker/metadata-action@v6.0.0": {
       "repo": "docker/metadata-action",
@@ -175,35 +175,35 @@
       "version": "v4.35.1",
       "sha": "0e9f55954318745b37b7933c693bc093f7336125"
     },
-    "github/gh-aw-actions/setup-cli@v0.65.3": {
+    "github/gh-aw-actions/setup-cli@v0.67.1": {
       "repo": "github/gh-aw-actions/setup-cli",
-      "version": "v0.65.3",
-      "sha": "6b4da262b8f7e0e253d1ae84f400a843b918a4ab"
+      "version": "v0.67.1",
+      "sha": "80471a493be8c528dd27daf73cd644242a7965e0"
     },
-    "github/gh-aw-actions/setup-cli@v0.67.0": {
+    "github/gh-aw-actions/setup-cli@v0.67.2": {
       "repo": "github/gh-aw-actions/setup-cli",
-      "version": "v0.67.0",
-      "sha": "cde65c546c2b0f6d3f3a9492a04e6687887c4fe8"
+      "version": "v0.67.2",
+      "sha": "03e31e064a68e8d5ad890c92f303cfb5a3536006"
     },
-    "github/gh-aw-actions/setup@v0.65.3": {
+    "github/gh-aw-actions/setup@v0.67.1": {
       "repo": "github/gh-aw-actions/setup",
-      "version": "v0.65.3",
-      "sha": "6b4da262b8f7e0e253d1ae84f400a843b918a4ab"
+      "version": "v0.67.1",
+      "sha": "80471a493be8c528dd27daf73cd644242a7965e0"
     },
-    "github/gh-aw-actions/setup@v0.67.0": {
+    "github/gh-aw-actions/setup@v0.67.2": {
       "repo": "github/gh-aw-actions/setup",
-      "version": "v0.67.0",
-      "sha": "cde65c546c2b0f6d3f3a9492a04e6687887c4fe8"
+      "version": "v0.67.2",
+      "sha": "03e31e064a68e8d5ad890c92f303cfb5a3536006"
     },
-    "github/gh-aw/actions/setup@v0.65.3": {
+    "github/gh-aw/actions/setup@v0.67.2": {
       "repo": "github/gh-aw/actions/setup",
-      "version": "v0.65.3",
-      "sha": "f3d24fe45b8aa0582816241fd9b3ee97a711dbe2"
+      "version": "v0.67.2",
+      "sha": "5fb582bad4dfee2841251e97f9d22caa7eb3c82d"
     },
-    "github/stale-repos@v9.0.6": {
+    "github/stale-repos@v9.0.7": {
       "repo": "github/stale-repos",
-      "version": "v9.0.6",
-      "sha": "7683f9d6900857a9e6dad8a3277a33bcc0b51d44"
+      "version": "v9.0.7",
+      "sha": "25946246f29e8692a397502045e457c4dc96c6e4"
     },
     "haskell-actions/setup@v2.10.3": {
       "repo": "haskell-actions/setup",
@@ -215,10 +215,10 @@
       "version": "v2.2.0",
       "sha": "0c5077e51419868618aeaa5fe8019c62421857d6"
     },
-    "ruby/setup-ruby@v1.299.0": {
+    "ruby/setup-ruby@v1.300.0": {
       "repo": "ruby/setup-ruby",
-      "version": "v1.299.0",
-      "sha": "3ff19f5e2baf30647122352b96108b1fbe250c64"
+      "version": "v1.300.0",
+      "sha": "e65c17d16e57e481586a6a5a0282698790062f92"
     },
     "super-linter/super-linter@v8.6.0": {
       "repo": "super-linter/super-linter",

@@ -17,6 +17,8 @@ name: Smoke Copilot
 engine:
   id: copilot
 strict: false
+features:
+  cli-proxy: true
 imports:
   - shared/mcp-pagination.md
   - shared/reporting.md
@@ -38,7 +40,6 @@ tools:
   edit:
   bash:
     - "*"
-  serena: ["go"]
 runtimes:
   go:
     version: "1.25"
@@ -80,10 +81,6 @@ timeout-minutes: 15
 3. **Playwright Testing**: Use the playwright tools to navigate to https://github.com and verify the page title contains "GitHub" (do NOT try to install playwright - use the provided MCP tools)
 4. **File Writing Testing**: Create a test file `/tmp/gh-aw/agent/smoke-test-copilot-${{ github.run_id }}.txt` with content "Smoke test passed for Copilot at $(date)" (create the directory if it doesn't exist)
 5. **Bash Tool Testing**: Execute bash commands to verify file creation was successful (use `cat` to read the file back)
-6. **Serena MCP Testing**:
-   - Call the `serena-get_symbols_overview` tool DIRECTLY with `relative_path: "internal/server"` to get an overview of Go source files — do NOT use `mcp-inspect` or any other diagnostic tool to pre-check availability; just call the tool and observe whether it succeeds or returns an error
-   - Only report Serena as unavailable if the direct `serena-get_symbols_overview` call itself returns an error
-   - Also call the `serena-find_symbol` tool to search for symbols and verify that at least 3 symbols are found in the results
 
 ## Output
 

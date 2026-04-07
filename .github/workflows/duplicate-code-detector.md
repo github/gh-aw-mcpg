@@ -13,8 +13,6 @@ network:
   allowed:
     - defaults
     - containers
-tools:
-  serena: ["go"]
 safe-outputs:
   create-issue:
     title-prefix: "[duplicate-code] "

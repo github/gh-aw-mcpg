@@ -82,14 +82,6 @@ This is the MCP Gateway repository (gh-aw-mcpg), which uses the `internal/` dire
 
 Total: ~39 Go files (excluding tests)
 
-## Serena Configuration
-
-The Serena MCP server is configured for this workspace:
-- **Workspace**: ${{ github.workspace }}
-- **Memory cache**: /tmp/gh-aw/cache-memory/serena
-- **Context**: codex
-- **Language service**: Go (gopls)
-
 ## Close Existing Refactor Issues (CRITICAL FIRST STEP)
 
 **Before performing any analysis**, you must close existing open issues with the `[refactor]` title prefix to prevent duplicate issues.

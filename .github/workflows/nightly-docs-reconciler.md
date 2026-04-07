@@ -16,7 +16,7 @@ tools:
     toolsets: [default]
     allowed-repos: ["github/gh-aw-mcpg"]
     min-integrity: unapproved
-  serena: ["go"]
+
 safe-outputs:
   create-issue:
     title-prefix: "📚 "
