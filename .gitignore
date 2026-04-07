@@ -65,3 +65,4 @@ gateway.log
 
 # WASM guard binaries (downloaded at runtime, not committed)
 *.wasm
+smoke-test.txt
