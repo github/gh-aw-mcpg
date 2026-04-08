@@ -1,1 +1,19 @@
-{"lr":"2026-04-07T12:38Z","prs":1,"m":3002,"c":{"3310":"2026-04-07","3314":"2026-04-07"},"fixes":[{"run":"2026-04-07","desc":"fix(rust-guard): replace to_lowercase() with eq_ignore_ascii_case, remove stale dead_code","branch":"repo-assist/fix-issue-3314-rust-guard-eq-ignore-ascii","pr":"pending","closes":"3314"}],"n":"2026-04-07: Tasks 3+2. (1) Fixed #3314: replaced to_lowercase() in is_trusted_first_party_bot with eq_ignore_ascii_case; removed 6 stale #[allow(dead_code)] from lib.rs. All 251 Rust tests pass. (2) Commented on #3310: recommended StartupInfo/StartupWarn helpers approach. Monthly #3002 updated. Previous issues #3272, #3270, #2988, #2909, #3113 all closed by maintainer. Future: StartupInfo logger helper (#3310), split wasm.go (#3315), rust guard is_bot removal from #3270."}
+{
+  "lr": "2026-04-08T12:38Z",
+  "prs": 1,
+  "m": 3002,
+  "c": {
+    "3310": "2026-04-07",
+    "3314": "2026-04-07",
+    "3312": "2026-04-08"
+  },
+  "fixes": [
+    {
+      "run": "2026-04-08",
+      "desc": "ci: add Rust guard unit tests to CI pipeline",
+      "branch": "repo-assist/eng-rust-guard-ci-2026-04-08",
+      "pr": "pending"
+    }
+  ],
+  "n": "2026-04-08: Tasks 4+2. (1) Added rust-guard-test CI job to ci.yml — runs 251 Rust unit tests on every PR, uses same actions-rust-lang/setup-rust-toolchain SHA as release.yml, Cargo caching. Downstream trigger jobs now require rust-guard-test. (2) Commented on #3312: confirmed json.RawMessage fix approach for manual JSON writes in proxy/handler.go. Monthly #3002 updated. Previous PR #3325 (rust guard fix) was closed by maintainer. Future: InitGatewayLoggers helper (#3311), fix #3312 manual JSON writes, go-sdk upgrade when Go 1.25.0 available."
+}
