@@ -1,11 +1,11 @@
 {
-  "lr": "2026-04-08T12:38Z",
-  "prs": 1,
+  "lr": "2026-04-09T12:42Z",
+  "prs": 2,
   "m": 3002,
   "c": {
     "3310": "2026-04-07",
-    "3314": "2026-04-07",
-    "3312": "2026-04-08"
+    "3312": "2026-04-09",
+    "3311": "2026-04-09"
   },
   "fixes": [
     {
@@ -13,7 +13,19 @@
       "desc": "ci: add Rust guard unit tests to CI pipeline",
       "branch": "repo-assist/eng-rust-guard-ci-2026-04-08",
       "pr": "pending"
+    },
+    {
+      "run": "2026-04-09",
+      "desc": "refactor(proxy): use httputil.WriteJSONResponse for filtered/empty JSON writes",
+      "branch": "repo-assist/fix-issue-3312-httputil-json-writes",
+      "pr": "pending"
+    },
+    {
+      "run": "2026-04-09",
+      "desc": "refactor(logger): add InitGatewayLoggers and InitProxyLoggers helpers",
+      "branch": "repo-assist/fix-issue-3311-init-gateway-loggers",
+      "pr": "pending"
     }
   ],
-  "n": "2026-04-08: Tasks 4+2. (1) Added rust-guard-test CI job to ci.yml — runs 251 Rust unit tests on every PR, uses same actions-rust-lang/setup-rust-toolchain SHA as release.yml, Cargo caching. Downstream trigger jobs now require rust-guard-test. (2) Commented on #3312: confirmed json.RawMessage fix approach for manual JSON writes in proxy/handler.go. Monthly #3002 updated. Previous PR #3325 (rust guard fix) was closed by maintainer. Future: InitGatewayLoggers helper (#3311), fix #3312 manual JSON writes, go-sdk upgrade when Go 1.25.0 available."
+  "n": "2026-04-09: Tasks 3+4. (1) Fixed #3312 manual JSON writes in proxy/handler.go (replaced w.Header+WriteHeader+Write with httputil.WriteJSONResponse+json.RawMessage in 2 sites). (2) Fixed #3311 InitGatewayLoggers helper: new internal/logger/init.go with InitGatewayLoggers, InitProxyLoggers, initWithWarning; root.go and proxy.go simplified. Monthly #3002 updated. Previous PR for rust-guard-ci still open. Future: StartupInfo/StartupWarn helpers (#3310), go-sdk upgrade when Go 1.25 available."
 }
