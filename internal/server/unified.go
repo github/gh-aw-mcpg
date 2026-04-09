@@ -350,9 +350,11 @@ func lookupEnrichmentToken() string {
 		"GH_TOKEN",
 	} {
 		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+			logUnified.Printf("Found enrichment token in env var: %s", key)
 			return v
 		}
 	}
+	logUnified.Print("No enrichment token found in any env var")
 	return ""
 }
 
@@ -360,8 +362,11 @@ func lookupEnrichmentToken() string {
 // or defaults to https://api.github.com.
 func lookupGitHubAPIBaseURL() string {
 	if v := os.Getenv("GITHUB_API_URL"); v != "" {
-		return strings.TrimRight(v, "/")
+		url := strings.TrimRight(v, "/")
+		logUnified.Printf("Using custom GitHub API URL from GITHUB_API_URL: %s", url)
+		return url
 	}
+	logUnified.Print("Using default GitHub API URL: https://api.github.com")
 	return "https://api.github.com"
 }
 
@@ -391,8 +396,10 @@ func buildAllowedToolSets(cfg *config.Config) map[string]map[string]bool {
 				set[t] = true
 			}
 			sets[serverID] = set
+			logUnified.Printf("Built allowed tool set for server %s: %d tool(s) permitted", serverID, len(set))
 		}
 	}
+	logUnified.Printf("Built allowed tool sets: %d server(s) with tool restrictions", len(sets))
 	return sets
 }
 
@@ -714,6 +721,7 @@ func (us *UnifiedServer) GetToolsForBackend(backendID string) []ToolInfo {
 		}
 	}
 
+	logUnified.Printf("GetToolsForBackend: backendID=%s, found=%d tools", backendID, len(filtered))
 	return filtered
 }
 
