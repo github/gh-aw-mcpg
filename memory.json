@@ -1,5 +1,5 @@
 {
-  "lr": "2026-04-09T12:42Z",
+  "lr": "2026-04-10T12:34Z",
   "prs": 2,
   "m": 3002,
   "c": {
@@ -25,7 +25,15 @@
       "desc": "refactor(logger): add InitGatewayLoggers and InitProxyLoggers helpers",
       "branch": "repo-assist/fix-issue-3311-init-gateway-loggers",
       "pr": "pending"
+    },
+    {
+      "run": "2026-04-10",
+      "desc": "fix(config): fail-fast OIDC auth validation for TOML config path",
+      "branch": "repo-assist/fix-issue-3379-toml-oidc-validation",
+      "pr": "pending",
+      "closes": 3379,
+      "note": "safeoutputs tools unavailable in this run - branch committed locally but not pushed"
     }
   ],
-  "n": "2026-04-09: Tasks 3+4. (1) Fixed #3312 manual JSON writes in proxy/handler.go (replaced w.Header+WriteHeader+Write with httputil.WriteJSONResponse+json.RawMessage in 2 sites). (2) Fixed #3311 InitGatewayLoggers helper: new internal/logger/init.go with InitGatewayLoggers, InitProxyLoggers, initWithWarning; root.go and proxy.go simplified. Monthly #3002 updated. Previous PR for rust-guard-ci still open. Future: StartupInfo/StartupWarn helpers (#3310), go-sdk upgrade when Go 1.25 available."
+  "n": "2026-04-10: Tasks 2+4 selected. (1) Investigated #3379 (OIDC fail-fast missing for TOML path) - confirmed bug, implemented fix in LoadFromFile adding validateAuthConfig loop, added 2 tests. (2) Investigated #3422 (GitHub token priority inconsistency) - confirmed real bug with different lookup order and missing GITHUB_MCP_SERVER_TOKEN. safeoutputs tools NOT available in this run context - could not create PR or comments. Code changes in branch repo-assist/fix-issue-3379-toml-oidc-validation. Also: issues #3311/#3312 are CLOSED (fixes were merged?). Future: #3379 fix branch still needs PR creation, #3422 fix (envutil.LookupGitHubToken) is good next task, go-sdk upgrade blocked by network. Issues to comment on next run: #3379, #3422, #3400 (guard coverage gap)."
 }
