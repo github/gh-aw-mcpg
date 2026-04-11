@@ -625,7 +625,7 @@ func TestLauncher_TimeoutWithNilGateway(t *testing.T) {
 	defer l.Close()
 
 	// Should use default timeout
-	assert.Equal(t, (time.Duration(config.DefaultStartupTimeout)*time.Second).String(), l.startupTimeout.String())
+	assert.Equal(t, (time.Duration(config.DefaultStartupTimeout) * time.Second).String(), l.startupTimeout.String())
 }
 
 func TestLauncher_OIDCProviderInitialization(t *testing.T) {
