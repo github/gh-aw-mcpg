@@ -79,6 +79,49 @@ make help
 
 The runner supports four documented modes for Copilot testing:
 
+## BYOK and Offline Mode
+
+The runner supports BYOK (Bring Your Own Key) to route Copilot's LLM calls
+through a custom provider (local model, Azure OpenAI, Anthropic, etc.) instead
+of GitHub's model API. When a provider URL is configured, `COPILOT_OFFLINE=true`
+is set automatically so Copilot does not phone home to GitHub's model backend.
+
+The GitHub MCP server still uses `GITHUB_TOKEN` for API access, so that token
+remains required even in offline mode.
+
+### Configuring BYOK in `.env`
+
+Add your provider settings to `.env` alongside `GITHUB_TOKEN`:
+
+```bash
+# Required for GitHub MCP server
+GITHUB_TOKEN=ghp_your_token_here
+
+# BYOK provider (activates offline mode automatically)
+COPILOT_PROVIDER_BASE_URL=http://localhost:11434   # e.g. Ollama
+COPILOT_MODEL=llama3.2
+
+# Optional: provider type and API key
+# COPILOT_PROVIDER_TYPE=openai   # openai | azure | anthropic
+# COPILOT_PROVIDER_API_KEY=sk-...
+```
+
+Variables already exported in your shell take precedence over `.env` values.
+
+### Supported providers
+
+| Provider | `COPILOT_PROVIDER_BASE_URL` | `COPILOT_PROVIDER_TYPE` |
+|---|---|---|
+| Ollama (local) | `http://localhost:11434` | `openai` (default) |
+| vLLM (local)   | `http://localhost:8000`  | `openai` |
+| Azure OpenAI   | `https://<resource>.openai.azure.com/openai/deployments/<deployment>` | `azure` |
+| Anthropic      | `https://api.anthropic.com` | `anthropic` |
+| Any OpenAI-compatible | custom URL | `openai` |
+
+When `COPILOT_PROVIDER_BASE_URL` is set the `gh auth login` prerequisite is
+skipped, since GitHub authentication is not required for the LLM side.
+
+
 1. **YOLO Mode** (`make test-copilot-yolo`)
    - No guard, no DIFC enforcement
    - Use for development and debugging

@@ -36,8 +36,22 @@
 # 3. Copilot CLI Installation
 #    Install: brew install --cask copilot-cli
 #
-#    Copilot CLI uses GitHub CLI authentication.
+#    Default mode: Copilot CLI uses GitHub CLI authentication.
 #    Make sure you're logged in: gh auth login
+#
+#    BYOK/Offline mode: set a provider URL in .env (or export it) to route
+#    Copilot's LLM calls through your own provider instead of GitHub's models.
+#    gh auth login is NOT required when a provider URL is configured.
+#
+#    Example .env additions for Ollama:
+#      COPILOT_PROVIDER_BASE_URL=http://localhost:11434
+#      COPILOT_MODEL=llama3.2
+#
+#    Supported provider env vars (can be set in .env or exported in shell):
+#      COPILOT_PROVIDER_BASE_URL - LLM base URL  (enables offline mode)
+#      COPILOT_PROVIDER_TYPE     - openai | azure | anthropic  (optional)
+#      COPILOT_PROVIDER_API_KEY  - API key for the provider    (optional)
+#      COPILOT_MODEL             - model name / deployment ID  (optional)
 #
 # ============================================================================
 
@@ -175,20 +189,7 @@ fi
 
 echo -e "${GREEN}✓${NC} Copilot CLI found"
 
-# Check GitHub CLI authentication (Copilot uses gh auth)
-if ! gh auth status &> /dev/null 2>&1; then
-    echo -e "${RED}ERROR: GitHub CLI not authenticated!${NC}"
-    echo ""
-    echo "Copilot CLI uses GitHub CLI authentication."
-    echo "Run the following to authenticate:"
-    echo "  gh auth login"
-    exit 1
-fi
-
-echo -e "${GREEN}✓${NC} GitHub CLI authenticated"
-echo ""
-
-# Check for .env file
+# Check for .env file and load credentials + BYOK config
 ENV_FILE="$PROJECT_ROOT/.env"
 if [ ! -f "$ENV_FILE" ]; then
     echo -e "${RED}ERROR: .env file not found!${NC}"
@@ -196,23 +197,41 @@ if [ ! -f "$ENV_FILE" ]; then
     echo "Create a .env file in the project root with your GitHub token:"
     echo "  echo 'GITHUB_TOKEN=ghp_your_token_here' > $ENV_FILE"
     echo ""
+    echo "For BYOK (offline) mode, also add:"
+    echo "  COPILOT_PROVIDER_BASE_URL=http://localhost:11434"
+    echo "  COPILOT_MODEL=llama3.2"
+    echo ""
     echo -e "${YELLOW}WARNING: Never commit .env to git!${NC}"
     exit 1
 fi
 
-# Load GitHub token from .env
-GITHUB_TOKEN=""
+# Load GitHub token and BYOK provider config from .env.
+# Environment variables already exported in the shell take precedence over .env values.
+GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+COPILOT_PROVIDER_BASE_URL="${COPILOT_PROVIDER_BASE_URL:-}"
+COPILOT_PROVIDER_TYPE="${COPILOT_PROVIDER_TYPE:-}"
+COPILOT_PROVIDER_API_KEY="${COPILOT_PROVIDER_API_KEY:-}"
 while IFS='=' read -r key value; do
     # Skip comments and empty lines
     [[ "$key" =~ ^#.*$ ]] && continue
     [[ -z "$key" ]] && continue
-    
+
     # Remove quotes from value
     value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-    
-    if [ "$key" = "GITHUB_TOKEN" ] || [ "$key" = "GITHUB_PERSONAL_ACCESS_TOKEN" ]; then
-        GITHUB_TOKEN="$value"
-    fi
+
+    case "$key" in
+        GITHUB_TOKEN|GITHUB_PERSONAL_ACCESS_TOKEN)
+            [ -z "$GITHUB_TOKEN" ] && GITHUB_TOKEN="$value" ;;
+        COPILOT_PROVIDER_BASE_URL)
+            [ -z "$COPILOT_PROVIDER_BASE_URL" ] && COPILOT_PROVIDER_BASE_URL="$value" ;;
+        COPILOT_PROVIDER_TYPE)
+            [ -z "$COPILOT_PROVIDER_TYPE" ] && COPILOT_PROVIDER_TYPE="$value" ;;
+        COPILOT_PROVIDER_API_KEY)
+            [ -z "$COPILOT_PROVIDER_API_KEY" ] && COPILOT_PROVIDER_API_KEY="$value" ;;
+        COPILOT_MODEL)
+            # Allow .env to set a default model; CLI export or MODEL_AGENT_COPILOT takes precedence
+            [ -z "${MODEL_AGENT_COPILOT:-}" ] && MODEL_AGENT_COPILOT="$value" ;;
+    esac
 done < "$ENV_FILE"
 
 if [ -z "$GITHUB_TOKEN" ]; then
@@ -224,7 +243,37 @@ if [ -z "$GITHUB_TOKEN" ]; then
 fi
 
 echo -e "${GREEN}✓${NC} GitHub token loaded from .env"
+
+# Determine offline / BYOK mode.
+# When a custom provider URL is set, enable COPILOT_OFFLINE so Copilot does not
+# phone home to GitHub's model API. The MCP servers still use GITHUB_TOKEN.
+COPILOT_OFFLINE="${COPILOT_OFFLINE:-}"
+if [ -n "$COPILOT_PROVIDER_BASE_URL" ]; then
+    COPILOT_OFFLINE="true"
+    echo -e "${GREEN}✓${NC} BYOK provider configured: ${BLUE}${COPILOT_PROVIDER_BASE_URL}${NC}"
+    [ -n "$COPILOT_PROVIDER_TYPE" ] && echo -e "  Provider type: ${BLUE}${COPILOT_PROVIDER_TYPE}${NC}"
+    echo -e "  Offline mode:  ${BLUE}enabled${NC} (COPILOT_OFFLINE=true)"
+fi
 echo ""
+
+# Check GitHub CLI authentication.
+# Skipped in offline (BYOK) mode because Copilot authenticates via the provider key instead.
+if [ "${COPILOT_OFFLINE:-}" != "true" ]; then
+    if ! gh auth status &> /dev/null 2>&1; then
+        echo -e "${RED}ERROR: GitHub CLI not authenticated!${NC}"
+        echo ""
+        echo "Copilot CLI uses GitHub CLI authentication."
+        echo "Run the following to authenticate:"
+        echo "  gh auth login"
+        echo ""
+        echo "Alternatively, configure a BYOK provider in .env to use offline mode:"
+        echo "  COPILOT_PROVIDER_BASE_URL=http://localhost:11434"
+        echo "  COPILOT_MODEL=llama3.2"
+        exit 1
+    fi
+    echo -e "${GREEN}✓${NC} GitHub CLI authenticated"
+    echo ""
+fi
 
 echo ""
 
@@ -1539,7 +1588,20 @@ cd "$PROJECT_ROOT"
 # Default to Claude model if not specified
 COPILOT_MODEL="${MODEL_AGENT_COPILOT:-claude-sonnet-4}"
 
-copilot \
+# Build env var assignments for BYOK / offline mode.
+# These are only forwarded when a provider URL is configured so that normal
+# (GitHub-authenticated) runs are unaffected.
+COPILOT_ENV_VARS=()
+if [ -n "$COPILOT_PROVIDER_BASE_URL" ]; then
+    COPILOT_ENV_VARS+=(
+        COPILOT_OFFLINE=true
+        COPILOT_PROVIDER_BASE_URL="$COPILOT_PROVIDER_BASE_URL"
+    )
+    [ -n "$COPILOT_PROVIDER_TYPE" ]    && COPILOT_ENV_VARS+=(COPILOT_PROVIDER_TYPE="$COPILOT_PROVIDER_TYPE")
+    [ -n "$COPILOT_PROVIDER_API_KEY" ] && COPILOT_ENV_VARS+=(COPILOT_PROVIDER_API_KEY="$COPILOT_PROVIDER_API_KEY")
+fi
+
+env ${COPILOT_ENV_VARS[@]+"${COPILOT_ENV_VARS[@]}"} copilot \
     --add-dir "$COPILOT_WORK_DIR" \
     --log-level all \
     --log-dir "$COPILOT_WORK_DIR/logs/" \
