@@ -1,39 +1,19 @@
 {
-  "lr": "2026-04-10T12:34Z",
-  "prs": 2,
+  "lr": "2026-04-11T12:27Z",
+  "prs": 1,
   "m": 3002,
   "c": {
-    "3310": "2026-04-07",
-    "3312": "2026-04-09",
-    "3311": "2026-04-09"
+    "3563": "2026-04-11"
   },
   "fixes": [
     {
-      "run": "2026-04-08",
-      "desc": "ci: add Rust guard unit tests to CI pipeline",
-      "branch": "repo-assist/eng-rust-guard-ci-2026-04-08",
-      "pr": "pending"
-    },
-    {
-      "run": "2026-04-09",
-      "desc": "refactor(proxy): use httputil.WriteJSONResponse for filtered/empty JSON writes",
-      "branch": "repo-assist/fix-issue-3312-httputil-json-writes",
-      "pr": "pending"
-    },
-    {
-      "run": "2026-04-09",
-      "desc": "refactor(logger): add InitGatewayLoggers and InitProxyLoggers helpers",
-      "branch": "repo-assist/fix-issue-3311-init-gateway-loggers",
-      "pr": "pending"
-    },
-    {
-      "run": "2026-04-10",
-      "desc": "fix(config): fail-fast OIDC auth validation for TOML config path",
-      "branch": "repo-assist/fix-issue-3379-toml-oidc-validation",
+      "run": "2026-04-11",
+      "desc": "refactor: add TruncateRunes to strutil, delegate truncateForLog, inline lookupEnrichmentToken",
+      "branch": "repo-assist/improve-strutil-trunrunes-2026-04-11",
       "pr": "pending",
-      "closes": 3379,
-      "note": "safeoutputs tools unavailable in this run - branch committed locally but not pushed"
+      "closes": null,
+      "ref": 3564
     }
   ],
-  "n": "2026-04-10: Tasks 2+4 selected. (1) Investigated #3379 (OIDC fail-fast missing for TOML path) - confirmed bug, implemented fix in LoadFromFile adding validateAuthConfig loop, added 2 tests. (2) Investigated #3422 (GitHub token priority inconsistency) - confirmed real bug with different lookup order and missing GITHUB_MCP_SERVER_TOKEN. safeoutputs tools NOT available in this run context - could not create PR or comments. Code changes in branch repo-assist/fix-issue-3379-toml-oidc-validation. Also: issues #3311/#3312 are CLOSED (fixes were merged?). Future: #3379 fix branch still needs PR creation, #3422 fix (envutil.LookupGitHubToken) is good next task, go-sdk upgrade blocked by network. Issues to comment on next run: #3379, #3422, #3400 (guard coverage gap)."
+  "n": "2026-04-11: Tasks 2+4 selected. (1) Task 2: Commented on #3563 (BYOK/offline mode) - clarified gateway scope, pointed to GITHUB_API_URL/token env vars. Labelled #3550 (automation), #3563 (enhancement). (2) Task 4/5: Implemented #3564 items 2+3: added strutil.TruncateRunes with tests, delegated truncateForLog, inlined lookupEnrichmentToken. Branch: repo-assist/improve-strutil-trunrunes-2026-04-11. NOTE: PR #3418 (go-logger bot) adds debug logging to lookupEnrichmentToken - potential conflict, flagged in monthly issue. Infrastructure: Go 1.25.0 toolchain unavailable (blocked by firewall), could not run tests locally. Monthly issue #3002 updated. Future: #3565 timeout defaults fix (confirm intent first), #3561 validateServerAuthConfig refactor, #3564 item 1 (move validateGuardPolicies to validation.go)."
 }
