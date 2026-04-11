@@ -381,9 +381,11 @@ func buildAllowedToolSets(cfg *config.Config) map[string]map[string]bool {
 			for _, t := range serverCfg.Tools {
 				set[t] = true
 			}
+			logUnified.Printf("Built allowed tool set for server: serverID=%s, allowedToolCount=%d", serverID, len(set))
 			sets[serverID] = set
 		}
 	}
+	logUnified.Printf("Allowed tool sets built: filteredServerCount=%d of %d total servers", len(sets), len(cfg.Servers))
 	return sets
 }
 
@@ -405,7 +407,11 @@ func (us *UnifiedServer) isToolAllowed(serverID, toolName string) bool {
 	if !ok || set == nil {
 		return true
 	}
-	return set[toolName]
+	allowed := set[toolName]
+	if !allowed {
+		logUnified.Printf("Tool access denied by allowed-tools filter: serverID=%s, toolName=%s", serverID, toolName)
+	}
+	return allowed
 }
 
 // callBackendTool calls a tool on a backend server with DIFC enforcement
@@ -675,6 +681,7 @@ func (us *UnifiedServer) GetServerStatus() map[string]ServerStatus {
 		}
 	}
 
+	logUnified.Printf("GetServerStatus: returning status for %d backend servers", len(status))
 	return status
 }
 
@@ -695,6 +702,7 @@ func (us *UnifiedServer) GetToolsForBackend(backendID string) []ToolInfo {
 		}
 	}
 
+	logUnified.Printf("GetToolsForBackend: backendID=%s, toolCount=%d", backendID, len(filtered))
 	return filtered
 }
 
@@ -706,8 +714,10 @@ func (us *UnifiedServer) GetToolHandler(backendID string, toolName string) func(
 
 	prefixedName := backendID + "___" + toolName
 	if toolInfo, ok := us.tools[prefixedName]; ok {
+		logUnified.Printf("GetToolHandler: found handler for backendID=%s, toolName=%s", backendID, toolName)
 		return toolInfo.Handler
 	}
+	logUnified.Printf("GetToolHandler: no handler found for backendID=%s, toolName=%s", backendID, toolName)
 	return nil
 }
 
