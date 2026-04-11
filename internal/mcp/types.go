@@ -34,7 +34,14 @@ type Tool struct {
 	InputSchema map[string]interface{} `json:"inputSchema"`
 }
 
-// CallToolParams represents parameters for calling a tool
+// CallToolParams represents parameters for calling a tool.
+//
+// This is a local type rather than an alias for the SDK's CallToolParams because the
+// gateway's plain JSON-RPC transport path needs to marshal/unmarshal tool call parameters
+// from raw JSON without importing the SDK's typed params (which use json.RawMessage for
+// Arguments). The local type uses map[string]interface{} for Arguments, matching the
+// gateway's internal representation and simplifying the marshal/unmarshal roundtrip in
+// callParamMethod. See callTool in connection.go for the bridge to the SDK type.
 type CallToolParams struct {
 	Name      string                 `json:"name"`
 	Arguments map[string]interface{} `json:"arguments,omitempty"`

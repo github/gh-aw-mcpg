@@ -31,6 +31,8 @@ tools:
   edit:
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-pull-request:
     title-prefix: "🔄 "
     labels: [maintenance, automation, schema]

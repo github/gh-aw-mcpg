@@ -20,6 +20,8 @@ imports:
   - shared/reporting.md
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-issue:
     title-prefix: "[guard-coverage] "
     labels: [guard, automation, security]

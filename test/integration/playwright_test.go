@@ -199,17 +199,19 @@ func TestPlaywrightMCPServer(t *testing.T) {
 
 	// Test 3: Verify tools were registered (this confirms draft-07 schemas work)
 	// The main goal is to ensure the gateway doesn't panic when loading playwright tools
-	// Looking at the server logs, we can see if tools were registered successfully
 	t.Run("ToolsRegistered", func(t *testing.T) {
-		// The fact that the server started and we reached this point means
-		// the playwright tools with draft-07 schemas were processed without panicking
-		stderrStr := stderr.String()
+		// Verify via health endpoint that the playwright server was registered
+		resp, err := http.Get(serverURL + "/health")
+		require.NoError(t, err, "Health check failed")
+		defer resp.Body.Close()
 
-		// Check that tools were registered
-		if !strings.Contains(stderrStr, "tools from playwright") &&
-			!strings.Contains(stderrStr, "Registered tool: playwright-browser_close") {
-			t.Fatal("Expected playwright tools to be registered in server logs")
-		}
+		var health map[string]interface{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&health))
+
+		servers, ok := health["servers"].(map[string]interface{})
+		require.True(t, ok, "Health response should contain servers map")
+		_, hasPlaywright := servers["playwright"]
+		require.True(t, hasPlaywright, "Health response should contain playwright server")
 
 		t.Log("✓ Playwright tools registered successfully (draft-07 schemas handled correctly)")
 	})

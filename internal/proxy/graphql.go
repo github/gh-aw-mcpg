@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/strutil"
 )
 
 var logGraphQL = logger.New("proxy:graphql")
@@ -191,14 +192,7 @@ var searchQueryArgPattern = regexp.MustCompile(`(?i)\bsearch\s*\(\s*query\s*:\s*
 
 // truncateForLog truncates s to at most maxRunes runes, for safe debug logging.
 func truncateForLog(s string, maxRunes int) string {
-	if maxRunes <= 0 {
-		return ""
-	}
-	r := []rune(s)
-	if len(r) <= maxRunes {
-		return s
-	}
-	return string(r[:maxRunes])
+	return strutil.TruncateRunes(s, maxRunes)
 }
 
 // extractSearchQuery returns the search query argument from a GraphQL search

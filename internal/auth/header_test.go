@@ -366,6 +366,70 @@ func TestExtractSessionID(t *testing.T) {
 	}
 }
 
+func TestStripAuthScheme(t *testing.T) {
+	assert := assert.New(t)
+
+	tests := []struct {
+		name        string
+		authHeader  string
+		wantScheme  string
+		wantValue   string
+		wantMatched bool
+	}{
+		{
+			name:        "Bearer prefix",
+			authHeader:  "Bearer my-token",
+			wantScheme:  "Bearer",
+			wantValue:   "my-token",
+			wantMatched: true,
+		},
+		{
+			name:        "Agent prefix",
+			authHeader:  "Agent agent-123",
+			wantScheme:  "Agent",
+			wantValue:   "agent-123",
+			wantMatched: true,
+		},
+		{
+			name:        "Plain value (no scheme)",
+			authHeader:  "my-plain-key",
+			wantScheme:  "",
+			wantValue:   "my-plain-key",
+			wantMatched: false,
+		},
+		{
+			name:        "Lowercase bearer (not recognized)",
+			authHeader:  "bearer my-token",
+			wantScheme:  "",
+			wantValue:   "bearer my-token",
+			wantMatched: false,
+		},
+		{
+			name:        "Bearer with extra spaces",
+			authHeader:  "Bearer  my-token",
+			wantScheme:  "Bearer",
+			wantValue:   " my-token",
+			wantMatched: true,
+		},
+		{
+			name:        "Empty string",
+			authHeader:  "",
+			wantScheme:  "",
+			wantValue:   "",
+			wantMatched: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme, value, matched := stripAuthScheme(tt.authHeader)
+			assert.Equal(tt.wantScheme, scheme)
+			assert.Equal(tt.wantValue, value)
+			assert.Equal(tt.wantMatched, matched)
+		})
+	}
+}
+
 func TestTruncateSessionID(t *testing.T) {
 	assert := assert.New(t)
 

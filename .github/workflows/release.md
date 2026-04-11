@@ -37,6 +37,8 @@ tools:
     - "*"
   edit:
 safe-outputs:
+  threat-detection:
+    enabled: false
   update-release:
 jobs:
   # Pre-tag validation: Run tests BEFORE creating the tag (workflow_dispatch only)

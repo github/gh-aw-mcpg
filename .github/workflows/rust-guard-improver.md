@@ -26,6 +26,8 @@ imports:
   - shared/reporting.md
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-issue:
     title-prefix: "[rust-guard] "
     labels: [rust-guard, refactor]

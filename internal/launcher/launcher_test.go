@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -552,6 +553,8 @@ func TestGetOrLaunchForSession_InvalidServer(t *testing.T) {
 }
 
 func TestLauncher_StartupTimeout(t *testing.T) {
+	defaultTimeout := (time.Duration(config.DefaultStartupTimeout) * time.Second).String()
+
 	// Test that launcher respects the startup timeout from config
 	tests := []struct {
 		name            string
@@ -559,9 +562,9 @@ func TestLauncher_StartupTimeout(t *testing.T) {
 		expectedTimeout string
 	}{
 		{
-			name:            "default timeout (60 seconds)",
+			name:            "default timeout",
 			configTimeout:   0, // 0 means use default
-			expectedTimeout: "1m0s",
+			expectedTimeout: defaultTimeout,
 		},
 		{
 			name:            "custom timeout (30 seconds)",
@@ -623,8 +626,9 @@ func TestLauncher_TimeoutWithNilGateway(t *testing.T) {
 	l := New(ctx, cfg)
 	defer l.Close()
 
-	// Should use default timeout (60 seconds)
-	assert.Equal(t, "1m0s", l.startupTimeout.String())
+	// Should use default timeout
+	expectedDefault := (time.Duration(config.DefaultStartupTimeout) * time.Second).String()
+	assert.Equal(t, expectedDefault, l.startupTimeout.String())
 }
 
 func TestLauncher_OIDCProviderInitialization(t *testing.T) {

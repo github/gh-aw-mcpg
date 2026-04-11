@@ -19,6 +19,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/config"
 	"github.com/github/gh-aw-mcpg/internal/difc"
+	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/guard"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/tracing"
@@ -43,7 +44,7 @@ const (
 //     - https://github.com → https://api.github.com
 //  3. Returns empty string if no env vars are set (caller uses DefaultGitHubAPIBase)
 func DeriveGitHubAPIURL() string {
-	if apiURL := os.Getenv("GITHUB_API_URL"); apiURL != "" {
+	if apiURL := envutil.LookupGitHubAPIURL(""); apiURL != "" {
 		logProxy.Printf("GitHub API URL from GITHUB_API_URL: %s", apiURL)
 		return apiURL
 	}

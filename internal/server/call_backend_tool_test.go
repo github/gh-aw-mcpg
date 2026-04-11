@@ -399,6 +399,8 @@ func TestIsToolAllowed(t *testing.T) {
 		{"empty list allows anything", []string{}, "any_tool", true},
 		{"tool in list", []string{"a", "b"}, "a", true},
 		{"tool not in list", []string{"a", "b"}, "c", false},
+		{"wildcard allows anything", []string{"*"}, "any_tool", true},
+		{"wildcard in mixed list allows anything", []string{"a", "*"}, "z", true},
 	}
 
 	for _, tc := range tests {

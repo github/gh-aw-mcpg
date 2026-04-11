@@ -26,20 +26,20 @@ package config
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
 // Core constants for configuration defaults
 const (
 	DefaultPort              = 3000
-	DefaultStartupTimeout    = 60   // seconds
-	DefaultToolTimeout       = 120  // seconds
+	DefaultStartupTimeout    = 30   // seconds (per spec §4.1.3)
+	DefaultToolTimeout       = 60   // seconds (per spec §4.1.3)
 	DefaultKeepaliveInterval = 1500 // seconds (25 minutes) — keeps HTTP backend sessions alive
 )
 
@@ -345,6 +345,22 @@ func LoadFromFile(path string) (*Config, error) {
 		return nil, err
 	}
 
+	// Validate auth configs (e.g. fail-fast for missing OIDC env vars).
+	// This ensures parity with the JSON stdin path which calls validateAuthConfig
+	// via convertStdinServerConfig → validateServerConfigWithCustomSchemas.
+	for name, serverCfg := range cfg.Servers {
+		if serverCfg.Auth != nil {
+			// Auth is only supported on HTTP servers, matching validateStandardServerConfig behavior.
+			if serverCfg.Type != "http" {
+				return nil, fmt.Errorf("server '%s': auth is only supported for HTTP servers (type: \"http\")", name)
+			}
+			jsonPath := fmt.Sprintf("servers.%s", name)
+			if err := validateAuthConfig(serverCfg.Auth, name, jsonPath); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// Initialize gateway if not present
 	if cfg.Gateway == nil {
 		cfg.Gateway = &GatewayConfig{}
@@ -390,14 +406,6 @@ func LoadFromFile(path string) (*Config, error) {
 	return &cfg, nil
 }
 
-// logger for config package
-var logConfig = log.New(io.Discard, "[CONFIG] ", log.LstdFlags)
-
-// SetDebug enables debug logging for config package
-func SetDebug(enabled bool) {
-	if enabled {
-		logConfig = log.New(os.Stderr, "[CONFIG] ", log.LstdFlags)
-	} else {
-		logConfig = log.New(io.Discard, "[CONFIG] ", log.LstdFlags)
-	}
-}
+// logConfig is the debug logger for the config package.
+// Enable with DEBUG=config:* or DEBUG=*.
+var logConfig = logger.New("config:config")

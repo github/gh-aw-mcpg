@@ -294,8 +294,8 @@ func TestDIFCModeFilterViaEnv(t *testing.T) {
 	err := cmd.Start()
 	require.NoError(t, err, "Failed to start gateway")
 
-	ok := waitForStderr(&stderr, "Guards enforcement", 5*time.Second)
-	require.Truef(t, ok, "timeout waiting for gateway stderr to contain %q within %s; stderr:\n%s", "Guards enforcement", 5*time.Second, stderr.String())
+	ok := waitForStderr(&stderr, "Starting MCPG", 5*time.Second)
+	require.Truef(t, ok, "timeout waiting for gateway stderr to contain %q within %s; stderr:\n%s", "Starting MCPG", 5*time.Second, stderr.String())
 
 	cmd.Process.Kill()
 	cmd.Wait()
@@ -304,8 +304,8 @@ func TestDIFCModeFilterViaEnv(t *testing.T) {
 	t.Logf("STDERR: %s", stderrStr)
 
 	// Verify gateway starts with filter mode configuration accepted
-	// Without a guard policy or WASM guard, DIFC is not auto-enabled
-	assert.Contains(t, stderrStr, "Guards enforcement disabled", "Guards should be disabled without a policy")
+	// Without a guard policy or WASM guard, DIFC is not auto-enabled — noop guard is registered
+	assert.Contains(t, stderrStr, "[DIFC] Registered guard 'noop'", "Noop guard should be registered without a policy")
 	t.Log("✓ Guards filter mode env var accepted via MCP_GATEWAY_GUARDS_MODE=filter")
 }
 
@@ -346,8 +346,8 @@ func TestDIFCModePropagateViaEnv(t *testing.T) {
 	err := cmd.Start()
 	require.NoError(t, err, "Failed to start gateway")
 
-	ok := waitForStderr(&stderr, "Guards enforcement", 5*time.Second)
-	require.Truef(t, ok, "timeout waiting for gateway stderr to contain %q within %s; stderr:\n%s", "Guards enforcement", 5*time.Second, stderr.String())
+	ok := waitForStderr(&stderr, "Starting MCPG", 5*time.Second)
+	require.Truef(t, ok, "timeout waiting for gateway stderr to contain %q within %s; stderr:\n%s", "Starting MCPG", 5*time.Second, stderr.String())
 
 	cmd.Process.Kill()
 	cmd.Wait()
@@ -356,8 +356,8 @@ func TestDIFCModePropagateViaEnv(t *testing.T) {
 	t.Logf("STDERR: %s", stderrStr)
 
 	// Verify gateway starts with propagate mode configuration accepted
-	// Without a guard policy or WASM guard, DIFC is not auto-enabled
-	assert.Contains(t, stderrStr, "Guards enforcement disabled", "Guards should be disabled without a policy")
+	// Without a guard policy or WASM guard, DIFC is not auto-enabled — noop guard is registered
+	assert.Contains(t, stderrStr, "[DIFC] Registered guard 'noop'", "Noop guard should be registered without a policy")
 	t.Log("✓ Guards propagate mode env var accepted via MCP_GATEWAY_GUARDS_MODE=propagate")
 }
 
@@ -412,8 +412,8 @@ func TestFullDIFCConfigFromJSON(t *testing.T) {
 	err := cmd.Start()
 	require.NoError(t, err, "Failed to start gateway")
 
-	ok := waitForStderr(&stderr, "Guards enforcement", 5*time.Second)
-	require.Truef(t, ok, "timeout waiting for gateway stderr to contain %q within %s; stderr:\n%s", "Guards enforcement", 5*time.Second, stderr.String())
+	ok := waitForStderr(&stderr, "Starting MCPG", 5*time.Second)
+	require.Truef(t, ok, "timeout waiting for gateway stderr to contain %q within %s; stderr:\n%s", "Starting MCPG", 5*time.Second, stderr.String())
 
 	// Try health check
 	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/health", port))
@@ -435,6 +435,6 @@ func TestFullDIFCConfigFromJSON(t *testing.T) {
 	// Verify configuration was loaded — WASM guard fails to load (no file), all servers get noop
 	assert.Contains(t, stderrStr, "server1", "Should contain server1")
 	assert.Contains(t, stderrStr, "server2", "Should contain server2")
-	assert.Contains(t, stderrStr, "Guards enforcement disabled", "Guards should be disabled when all guards fall back to noop")
+	assert.Contains(t, stderrStr, "[DIFC] Registered guard 'noop'", "Noop guard should be registered when all guards fall back to noop")
 	t.Log("✓ Full guards configuration loaded successfully")
 }

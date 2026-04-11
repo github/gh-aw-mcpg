@@ -245,6 +245,84 @@ func TestIsRunningInContainer_Consistency(t *testing.T) {
 	}
 }
 
+func TestDetectContainerID_EnvVar(t *testing.T) {
+	// When RUNNING_IN_CONTAINER=true, DetectContainerID should return true with empty ID
+	t.Setenv("RUNNING_IN_CONTAINER", "true")
+
+	detected, _ := DetectContainerID()
+	assert.True(t, detected, "Should detect container via env var")
+}
+
+func TestDetectContainerID_ConsistentWithIsRunningInContainer(t *testing.T) {
+	// DetectContainerID and IsRunningInContainer should agree on detection
+	unsetEnvForTest(t, "RUNNING_IN_CONTAINER")
+
+	detected, containerID := DetectContainerID()
+	isRunning := IsRunningInContainer()
+
+	assert.Equal(t, detected, isRunning,
+		"DetectContainerID and IsRunningInContainer should return the same detection result")
+
+	// If detected and has an ID, ID should be at least 12 chars
+	if detected && containerID != "" {
+		assert.GreaterOrEqual(t, len(containerID), 12, "Container ID should be at least 12 characters")
+	}
+
+	t.Logf("DetectContainerID: detected=%v, containerID=%s", detected, containerID)
+	t.Logf("IsRunningInContainer: %v", isRunning)
+}
+
+func TestExtractContainerIDFromContent(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected string
+	}{
+		{
+			name:     "docker with 64 char ID",
+			content:  "0::/docker/abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678",
+			expected: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678",
+		},
+		{
+			name:     "docker with 12 char ID",
+			content:  "0::/docker/abcdef123456",
+			expected: "abcdef123456",
+		},
+		{
+			name:     "containerd with ID",
+			content:  "0::/containerd/abcdef123456",
+			expected: "abcdef123456",
+		},
+		{
+			name:     "docker with short ID (less than 12)",
+			content:  "0::/docker/abc",
+			expected: "",
+		},
+		{
+			name:     "no container indicators",
+			content:  "0::/user.slice/user-1000.slice",
+			expected: "",
+		},
+		{
+			name:     "empty content",
+			content:  "",
+			expected: "",
+		},
+		{
+			name:     "kubepods - no ID extraction",
+			content:  "0::/kubepods/besteffort/pod123",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractContainerIDFromContent(tt.content)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestIsRunningInContainer_ConcurrentAccess(t *testing.T) {
 	// Test thread safety with concurrent calls.
 	t.Setenv("RUNNING_IN_CONTAINER", "true")

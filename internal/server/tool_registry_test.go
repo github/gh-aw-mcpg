@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
+	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -590,4 +591,74 @@ func TestRegisterToolsFromBackend_EmptyAllowedList(t *testing.T) {
 	assert.Contains(us.tools, "s___tool_a")
 	assert.Contains(us.tools, "s___tool_b")
 	assert.Contains(us.tools, "s___tool_c")
+}
+
+// TestSchemaBypassCanary is a canary test for SDK upgrades.
+//
+// The gateway relies on Server.AddTool (instance method) to register backend tools
+// WITHOUT full JSON Schema validation, because backends may emit schemas using
+// draft-07 features (e.g., "$ref", "definitions", "if/then/else") that the SDK's
+// stricter package-level AddTool function would reject.
+//
+// This test verifies that Server.AddTool still accepts such schemas. If it panics
+// or rejects them after an SDK upgrade, the gateway's tool registration will break
+// and this test serves as the early warning.
+//
+// See also: registerToolWithoutValidation in tool_registry.go.
+func TestSchemaBypassCanary(t *testing.T) {
+	assert := assert.New(t)
+
+	server := sdk.NewServer(&sdk.Implementation{Name: "canary", Version: "1.0"}, &sdk.ServerOptions{})
+	noop := func(ctx context.Context, req *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
+		return &sdk.CallToolResult{}, nil
+	}
+
+	// Draft-07 schema with $ref and definitions — valid JSON Schema but uses
+	// features beyond what the SDK's stricter path validates.
+	draft07Schema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"repo": map[string]interface{}{
+				"$ref": "#/definitions/repoName",
+			},
+		},
+		"definitions": map[string]interface{}{
+			"repoName": map[string]interface{}{
+				"type":      "string",
+				"minLength": 1,
+			},
+		},
+	}
+
+	// Server.AddTool (instance method) must not panic — this is the code path
+	// that registerToolWithoutValidation uses.
+	assert.NotPanics(func() {
+		server.AddTool(&sdk.Tool{
+			Name:        "draft07_tool",
+			Description: "Tool with draft-07 schema features",
+			InputSchema: draft07Schema,
+		}, noop)
+	}, "Server.AddTool must accept draft-07 schemas; if this fails after an SDK upgrade, "+
+		"registerToolWithoutValidation needs to be updated")
+
+	// Schema with additionalProperties and patternProperties — another draft-07
+	// feature set that backends commonly use.
+	extendedSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"query": map[string]interface{}{"type": "string"},
+		},
+		"additionalProperties": false,
+		"patternProperties": map[string]interface{}{
+			"^x-": map[string]interface{}{"type": "string"},
+		},
+	}
+
+	assert.NotPanics(func() {
+		server.AddTool(&sdk.Tool{
+			Name:        "extended_schema_tool",
+			Description: "Tool with extended schema features",
+			InputSchema: extendedSchema,
+		}, noop)
+	}, "Server.AddTool must accept schemas with patternProperties/additionalProperties")
 }

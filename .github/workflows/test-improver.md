@@ -23,6 +23,8 @@ steps:
       cache: true
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-pull-request:
     title-prefix: "[test-improver] "
     labels: [testing, improvement, automation]
@@ -31,7 +33,6 @@ safe-outputs:
     max: 1
 
 tools:
-  serena: ["go"]
   cache-memory: true
   github:
     toolsets: [default]

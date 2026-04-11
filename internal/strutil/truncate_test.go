@@ -146,3 +146,74 @@ func TestTruncateWithSuffix(t *testing.T) {
 		})
 	}
 }
+
+func TestTruncateRunes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		maxRunes int
+		expected string
+	}{
+		{
+			name:     "ASCII string within limit",
+			input:    "hello",
+			maxRunes: 10,
+			expected: "hello",
+		},
+		{
+			name:     "ASCII string exactly at limit",
+			input:    "hello",
+			maxRunes: 5,
+			expected: "hello",
+		},
+		{
+			name:     "ASCII string exceeds limit",
+			input:    "hello world",
+			maxRunes: 5,
+			expected: "hello",
+		},
+		{
+			name:     "multibyte runes within limit",
+			input:    "日本語",
+			maxRunes: 5,
+			expected: "日本語",
+		},
+		{
+			name:     "multibyte runes truncated",
+			input:    "日本語テスト",
+			maxRunes: 3,
+			expected: "日本語",
+		},
+		{
+			name:     "emoji truncated",
+			input:    "😀😁😂😃😄",
+			maxRunes: 3,
+			expected: "😀😁😂",
+		},
+		{
+			name:     "zero maxRunes returns empty",
+			input:    "hello",
+			maxRunes: 0,
+			expected: "",
+		},
+		{
+			name:     "negative maxRunes returns empty",
+			input:    "hello",
+			maxRunes: -1,
+			expected: "",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			maxRunes: 10,
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := TruncateRunes(tt.input, tt.maxRunes)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

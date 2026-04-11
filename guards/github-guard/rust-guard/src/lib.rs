@@ -531,12 +531,7 @@ pub extern "C" fn label_agent(
 
     let normalized_policy = NormalizedPolicy {
         scope_kind: normalized_scope_kind(&scopes),
-        min_integrity: match integrity_floor {
-            MinIntegrity::None => policy_integrity::NONE.to_string(),
-            MinIntegrity::Unapproved => policy_integrity::UNAPPROVED.to_string(),
-            MinIntegrity::Approved => policy_integrity::APPROVED.to_string(),
-            MinIntegrity::Merged => policy_integrity::MERGED.to_string(),
-        },
+        min_integrity: integrity_floor.as_str().to_string(),
     };
 
     let output = LabelAgentOutput {
@@ -619,25 +614,14 @@ pub extern "C" fn label_resource(
     // Classify operation with scoped integrity tags
     if tools::is_write_operation(&input.tool_name) {
         operation = "write";
-        if tools::is_merge_operation(&input.tool_name) {
-            // Writer-level baseline for merge operations
-            if !repo_id.is_empty() {
-                integrity = labels::writer_integrity(&repo_id, &ctx);
-            }
-        } else if tools::is_delete_operation(&input.tool_name) {
-            // Writer-level baseline
-            if !repo_id.is_empty() {
-                integrity = labels::writer_integrity(&repo_id, &ctx);
-            }
-        } else if tools::is_update_operation(&input.tool_name)
-            || tools::is_create_operation(&input.tool_name)
-        {
-            // Contributor level
-            if !repo_id.is_empty() {
-                integrity = labels::reader_integrity(&repo_id, &ctx);
-            }
-        } else if !repo_id.is_empty() {
-            integrity = labels::reader_integrity(&repo_id, &ctx);
+        if !repo_id.is_empty() {
+            integrity = if tools::is_merge_operation(&input.tool_name)
+                || tools::is_delete_operation(&input.tool_name)
+            {
+                labels::writer_integrity(&repo_id, &ctx)
+            } else {
+                labels::reader_integrity(&repo_id, &ctx)
+            };
         }
     }
 

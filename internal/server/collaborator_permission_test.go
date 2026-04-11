@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -226,7 +227,7 @@ func TestGuardBackendCallerNoToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "no GitHub token available")
 }
 
-func TestLookupEnrichmentToken(t *testing.T) {
+func TestLookupGitHubToken(t *testing.T) {
 	tests := []struct {
 		name     string
 		envVars  map[string]string
@@ -287,7 +288,7 @@ func TestLookupEnrichmentToken(t *testing.T) {
 			for k, v := range tc.envVars {
 				t.Setenv(k, v)
 			}
-			result := lookupEnrichmentToken()
+			result := envutil.LookupGitHubToken()
 			assert.Equal(t, tc.expected, result)
 		})
 	}

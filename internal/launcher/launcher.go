@@ -79,10 +79,7 @@ func New(ctx context.Context, cfg *config.Config) *Launcher {
 	serverErrors := make(map[string]string)
 	for serverID, serverCfg := range cfg.Servers {
 		if serverCfg.Auth != nil && serverCfg.Auth.Type == "github-oidc" && oidcProvider == nil {
-			errMsg := fmt.Sprintf(
-				"Server %q requires OIDC authentication but ACTIONS_ID_TOKEN_REQUEST_URL is not set. "+
-					"OIDC auth is only available when running in GitHub Actions with `permissions: { id-token: write }`.",
-				serverID)
+			errMsg := oidc.ErrMissingOIDCEnvVar(serverID).Error()
 			logger.LogError("startup", "%s", errMsg)
 			serverErrors[serverID] = errMsg
 		}
@@ -130,19 +127,17 @@ func GetOrLaunch(l *Launcher, serverID string) (*mcp.Connection, error) {
 					oidcAudience = serverCfg.URL
 				}
 				if oidcProvider == nil {
-					logger.LogErrorWithServer(serverID, "backend",
-						"Server %q requires OIDC auth but ACTIONS_ID_TOKEN_REQUEST_URL is not set", serverID)
-					l.recordError(serverID, "OIDC provider not available")
-					return nil, fmt.Errorf(
-						"server %q requires OIDC authentication but ACTIONS_ID_TOKEN_REQUEST_URL is not set; "+
-							"OIDC auth is only available in GitHub Actions with `permissions: { id-token: write }`",
-						serverID)
+					oidcErr := oidc.ErrMissingOIDCEnvVar(serverID)
+					logger.LogErrorWithServer(serverID, "backend", "%v", oidcErr)
+					l.recordError(serverID, oidcErr.Error())
+					return nil, oidcErr
 				}
 			}
 
 			// Create an HTTP connection
 			conn, err := mcp.NewHTTPConnection(l.ctx, serverID, serverCfg.URL, serverCfg.Headers, oidcProvider, oidcAudience, l.config.Gateway.HTTPKeepaliveInterval())
 			if err != nil {
+				log.Printf("FAILED to create HTTP connection for server %q: %v", serverID, err)
 				logger.LogErrorWithServer(serverID, "backend", "Failed to create HTTP connection: %s, error=%v", serverID, err)
 				l.recordError(serverID, err.Error())
 				return nil, fmt.Errorf("failed to create HTTP connection: %w", err)

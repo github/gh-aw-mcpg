@@ -241,6 +241,8 @@ jobs:
             }
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   assign-to-agent:
     max: 3
     target: "*"           # Requires explicit issue_number in agent output

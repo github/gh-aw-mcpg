@@ -42,6 +42,8 @@ sandbox:
   mcp:
     container: "ghcr.io/github/gh-aw-mcpg"
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-pull-request:
     title-prefix: "[smoke-safeoutputs] "
     labels: [smoke-test]

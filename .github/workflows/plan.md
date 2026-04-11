@@ -21,6 +21,8 @@ tools:
     allowed-repos: ["github/gh-aw-mcpg"]
     min-integrity: unapproved
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-issue:
     title-prefix: "[task] "
     labels: [task, ai-generated]

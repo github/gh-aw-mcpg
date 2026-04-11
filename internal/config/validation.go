@@ -9,6 +9,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/config/rules"
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/oidc"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
@@ -265,8 +266,7 @@ func validateAuthConfig(auth *AuthConfig, serverName, jsonPath string) error {
 		logValidateServerFailed(serverName, "ACTIONS_ID_TOKEN_REQUEST_URL is not set")
 		return rules.MissingRequired(
 			"ACTIONS_ID_TOKEN_REQUEST_URL", "github-oidc", authPath,
-			"Server requires OIDC authentication but ACTIONS_ID_TOKEN_REQUEST_URL is not set. "+
-				"OIDC auth requires running in GitHub Actions with `permissions: { id-token: write }`")
+			oidc.ErrMissingOIDCEnvVar(serverName).Error())
 	}
 
 	logValidation.Printf("Auth config validated: server=%s, type=%s", serverName, auth.Type)

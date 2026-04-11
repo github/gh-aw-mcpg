@@ -108,6 +108,36 @@ func TestApplyJqSchema(t *testing.T) {
 	}
 }
 
+// TestApplyJqSchema_SingleOutputContract verifies that the walk_schema filter produces
+// exactly one output value. This documents the invariant that the iterator yields a single
+// result, catching any future filter changes that accidentally produce multiple outputs.
+func TestApplyJqSchema_SingleOutputContract(t *testing.T) {
+	require := require.New(t)
+
+	require.Nil(jqSchemaCompileErr, "jq schema filter must compile without error")
+	require.NotNil(jqSchemaCode, "jq schema compiled code must not be nil")
+
+	inputs := []interface{}{
+		map[string]interface{}{"name": "test", "count": 42},
+		[]interface{}{map[string]interface{}{"id": 1}},
+		map[string]interface{}{"nested": map[string]interface{}{"a": []interface{}{1, 2, 3}}},
+	}
+
+	for _, input := range inputs {
+		iter := jqSchemaCode.RunWithContext(context.Background(), input)
+
+		// First call must return a value
+		v, ok := iter.Next()
+		require.True(ok, "walk_schema should produce at least one output")
+		_, isErr := v.(error)
+		require.False(isErr, "walk_schema should not produce an error: %v", v)
+
+		// Second call must signal exhaustion (no more values)
+		v2, ok2 := iter.Next()
+		require.False(ok2, "walk_schema should produce exactly one output, got second value: %v", v2)
+	}
+}
+
 func TestSavePayload(t *testing.T) {
 	// Create temporary directory for test
 	baseDir := filepath.Join(os.TempDir(), "test-jq-payloads")
@@ -517,7 +547,7 @@ func TestPayloadStorage_FilePermissions(t *testing.T) {
 	// Check file permissions
 	fileInfo, err := os.Stat(filePath)
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0644), fileInfo.Mode().Perm(), "File should have 0644 permissions")
+	assert.Equal(t, os.FileMode(0600), fileInfo.Mode().Perm(), "File should have 0600 permissions")
 }
 
 // TestPayloadStorage_DefaultSessionID verifies behavior when session ID is empty

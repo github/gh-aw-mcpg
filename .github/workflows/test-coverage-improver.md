@@ -31,13 +31,14 @@ steps:
       cache: true
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-pull-request:
     title-prefix: "[test] "
     labels: [testing, automation]
     draft: true
 
 tools:
-  serena: ["go"]
   cache-memory: true
   github:
     toolsets: [default]

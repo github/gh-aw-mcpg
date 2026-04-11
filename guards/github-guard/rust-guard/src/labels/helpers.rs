@@ -83,6 +83,19 @@ pub enum MinIntegrity {
     Merged,
 }
 
+impl MinIntegrity {
+    /// Returns the canonical policy-facing string for this integrity level.
+    pub fn as_str(self) -> &'static str {
+        use super::constants::policy_integrity;
+        match self {
+            MinIntegrity::None => policy_integrity::NONE,
+            MinIntegrity::Unapproved => policy_integrity::UNAPPROVED,
+            MinIntegrity::Approved => policy_integrity::APPROVED,
+            MinIntegrity::Merged => policy_integrity::MERGED,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct PolicyContext {
     pub scopes: Vec<PolicyScopeEntry>,
@@ -1426,5 +1439,14 @@ mod tests {
         let perm_result = collaborator_permission_floor("owner/repo", Some("read"), &ctx);
         let assoc_result = author_association_floor_from_str("owner/repo", Some("CONTRIBUTOR"), &ctx);
         assert_eq!(perm_result, assoc_result, "read permission and CONTRIBUTOR association should produce same integrity");
+    }
+
+    #[test]
+    fn test_min_integrity_as_str() {
+        use super::super::constants::policy_integrity;
+        assert_eq!(MinIntegrity::None.as_str(), policy_integrity::NONE);
+        assert_eq!(MinIntegrity::Unapproved.as_str(), policy_integrity::UNAPPROVED);
+        assert_eq!(MinIntegrity::Approved.as_str(), policy_integrity::APPROVED);
+        assert_eq!(MinIntegrity::Merged.as_str(), policy_integrity::MERGED);
     }
 }

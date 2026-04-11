@@ -19,6 +19,8 @@ imports:
   - shared/reporting.md
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   close-issue:
     required-title-prefix: "[refactor] "
     target: "*"

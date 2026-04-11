@@ -34,6 +34,8 @@ network:
   - java
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   add-comment:
     max: 10
     target: "*"

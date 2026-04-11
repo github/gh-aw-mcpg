@@ -336,6 +336,70 @@ func TestGetAPIKey_ReturnsKey(t *testing.T) {
 	assert.Equal(t, "super-secret-key", cfg.GetAPIKey())
 }
 
+// TestLoadFromFile_OIDCAuthMissingEnvVar verifies that LoadFromFile returns an error
+// when a server uses github-oidc auth but ACTIONS_ID_TOKEN_REQUEST_URL is not set.
+// This ensures parity with the JSON stdin config path (Spec §9 Fail-Fast Startup).
+func TestLoadFromFile_OIDCAuthMissingEnvVar(t *testing.T) {
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "")
+
+	path := writeTempTOML(t, `
+[servers.secure]
+type = "http"
+url = "https://example.com/mcp"
+
+[servers.secure.auth]
+type = "github-oidc"
+audience = "https://example.com"
+`)
+	cfg, err := LoadFromFile(path)
+	require.Error(t, err)
+	assert.Nil(t, cfg)
+	assert.Contains(t, err.Error(), "ACTIONS_ID_TOKEN_REQUEST_URL")
+}
+
+// TestLoadFromFile_OIDCAuthWithEnvVarSet verifies that LoadFromFile succeeds
+// when a server uses github-oidc auth and ACTIONS_ID_TOKEN_REQUEST_URL is set.
+func TestLoadFromFile_OIDCAuthWithEnvVarSet(t *testing.T) {
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://token.actions.example.com")
+
+	path := writeTempTOML(t, `
+[servers.secure]
+type = "http"
+url = "https://example.com/mcp"
+
+[servers.secure.auth]
+type = "github-oidc"
+audience = "https://example.com"
+`)
+	cfg, err := LoadFromFile(path)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	server := cfg.Servers["secure"]
+	require.NotNil(t, server)
+	require.NotNil(t, server.Auth)
+	assert.Equal(t, "github-oidc", server.Auth.Type)
+	assert.Equal(t, "https://example.com", server.Auth.Audience)
+}
+
+// TestLoadFromFile_AuthOnNonHTTPServerRejected verifies that TOML configs reject
+// auth blocks on non-HTTP servers so TOML validation stays aligned with stdin rules.
+func TestLoadFromFile_AuthOnNonHTTPServerRejected(t *testing.T) {
+	path := writeTempTOML(t, `
+[servers.local]
+command = "docker"
+args = ["run", "--rm", "-i", "ghcr.io/github/github-mcp-server:latest"]
+
+[servers.local.auth]
+type = "github-oidc"
+audience = "https://example.com"
+`)
+	cfg, err := LoadFromFile(path)
+	require.Error(t, err)
+	assert.Nil(t, cfg)
+	assert.Contains(t, err.Error(), "auth")
+	assert.Contains(t, err.Error(), "HTTP")
+}
+
 // TestLoadFromFile_NegativePayloadSizeThresholdRejected verifies that TOML configs with
 // a negative payload_size_threshold are rejected per spec §4.1.3.3.
 func TestLoadFromFile_NegativePayloadSizeThresholdRejected(t *testing.T) {

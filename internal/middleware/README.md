@@ -96,19 +96,19 @@ with open(payload_path) as f:
 The middleware uses the same jq filter logic as the gh-aw jqschema utility:
 
 ```jq
-def walk(f):
+def walk_schema:
   . as $in |
   if type == "object" then
-    reduce keys[] as $k ({}; . + {($k): ($in[$k] | walk(f))})
+    reduce keys[] as $k ({}; . + {($k): ($in[$k] | walk_schema)})
   elif type == "array" then
-    if length == 0 then [] else [.[0] | walk(f)] end
+    if length == 0 then [] else [.[0] | walk_schema] end
   else
     type
   end;
-walk(.)
+walk_schema
 ```
 
-This recursively walks the JSON structure and replaces values with their type names.
+This recursively walks the JSON structure and replaces values with their type names. The function is named `walk_schema` to avoid shadowing gojq's built-in `walk/1`.
 
 ### Go Implementation
 

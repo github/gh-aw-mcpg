@@ -23,6 +23,8 @@ imports:
   - shared/reporting.md
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   add-comment:
     max: 1
   noop:

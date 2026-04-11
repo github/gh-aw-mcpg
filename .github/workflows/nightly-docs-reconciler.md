@@ -16,8 +16,10 @@ tools:
     toolsets: [default]
     allowed-repos: ["github/gh-aw-mcpg"]
     min-integrity: unapproved
-  serena: ["go"]
+  bash: true
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-issue:
     title-prefix: "📚 "
     labels: [documentation, maintenance, automated]
@@ -25,7 +27,7 @@ safe-outputs:
     expires: 3d
   missing-tool:
     create-issue: true
-timeout-minutes: 20
+timeout-minutes: 45
 ---
 
 <!-- Edit the file linked below to modify the agent without recompilation. Feel free to move the entire markdown body to that file. -->

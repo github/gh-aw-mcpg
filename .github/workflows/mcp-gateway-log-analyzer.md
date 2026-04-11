@@ -19,6 +19,8 @@ network:
     - containers
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-issue:
     title-prefix: "[mcp-gateway-logs] "
     labels: [bug, mcp-gateway, automation]

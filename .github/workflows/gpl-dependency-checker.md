@@ -16,6 +16,8 @@ network:
     - go
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-issue:
     title-prefix: "[license] "
     labels: [license, compliance, dependencies, automation]

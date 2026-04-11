@@ -125,30 +125,7 @@ func run(cmd *cobra.Command, args []string) error {
 	ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Initialize file logger early
-	if err := logger.InitFileLogger(logDir, "mcp-gateway.log"); err != nil {
-		log.Printf("Warning: Failed to initialize file logger: %v", err)
-	}
-
-	// Initialize per-serverID logger
-	if err := logger.InitServerFileLogger(logDir); err != nil {
-		log.Printf("Warning: Failed to initialize server file logger: %v", err)
-	}
-
-	// Initialize markdown logger for GitHub workflow preview
-	if err := logger.InitMarkdownLogger(logDir, "gateway.md"); err != nil {
-		log.Printf("Warning: Failed to initialize markdown logger: %v", err)
-	}
-
-	// Initialize JSONL logger for RPC message logging
-	if err := logger.InitJSONLLogger(logDir, "rpc-messages.jsonl"); err != nil {
-		log.Printf("Warning: Failed to initialize JSONL logger: %v", err)
-	}
-
-	// Initialize tools logger for tracking available tools
-	if err := logger.InitToolsLogger(logDir, "tools.json"); err != nil {
-		log.Printf("Warning: Failed to initialize tools logger: %v", err)
-	}
+	logger.InitGatewayLoggers(logDir)
 
 	logger.LogInfoMd("startup", "MCPG Gateway version: %s", cliVersion)
 
@@ -176,8 +153,7 @@ func run(cmd *cobra.Command, args []string) error {
 			logger.LogErrorMd("startup", "Environment validation failed: %s", result.Error())
 			return fmt.Errorf("environment validation failed: %s", result.Error())
 		}
-		logger.LogInfoMd("startup", "Environment validation passed")
-		log.Println("Environment validation passed")
+		logger.StartupInfo("Environment validation passed")
 	}
 
 	// Load configuration
@@ -233,13 +209,11 @@ func run(cmd *cobra.Command, args []string) error {
 	if policyOverride != nil {
 		cfg.GuardPolicy = policyOverride
 		cfg.GuardPolicySource = policySource
-		log.Printf("Guard policy override configured (source=%s)", policySource)
-		logger.LogInfoMd("startup", "Guard policy override configured (source=%s)", policySource)
+		logger.StartupInfo("Guard policy override configured (source=%s)", policySource)
 	}
 
 	if envSinkServerIDs, exists := os.LookupEnv("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS"); exists {
-		log.Printf("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS=%q", envSinkServerIDs)
-		logger.LogInfoMd("startup", "MCP_GATEWAY_GUARDS_SINK_SERVER_IDS=%q", envSinkServerIDs)
+		logger.StartupInfo("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS=%q", envSinkServerIDs)
 	}
 
 	resolvedSinkServerIDs, err := parseDIFCSinkServerIDs(difcSinkServerIDs)
@@ -248,15 +222,12 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 	difc.SetSinkServerIDs(resolvedSinkServerIDs)
 	if len(resolvedSinkServerIDs) == 0 {
-		log.Println("Guards sink server ID logging enrichment disabled (no sink server IDs configured)")
-		logger.LogInfoMd("startup", "Guards sink server ID logging enrichment disabled")
+		logger.StartupInfo("Guards sink server ID logging enrichment disabled (no sink server IDs configured)")
 	} else {
-		log.Printf("Guards sink server IDs configured for JSONL tag enrichment: %v", resolvedSinkServerIDs)
-		logger.LogInfoMd("startup", "Guards sink server IDs configured for JSONL tag enrichment: %v", resolvedSinkServerIDs)
+		logger.StartupInfo("Guards sink server IDs configured for JSONL tag enrichment: %v", resolvedSinkServerIDs)
 		for _, sinkServerID := range resolvedSinkServerIDs {
 			if _, exists := cfg.Servers[sinkServerID]; !exists {
-				log.Printf("Warning: guards sink server ID '%s' is not configured in mcpServers", sinkServerID)
-				logger.LogWarn("startup", "Guards sink server ID '%s' is not configured in mcpServers", sinkServerID)
+				logger.StartupWarn("Guards sink server ID '%s' is not configured in mcpServers", sinkServerID)
 			}
 		}
 	}
@@ -308,8 +279,7 @@ func run(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to generate random API key: %w", err)
 		}
 		cfg.Gateway.APIKey = randomKey
-		log.Printf("No API key configured — generated a temporary random API key for this session")
-		logger.LogInfoMd("startup", "Generated temporary random API key (spec §7.3)")
+		logger.StartupInfo("No API key configured — generated temporary random API key (spec §7.3)")
 	}
 
 	// Apply tracing flags: CLI flags override config values.
@@ -341,8 +311,7 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 	tracingProvider, err := tracing.InitProvider(ctx, tracingCfg)
 	if err != nil {
-		log.Printf("Warning: failed to initialize tracing provider: %v", err)
-		logger.LogWarn("startup", "Failed to initialize tracing provider: %v", err)
+		logger.StartupWarn("Failed to initialize tracing provider: %v", err)
 		// Non-fatal: continue without tracing
 		tracingProvider, _ = tracing.InitProvider(ctx, nil)
 	}
@@ -369,12 +338,10 @@ func run(cmd *cobra.Command, args []string) error {
 			serviceName = tracingCfg.ServiceName
 		}
 		if endpoint != "" {
-			log.Printf("OpenTelemetry tracing enabled: endpoint=%s, service=%s, sampleRate=%.2f",
+			logger.StartupInfo("OpenTelemetry tracing enabled: endpoint=%s, service=%s, sampleRate=%.2f",
 				endpoint, serviceName, sampleRate)
-			logger.LogInfoMd("startup", "OpenTelemetry tracing enabled: endpoint=%s, service=%s",
-				endpoint, serviceName)
 		} else {
-			log.Printf("OpenTelemetry tracing disabled (no OTLP endpoint configured)")
+			logger.StartupInfo("OpenTelemetry tracing disabled (no OTLP endpoint configured)")
 		}
 	}
 
@@ -396,20 +363,16 @@ func run(cmd *cobra.Command, args []string) error {
 	// Create HTTP server based on mode
 	var httpServer *http.Server
 	if mode == "routed" {
-		log.Printf("Starting MCPG in ROUTED mode on %s", listenAddr)
-		log.Printf("Routes: /mcp/<server> where <server> is one of: %v", unifiedServer.GetServerIDs())
-		logger.LogInfoMd("startup", "Starting in ROUTED mode on %s", listenAddr)
-		logger.LogInfoMd("startup", "Routes: /mcp/<server> for servers: %v", unifiedServer.GetServerIDs())
+		logger.StartupInfo("Starting MCPG in ROUTED mode on %s", listenAddr)
+		logger.StartupInfo("Routes: /mcp/<server> where <server> is one of: %v", unifiedServer.GetServerIDs())
 
 		// Extract API key from gateway config (spec 7.1)
 		apiKey := cfg.GetAPIKey()
 
 		httpServer = server.CreateHTTPServerForRoutedMode(listenAddr, unifiedServer, apiKey)
 	} else {
-		log.Printf("Starting MCPG in UNIFIED mode on %s", listenAddr)
-		log.Printf("Endpoint: /mcp")
-		logger.LogInfoMd("startup", "Starting in UNIFIED mode on %s", listenAddr)
-		logger.LogInfoMd("startup", "Endpoint: /mcp")
+		logger.StartupInfo("Starting MCPG in UNIFIED mode on %s", listenAddr)
+		logger.StartupInfo("Endpoint: /mcp")
 
 		// Extract API key from gateway config (spec 7.1)
 		apiKey := cfg.GetAPIKey()

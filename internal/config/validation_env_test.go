@@ -5,16 +5,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/github/gh-aw-mcpg/internal/sys"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDetectContainerized(t *testing.T) {
+func TestDetectContainerID(t *testing.T) {
 	// This test verifies the function doesn't panic and returns consistent results
-	isContainerized, containerID := detectContainerized()
+	isContainerized, containerID := sys.DetectContainerID()
 
 	// In a test environment, we're typically not containerized
 	// but we just verify the function works
-	t.Logf("detectContainerized: isContainerized=%v, containerID=%s", isContainerized, containerID)
+	t.Logf("DetectContainerID: isContainerized=%v, containerID=%s", isContainerized, containerID)
 
 	// If we detect a container, the ID should have some content
 	if isContainerized && containerID != "" {

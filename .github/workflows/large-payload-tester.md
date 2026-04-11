@@ -46,6 +46,8 @@ sandbox:
     container: "ghcr.io/github/gh-aw-mcpg"
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-issue:
     title-prefix: "[large-payload-test] "
     labels: [mcp-gateway, test, automation]

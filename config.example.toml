@@ -35,6 +35,11 @@ tool_timeout = 120
 # Can also be set via MCP_GATEWAY_PAYLOAD_DIR environment variable or --payload-dir flag
 # payload_dir = "/tmp/jq-payloads"
 
+# Keepalive interval (seconds) for HTTP backends (default: 1500 = 25 minutes)
+# Prevents remote servers from expiring idle sessions by sending periodic pings.
+# Set to -1 to disable keepalive pings entirely.
+# keepalive_interval = 1500
+
 # ============================================================================
 # MCP Server Configurations
 # ============================================================================

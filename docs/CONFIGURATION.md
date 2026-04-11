@@ -369,6 +369,47 @@ The `customSchemas` top-level field allows you to define custom server types bey
 | `toolTimeout` | Seconds to wait for tool execution | `120` |
 | `payloadDir` | Directory for large payload files | `/tmp/jq-payloads` |
 | `trustedBots` (JSON) / `trusted_bots` (TOML) | Optional list of additional bot usernames to trust with "approved" integrity level. Additive to the built-in trusted bot list. When specified, must be a non-empty array with non-empty string entries (spec §4.1.3.4); omit the field entirely if not needed. Example: `["my-bot[bot]", "org-automation"]` | (disabled) |
+| `keepaliveInterval` (JSON) / `keepalive_interval` (TOML) | Interval (seconds) between keepalive pings sent to HTTP backends. Prevents remote servers from expiring idle sessions. Set to `-1` to disable keepalive pings entirely. | `1500` (25 min) |
+
+### OpenTelemetry / Tracing
+
+The gateway supports OpenTelemetry tracing via a nested configuration block. For JSON stdin, use `gateway.opentelemetry` only. For TOML, use `[gateway.opentelemetry]` (preferred, per spec §4.1.3.6) or the legacy TOML-only `[gateway.tracing]` key. When both TOML sections are present, `opentelemetry` takes precedence.
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `endpoint` | OTLP/HTTP collector URL. With the `opentelemetry` key, this field is required, must be non-empty, and MUST use `https://` (spec §4.1.3.6). With legacy `tracing`, an empty value disables tracing (noop tracer, zero overhead), and `http://` endpoints may be used. | (disabled) |
+| `headers` | Comma-separated `key=value` HTTP headers for export requests. Supports `${VAR}` expansion. Example: `"Authorization=Bearer ${OTEL_TOKEN}"` | (none) |
+| `traceId` (JSON) / `trace_id` (TOML) | Parent trace ID (32-char lowercase hex, W3C format) to link gateway spans into a pre-existing trace. Supports `${VAR}` expansion. | (none) |
+| `spanId` (JSON) / `span_id` (TOML) | Parent span ID (16-char lowercase hex, W3C format). Ignored without `traceId`. Supports `${VAR}` expansion. | (none) |
+| `serviceName` (JSON) / `service_name` (TOML) | The `service.name` resource attribute reported in traces. | `mcp-gateway` |
+| `sample_rate` (TOML only) | Fraction of traces sampled and exported (0.0–1.0). TOML/CLI only — not available in JSON stdin. Gateway extension, not in spec §4.1.3.6. | `1.0` |
+
+**TOML example:**
+
+```toml
+[gateway.opentelemetry]
+endpoint = "https://otel-collector.example.com"
+service_name = "mcp-gateway"
+trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
+span_id = "00f067aa0ba902b7"
+headers = "Authorization=Bearer ${OTEL_TOKEN}"
+```
+
+**JSON stdin example:**
+
+```json
+{
+  "gateway": {
+    "opentelemetry": {
+      "endpoint": "https://otel-collector.example.com",
+      "serviceName": "mcp-gateway",
+      "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+      "spanId": "00f067aa0ba902b7",
+      "headers": "Authorization=Bearer ${OTEL_TOKEN}"
+    }
+  }
+}
+```
 
 **TOML-only / CLI-only options** (not available in JSON stdin):
 

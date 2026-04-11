@@ -52,6 +52,24 @@ var (
 	ErrInvalidAuthHeader = errors.New("invalid Authorization header format")
 )
 
+// supportedAuthSchemes lists the recognized Authorization header scheme prefixes.
+// Each entry includes the trailing space that separates the scheme from the value.
+var supportedAuthSchemes = []string{"Bearer ", "Agent "}
+
+// stripAuthScheme extracts the value from a scheme-prefixed Authorization header.
+// Recognizes "Bearer " and "Agent " formats.
+// Returns (scheme, value, true) on match, or ("", authHeader, false) for plain values.
+func stripAuthScheme(authHeader string) (scheme, value string, matched bool) {
+	for _, prefix := range supportedAuthSchemes {
+		if strings.HasPrefix(authHeader, prefix) {
+			scheme = strings.TrimSuffix(prefix, " ")
+			value = strings.TrimPrefix(authHeader, prefix)
+			return scheme, value, true
+		}
+	}
+	return "", authHeader, false
+}
+
 // ParseAuthHeader parses the Authorization header and extracts the API key and agent ID.
 // Per MCP spec 7.1, the Authorization header should contain the API key directly
 // without any Bearer prefix or other scheme.
@@ -72,18 +90,9 @@ func ParseAuthHeader(authHeader string) (apiKey string, agentID string, error er
 		return "", "", ErrMissingAuthHeader
 	}
 
-	// Handle "Bearer <token>" format (backward compatibility)
-	if strings.HasPrefix(authHeader, "Bearer ") {
-		log.Print("Detected Bearer token format (backward compatibility)")
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		return token, token, nil
-	}
-
-	// Handle "Agent <agent-id>" format
-	if strings.HasPrefix(authHeader, "Agent ") {
-		log.Print("Detected Agent ID format")
-		agentIDValue := strings.TrimPrefix(authHeader, "Agent ")
-		return agentIDValue, agentIDValue, nil
+	if scheme, value, matched := stripAuthScheme(authHeader); matched {
+		log.Printf("Detected %s format", scheme)
+		return value, value, nil
 	}
 
 	// Per MCP spec 7.1: Authorization header contains API key directly
@@ -148,18 +157,13 @@ func ExtractSessionID(authHeader string) string {
 		return ""
 	}
 
-	// Handle "Bearer <token>" format (backward compatibility)
-	// Trim spaces for backward compatibility with older clients
-	if strings.HasPrefix(authHeader, "Bearer ") {
-		log.Print("Detected Bearer format, trimming spaces for backward compatibility")
-		sessionID := strings.TrimPrefix(authHeader, "Bearer ")
-		return strings.TrimSpace(sessionID)
-	}
-
-	// Handle "Agent <agent-id>" format
-	if strings.HasPrefix(authHeader, "Agent ") {
-		log.Print("Detected Agent format")
-		return strings.TrimPrefix(authHeader, "Agent ")
+	if scheme, value, matched := stripAuthScheme(authHeader); matched {
+		log.Printf("Detected %s format", scheme)
+		if scheme == "Bearer" {
+			// Trim spaces for backward compatibility with older clients
+			return strings.TrimSpace(value)
+		}
+		return value
 	}
 
 	// Plain format (per spec 7.1 - API key is session ID)

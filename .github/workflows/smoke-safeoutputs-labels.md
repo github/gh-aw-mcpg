@@ -40,6 +40,8 @@ sandbox:
   mcp:
     container: "ghcr.io/github/gh-aw-mcpg"
 safe-outputs:
+  threat-detection:
+    enabled: false
   add-labels:
     allowed: [smoke-test, verified]
     max: 2

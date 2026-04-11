@@ -26,6 +26,8 @@ tools:
   edit:
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   mentions: false
   allowed-github-references: []
   max-bot-mentions: 1

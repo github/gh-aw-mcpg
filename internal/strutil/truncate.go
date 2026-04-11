@@ -29,3 +29,18 @@ func TruncateWithSuffix(s string, maxLen int, suffix string) string {
 	}
 	return s[:maxLen] + suffix
 }
+
+// TruncateRunes truncates s to at most maxRunes Unicode code points (runes).
+// Unlike Truncate, which counts bytes, TruncateRunes is safe for non-ASCII
+// content (e.g. emoji, CJK characters). If maxRunes is 0 or negative, returns
+// an empty string.
+func TruncateRunes(s string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return ""
+	}
+	r := []rune(s)
+	if len(r) <= maxRunes {
+		return s
+	}
+	return string(r[:maxRunes])
+}

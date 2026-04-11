@@ -40,6 +40,8 @@ sandbox:
   mcp:
     container: "ghcr.io/github/gh-aw-mcpg"
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-pull-request-review-comment:
     max: 2
     target: "triggering"

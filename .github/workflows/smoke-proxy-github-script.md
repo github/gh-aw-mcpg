@@ -854,6 +854,8 @@ steps:
       echo "Proxy stopped"
 
 safe-outputs:
+    threat-detection:
+        enabled: false
     add-comment:
       hide-older-comments: true
       max: 2

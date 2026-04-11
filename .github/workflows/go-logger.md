@@ -18,6 +18,8 @@ network:
     - containers
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-pull-request:
     title-prefix: "[log] "
     labels: [enhancement, automation]

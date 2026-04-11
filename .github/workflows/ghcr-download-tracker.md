@@ -15,6 +15,8 @@ network:
     - defaults
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   mentions: false
   allowed-github-references: []
   create-issue:

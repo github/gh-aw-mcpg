@@ -463,6 +463,88 @@ func TestIsToolAllowed_Integration(t *testing.T) {
 	assert.True(t, us.isToolAllowed("unknown", "tool"))
 }
 
+// TestBuildAllowedToolSets_WildcardStar verifies that Tools: ["*"] results in no
+// entry in the sets map, meaning all tools are allowed (same as an empty list).
+func TestBuildAllowedToolSets_WildcardStar(t *testing.T) {
+	cfg := &config.Config{
+		Servers: map[string]*config.ServerConfig{
+			"wildcard":   {Tools: []string{"*"}},
+			"restricted": {Tools: []string{"a", "b"}},
+			"open":       {},
+		},
+	}
+	sets := buildAllowedToolSets(cfg)
+
+	_, hasWildcardServer := sets["wildcard"]
+	assert.False(t, hasWildcardServer, "server with wildcard must not be in the set map")
+
+	_, hasRestricted := sets["restricted"]
+	assert.True(t, hasRestricted, "restricted server should still be in the set map")
+
+	_, hasOpen := sets["open"]
+	assert.False(t, hasOpen, "open server must not be in the set map")
+}
+
+// TestBuildAllowedToolSets_WildcardMixed verifies that a "*" anywhere in the
+// Tools list causes the server to be treated as unrestricted.
+func TestBuildAllowedToolSets_WildcardMixed(t *testing.T) {
+	cfg := &config.Config{
+		Servers: map[string]*config.ServerConfig{
+			"mixed": {Tools: []string{"tool_a", "*", "tool_b"}},
+		},
+	}
+	sets := buildAllowedToolSets(cfg)
+
+	_, hasMixed := sets["mixed"]
+	assert.False(t, hasMixed, "server with wildcard in mixed list must not be in the set map")
+}
+
+// TestIsToolAllowed_Wildcard verifies that isToolAllowed returns true for any
+// tool name when the server is configured with Tools: ["*"].
+func TestIsToolAllowed_Wildcard(t *testing.T) {
+	cfg := &config.Config{
+		Servers: map[string]*config.ServerConfig{
+			"wildcard": {Tools: []string{"*"}},
+		},
+	}
+	us := &UnifiedServer{allowedToolSets: buildAllowedToolSets(cfg)}
+
+	assert.True(t, us.isToolAllowed("wildcard", "any_tool"))
+	assert.True(t, us.isToolAllowed("wildcard", "another_tool"))
+	assert.True(t, us.isToolAllowed("wildcard", "delete_everything"))
+}
+
+// TestRegisterToolsFromBackend_WildcardAllowsAll verifies that when a backend
+// is configured with Tools: ["*"], all tools from the backend are registered.
+func TestRegisterToolsFromBackend_WildcardAllowsAll(t *testing.T) {
+	require := require.New(t)
+	assert := assert.New(t)
+
+	backend := newMockMCPBackendWithTools(t, "elastic-docs", []string{"search_code", "get_file_contents", "delete_repo"})
+	defer backend.Close()
+
+	cfg := &config.Config{
+		Servers: map[string]*config.ServerConfig{
+			"elastic-docs": {
+				Type:  "http",
+				URL:   backend.URL,
+				Tools: []string{"*"}, // wildcard — all tools allowed
+			},
+		},
+	}
+
+	us, err := NewUnified(context.Background(), cfg)
+	require.NoError(err)
+	defer us.Close()
+
+	us.toolsMu.RLock()
+	defer us.toolsMu.RUnlock()
+
+	assert.Contains(us.tools, "elastic-docs___search_code", "search_code should be registered")
+	assert.Contains(us.tools, "elastic-docs___get_file_contents", "get_file_contents should be registered")
+	assert.Contains(us.tools, "elastic-docs___delete_repo", "delete_repo should be registered with wildcard")
+}
+
 // ----- helpers -----------------------------------------------------------
 
 // toolNameSet converts a []ToolInfo slice into a name -> bool map for easy lookup.

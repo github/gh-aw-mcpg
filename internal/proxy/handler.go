@@ -327,9 +327,7 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 			return
 		}
 		copyResponseHeaders(w, resp)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(resp.StatusCode)
-		w.Write(filteredJSON)
+		httputil.WriteJSONResponse(w, resp.StatusCode, json.RawMessage(filteredJSON))
 	}
 }
 
@@ -364,8 +362,6 @@ func (h *proxyHandler) writeResponse(w http.ResponseWriter, resp *http.Response,
 // and for other JSON objects it writes "{}".
 func (h *proxyHandler) writeEmptyResponse(w http.ResponseWriter, resp *http.Response, originalData interface{}) {
 	copyResponseHeaders(w, resp)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(resp.StatusCode)
 
 	var empty string
 	switch obj := originalData.(type) {
@@ -381,7 +377,7 @@ func (h *proxyHandler) writeEmptyResponse(w http.ResponseWriter, resp *http.Resp
 	default:
 		empty = "[]" // safe default for nil or unknown types
 	}
-	w.Write([]byte(empty))
+	httputil.WriteJSONResponse(w, resp.StatusCode, json.RawMessage(empty))
 }
 
 // forwardAndReadBody forwards a request to the upstream GitHub API and reads the

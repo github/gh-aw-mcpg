@@ -1,12 +1,12 @@
 package config
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/sys"
 )
 
 var logEnv = logger.New("config:validation_env")
@@ -69,7 +69,7 @@ func ValidateExecutionEnvironment() *EnvValidationResult {
 	result := &EnvValidationResult{}
 
 	// Check if running in a containerized environment
-	result.IsContainerized, result.ContainerID = detectContainerized()
+	result.IsContainerized, result.ContainerID = sys.DetectContainerID()
 	logEnv.Printf("Containerization check: isContainerized=%v, containerID=%s", result.IsContainerized, result.ContainerID)
 
 	// Check Docker daemon accessibility
@@ -145,46 +145,6 @@ func ValidateContainerizedEnvironment(containerID string) *EnvValidationResult {
 
 	logEnv.Printf("Containerized validation complete: valid=%v, errors=%d, warnings=%d", result.IsValid(), len(result.ValidationErrors), len(result.ValidationWarnings))
 	return result
-}
-
-// detectContainerized checks if we're running inside a Docker container
-// It examines /proc/self/cgroup to detect container environment and extract container ID
-func detectContainerized() (bool, string) {
-	file, err := os.Open("/proc/self/cgroup")
-	if err != nil {
-		// If we can't read cgroup, we're likely not in a container
-		return false, ""
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		// Docker containers have docker paths in cgroup
-		if strings.Contains(line, "docker") || strings.Contains(line, "containerd") {
-			// Extract container ID from the path
-			// Format is typically: 0::/docker/<container_id>
-			parts := strings.Split(line, "/")
-			for i, part := range parts {
-				if (part == "docker" || part == "containerd") && i+1 < len(parts) {
-					containerID := parts[i+1]
-					// Container IDs are 64 hex characters (or 12 for short form)
-					if len(containerID) >= 12 {
-						return true, containerID
-					}
-				}
-			}
-			// Found docker/containerd reference but couldn't extract ID
-			return true, ""
-		}
-	}
-
-	// Also check for .dockerenv file
-	if _, err := os.Stat("/.dockerenv"); err == nil {
-		return true, ""
-	}
-
-	return false, ""
 }
 
 // checkRequiredEnvVars checks if all required environment variables are set

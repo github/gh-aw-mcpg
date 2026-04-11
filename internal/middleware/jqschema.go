@@ -2,8 +2,6 @@ package middleware
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/strutil"
 	"github.com/itchyny/gojq"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -43,7 +42,7 @@ type PayloadMetadata struct {
 }
 
 // jqSchemaFilter is the jq filter that transforms JSON to schema
-// This filter leverages gojq v0.12.18 features including:
+// This filter leverages gojq v0.12.19 features including:
 // - Enhanced array handling (supports up to 536,870,912 elements / 2^29)
 // - Improved concurrent execution performance
 // - Better error messages for type errors
@@ -56,25 +55,26 @@ type PayloadMetadata struct {
 // For arrays, only the first element's schema is retained to represent the array structure.
 // Empty arrays are preserved as [].
 //
-// NOTE: This defines a custom walk function rather than using gojq's built-in walk(f).
+// NOTE: This defines a custom walk_schema function rather than using gojq's built-in walk(f).
 // The built-in walk(f) applies f to every node but preserves the original structure.
-// Our custom walk does two things the built-in cannot:
+// Our custom walk_schema does two things the built-in cannot:
 //  1. Replaces leaf values with their type name (e.g., "test" → "string")
 //  2. Collapses arrays to only the first element for schema inference
 //
 // These behaviors are incompatible with standard walk(f) semantics, which would
 // apply f post-recursion without structural changes to arrays.
+// Using a distinct name avoids shadowing gojq's built-in walk/1.
 const jqSchemaFilter = `
-def walk(f):
+def walk_schema:
   . as $in |
   if type == "object" then
-    reduce keys[] as $k ({}; . + {($k): ($in[$k] | walk(f))})
+    reduce keys[] as $k ({}; . + {($k): ($in[$k] | walk_schema)})
   elif type == "array" then
-    if length == 0 then [] else [.[0] | walk(f)] end
+    if length == 0 then [] else [.[0] | walk_schema] end
   else
     type
   end;
-walk(.)
+walk_schema
 `
 
 // Pre-compiled jq query code for performance
@@ -108,18 +108,18 @@ func init() {
 		return
 	}
 
-	logMiddleware.Printf("Successfully compiled jq schema filter at init (gojq v0.12.18)")
+	logMiddleware.Printf("Successfully compiled jq schema filter at init")
 	logger.LogInfo("startup", "jq schema filter compiled successfully - array limit: 2^29 elements, timeout: %v", DefaultJqTimeout)
 }
 
 // generateRandomID generates a random ID for payload storage
 func generateRandomID() string {
-	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
-		// Fallback to timestamp-based ID if random fails
-		return fmt.Sprintf("fallback-%d", os.Getpid())
+	id, err := strutil.RandomHex(16)
+	if err != nil {
+		// Fallback to a process- and time-based ID if random generation fails.
+		return fmt.Sprintf("fallback-%d-%d", os.Getpid(), time.Now().UnixNano())
 	}
-	return hex.EncodeToString(bytes)
+	return id
 }
 
 // applyJqSchema applies the jq schema transformation to JSON data
@@ -136,7 +136,7 @@ func generateRandomID() string {
 // Error handling:
 // - Returns compilation errors if init() failed
 // - Returns context.DeadlineExceeded if query times out
-// - Returns enhanced error messages for type errors (gojq v0.12.18+)
+// - Returns enhanced error messages for type errors (gojq v0.12.19+)
 // - Properly handles gojq.HaltError for clean halt conditions
 func applyJqSchema(ctx context.Context, jsonData interface{}) (interface{}, error) {
 	// Check if compilation succeeded at init time
@@ -153,7 +153,7 @@ func applyJqSchema(ctx context.Context, jsonData interface{}) (interface{}, erro
 	}
 
 	// Run the pre-compiled query with context support (much faster than Parse+Run)
-	// The iterator is consumed only once because the walk(.) filter produces exactly
+	// The iterator is consumed only once because the walk_schema filter produces exactly
 	// one output value (the fully-transformed schema). There is no need to drain it.
 	iter := jqSchemaCode.RunWithContext(ctx, jsonData)
 	v, ok := iter.Next()
@@ -178,7 +178,7 @@ func applyJqSchema(ctx context.Context, jsonData interface{}) (interface{}, erro
 			return nil, fmt.Errorf("jq schema filter halted with error (exit code %d): %w", haltErr.ExitCode(), err)
 		}
 
-		// Generic error case (includes enhanced v0.12.18+ type error messages)
+		// Generic error case (includes enhanced v0.12.19+ type error messages)
 		return nil, fmt.Errorf("jq schema filter error: %w", err)
 	}
 
@@ -210,19 +210,27 @@ func savePayload(baseDir, pathPrefix, sessionID, queryID string, payload []byte)
 	logger.LogInfo("payload", "Writing large payload to filesystem: path=%s, size=%d bytes (%.2f KB, %.2f MB)",
 		filePath, payloadSize, float64(payloadSize)/1024, float64(payloadSize)/(1024*1024))
 
-	if err := os.WriteFile(filePath, payload, 0644); err != nil {
+	if err := os.WriteFile(filePath, payload, 0600); err != nil {
 		logger.LogError("payload", "Failed to write payload file: path=%s, size=%d bytes, error=%v",
 			filePath, payloadSize, err)
 		return "", fmt.Errorf("failed to write payload file: %w", err)
 	}
 
-	logger.LogInfo("payload", "Successfully saved large payload to filesystem: path=%s, size=%d bytes, permissions=0644",
-		filePath, payloadSize)
+	// Enforce permissions even if the file already existed (WriteFile only sets mode on create)
+	if err := os.Chmod(filePath, 0600); err != nil {
+		logger.LogError("payload", "Failed to enforce payload file permissions: path=%s, size=%d bytes, error=%v",
+			filePath, payloadSize, err)
+		return "", fmt.Errorf("failed to set payload file permissions: %w", err)
+	}
 
-	// Verify file was written correctly
+	// Verify file was written correctly and log actual resulting mode
 	if stat, err := os.Stat(filePath); err != nil {
 		logger.LogWarn("payload", "Could not verify payload file after write: path=%s, error=%v", filePath, err)
+		logger.LogInfo("payload", "Successfully saved large payload to filesystem: path=%s, size=%d bytes",
+			filePath, payloadSize)
 	} else {
+		logger.LogInfo("payload", "Successfully saved large payload to filesystem: path=%s, size=%d bytes, permissions=%#o",
+			filePath, payloadSize, stat.Mode().Perm())
 		logger.LogDebug("payload", "Payload file verified: path=%s, size=%d bytes, mode=%s",
 			filePath, stat.Size(), stat.Mode())
 	}

@@ -18,6 +18,8 @@ tools:
   bash: true
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   github-token: ${{ secrets.CROSS_REPO_PAT }}
   max-bot-mentions: 1
   create-issue:

@@ -89,16 +89,6 @@ pub fn is_delete_operation(tool_name: &str) -> bool {
     tool_name.starts_with("delete_")
 }
 
-/// Check if a tool is an update operation
-pub fn is_update_operation(tool_name: &str) -> bool {
-    tool_name.starts_with("update_")
-}
-
-/// Check if a tool is a create operation
-pub fn is_create_operation(tool_name: &str) -> bool {
-    tool_name.starts_with("create_")
-}
-
 /// Check if a tool is a lock operation
 pub fn is_lock_operation(tool_name: &str) -> bool {
     tool_name.starts_with("lock_")

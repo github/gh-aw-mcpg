@@ -18,6 +18,8 @@ tools:
     min-integrity: unapproved
   bash: ["*"]
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-pull-request:
     title-prefix: "🤖 "
     labels: [agentic-workflows, automation, maintenance]

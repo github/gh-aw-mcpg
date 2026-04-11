@@ -1,11 +1,11 @@
 package config
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/version"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateJSONSchema(t *testing.T) {
@@ -311,9 +311,9 @@ func TestValidateJSONSchema(t *testing.T) {
 			err := validateJSONSchema([]byte(tt.config))
 
 			if tt.shouldErr {
-				assert.Error(t, err)
-				if tt.errorMsg != "" && err != nil && !strings.Contains(err.Error(), tt.errorMsg) {
-					t.Errorf("Expected error containing %q, got: %v", tt.errorMsg, err)
+				require.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
 				}
 			} else {
 				assert.NoError(t, err, "Unexpected error")
@@ -539,9 +539,9 @@ func TestValidateStringPatterns(t *testing.T) {
 			err := validateStringPatterns(tt.config)
 
 			if tt.shouldErr {
-				assert.Error(t, err)
-				if tt.errorMsg != "" && err != nil && !strings.Contains(err.Error(), tt.errorMsg) {
-					t.Errorf("Expected error containing %q, got: %v", tt.errorMsg, err)
+				require.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
 				}
 			} else {
 				assert.NoError(t, err, "Unexpected error")
@@ -580,7 +580,7 @@ func TestEnhancedErrorMessages(t *testing.T) {
 				"Location:",
 				"Error:",
 				"Details:",
-				"https://raw.githubusercontent.com/github/gh-aw/v0.67.2/docs/public/schemas/mcp-gateway-config.schema.json",
+				"https://raw.githubusercontent.com/github/gh-aw/v0.68.1/docs/public/schemas/mcp-gateway-config.schema.json",
 			},
 		},
 		{
@@ -629,16 +629,9 @@ func TestEnhancedErrorMessages(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateJSONSchema([]byte(tt.config))
 
-			if err == nil {
-				t.Errorf("Expected error but got none")
-				return
-			}
-
-			errStr := err.Error()
+			require.Error(t, err, "Expected validation to fail for: %s", tt.name)
 			for _, expected := range tt.expectInError {
-				if !strings.Contains(errStr, expected) {
-					t.Errorf("Expected error to contain %q, but it didn't.\nFull error:\n%s", expected, errStr)
-				}
+				assert.Contains(t, err.Error(), expected)
 			}
 		})
 	}
@@ -659,9 +652,7 @@ func TestSchemaCaching(t *testing.T) {
 
 	// Verify that both calls return the exact same schema instance (pointer equality)
 	// This confirms caching is working correctly
-	if schema1 != schema2 {
-		t.Error("Expected both calls to return the same cached schema instance")
-	}
+	assert.Same(t, schema1, schema2, "Both calls should return the same cached schema instance")
 
 	// Verify the cached schema can actually validate configurations
 	validConfig := `{

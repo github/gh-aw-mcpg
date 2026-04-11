@@ -10,6 +10,7 @@ on:
       - 'go.sum'
       - 'Makefile'
       - '.github/workflows/ci.yml'
+      - 'guards/**'
   workflow_dispatch:
 
 jobs:
@@ -135,9 +136,29 @@ jobs:
           path: awmg
           retention-days: 7
 
+  rust-guard-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: ci-${{ github.ref }}-rust-guard-test
+      cancel-in-progress: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@a0b538fa0b742a6aa35d6e2c169b4bd06d225a98 # v1.15.3
+        with:
+          cache-workspaces: guards/github-guard/rust-guard
+
+      - name: Run Rust guard unit tests
+        working-directory: guards/github-guard/rust-guard
+        run: cargo test --lib
+
   smoke-copilot-pr:
     runs-on: ubuntu-latest
-    needs: [unit-test, lint, integration-test]
+    needs: [unit-test, lint, integration-test, rust-guard-test]
     if: github.event_name == 'pull_request'
     permissions:
       actions: write
@@ -157,7 +178,7 @@ jobs:
 
   smoke-copilot:
     runs-on: ubuntu-latest
-    needs: [unit-test, lint, integration-test]
+    needs: [unit-test, lint, integration-test, rust-guard-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       actions: write
@@ -176,7 +197,7 @@ jobs:
 
   large-payload-tester:
     runs-on: ubuntu-latest
-    needs: [unit-test, lint, integration-test]
+    needs: [unit-test, lint, integration-test, rust-guard-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       actions: write
@@ -195,7 +216,7 @@ jobs:
 
   language-support-tester:
     runs-on: ubuntu-latest
-    needs: [unit-test, lint, integration-test]
+    needs: [unit-test, lint, integration-test, rust-guard-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       actions: write

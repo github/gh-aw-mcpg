@@ -18,6 +18,8 @@ network:
     - containers
 
 safe-outputs:
+  threat-detection:
+    enabled: false
   create-issue:
     title-prefix: "[compliance] "
     labels: [compliance, automation, specification]
@@ -42,7 +44,7 @@ tools:
   edit:
   cache-memory:
 
-timeout-minutes: 30
+timeout-minutes: 45
 strict: true
 ---
 
