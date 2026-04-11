@@ -281,7 +281,7 @@ func (g *guardBackendCaller) callCollaboratorPermission(ctx context.Context, arg
 		return nil, fmt.Errorf("get_collaborator_permission: missing owner/repo/username")
 	}
 
-	token := envutil.LookupGitHubToken()
+	token := lookupEnrichmentToken()
 	if token == "" {
 		logUnified.Printf("get_collaborator_permission: no GitHub token available for %s/%s user %s, skipping", owner, repo, username)
 		return nil, fmt.Errorf("get_collaborator_permission: no GitHub token available")
