@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -559,9 +560,9 @@ func TestLauncher_StartupTimeout(t *testing.T) {
 		expectedTimeout string
 	}{
 		{
-			name:            "default timeout (60 seconds)",
+			name:            "default timeout",
 			configTimeout:   0, // 0 means use default
-			expectedTimeout: "1m0s",
+			expectedTimeout: (time.Duration(config.DefaultStartupTimeout) * time.Second).String(),
 		},
 		{
 			name:            "custom timeout (30 seconds)",
@@ -623,8 +624,8 @@ func TestLauncher_TimeoutWithNilGateway(t *testing.T) {
 	l := New(ctx, cfg)
 	defer l.Close()
 
-	// Should use default timeout (60 seconds)
-	assert.Equal(t, "1m0s", l.startupTimeout.String())
+	// Should use default timeout
+	assert.Equal(t, (time.Duration(config.DefaultStartupTimeout)*time.Second).String(), l.startupTimeout.String())
 }
 
 func TestLauncher_OIDCProviderInitialization(t *testing.T) {

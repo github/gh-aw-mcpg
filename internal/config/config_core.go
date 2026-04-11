@@ -38,8 +38,8 @@ import (
 // Core constants for configuration defaults
 const (
 	DefaultPort              = 3000
-	DefaultStartupTimeout    = 60   // seconds
-	DefaultToolTimeout       = 120  // seconds
+	DefaultStartupTimeout    = 30   // seconds (per spec §4.1.3)
+	DefaultToolTimeout       = 60   // seconds (per spec §4.1.3)
 	DefaultKeepaliveInterval = 1500 // seconds (25 minutes) — keeps HTTP backend sessions alive
 )
 

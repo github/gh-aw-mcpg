@@ -75,7 +75,7 @@ func TestGetOrLaunch_TimeoutWithDefaultTimeout(t *testing.T) {
 	expectedDefault := time.Duration(config.DefaultStartupTimeout) * time.Second
 	assert.Equal(t, expectedDefault, l.startupTimeout, "Should use default startup timeout")
 
-	// We won't actually wait for default timeout in test (60s), just verify it's set
+	// We won't actually wait for default timeout in test (30s), just verify it's set
 	// The test would take too long to actually timeout
 }
 
