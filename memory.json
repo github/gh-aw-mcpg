@@ -1,19 +1,29 @@
 {
-  "lr": "2026-04-11T12:27Z",
+  "lr": "2026-04-12T12:29Z",
   "prs": 1,
   "m": 3002,
   "c": {
-    "3563": "2026-04-11"
+    "3563": "2026-04-11",
+    "3618": "2026-04-12",
+    "3633": "2026-04-12"
   },
   "fixes": [
     {
       "run": "2026-04-11",
       "desc": "refactor: add TruncateRunes to strutil, delegate truncateForLog, inline lookupEnrichmentToken",
       "branch": "repo-assist/improve-strutil-trunrunes-2026-04-11",
-      "pr": "pending",
+      "pr": "merged",
       "closes": null,
       "ref": 3564
+    },
+    {
+      "run": "2026-04-12",
+      "desc": "fix: remove 5 redundant log.Printf calls from connection.go, remove unused log import",
+      "branch": "repo-assist/fix-issue-3633-connection-log",
+      "pr": "open",
+      "closes": 3633,
+      "ref": 3633
     }
   ],
-  "n": "2026-04-11: Tasks 2+4 selected. (1) Task 2: Commented on #3563 (BYOK/offline mode) - clarified gateway scope, pointed to GITHUB_API_URL/token env vars. Labelled #3550 (automation), #3563 (enhancement). (2) Task 4/5: Implemented #3564 items 2+3: added strutil.TruncateRunes with tests, delegated truncateForLog, inlined lookupEnrichmentToken. Branch: repo-assist/improve-strutil-trunrunes-2026-04-11. NOTE: PR #3418 (go-logger bot) adds debug logging to lookupEnrichmentToken - potential conflict, flagged in monthly issue. Infrastructure: Go 1.25.0 toolchain unavailable (blocked by firewall), could not run tests locally. Monthly issue #3002 updated. Future: #3565 timeout defaults fix (confirm intent first), #3561 validateServerAuthConfig refactor, #3564 item 1 (move validateGuardPolicies to validation.go)."
+  "n": "2026-04-12: Tasks 2+3 selected. (1) Task 2: Commented on #3618 (reaction-based integrity promotion) - noted GraphQL injection path, Phase ordering, disapproval precedence clarification. (2) Task 3: Implemented fix for #3633 (remove 5 redundant log.Printf + unused 'log' import from connection.go). PR open: repo-assist/fix-issue-3633-connection-log. Also: PR #3574 (TruncateRunes) was MERGED on 2026-04-11. Future: #3561 validateServerAuthConfig refactor, #3565 timeout defaults fix (confirm intent first), implement Go side of #3618 Phase 3a config parsing, upgrade go-sdk once Go 1.25.0 available."
 }
