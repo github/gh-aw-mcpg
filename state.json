@@ -1,1 +1,39 @@
-{"lr":"2026-04-04T12:27Z","prs":2,"m":3002,"c":{"2988":"2026-04-01","2909":"2026-04-01","3113":"2026-04-03"},"fixes":[{"run":"2026-04-04","desc":"refactor(auth): move generateRandomAPIKey to internal/auth","branch":"repo-assist/refactor-generateRandomAPIKey-2026-04-04","pr":"pending"},{"run":"2026-04-04","desc":"build: add test-race Makefile target","branch":"repo-assist/eng-test-race-2026-04-04","pr":"pending"}],"n":"Created 2 PRs: (1) move generateRandomAPIKey to internal/auth/apikey.go; (2) add test-race Makefile target. Previous PR from 2026-04-03 (refactor-logRuntimeError) also pending. Monthly issue #3002. Future: move ExpandEnvArgs to envutil, implement health watchdog #2988, split wasm.go."}
+{
+  "lr": "2026-04-13T12:42Z",
+  "prs": 1,
+  "m": 3002,
+  "c": {
+    "3563": "2026-04-11",
+    "3618": "2026-04-12",
+    "3562": "2026-04-13",
+    "3687": "2026-04-13",
+    "3691": "2026-04-13"
+  },
+  "fixes": [
+    {
+      "run": "2026-04-11",
+      "desc": "refactor: add TruncateRunes to strutil, delegate truncateForLog, inline lookupEnrichmentToken",
+      "branch": "repo-assist/improve-strutil-trunrunes-2026-04-11",
+      "pr": "merged",
+      "closes": null,
+      "ref": 3564
+    },
+    {
+      "run": "2026-04-12",
+      "desc": "fix: remove 5 redundant log.Printf calls from connection.go, remove unused log import",
+      "branch": "repo-assist/fix-issue-3633-connection-log",
+      "pr": "closed",
+      "closes": 3633,
+      "ref": 3633
+    },
+    {
+      "run": "2026-04-13",
+      "desc": "fix(rust-guard): remove redundant match arm and unused MEDIUM_BUFFER_SIZE re-export",
+      "branch": "repo-assist/fix-issue-3691-rust-dead-code",
+      "pr": "open",
+      "closes": 3691,
+      "ref": 3691
+    }
+  ],
+  "n": "2026-04-13: Tasks 2+3 selected. (1) Task 2: Commented on #3562 (confirmed PayloadSizeThreshold drift, finalizeConfig approach) and #3687 (recommend accept-the-pattern for log quartet). (2) Task 3: Fixed #3691 (Rust dead code: collapsed redundant 'none' match arm, removed MEDIUM_BUFFER_SIZE re-export). PR open: repo-assist/fix-issue-3691-rust-dead-code. Also: #3633 was CLOSED by lpcox on 2026-04-12 (fix likely applied). Future: #3561 validateServerAuthConfig refactor, #3562 finalizeConfig refactor, implement Go side of #3618 Phase 3a config parsing, upgrade go-sdk once Go 1.25.0 available."
+}
