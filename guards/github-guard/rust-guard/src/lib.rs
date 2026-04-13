@@ -804,11 +804,10 @@ pub extern "C" fn label_response(
         };
 
         // Log output preview for debugging
-        let output_preview = if output_json.len() > 500 {
-            &output_json[..500]
-        } else {
-            &output_json
-        };
+        // NOTICE: Use floor_char_boundary to avoid panicking on multi-byte
+        // UTF-8 characters (CJK, emoji, etc.) when byte 500 falls mid-char.
+        let preview_end = output_json.floor_char_boundary(500);
+        let output_preview = &output_json[..preview_end];
         log_info(&format!("    path_output_preview={}", output_preview));
 
         if output_json.len() as u32 > output_size {
@@ -935,11 +934,10 @@ pub extern "C" fn label_response(
     };
 
     // Log output preview for debugging
-    let output_preview = if output_json.len() > 500 {
-        &output_json[..500]
-    } else {
-        &output_json
-    };
+    // NOTICE: Use floor_char_boundary to avoid panicking on multi-byte
+    // UTF-8 characters (CJK, emoji, etc.) when byte 500 falls mid-char.
+    let preview_end = output_json.floor_char_boundary(500);
+    let output_preview = &output_json[..preview_end];
     log_info(&format!("    output_preview={}", output_preview));
 
     if output_json.len() as u32 > output_size {
