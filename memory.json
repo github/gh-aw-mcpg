@@ -1,11 +1,15 @@
 {
-  "lr": "2026-04-12T12:29Z",
-  "prs": 1,
+  "lr": "2026-04-14T12:40Z",
+  "prs": 2,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
     "3618": "2026-04-12",
-    "3633": "2026-04-12"
+    "3633": "2026-04-12",
+    "3562": "2026-04-13",
+    "3687": "2026-04-13",
+    "3691": "2026-04-13",
+    "3737": "2026-04-14"
   },
   "fixes": [
     {
@@ -20,10 +24,34 @@
       "run": "2026-04-12",
       "desc": "fix: remove 5 redundant log.Printf calls from connection.go, remove unused log import",
       "branch": "repo-assist/fix-issue-3633-connection-log",
-      "pr": "open",
+      "pr": "merged",
       "closes": 3633,
-      "ref": 3633
+      "ref": 3640
+    },
+    {
+      "run": "2026-04-13",
+      "desc": "fix(rust-guard): remove redundant match arm and unused MEDIUM_BUFFER_SIZE re-export",
+      "branch": "repo-assist/fix-issue-3691-rust-dead-code",
+      "pr": "merged",
+      "closes": 3691,
+      "ref": 3701
+    },
+    {
+      "run": "2026-04-14",
+      "desc": "refactor: replace inline truncation with strutil.Truncate/sanitize.TruncateSecret",
+      "branch": "repo-assist/fix-issue-3737-inline-truncation",
+      "pr": "open",
+      "closes": 3737,
+      "ref": null
+    },
+    {
+      "run": "2026-04-14",
+      "desc": "ci: pin actions/github-script to SHA and upgrade from v7 to v9 in ci.yml",
+      "branch": "repo-assist/eng-pin-github-script-action-2026-04-14",
+      "pr": "open",
+      "closes": null,
+      "ref": null
     }
   ],
-  "n": "2026-04-12: Tasks 2+3 selected. (1) Task 2: Commented on #3618 (reaction-based integrity promotion) - noted GraphQL injection path, Phase ordering, disapproval precedence clarification. (2) Task 3: Implemented fix for #3633 (remove 5 redundant log.Printf + unused 'log' import from connection.go). PR open: repo-assist/fix-issue-3633-connection-log. Also: PR #3574 (TruncateRunes) was MERGED on 2026-04-11. Future: #3561 validateServerAuthConfig refactor, #3565 timeout defaults fix (confirm intent first), implement Go side of #3618 Phase 3a config parsing, upgrade go-sdk once Go 1.25.0 available."
+  "n": "2026-04-14: Tasks 4+3 selected. (1) Task 3: Fixed #3737 - replaced inline truncation in rpc_helpers.go (strutil.Truncate) and root.go (sanitize.TruncateSecret). PR open: repo-assist/fix-issue-3737-inline-truncation. (2) Task 4: Pinned actions/github-script@v7 to SHA 3a2844b7e9c422d3c10d287c895573f7108da1b3 (v9) in ci.yml - same SHA already used in agentics-maintenance.yml. PR open: repo-assist/eng-pin-github-script-action-2026-04-14. PRs #3640 and #3701 from previous runs were merged. Future: #3561 validateServerAuthConfig refactor, #3562 finalizeConfig helper, #3565 timeout defaults (confirm intent first), upgrade go-sdk once Go 1.25.0 available."
 }
