@@ -1,6 +1,6 @@
 {
-  "lr": "2026-04-14T12:40Z",
-  "prs": 2,
+  "lr": "2026-04-15T12:39Z",
+  "prs": 1,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
@@ -9,7 +9,10 @@
     "3562": "2026-04-13",
     "3687": "2026-04-13",
     "3691": "2026-04-13",
-    "3737": "2026-04-14"
+    "3737": "2026-04-14",
+    "3828": "2026-04-15",
+    "3829": "2026-04-15",
+    "3834": "2026-04-15"
   },
   "fixes": [
     {
@@ -40,18 +43,26 @@
       "run": "2026-04-14",
       "desc": "refactor: replace inline truncation with strutil.Truncate/sanitize.TruncateSecret",
       "branch": "repo-assist/fix-issue-3737-inline-truncation",
-      "pr": "open",
+      "pr": "merged",
       "closes": 3737,
-      "ref": null
+      "ref": 3750
     },
     {
       "run": "2026-04-14",
       "desc": "ci: pin actions/github-script to SHA and upgrade from v7 to v9 in ci.yml",
       "branch": "repo-assist/eng-pin-github-script-action-2026-04-14",
-      "pr": "open",
+      "pr": "blocked-protected-file",
       "closes": null,
+      "ref": 3751
+    },
+    {
+      "run": "2026-04-15",
+      "desc": "refactor(mcp): extract logInboundRPCResponse helper to deduplicate response logging",
+      "branch": "repo-assist/improve-connection-log-helper",
+      "pr": "open",
+      "closes": 3828,
       "ref": null
     }
   ],
-  "n": "2026-04-14: Tasks 4+3 selected. (1) Task 3: Fixed #3737 - replaced inline truncation in rpc_helpers.go (strutil.Truncate) and root.go (sanitize.TruncateSecret). PR open: repo-assist/fix-issue-3737-inline-truncation. (2) Task 4: Pinned actions/github-script@v7 to SHA 3a2844b7e9c422d3c10d287c895573f7108da1b3 (v9) in ci.yml - same SHA already used in agentics-maintenance.yml. PR open: repo-assist/eng-pin-github-script-action-2026-04-14. PRs #3640 and #3701 from previous runs were merged. Future: #3561 validateServerAuthConfig refactor, #3562 finalizeConfig helper, #3565 timeout defaults (confirm intent first), upgrade go-sdk once Go 1.25.0 available."
+  "n": "2026-04-15: Tasks 5+2 selected. Task 5: Implemented logInboundRPCResponse helper in connection.go - extracted 3 duplicate if/else blocks into one unexported helper. PR open: repo-assist/improve-connection-log-helper, closes #3828. Build blocked by proxy.golang.org firewall (infrastructure constraint). Task 2: Commented on #3834 (Rust guard improvements), #3828 (connection.go fix), #3829 (getDefault* inlining - recommended keeping functions for testability). Labelled #3830 with bug, #3802 with needs-triage. PR #3750 (fix-issue-3737) was merged 2026-04-14. Issue #3751 (github-script pin) still open - needs manual application by maintainer. Future: #3561 validateServerAuthConfig, #3562 finalizeConfig, Rust guard improvements from #3834."
 }
