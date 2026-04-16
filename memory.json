@@ -1,6 +1,6 @@
 {
-  "lr": "2026-04-15T12:39Z",
-  "prs": 1,
+  "lr": "2026-04-16T12:41Z",
+  "prs": 2,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
@@ -48,21 +48,29 @@
       "ref": 3750
     },
     {
-      "run": "2026-04-14",
-      "desc": "ci: pin actions/github-script to SHA and upgrade from v7 to v9 in ci.yml",
-      "branch": "repo-assist/eng-pin-github-script-action-2026-04-14",
-      "pr": "blocked-protected-file",
-      "closes": null,
-      "ref": 3751
+      "run": "2026-04-15",
+      "desc": "refactor(mcp): extract logInboundRPCResponse helper - CLOSED",
+      "branch": "repo-assist/improve-connection-log-helper",
+      "pr": "closed",
+      "closes": 3828,
+      "ref": 3847
     },
     {
-      "run": "2026-04-15",
-      "desc": "refactor(mcp): extract logInboundRPCResponse helper to deduplicate response logging",
-      "branch": "repo-assist/improve-connection-log-helper",
+      "run": "2026-04-16",
+      "desc": "fix(mcp): replace hardcoded 30s with defaultConnectTimeout constant, fix <= 0 guard",
+      "branch": "repo-assist/fix-issue-3933-connect-timeout",
       "pr": "open",
-      "closes": 3828,
+      "closes": 3933,
+      "ref": null
+    },
+    {
+      "run": "2026-04-16",
+      "desc": "test(mcp): add connect-timeout default behaviour tests",
+      "branch": "repo-assist/test-connect-timeout-defaults",
+      "pr": "open",
+      "closes": null,
       "ref": null
     }
   ],
-  "n": "2026-04-15: Tasks 5+2 selected. Task 5: Implemented logInboundRPCResponse helper in connection.go - extracted 3 duplicate if/else blocks into one unexported helper. PR open: repo-assist/improve-connection-log-helper, closes #3828. Build blocked by proxy.golang.org firewall (infrastructure constraint). Task 2: Commented on #3834 (Rust guard improvements), #3828 (connection.go fix), #3829 (getDefault* inlining - recommended keeping functions for testability). Labelled #3830 with bug, #3802 with needs-triage. PR #3750 (fix-issue-3737) was merged 2026-04-14. Issue #3751 (github-script pin) still open - needs manual application by maintainer. Future: #3561 validateServerAuthConfig, #3562 finalizeConfig, Rust guard improvements from #3834."
+  "n": "2026-04-16: Tasks 3+9 selected. Task 3: fix #3933 - replace hardcoded 30*time.Second with const defaultConnectTimeout=30*time.Second in connection.go, fix == 0 guard to <= 0 in reconnectSDKTransport. Task 9: add tests for connectTimeout default behavior in TestNewHTTPConnection_Default*. Both PRs open. All prev issues (#3828,#3829,#3562,#3687,#3618,#3563) are now closed. PR #3831 merged 2026-04-15. Issue #3751 closed by lpcox. Future: #3932 (consolidate logAndReturn blocks), #3935 (Rust guard match arms + path splitting). Also #3938 and #3939 are automated test PRs awaiting review."
 }
