@@ -1,6 +1,6 @@
 {
-  "lr": "2026-04-16T12:41Z",
-  "prs": 2,
+  "lr": "2026-04-17T12:38Z",
+  "prs": 1,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
@@ -12,29 +12,28 @@
     "3737": "2026-04-14",
     "3828": "2026-04-15",
     "3829": "2026-04-15",
-    "3834": "2026-04-15"
+    "3834": "2026-04-15",
+    "3932": "2026-04-17",
+    "3987": "2026-04-17",
+    "4008": "2026-04-17"
   },
   "fixes": [
     {
       "run": "2026-04-11",
-      "desc": "refactor: add TruncateRunes to strutil, delegate truncateForLog, inline lookupEnrichmentToken",
-      "branch": "repo-assist/improve-strutil-trunrunes-2026-04-11",
+      "desc": "refactor: add TruncateRunes to strutil",
       "pr": "merged",
-      "closes": null,
       "ref": 3564
     },
     {
       "run": "2026-04-12",
-      "desc": "fix: remove 5 redundant log.Printf calls from connection.go, remove unused log import",
-      "branch": "repo-assist/fix-issue-3633-connection-log",
+      "desc": "fix: remove 5 redundant log.Printf in connection.go",
       "pr": "merged",
       "closes": 3633,
       "ref": 3640
     },
     {
       "run": "2026-04-13",
-      "desc": "fix(rust-guard): remove redundant match arm and unused MEDIUM_BUFFER_SIZE re-export",
-      "branch": "repo-assist/fix-issue-3691-rust-dead-code",
+      "desc": "fix(rust-guard): remove redundant match arm and unused MEDIUM_BUFFER_SIZE",
       "pr": "merged",
       "closes": 3691,
       "ref": 3701
@@ -42,35 +41,31 @@
     {
       "run": "2026-04-14",
       "desc": "refactor: replace inline truncation with strutil.Truncate/sanitize.TruncateSecret",
-      "branch": "repo-assist/fix-issue-3737-inline-truncation",
       "pr": "merged",
       "closes": 3737,
       "ref": 3750
     },
     {
-      "run": "2026-04-15",
-      "desc": "refactor(mcp): extract logInboundRPCResponse helper - CLOSED",
-      "branch": "repo-assist/improve-connection-log-helper",
-      "pr": "closed",
-      "closes": 3828,
-      "ref": 3847
-    },
-    {
       "run": "2026-04-16",
-      "desc": "fix(mcp): replace hardcoded 30s with defaultConnectTimeout constant, fix <= 0 guard",
-      "branch": "repo-assist/fix-issue-3933-connect-timeout",
-      "pr": "open",
+      "desc": "fix(mcp): replace hardcoded 30s with defaultConnectTimeout constant",
+      "pr": "merged",
       "closes": 3933,
-      "ref": null
+      "ref": 3946
     },
     {
       "run": "2026-04-16",
       "desc": "test(mcp): add connect-timeout default behaviour tests",
-      "branch": "repo-assist/test-connect-timeout-defaults",
+      "pr": "merged",
+      "ref": 3947
+    },
+    {
+      "run": "2026-04-17",
+      "desc": "fix(rust-guard): add set_issue_fields to READ_WRITE_OPERATIONS and tool_rules",
+      "branch": "repo-assist/fix-issue-3987-set-issue-fields-guard",
       "pr": "open",
-      "closes": null,
+      "closes": 3987,
       "ref": null
     }
   ],
-  "n": "2026-04-16: Tasks 3+9 selected. Task 3: fix #3933 - replace hardcoded 30*time.Second with const defaultConnectTimeout=30*time.Second in connection.go, fix == 0 guard to <= 0 in reconnectSDKTransport. Task 9: add tests for connectTimeout default behavior in TestNewHTTPConnection_Default*. Both PRs open. All prev issues (#3828,#3829,#3562,#3687,#3618,#3563) are now closed. PR #3831 merged 2026-04-15. Issue #3751 closed by lpcox. Future: #3932 (consolidate logAndReturn blocks), #3935 (Rust guard match arms + path splitting). Also #3938 and #3939 are automated test PRs awaiting review."
+  "n": "2026-04-17: Tasks 2+4 selected. Task 4: fix #3987 - add set_issue_fields to READ_WRITE_OPERATIONS in tools.rs and granular write match arm in tool_rules.rs. All 306 Rust tests pass. PR created. Task 2: commented on #3932 (dup code already fixed), #4008 (Rust improvements valid), #3987 (linking PR). PRs #3938,#3939,#3946,#3947 all merged. Open PRs: #4002,#4011,#4012. Issue #3932 duplicate-log-block is already resolved in current code (single return path)."
 }
