@@ -1,6 +1,6 @@
 {
-  "lr": "2026-04-17T12:38Z",
-  "prs": 1,
+  "lr": "2026-04-18T12:29Z",
+  "prs": 2,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
@@ -15,7 +15,8 @@
     "3834": "2026-04-15",
     "3932": "2026-04-17",
     "3987": "2026-04-17",
-    "4008": "2026-04-17"
+    "4008": "2026-04-18",
+    "4039": "2026-04-18"
   },
   "fixes": [
     {
@@ -59,13 +60,20 @@
       "ref": 3947
     },
     {
-      "run": "2026-04-17",
-      "desc": "fix(rust-guard): add set_issue_fields to READ_WRITE_OPERATIONS and tool_rules",
-      "branch": "repo-assist/fix-issue-3987-set-issue-fields-guard",
+      "run": "2026-04-18",
+      "desc": "fix(rust-guard): eliminate scopes.clone() in label_agent + add DIFC_MODE constant",
+      "branch": "repo-assist/fix-issue-4008-rust-scopes-clone",
       "pr": "open",
-      "closes": 3987,
+      "closes": 4008,
+      "ref": null
+    },
+    {
+      "run": "2026-04-18",
+      "desc": "build: add test-rust Makefile target and include Rust tests in agent-finished",
+      "branch": "repo-assist/eng-rust-test-target-2026-04-18",
+      "pr": "open",
       "ref": null
     }
   ],
-  "n": "2026-04-17: Tasks 2+4 selected. Task 4: fix #3987 - add set_issue_fields to READ_WRITE_OPERATIONS in tools.rs and granular write match arm in tool_rules.rs. All 306 Rust tests pass. PR created. Task 2: commented on #3932 (dup code already fixed), #4008 (Rust improvements valid), #3987 (linking PR). PRs #3938,#3939,#3946,#3947 all merged. Open PRs: #4002,#4011,#4012. Issue #3932 duplicate-log-block is already resolved in current code (single return path)."
+  "n": "2026-04-18: Tasks 4+3 selected. Task 3: fixed #4008 - eliminate scopes.clone() in label_agent by reordering scope computations before PolicyContext construction; add DIFC_MODE constant. 308 Rust tests pass. Task 4: added test-rust Makefile target + included in agent-finished. Issue #4039 (set_issue_fields gap) is already fixed by Copilot PR #4049 (merged 2026-04-18). Commented on #4039 (stale) and #4008 (linking PR). Issue #3987 was closed by lpcox. No open Repo Assist PRs from previous runs."
 }
