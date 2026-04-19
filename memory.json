@@ -1,6 +1,6 @@
 {
-  "lr": "2026-04-18T12:29Z",
-  "prs": 2,
+  "lr": "2026-04-19T12:29Z",
+  "prs": 0,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
@@ -16,7 +16,8 @@
     "3932": "2026-04-17",
     "3987": "2026-04-17",
     "4008": "2026-04-18",
-    "4039": "2026-04-18"
+    "4039": "2026-04-18",
+    "4138": "2026-04-19"
   },
   "fixes": [
     {
@@ -62,18 +63,24 @@
     {
       "run": "2026-04-18",
       "desc": "fix(rust-guard): eliminate scopes.clone() in label_agent + add DIFC_MODE constant",
-      "branch": "repo-assist/fix-issue-4008-rust-scopes-clone",
-      "pr": "open",
+      "pr": "merged",
       "closes": 4008,
-      "ref": null
+      "ref": 4085
     },
     {
       "run": "2026-04-18",
       "desc": "build: add test-rust Makefile target and include Rust tests in agent-finished",
-      "branch": "repo-assist/eng-rust-test-target-2026-04-18",
+      "pr": "merged",
+      "ref": 4086
+    },
+    {
+      "run": "2026-04-19",
+      "desc": "refactor(auth): move IsMalformedHeader from server to auth package",
+      "branch": "repo-assist/improve-auth-malformed-header-check",
       "pr": "open",
+      "closes_partial": 4138,
       "ref": null
     }
   ],
-  "n": "2026-04-18: Tasks 4+3 selected. Task 3: fixed #4008 - eliminate scopes.clone() in label_agent by reordering scope computations before PolicyContext construction; add DIFC_MODE constant. 308 Rust tests pass. Task 4: added test-rust Makefile target + included in agent-finished. Issue #4039 (set_issue_fields gap) is already fixed by Copilot PR #4049 (merged 2026-04-18). Commented on #4039 (stale) and #4008 (linking PR). Issue #3987 was closed by lpcox. No open Repo Assist PRs from previous runs."
+  "n": "2026-04-19: Tasks 2+5 selected. Task 5: moved isMalformedAuthHeader from server/auth.go to internal/auth as exported IsMalformedHeader; updated call site and tests; added 12 new test cases. Task 2: commented on #4138 (automated refactoring analysis), prioritised 4 findings. PRs #4085+#4086 from 4/18 both merged by lpcox. Issues #4008 and #4039 closed by lpcox. Future: sessionSuffix extract (#4138 Issue 1), policyToMap extract (#4136)."
 }
