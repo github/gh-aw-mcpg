@@ -1,6 +1,6 @@
 {
-  "lr": "2026-04-19T12:29Z",
-  "prs": 0,
+  "lr": "2026-04-20T12:43Z",
+  "prs": 2,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
@@ -76,11 +76,26 @@
     {
       "run": "2026-04-19",
       "desc": "refactor(auth): move IsMalformedHeader from server to auth package",
-      "branch": "repo-assist/improve-auth-malformed-header-check",
-      "pr": "open",
+      "pr": "merged",
       "closes_partial": 4138,
+      "ref": 4144
+    },
+    {
+      "run": "2026-04-20",
+      "desc": "fix(server): migrate guard_init.go DIFC logs to structured logger",
+      "branch": "repo-assist/improve-difc-structured-logging",
+      "pr": "open",
+      "closes": 4175,
+      "ref": null
+    },
+    {
+      "run": "2026-04-20",
+      "desc": "refactor(proxy): replace manual guard policy validation with ParseGuardPolicyJSON",
+      "branch": "repo-assist/refactor-proxy-guardpolicy",
+      "pr": "open",
+      "closes": 4176,
       "ref": null
     }
   ],
-  "n": "2026-04-19: Tasks 2+5 selected. Task 5: moved isMalformedAuthHeader from server/auth.go to internal/auth as exported IsMalformedHeader; updated call site and tests; added 12 new test cases. Task 2: commented on #4138 (automated refactoring analysis), prioritised 4 findings. PRs #4085+#4086 from 4/18 both merged by lpcox. Issues #4008 and #4039 closed by lpcox. Future: sessionSuffix extract (#4138 Issue 1), policyToMap extract (#4136)."
+  "n": "2026-04-20: Tasks 4+5 selected. Task 5: migrated 24 log.Printf([DIFC]...) calls in guard_init.go to logger.LogInfo/LogWarn/LogError; removes log import; DIFC events now captured in log files. Task 4: simplified initGuardPolicy in proxy.go to use config.ParseGuardPolicyJSON instead of 14 lines of manual parsing. PR #4144 (auth refactor) was merged by lpcox on 2026-04-19. Future: sessionSuffix extract (#4138 Issue 1), upgrade go-sdk once proxy.golang.org unblocked."
 }
