@@ -51,7 +51,7 @@ steps:
       cache: true
 sandbox:
   mcp:
-    container: "ghcr.io/github/gh-aw-mcpg"
+    version: "v0.2.26"
 safe-outputs:
     threat-detection:
         enabled: false
