@@ -1,39 +1,108 @@
 {
-  "lr": "2026-04-13T12:42Z",
-  "prs": 1,
+  "lr": "2026-04-21T12:41Z",
+  "prs": 0,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
     "3618": "2026-04-12",
+    "3633": "2026-04-12",
     "3562": "2026-04-13",
     "3687": "2026-04-13",
-    "3691": "2026-04-13"
+    "3691": "2026-04-13",
+    "3737": "2026-04-14",
+    "3828": "2026-04-15",
+    "3829": "2026-04-15",
+    "3834": "2026-04-15",
+    "3932": "2026-04-17",
+    "3987": "2026-04-17",
+    "4008": "2026-04-18",
+    "4039": "2026-04-18",
+    "4138": "2026-04-19",
+    "4250": "2026-04-21"
   },
   "fixes": [
     {
       "run": "2026-04-11",
-      "desc": "refactor: add TruncateRunes to strutil, delegate truncateForLog, inline lookupEnrichmentToken",
-      "branch": "repo-assist/improve-strutil-trunrunes-2026-04-11",
+      "desc": "refactor: add TruncateRunes to strutil",
       "pr": "merged",
-      "closes": null,
       "ref": 3564
     },
     {
       "run": "2026-04-12",
-      "desc": "fix: remove 5 redundant log.Printf calls from connection.go, remove unused log import",
-      "branch": "repo-assist/fix-issue-3633-connection-log",
-      "pr": "closed",
+      "desc": "fix: remove 5 redundant log.Printf in connection.go",
+      "pr": "merged",
       "closes": 3633,
-      "ref": 3633
+      "ref": 3640
     },
     {
       "run": "2026-04-13",
-      "desc": "fix(rust-guard): remove redundant match arm and unused MEDIUM_BUFFER_SIZE re-export",
-      "branch": "repo-assist/fix-issue-3691-rust-dead-code",
-      "pr": "open",
+      "desc": "fix(rust-guard): remove redundant match arm and unused MEDIUM_BUFFER_SIZE",
+      "pr": "merged",
       "closes": 3691,
-      "ref": 3691
+      "ref": 3701
+    },
+    {
+      "run": "2026-04-14",
+      "desc": "refactor: replace inline truncation with strutil.Truncate/sanitize.TruncateSecret",
+      "pr": "merged",
+      "closes": 3737,
+      "ref": 3750
+    },
+    {
+      "run": "2026-04-16",
+      "desc": "fix(mcp): replace hardcoded 30s with defaultConnectTimeout constant",
+      "pr": "merged",
+      "closes": 3933,
+      "ref": 3946
+    },
+    {
+      "run": "2026-04-16",
+      "desc": "test(mcp): add connect-timeout default behaviour tests",
+      "pr": "merged",
+      "ref": 3947
+    },
+    {
+      "run": "2026-04-18",
+      "desc": "fix(rust-guard): eliminate scopes.clone() in label_agent + add DIFC_MODE constant",
+      "pr": "merged",
+      "closes": 4008,
+      "ref": 4085
+    },
+    {
+      "run": "2026-04-18",
+      "desc": "build: add test-rust Makefile target and include Rust tests in agent-finished",
+      "pr": "merged",
+      "ref": 4086
+    },
+    {
+      "run": "2026-04-19",
+      "desc": "refactor(auth): move IsMalformedHeader from server to auth package",
+      "pr": "merged",
+      "closes_partial": 4138,
+      "ref": 4144
+    },
+    {
+      "run": "2026-04-20",
+      "desc": "fix(server): migrate guard_init.go DIFC logs to structured logger",
+      "pr": "merged",
+      "closes": 4175,
+      "ref": 4191
+    },
+    {
+      "run": "2026-04-20",
+      "desc": "refactor(proxy): replace manual guard policy validation with ParseGuardPolicyJSON",
+      "pr": "merged",
+      "closes": 4176,
+      "ref": 4192
+    },
+    {
+      "run": "2026-04-21",
+      "desc": "refactor(rust-guard): extract is_any_trusted_actor helper and collapse URL fallback loop",
+      "branch": "repo-assist/fix-issue-4252-rust-guard-trusted-actor-url-loop",
+      "pr": "open",
+      "closes": 4252,
+      "ref": null
     }
   ],
-  "n": "2026-04-13: Tasks 2+3 selected. (1) Task 2: Commented on #3562 (confirmed PayloadSizeThreshold drift, finalizeConfig approach) and #3687 (recommend accept-the-pattern for log quartet). (2) Task 3: Fixed #3691 (Rust dead code: collapsed redundant 'none' match arm, removed MEDIUM_BUFFER_SIZE re-export). PR open: repo-assist/fix-issue-3691-rust-dead-code. Also: #3633 was CLOSED by lpcox on 2026-04-12 (fix likely applied). Future: #3561 validateServerAuthConfig refactor, #3562 finalizeConfig refactor, implement Go side of #3618 Phase 3a config parsing, upgrade go-sdk once Go 1.25.0 available."
+  "n": "2026-04-21: Tasks 3+2 selected. Task 3: Implemented #4252 (extract is_any_trusted_actor helper, collapse URL fallback loop in extract_repo_from_item). PR open on branch repo-assist/fix-issue-4252-rust-guard-trusted-actor-url-loop. 317/317 Rust tests pass. Task 2: Commented on #4250 (list_commits none-integrity bug on personal repos; confirmed is_org early-return root cause; recommended owner-login shortcut as primary fix). Both prev PRs #4191+#4192 merged by lpcox on 2026-04-20. Future: fix #4250 (lift is_org guard), sessionSuffix extract (#4138), upgrade go-sdk."
 }
