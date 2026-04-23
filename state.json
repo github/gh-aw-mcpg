@@ -1,6 +1,6 @@
 {
-  "lr": "2026-04-22T12:40Z",
-  "prs": 0,
+  "lr": "2026-04-23T12:40Z",
+  "prs": 2,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
@@ -35,7 +35,9 @@
     {"run": "2026-04-20", "desc": "fix(server): migrate guard_init.go DIFC logs to structured logger", "pr": "merged", "closes": 4175, "ref": 4191},
     {"run": "2026-04-20", "desc": "refactor(proxy): replace manual guard policy validation with ParseGuardPolicyJSON", "pr": "merged", "closes": 4176, "ref": 4192},
     {"run": "2026-04-21", "desc": "refactor(rust-guard): extract is_any_trusted_actor helper and collapse URL fallback loop", "pr": "merged", "closes": 4252, "ref": 4260},
-    {"run": "2026-04-22", "desc": "fix(rust-guard): remove write-only owner-type cache and simplify get_issue_author_association", "branch": "repo-assist/fix-issue-4329-backend-dead-code", "pr": "open", "closes": 4329, "ref": null}
+    {"run": "2026-04-22", "desc": "fix(rust-guard): remove write-only owner-type cache and simplify get_issue_author_association", "pr": "merged", "closes": 4329, "ref": 4339},
+    {"run": "2026-04-23", "desc": "perf(rust-guard): eliminate ctx.clone() and use &'static str in NormalizedPolicy", "branch": "repo-assist/fix-rust-guard-no-clone-static-str", "pr": "open", "closes": 4380, "ref": null},
+    {"run": "2026-04-23", "desc": "refactor(cmd): cobra UX improvements — NoArgs, MarkFlagFilename, preRun test fix", "branch": "repo-assist/improve-cobra-cli-ux", "pr": "open", "relates": 4379, "ref": null}
   ],
-  "n": "2026-04-22: Tasks 3+2 selected. Task 3: Implemented fix for #4329 (remove dead repo_owner_type_cache + set_cached_owner_is_org; simplify get_issue_author_association_with_callback to 3-line delegate). 322/322 Rust tests pass. Task 2: Commented on #4326 (MCP text-content envelope pattern; recommended BuildMCPTextResponse in internal/mcp/tool_result.go and consolidating with #4327). PR #4260 (is_any_trusted_actor) merged by lpcox on 2026-04-21. Issue #4250 closed by lpcox on 2026-04-21 as completed. Future: sessionSuffix extract (#4138), BuildMCPTextResponse + consolidate collaborator-permission code paths (#4326+#4327), upgrade go-sdk."
+  "n": "2026-04-23: Tasks 4+3 selected. Task 3: Implemented ctx.clone() elimination in Rust guard label_agent (reorder integrity before set_runtime_policy_context; move ctx not clone); added ScopeKind::as_str(); NormalizedPolicy fields &'static str; 322 Rust tests pass. Closes #4380. Task 4: cobra improvements from #4379 — Args:cobra.NoArgs on root cmd; MarkFlagFilename/MarkFlagDirname replacing 4 verbose lambdas; fixed 9 fragile preRun(nil,nil) → preRun(&cobra.Command{},nil). PR #4339 (prev run) merged by lpcox. Copilot PR #4352 merged BuildMCPTextResponse (#4326/#4327 resolved). Future: sessionSuffix extract (#4138), ParseError cleanup in config_core.go (#4328), upgrade go-sdk."
 }
