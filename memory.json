@@ -1,6 +1,6 @@
 {
-  "lr": "2026-04-20T12:43Z",
-  "prs": 2,
+  "lr": "2026-04-24T12:39Z",
+  "prs": 0,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
@@ -17,85 +17,27 @@
     "3987": "2026-04-17",
     "4008": "2026-04-18",
     "4039": "2026-04-18",
-    "4138": "2026-04-19"
+    "4138": "2026-04-19",
+    "4250": "2026-04-21",
+    "4326": "2026-04-22",
+    "4463": "2026-04-24"
   },
   "fixes": [
-    {
-      "run": "2026-04-11",
-      "desc": "refactor: add TruncateRunes to strutil",
-      "pr": "merged",
-      "ref": 3564
-    },
-    {
-      "run": "2026-04-12",
-      "desc": "fix: remove 5 redundant log.Printf in connection.go",
-      "pr": "merged",
-      "closes": 3633,
-      "ref": 3640
-    },
-    {
-      "run": "2026-04-13",
-      "desc": "fix(rust-guard): remove redundant match arm and unused MEDIUM_BUFFER_SIZE",
-      "pr": "merged",
-      "closes": 3691,
-      "ref": 3701
-    },
-    {
-      "run": "2026-04-14",
-      "desc": "refactor: replace inline truncation with strutil.Truncate/sanitize.TruncateSecret",
-      "pr": "merged",
-      "closes": 3737,
-      "ref": 3750
-    },
-    {
-      "run": "2026-04-16",
-      "desc": "fix(mcp): replace hardcoded 30s with defaultConnectTimeout constant",
-      "pr": "merged",
-      "closes": 3933,
-      "ref": 3946
-    },
-    {
-      "run": "2026-04-16",
-      "desc": "test(mcp): add connect-timeout default behaviour tests",
-      "pr": "merged",
-      "ref": 3947
-    },
-    {
-      "run": "2026-04-18",
-      "desc": "fix(rust-guard): eliminate scopes.clone() in label_agent + add DIFC_MODE constant",
-      "pr": "merged",
-      "closes": 4008,
-      "ref": 4085
-    },
-    {
-      "run": "2026-04-18",
-      "desc": "build: add test-rust Makefile target and include Rust tests in agent-finished",
-      "pr": "merged",
-      "ref": 4086
-    },
-    {
-      "run": "2026-04-19",
-      "desc": "refactor(auth): move IsMalformedHeader from server to auth package",
-      "pr": "merged",
-      "closes_partial": 4138,
-      "ref": 4144
-    },
-    {
-      "run": "2026-04-20",
-      "desc": "fix(server): migrate guard_init.go DIFC logs to structured logger",
-      "branch": "repo-assist/improve-difc-structured-logging",
-      "pr": "open",
-      "closes": 4175,
-      "ref": null
-    },
-    {
-      "run": "2026-04-20",
-      "desc": "refactor(proxy): replace manual guard policy validation with ParseGuardPolicyJSON",
-      "branch": "repo-assist/refactor-proxy-guardpolicy",
-      "pr": "open",
-      "closes": 4176,
-      "ref": null
-    }
+    {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
+    {"run":"2026-04-12","desc":"fix: remove 5 redundant log.Printf in connection.go","pr":"merged","closes":3633,"ref":3640},
+    {"run":"2026-04-13","desc":"fix(rust-guard): remove redundant match arm and unused MEDIUM_BUFFER_SIZE","pr":"merged","closes":3691,"ref":3701},
+    {"run":"2026-04-14","desc":"refactor: replace inline truncation with strutil.Truncate/sanitize.TruncateSecret","pr":"merged","closes":3737,"ref":3750},
+    {"run":"2026-04-16","desc":"fix(mcp): replace hardcoded 30s with defaultConnectTimeout constant","pr":"merged","closes":3933,"ref":3946},
+    {"run":"2026-04-16","desc":"test(mcp): add connect-timeout default behaviour tests","pr":"merged","ref":3947},
+    {"run":"2026-04-18","desc":"fix(rust-guard): eliminate scopes.clone() in label_agent + add DIFC_MODE constant","pr":"merged","closes":4008,"ref":4085},
+    {"run":"2026-04-18","desc":"build: add test-rust Makefile target and include Rust tests in agent-finished","pr":"merged","ref":4086},
+    {"run":"2026-04-19","desc":"refactor(auth): move IsMalformedHeader from server to auth package","pr":"merged","closes_partial":4138,"ref":4144},
+    {"run":"2026-04-20","desc":"fix(server): migrate guard_init.go DIFC logs to structured logger","pr":"merged","closes":4175,"ref":4191},
+    {"run":"2026-04-20","desc":"refactor(proxy): replace manual guard policy validation with ParseGuardPolicyJSON","pr":"merged","closes":4176,"ref":4192},
+    {"run":"2026-04-21","desc":"refactor(rust-guard): extract is_any_trusted_actor helper and collapse URL fallback loop","pr":"merged","closes":4252,"ref":4260},
+    {"run":"2026-04-22","desc":"fix(rust-guard): remove write-only owner-type cache and simplify get_issue_author_association","pr":"merged","closes":4329,"ref":4339},
+    {"run":"2026-04-23","desc":"perf(rust-guard): eliminate ctx.clone() and use &'static str in NormalizedPolicy","pr":"unknown","closes":4380},
+    {"run":"2026-04-23","desc":"refactor(cmd): cobra UX improvements — NoArgs, MarkFlagFilename, preRun test fix","pr":"unknown","ref":null}
   ],
-  "n": "2026-04-20: Tasks 4+5 selected. Task 5: migrated 24 log.Printf([DIFC]...) calls in guard_init.go to logger.LogInfo/LogWarn/LogError; removes log import; DIFC events now captured in log files. Task 4: simplified initGuardPolicy in proxy.go to use config.ParseGuardPolicyJSON instead of 14 lines of manual parsing. PR #4144 (auth refactor) was merged by lpcox on 2026-04-19. Future: sessionSuffix extract (#4138 Issue 1), upgrade go-sdk once proxy.golang.org unblocked."
+  "n": "2026-04-24: Tasks 1+2. Labelled #4408,#4467,#4468 with automation (smoke test issues). Commented on #4463 confirming items_path.to_string() clone issue (3 sites) and extract_items_array zero test coverage. Future: fix #4463 (trivial 3-line change + tests), sessionSuffix extract (#4138), ParseError assertion removal (#4328), upgrade go-sdk."
 }
