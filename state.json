@@ -1,6 +1,6 @@
 {
-  "lr": "2026-04-23T12:40Z",
-  "prs": 2,
+  "lr": "2026-04-25T12:30Z",
+  "prs": 1,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
@@ -20,24 +20,25 @@
     "4138": "2026-04-19",
     "4250": "2026-04-21",
     "4326": "2026-04-22",
-    "4329": "2026-04-22"
+    "4463": "2026-04-24"
   },
   "fixes": [
-    {"run": "2026-04-11", "desc": "refactor: add TruncateRunes to strutil", "pr": "merged", "ref": 3564},
-    {"run": "2026-04-12", "desc": "fix: remove 5 redundant log.Printf in connection.go", "pr": "merged", "closes": 3633, "ref": 3640},
-    {"run": "2026-04-13", "desc": "fix(rust-guard): remove redundant match arm and unused MEDIUM_BUFFER_SIZE", "pr": "merged", "closes": 3691, "ref": 3701},
-    {"run": "2026-04-14", "desc": "refactor: replace inline truncation with strutil.Truncate/sanitize.TruncateSecret", "pr": "merged", "closes": 3737, "ref": 3750},
-    {"run": "2026-04-16", "desc": "fix(mcp): replace hardcoded 30s with defaultConnectTimeout constant", "pr": "merged", "closes": 3933, "ref": 3946},
-    {"run": "2026-04-16", "desc": "test(mcp): add connect-timeout default behaviour tests", "pr": "merged", "ref": 3947},
-    {"run": "2026-04-18", "desc": "fix(rust-guard): eliminate scopes.clone() in label_agent + add DIFC_MODE constant", "pr": "merged", "closes": 4008, "ref": 4085},
-    {"run": "2026-04-18", "desc": "build: add test-rust Makefile target and include Rust tests in agent-finished", "pr": "merged", "ref": 4086},
-    {"run": "2026-04-19", "desc": "refactor(auth): move IsMalformedHeader from server to auth package", "pr": "merged", "closes_partial": 4138, "ref": 4144},
-    {"run": "2026-04-20", "desc": "fix(server): migrate guard_init.go DIFC logs to structured logger", "pr": "merged", "closes": 4175, "ref": 4191},
-    {"run": "2026-04-20", "desc": "refactor(proxy): replace manual guard policy validation with ParseGuardPolicyJSON", "pr": "merged", "closes": 4176, "ref": 4192},
-    {"run": "2026-04-21", "desc": "refactor(rust-guard): extract is_any_trusted_actor helper and collapse URL fallback loop", "pr": "merged", "closes": 4252, "ref": 4260},
-    {"run": "2026-04-22", "desc": "fix(rust-guard): remove write-only owner-type cache and simplify get_issue_author_association", "pr": "merged", "closes": 4329, "ref": 4339},
-    {"run": "2026-04-23", "desc": "perf(rust-guard): eliminate ctx.clone() and use &'static str in NormalizedPolicy", "branch": "repo-assist/fix-rust-guard-no-clone-static-str", "pr": "open", "closes": 4380, "ref": null},
-    {"run": "2026-04-23", "desc": "refactor(cmd): cobra UX improvements — NoArgs, MarkFlagFilename, preRun test fix", "branch": "repo-assist/improve-cobra-cli-ux", "pr": "open", "relates": 4379, "ref": null}
+    {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
+    {"run":"2026-04-12","desc":"fix: remove 5 redundant log.Printf in connection.go","pr":"merged","closes":3633,"ref":3640},
+    {"run":"2026-04-13","desc":"fix(rust-guard): remove redundant match arm and unused MEDIUM_BUFFER_SIZE","pr":"merged","closes":3691,"ref":3701},
+    {"run":"2026-04-14","desc":"refactor: replace inline truncation with strutil.Truncate/sanitize.TruncateSecret","pr":"merged","closes":3737,"ref":3750},
+    {"run":"2026-04-16","desc":"fix(mcp): replace hardcoded 30s with defaultConnectTimeout constant","pr":"merged","closes":3933,"ref":3946},
+    {"run":"2026-04-16","desc":"test(mcp): add connect-timeout default behaviour tests","pr":"merged","ref":3947},
+    {"run":"2026-04-18","desc":"fix(rust-guard): eliminate scopes.clone() in label_agent + add DIFC_MODE constant","pr":"merged","closes":4008,"ref":4085},
+    {"run":"2026-04-18","desc":"build: add test-rust Makefile target and include Rust tests in agent-finished","pr":"merged","ref":4086},
+    {"run":"2026-04-19","desc":"refactor(auth): move IsMalformedHeader from server to auth package","pr":"merged","closes_partial":4138,"ref":4144},
+    {"run":"2026-04-20","desc":"fix(server): migrate guard_init.go DIFC logs to structured logger","pr":"merged","closes":4175,"ref":4191},
+    {"run":"2026-04-20","desc":"refactor(proxy): replace manual guard policy validation with ParseGuardPolicyJSON","pr":"merged","closes":4176,"ref":4192},
+    {"run":"2026-04-21","desc":"refactor(rust-guard): extract is_any_trusted_actor helper and collapse URL fallback loop","pr":"merged","closes":4252,"ref":4260},
+    {"run":"2026-04-22","desc":"fix(rust-guard): remove write-only owner-type cache and simplify get_issue_author_association","pr":"merged","closes":4329,"ref":4339},
+    {"run":"2026-04-23","desc":"perf(rust-guard): eliminate ctx.clone() and use &'static str in NormalizedPolicy","pr":"merged","closes":4380,"ref":4394},
+    {"run":"2026-04-23","desc":"refactor(cmd): cobra UX improvements — NoArgs, MarkFlagFilename, preRun test fix","pr":"merged","ref":4395},
+    {"run":"2026-04-25","desc":"refactor(launcher): extract getServerConfig helper","branch":"repo-assist/refactor-launcher-getserverconfig-4542","pr":"open","closes":4542}
   ],
-  "n": "2026-04-23: Tasks 4+3 selected. Task 3: Implemented ctx.clone() elimination in Rust guard label_agent (reorder integrity before set_runtime_policy_context; move ctx not clone); added ScopeKind::as_str(); NormalizedPolicy fields &'static str; 322 Rust tests pass. Closes #4380. Task 4: cobra improvements from #4379 — Args:cobra.NoArgs on root cmd; MarkFlagFilename/MarkFlagDirname replacing 4 verbose lambdas; fixed 9 fragile preRun(nil,nil) → preRun(&cobra.Command{},nil). PR #4339 (prev run) merged by lpcox. Copilot PR #4352 merged BuildMCPTextResponse (#4326/#4327 resolved). Future: sessionSuffix extract (#4138), ParseError cleanup in config_core.go (#4328), upgrade go-sdk."
+  "n": "2026-04-25: Tasks 4+1. Task 4: Extracted getServerConfig helper method in launcher.go (closes #4542) — deduplicates server config lookup in GetOrLaunch/GetOrLaunchForSession; moves lookup before write-lock. Task 1: Unlabelled issues #4547/#4548 are smoke test automation — no suitable labels available. #4463 closed by lpcox (completed). Future: sessionSuffix extract (#4138), ParseError cleanup (#4328), upgrade go-sdk, logger boilerplate (#4541)."
 }
