@@ -1,6 +1,6 @@
 {
-  "lr": "2026-04-26T12:32Z",
-  "prs": 0,
+  "lr": "2026-04-27T12:52Z",
+  "prs": 1,
   "m": 3002,
   "c": {
     "3563": "2026-04-11",
@@ -21,7 +21,8 @@
     "4250": "2026-04-21",
     "4326": "2026-04-22",
     "4463": "2026-04-24",
-    "4571": "2026-04-26"
+    "4571": "2026-04-26",
+    "4645": "2026-04-27"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -40,7 +41,8 @@
     {"run":"2026-04-23","desc":"perf(rust-guard): eliminate ctx.clone() and use &'static str in NormalizedPolicy","pr":"merged","ref":4394},
     {"run":"2026-04-23","desc":"refactor(cmd): cobra UX improvements — NoArgs, MarkFlagFilename, preRun test fix","pr":"merged","ref":4395},
     {"run":"2026-04-25","desc":"refactor(launcher): extract getServerConfig helper","pr":"merged","closes":4542,"ref":4550},
-    {"run":"2026-04-26","desc":"fix(mcp): remove duplicate debug log statements in HTTP transport","pr":"open","closes":"4584,4585","branch":"repo-assist/fix-issue-4584-4585-duplicate-debug-logs"}
+    {"run":"2026-04-26","desc":"fix(mcp): remove duplicate debug log statements in HTTP transport","pr":"merged","closes":"4584,4585","ref":4592},
+    {"run":"2026-04-27","desc":"perf(rust-guard): eliminate heap allocs in extract_items_array and policy_scope_token","pr":"open","closes":4644,"branch":"repo-assist/improve-rust-guard-heap-allocs-4644"}
   ],
-  "n": "2026-04-26: Tasks 3+10. Commented on #4571 (all 12 DIFC gaps already covered in tool_rules.rs, suggest close). Created PR to fix duplicate debug logs in connection.go + http_transport.go (closes #4584, #4585). Future: sessionSuffix extract (#4138), ParseError assertion removal (#4328), upgrade go-sdk, logger boilerplate (#4541)."
+  "n": "2026-04-27: Tasks 5+2. Created PR for rust-guard heap alloc improvements (closes #4644). Commented on #4645 (semantic function clustering - confirmed all 3 suggestions accurate). Future: sessionSuffix extract (#4138), ParseError assertion removal (#4328), split mcp/connection.go (#4645), extract proxy/response_transform.go (#4645)."
 }
