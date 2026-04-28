@@ -1,5 +1,5 @@
 {
-  "lr": "2026-04-25T12:30Z",
+  "lr": "2026-04-28T12:56Z",
   "prs": 1,
   "m": 3002,
   "c": {
@@ -20,7 +20,11 @@
     "4138": "2026-04-19",
     "4250": "2026-04-21",
     "4326": "2026-04-22",
-    "4463": "2026-04-24"
+    "4463": "2026-04-24",
+    "4571": "2026-04-26",
+    "4645": "2026-04-27",
+    "4716": "2026-04-28",
+    "4717": "2026-04-28"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -36,9 +40,12 @@
     {"run":"2026-04-20","desc":"refactor(proxy): replace manual guard policy validation with ParseGuardPolicyJSON","pr":"merged","closes":4176,"ref":4192},
     {"run":"2026-04-21","desc":"refactor(rust-guard): extract is_any_trusted_actor helper and collapse URL fallback loop","pr":"merged","closes":4252,"ref":4260},
     {"run":"2026-04-22","desc":"fix(rust-guard): remove write-only owner-type cache and simplify get_issue_author_association","pr":"merged","closes":4329,"ref":4339},
-    {"run":"2026-04-23","desc":"perf(rust-guard): eliminate ctx.clone() and use &'static str in NormalizedPolicy","pr":"merged","closes":4380,"ref":4394},
-    {"run":"2026-04-23","desc":"refactor(cmd): cobra UX improvements — NoArgs, MarkFlagFilename, preRun test fix","pr":"merged","ref":4395},
-    {"run":"2026-04-25","desc":"refactor(launcher): extract getServerConfig helper","branch":"repo-assist/refactor-launcher-getserverconfig-4542","pr":"open","closes":4542}
+    {"run":"2026-04-23","desc":"perf(rust-guard): eliminate ctx.clone() and use &static str in NormalizedPolicy","pr":"merged","ref":4394},
+    {"run":"2026-04-23","desc":"refactor(cmd): cobra UX improvements NoArgs MarkFlagFilename preRun test fix","pr":"merged","ref":4395},
+    {"run":"2026-04-25","desc":"refactor(launcher): extract getServerConfig helper","pr":"merged","closes":4542,"ref":4550},
+    {"run":"2026-04-26","desc":"fix(mcp): remove duplicate debug log statements in HTTP transport","pr":"merged","closes":"4584,4585","ref":4592},
+    {"run":"2026-04-27","desc":"perf(rust-guard): eliminate heap allocs in extract_items_array and policy_scope_token","pr":"merged","closes":4644,"ref":4654},
+    {"run":"2026-04-28","desc":"test(strutil): add RandomHexWithFallback and simplify jqschema.go","pr":"open","closes_partial":4717,"branch":"repo-assist/test-strutil-randomhexwithfallback"}
   ],
-  "n": "2026-04-25: Tasks 4+1. Task 4: Extracted getServerConfig helper method in launcher.go (closes #4542) — deduplicates server config lookup in GetOrLaunch/GetOrLaunchForSession; moves lookup before write-lock. Task 1: Unlabelled issues #4547/#4548 are smoke test automation — no suitable labels available. #4463 closed by lpcox (completed). Future: sessionSuffix extract (#4138), ParseError cleanup (#4328), upgrade go-sdk, logger boilerplate (#4541)."
+  "n": "2026-04-28: Tasks 9+2. Created PR for strutil.RandomHexWithFallback (implements #4717 Improvement 2). Commented on #4716 (rust-guard: extract post-integrity helper + const bot list) and #4717 (semantic function clustering). Last PR #4654 merged. Future: sessionSuffix extract (#4138), ParseError assertion removal (#4328), split mcp/connection.go (#4645), extract sanitize.MarshalAndSanitize (#4717)."
 }
