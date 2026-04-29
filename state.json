@@ -1,5 +1,5 @@
 {
-  "lr": "2026-04-28T12:56Z",
+  "lr": "2026-04-29T12:52Z",
   "prs": 1,
   "m": 3002,
   "c": {
@@ -45,7 +45,8 @@
     {"run":"2026-04-25","desc":"refactor(launcher): extract getServerConfig helper","pr":"merged","closes":4542,"ref":4550},
     {"run":"2026-04-26","desc":"fix(mcp): remove duplicate debug log statements in HTTP transport","pr":"merged","closes":"4584,4585","ref":4592},
     {"run":"2026-04-27","desc":"perf(rust-guard): eliminate heap allocs in extract_items_array and policy_scope_token","pr":"merged","closes":4644,"ref":4654},
-    {"run":"2026-04-28","desc":"test(strutil): add RandomHexWithFallback and simplify jqschema.go","pr":"open","closes_partial":4717,"branch":"repo-assist/test-strutil-randomhexwithfallback"}
+    {"run":"2026-04-28","desc":"test(strutil): add RandomHexWithFallback and simplify jqschema.go","pr":"open","closes_partial":4717,"branch":"repo-assist/test-strutil-randomhexwithfallback"},
+    {"run":"2026-04-29","desc":"perf(middleware): eliminate os.Stat syscall and json.Marshal in large-payload path","pr":"open","branch":"repo-assist/perf-jqschema-unnecessary-ops"}
   ],
-  "n": "2026-04-28: Tasks 9+2. Created PR for strutil.RandomHexWithFallback (implements #4717 Improvement 2). Commented on #4716 (rust-guard: extract post-integrity helper + const bot list) and #4717 (semantic function clustering). Last PR #4654 merged. Future: sessionSuffix extract (#4138), ParseError assertion removal (#4328), split mcp/connection.go (#4645), extract sanitize.MarshalAndSanitize (#4717)."
+  "n": "2026-04-29: Tasks 1+8. Labelled #4757 (automation). Created PR for jqschema perf: remove os.Stat after Chmod (save syscall) and json.Marshal(schemaObj) used only for debug log. Future: sessionSuffix extract (#4138), ParseError assertion removal (#4328), extract sanitize.MarshalAndSanitize (#4717)."
 }
