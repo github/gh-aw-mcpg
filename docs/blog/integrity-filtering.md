@@ -59,16 +59,16 @@ Categorize and label new issues from trusted contributors...
 
 The `repos` field scopes which repositories the agent can access—here, only `myorg/web-app`. The `min-integrity` field sets the trust floor: only content from owners, members, collaborators, and trusted bots reaches the agent. Together, these two fields define a precise boundary: *what* the agent can see and *how trustworthy* that content must be. Both are enforced through the MCP server and the CLI proxy, so the agent has no unfiltered path.
 
+The `repos` field accepts several formats:
+
+| Value | Meaning |
+|-------|---------|
+| `"myorg/web-app"` | A single repository |
+| `"myorg/*"` | All repositories in an organization (wildcard) |
+| `"public"` | Any public repository on GitHub |
+| `"all"` | All repositories the agent's token can access (public and private) |
+
 When the workflow is compiled and runs, the `gh aw` framework configures both the MCP gateway and the proxy with the same policy, ensuring uniform enforcement regardless of how the agent accesses GitHub.
-
-You can use wildcards in `repos` to scope access to an entire organization:
-
-```yaml
-tools:
-  github:
-    repos: "myorg/*"
-    min-integrity: approved
-```
 
 ### Choosing the right level
 
