@@ -42,12 +42,13 @@ With filtering in place, a maintainer can align their risk tolerance and a workf
 
 ## Using integrity filtering
 
-Configuration is intentionally simple. In a workflow frontmatter, add `min-integrity` under `tools.github`:
+Configuration is intentionally simple. In a workflow frontmatter, add `repos` and `min-integrity` under `tools.github`:
 
 ```yaml
 ---
 tools:
   github:
+    repos: "myorg/web-app"
     min-integrity: approved
 ---
 
@@ -56,11 +57,11 @@ tools:
 Categorize and label new issues from trusted contributors...
 ```
 
-That single line ensures only content from owners, members, collaborators, and trusted bots reaches the agent—through *both* the MCP server and the CLI. Everything else is silently filtered.
+The `repos` field scopes which repositories the agent can access—here, only `myorg/web-app`. The `min-integrity` field sets the trust floor: only content from owners, members, collaborators, and trusted bots reaches the agent. Together, these two fields define a precise boundary: *what* the agent can see and *how trustworthy* that content must be. Both are enforced through the MCP server and the CLI proxy, so the agent has no unfiltered path.
 
 When the workflow is compiled and runs, the `gh aw` framework configures both the MCP gateway and the proxy with the same policy, ensuring uniform enforcement regardless of how the agent accesses GitHub.
 
-You can combine integrity filtering with repository scoping for precise control:
+You can use wildcards in `repos` to scope access to an entire organization:
 
 ```yaml
 tools:
