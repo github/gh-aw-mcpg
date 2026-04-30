@@ -72,22 +72,22 @@ Importantly, integrity filtering remains bound by the permissions of a workflow'
 
 ## Under the hood: Decentralized Information Flow Control (DIFC)
 
-Integrity filtering is built on a formal security model called **Decentralized Information Flow Control** (DIFC). DIFC is a well-studied approach to tracking what data has been exposed to whom, and it gives us two properties that are hard to achieve with ad-hoc filtering: *composability* (policies combine safely as you add tools) and *fail-closed semantics* (unlabeled data is denied, not allowed).
+Integrity filtering is an abstraction layer above a formal security model called **Decentralized Information Flow Control** (DIFC). DIFC is a well-studied approach to controlling and tracking the integrity and secrecy of data that a process has been exposed to, and it gives us a critical property that is difficult to achieve with ad-hoc filtering: *composability* (policies combine safely as you add tools and data sources).
 
 ### A brief primer on DIFC
 
 In a DIFC system, every piece of data and every actor (our agent) carries a pair of labels:
 
-- **Secrecy labels** track *where data came from*. A response from a private repository gets a secrecy tag like `repo:myorg/web-app`. For the agent to read that data, its own secrecy label must already include that tag—meaning it has clearance for that repository.
-- **Integrity labels** track *how trustworthy data is*. Content merged to `main` by a maintainer carries more integrity than a comment from an anonymous user. For the agent to consume that data, the data's integrity must meet or exceed the agent's minimum.
+- **Secrecy labels** track *where data came from*. A response from a private repository gets a secrecy tag like `repo:myorg/web-app`. For an agent to read data, the agent's secrecy label must already include the data's to indicate that the agent has clearance for the repository.
+- **Integrity labels** track *how trustworthy data is*. Content merged to `main` by a maintainer carries more integrity than a comment from an anonymous user. For an agent to consume data, the data's integrity must meet or exceed the agent's.
 
-The core rule is simple and directional:
+The core communication rules are simple and powerful:
 
-> **Reads**: data flows *up* to the agent. The resource's secrecy tags must be a subset of the agent's clearance, and the resource's integrity tags must be a superset of the agent's minimum.
+> **Reads**: data flows *up* to the agent. A resource's secrecy tags must be a subset of the agent's clearance, and the resource's integrity tags must be a superset of the agent's minimum.
 >
 > **Writes**: data flows *down* from the agent. The inverse constraints apply, preventing the agent from leaking secret data to less-privileged destinations.
 
-These two constraints are evaluated as set operations on opaque tags—a comparison the engine can perform without knowing what the tags mean.
+These two constraints are evaluated as set operations on opaque tag by a small reference monitor. Composability arises from the monitor's allowing and blowing communication without needing to know what tags mean.
 
 ### Guards and the engine
 
@@ -102,17 +102,17 @@ The system is split into two layers:
 └────────────────────┬──────────────────────┘
                      │ tags
 ┌────────────────────▼──────────────────────┐
-│             DIFC Evaluator (Go)            │
+│             DIFC Reference Monitor (Go)            │
 │  Compares tag sets. Enforces flow rules.   │
 │  Knows nothing about GitHub or any tool.   │
 └───────────────────────────────────────────┘
 ```
 
-**Guards** are domain-specific, sandboxed WebAssembly modules. The GitHub guard understands GitHub metadata: it knows that a PR review comment from a `COLLABORATOR` should carry `approved` integrity, that a commit reachable from the default branch is `merged`, and that a `NONE` author association maps to the `none` integrity level. The guard inspects tool arguments and response metadata, then returns a set of opaque tags.
+**Guards** encapsulate a data-source's semantics and implemented as domain-specific, sandboxed WebAssembly modules. The GitHub guard understands GitHub metadata: it knows that a PR review comment from a `COLLABORATOR` should carry `approved` integrity, that a commit reachable from the default branch is `merged`, and that a `NONE` author association maps to the `none` integrity level. The guard inspects tool arguments and response metadata, then returns a set of opaque tags.
 
-The **DIFC evaluator** is generic. It receives the agent's labels and the resource's labels, performs the subset/superset comparison, and returns an allow, deny, or propagate decision. It doesn't know—or need to know—that a tag like `integrity:approved` has anything to do with GitHub's author association model. To the evaluator, tags are just strings in a set.
+The **DIFC reference monitor** is generic. It receives the agent's labels and the resource's labels, performs the subset/superset comparison, and returns an allow, deny, or propagate decision. It doesn't know that a tag like `integrity:approved` has anything to do with GitHub's author association model. For the reference monitor, labels are sets of tags and tags are opaque strings.
 
-This separation matters. Adding a new data source (say, Jira or a private API) requires writing a new guard that understands that source's trust semantics, but the evaluator doesn't change. The flow rules, the label propagation logic, and the collection filtering all stay the same.
+This separation matters. Adding a new data source (say, Jira or a private API) requires writing a new guard that understands that source's trust semantics, but the evaluator doesn't change. The flow rules, the label propagation logic, and the collection filtering all stay the same. 
 
 ### The pipeline
 
@@ -130,7 +130,80 @@ The result is that the agent only ever sees data that meets the policy threshold
 
 ## Escape hatches
 
+A single `min-integrity` value covers most scenarios, but real-world workflows need exceptions. The policy language exposes several escape hatches that let you promote or demote individual items without changing the integrity floor.
 
+### Trusted users and bots
+
+Some accounts should always be treated as trusted, regardless of their `author_association`. You can specify these in the policy:
+
+```yaml
+tools:
+  github:
+    repos: "myorg/*"
+    min-integrity: approved
+    trusted-users: ["release-manager"]
+    trusted-bots: ["renovate", "dependabot"]
+```
+
+Content from `trusted-users` and `trusted-bots` is elevated to `approved` integrity, the same level as owners, members, and collaborators. The built-in trusted bot list already includes first-party GitHub bots (like Copilot and Dependabot), and your additions are additive—they extend the list without overriding it.
+
+### Blocked users
+
+The inverse of trusted users. Content from blocked accounts is unconditionally denied, regardless of any other policy settings:
+
+```yaml
+tools:
+  github:
+    repos: "myorg/*"
+    min-integrity: unapproved
+    blocked-users: ["known-spammer"]
+```
+
+Blocked users take the highest precedence—approval labels, endorsement reactions, and trusted-user lists cannot override a block.
+
+### Approval labels
+
+Sometimes a maintainer wants to greenlight specific issues or pull requests for agent consumption without changing the author's trust level. Approval labels let you do this from the GitHub UI:
+
+```yaml
+tools:
+  github:
+    repos: "myorg/web-app"
+    min-integrity: approved
+    approval-labels: ["agent-approved", "triaged"]
+```
+
+When a maintainer adds one of these GitHub labels to an issue or PR, the item's integrity is promoted to `approved`. This is useful for triage workflows where community-submitted issues need to pass through a human review gate before reaching the agent.
+
+### Reactions: promoting and demoting individual items
+
+Sometimes the most convenient escape hatch is the one already in your workflow: emoji reactions. Maintainers can endorse or disapprove individual comments, issues, and pull requests directly in the GitHub UI with a reaction, and the guard will adjust integrity accordingly.
+
+```yaml
+tools:
+  github:
+    repos: "myorg/web-app"
+    min-integrity: approved
+    endorsement-reactions: ["THUMBS_UP", "HEART"]
+    disapproval-reactions: ["THUMBS_DOWN"]
+```
+
+When a qualified maintainer (someone whose own integrity meets the `endorser-min-integrity` threshold, defaulting to `approved`) reacts with an endorsement reaction, the item is promoted to `approved`. A disapproval reaction caps the item's integrity at a configured floor (defaulting to `none`), effectively hiding it from the agent.
+
+Disapproval overrides endorsement—if an item has both a 👍 and a 👎 from qualified maintainers, the disapproval wins. This gives maintainers a quick, lightweight moderation tool: scan a thread, thumbs-up the comments worth keeping, and thumbs-down anything the agent shouldn't see.
+
+### How the pieces compose
+
+These escape hatches are evaluated in a specific order during response labeling:
+
+1. **Author association** sets the initial integrity floor
+2. **Trusted users/bots** elevate matching authors to `approved`
+3. **Approval labels** promote labeled items to `approved`
+4. **Endorsement reactions** promote endorsed items to `approved`
+5. **Disapproval reactions** cap integrity (overrides steps 2–4)
+6. **Blocked users** unconditionally deny (overrides everything)
+
+Integrity is monotonically non-decreasing through steps 1–4 (each step can only raise it), and the final two steps act as hard caps. This ordering means you can layer policies without worrying about unexpected interactions: trusted users can be blocked, approval labels can be disapproved, and blocked users cannot be promoted by any mechanism.
 
 
 ## Debugging and observability
