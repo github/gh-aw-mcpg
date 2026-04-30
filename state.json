@@ -1,5 +1,5 @@
 {
-  "lr": "2026-04-29T12:52Z",
+  "lr": "2026-04-30T12:51Z",
   "prs": 1,
   "m": 3002,
   "c": {
@@ -24,7 +24,9 @@
     "4571": "2026-04-26",
     "4645": "2026-04-27",
     "4716": "2026-04-28",
-    "4717": "2026-04-28"
+    "4717": "2026-04-28",
+    "4847": "2026-04-30",
+    "4848": "2026-04-30"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -45,8 +47,9 @@
     {"run":"2026-04-25","desc":"refactor(launcher): extract getServerConfig helper","pr":"merged","closes":4542,"ref":4550},
     {"run":"2026-04-26","desc":"fix(mcp): remove duplicate debug log statements in HTTP transport","pr":"merged","closes":"4584,4585","ref":4592},
     {"run":"2026-04-27","desc":"perf(rust-guard): eliminate heap allocs in extract_items_array and policy_scope_token","pr":"merged","closes":4644,"ref":4654},
-    {"run":"2026-04-28","desc":"test(strutil): add RandomHexWithFallback and simplify jqschema.go","pr":"open","closes_partial":4717,"branch":"repo-assist/test-strutil-randomhexwithfallback"},
-    {"run":"2026-04-29","desc":"perf(middleware): eliminate os.Stat syscall and json.Marshal in large-payload path","pr":"open","branch":"repo-assist/perf-jqschema-unnecessary-ops"}
+    {"run":"2026-04-28","desc":"test(strutil): add RandomHexWithFallback and simplify jqschema.go","pr":"closed","closes_partial":4717,"ref":4729},
+    {"run":"2026-04-29","desc":"perf(middleware): eliminate os.Stat syscall and json.Marshal in large-payload path","pr":"closed","ref":4788},
+    {"run":"2026-04-30","desc":"refactor(rust-guard): add scope_names constants and replace bare literals","pr":"open","closes":4846,"branch":"repo-assist/fix-issue-4846-scope-constants"}
   ],
-  "n": "2026-04-29: Tasks 1+8. Labelled #4757 (automation). Created PR for jqschema perf: remove os.Stat after Chmod (save syscall) and json.Marshal(schemaObj) used only for debug log. Future: sessionSuffix extract (#4138), ParseError assertion removal (#4328), extract sanitize.MarshalAndSanitize (#4717)."
+  "n": "2026-04-30: Tasks 3+2. Created PR for rust-guard scope_names constants (closes #4846). Commented on #4847 (getTracer inline rec) and #4848 (pointed to PR #4849). Future: sessionSuffix extract (#4138), ParseError assertion removal (#4328), extract sanitize.MarshalAndSanitize (#4717), add label_response_items tests (#4846 improvement 2)."
 }
