@@ -72,61 +72,30 @@ Importantly, integrity filtering remains bound by the permissions of a workflow'
 
 ## Under the hood: Decentralized Information Flow Control (DIFC)
 
-Integrity filtering is an abstraction layer above a formal security model called **Decentralized Information Flow Control** (DIFC). DIFC is a well-studied approach to controlling and tracking the integrity and secrecy of data that a process has been exposed to, and it gives us a critical property that is difficult to achieve with ad-hoc filtering: *composability* (policies combine safely as you add tools and data sources).
+Integrity filtering is an abstraction layer above a formal security model called **Decentralized Information Flow Control** (DIFC). DIFC is a well-studied approach to controlling and tracking the integrity and secrecy of data that a process has been exposed to. DIFC also gives us  *composability* (policies combine safely as we add tools and data sources), which is a critical property that is hard to achieve with more ad-hoc approaches.
 
 ### A brief primer on DIFC
 
-In a DIFC system, every piece of data and every actor (our agent) carries a pair of labels:
+In a DIFC system, every data item and every actor (e.g., agent) carries a pair of labels that are each a set of tags:
 
-- **Secrecy labels** track *where data came from*. A response from a private repository gets a secrecy tag like `repo:myorg/web-app`. For an agent to read data, the agent's secrecy label must already include the data's to indicate that the agent has clearance for the repository.
-- **Integrity labels** track *how trustworthy data is*. Content merged to `main` by a maintainer carries more integrity than a comment from an anonymous user. For an agent to consume data, the data's integrity must meet or exceed the agent's.
+- **Secrecy labels** track *where data came from*. A response from a private repository carries a secrecy tag like `repo:myorg/web-app`. For an agent to read that data, the agent's secrecy label must already include the tag to indicate that the agent is allowed to read from the repository.
+- **Integrity labels** track *how trustworthy data is*. Content merged to `main` carries more integrity than a comment from an anonymous user. For an agent to read a data item, the item's integrity label must be the same or a superset of the agent's. A tag in an integrity label can be thought of as an endorsement.
 
-The core communication rules are simple and powerful:
+Two simple and powerful communication rules govern how actors can (and cannot) communicate and what data they can (and cannot) access:
 
-> **Reads**: data flows *up* to the agent. A resource's secrecy tags must be a subset of the agent's clearance, and the resource's integrity tags must be a superset of the agent's minimum.
+> **Reads**: data flows *up* to the agent. A resource's secrecy label must be a subset of the agent's, and the resource's integrity label must be a superset of the agent's minimum.
 >
-> **Writes**: data flows *down* from the agent. The inverse constraints apply, preventing the agent from leaking secret data to less-privileged destinations.
+> **Writes**: data flows *down* from the agent. The inverse constraints also apply and prevent the agent from leaking secret data to less-privileged destinations and from exposing itself to low-integrity data.
 
-These two constraints are evaluated as set operations on opaque tag by a small reference monitor. Composability arises from the monitor's allowing and blowing communication without needing to know what tags mean.
+These rules constraints are enforced by a small reference monitor as set operations on labels of opaque tags. 
 
-### Guards and the engine
+### Composability and guards 
 
-The system is split into two layers:
+DIFC systems need data to be labeled by something that understands it. Agentic workflows encapsulates this understanding through an plug-in framework of domain-specific **guards** that encapsulate a data-source's semantics and label its data. The GitHub guard understands GitHub: it knows that a PR review comment from a `COLLABORATOR` should carry `approved` integrity and that a commit reachable from the default branch is `merged`. The guard inspects tool arguments and response metadata, returns a set of opaque tags. 
 
-```
-┌───────────────────────────────────────────┐
-│              Guard (WASM module)           │
-│  Understands GitHub: author_association,   │
-│  merge status, repository visibility, ...  │
-│  Produces opaque secrecy/integrity tags    │
-└────────────────────┬──────────────────────┘
-                     │ tags
-┌────────────────────▼──────────────────────┐
-│             DIFC Reference Monitor (Go)            │
-│  Compares tag sets. Enforces flow rules.   │
-│  Knows nothing about GitHub or any tool.   │
-└───────────────────────────────────────────┘
-```
+The **reference monitor** is generic and allows or blocks communication without needing to know what any tag means. It receives the agent's labels and the resource's labels, performs the subset/superset comparison, and returns an allow, deny, or propagate decision. The reference monitor does not know that a tag like `integrity:approved` has anything to do with GitHub's author-association model. For the reference monitor, labels are just sets of opaque strings.
 
-**Guards** encapsulate a data-source's semantics and implemented as domain-specific, sandboxed WebAssembly modules. The GitHub guard understands GitHub metadata: it knows that a PR review comment from a `COLLABORATOR` should carry `approved` integrity, that a commit reachable from the default branch is `merged`, and that a `NONE` author association maps to the `none` integrity level. The guard inspects tool arguments and response metadata, then returns a set of opaque tags.
-
-The **DIFC reference monitor** is generic. It receives the agent's labels and the resource's labels, performs the subset/superset comparison, and returns an allow, deny, or propagate decision. It doesn't know that a tag like `integrity:approved` has anything to do with GitHub's author association model. For the reference monitor, labels are sets of tags and tags are opaque strings.
-
-This separation matters. Adding a new data source (say, Jira or a private API) requires writing a new guard that understands that source's trust semantics, but the evaluator doesn't change. The flow rules, the label propagation logic, and the collection filtering all stay the same. 
-
-### The pipeline
-
-When an agent makes a request—whether through the MCP server or the CLI proxy—it passes through a six-phase pipeline:
-
-1. **Initialize**: The agent's secrecy and integrity labels are established from the workflow's policy (e.g., `min-integrity: approved` becomes an integrity floor on the agent).
-2. **Label resource**: The guard examines the tool call's arguments and, if needed, makes a metadata call to the backend. It returns the resource's secrecy and integrity labels plus the operation type (read, write, or read-write).
-3. **Evaluate**: The evaluator compares the agent's labels against the resource's labels. In `strict` mode, a violation blocks the request. In `filter` mode, the request proceeds but the evaluator records which items should be filtered from the response.
-4. **Forward**: The request is forwarded to the backend MCP server or proxied through to GitHub's API.
-5. **Label response**: The guard labels the response data, attaching per-item integrity tags for collections (e.g., each issue in a list gets its own label based on its `author_association`).
-6. **Filter**: The evaluator walks the labeled response and removes any items that fall below the agent's integrity floor. A list of 50 issues might be trimmed to 35 if 15 came from anonymous accounts.
-
-The result is that the agent only ever sees data that meets the policy threshold. Content below the threshold is never present in the agent's context window.
-
+Keeping the reference monitor simple and oblivious of tags' semantics is crucial for composability. Adding a new data source (say, Jira or a private API) requires a new guard for labeling the source's data, but the reference monitor doesn't change. Flow rules, tag propagation logic, and filtering behavior all stay the same. 
 
 ## Escape hatches
 
