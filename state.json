@@ -1,5 +1,5 @@
 {
-  "lr": "2026-04-30T12:51Z",
+  "lr": "2026-05-01T12:38Z",
   "prs": 1,
   "m": 3002,
   "c": {
@@ -26,7 +26,9 @@
     "4716": "2026-04-28",
     "4717": "2026-04-28",
     "4847": "2026-04-30",
-    "4848": "2026-04-30"
+    "4848": "2026-04-30",
+    "4919": "2026-05-01",
+    "4920": "2026-05-01"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -49,7 +51,8 @@
     {"run":"2026-04-27","desc":"perf(rust-guard): eliminate heap allocs in extract_items_array and policy_scope_token","pr":"merged","closes":4644,"ref":4654},
     {"run":"2026-04-28","desc":"test(strutil): add RandomHexWithFallback and simplify jqschema.go","pr":"closed","closes_partial":4717,"ref":4729},
     {"run":"2026-04-29","desc":"perf(middleware): eliminate os.Stat syscall and json.Marshal in large-payload path","pr":"closed","ref":4788},
-    {"run":"2026-04-30","desc":"refactor(rust-guard): add scope_names constants and replace bare literals","pr":"open","closes":4846,"branch":"repo-assist/fix-issue-4846-scope-constants"}
+    {"run":"2026-04-30","desc":"refactor(rust-guard): add scope_names constants and replace bare literals","pr":"open","closes":4846,"branch":"repo-assist/fix-issue-4846-scope-constants"},
+    {"run":"2026-05-01","desc":"fix(config): add promotion-label and demotion-label fields to AllowOnlyPolicy","pr":"open","closes":4920,"branch":"repo-assist/fix-issue-4920-promotion-demotion-labels"}
   ],
-  "n": "2026-04-30: Tasks 3+2. Created PR for rust-guard scope_names constants (closes #4846). Commented on #4847 (getTracer inline rec) and #4848 (pointed to PR #4849). Future: sessionSuffix extract (#4138), ParseError assertion removal (#4328), extract sanitize.MarshalAndSanitize (#4717), add label_response_items tests (#4846 improvement 2)."
+  "n": "2026-05-01: Tasks 5+2. Created PR for AllowOnlyPolicy promotion/demotion label fix (closes #4920). Commented on #4919 (semantic clustering - all 4 findings verified). Closed April activity issue, created May. Future: #4919 Finding 3 (writeErrorResponse removal), Finding 1 (session helpers move), #4918 BLOCKED_TOOLS const, sessionSuffix extract (#4138), ParseError assertion (#4328)."
 }
