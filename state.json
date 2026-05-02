@@ -1,7 +1,7 @@
 {
-  "lr": "2026-05-01T12:38Z",
+  "lr": "2026-05-02T12:35Z",
   "prs": 1,
-  "m": 3002,
+  "m": 4929,
   "c": {
     "3563": "2026-04-11",
     "3618": "2026-04-12",
@@ -28,7 +28,9 @@
     "4847": "2026-04-30",
     "4848": "2026-04-30",
     "4919": "2026-05-01",
-    "4920": "2026-05-01"
+    "4920": "2026-05-01",
+    "4988": "2026-05-02",
+    "4990": "2026-05-02"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -49,10 +51,11 @@
     {"run":"2026-04-25","desc":"refactor(launcher): extract getServerConfig helper","pr":"merged","closes":4542,"ref":4550},
     {"run":"2026-04-26","desc":"fix(mcp): remove duplicate debug log statements in HTTP transport","pr":"merged","closes":"4584,4585","ref":4592},
     {"run":"2026-04-27","desc":"perf(rust-guard): eliminate heap allocs in extract_items_array and policy_scope_token","pr":"merged","closes":4644,"ref":4654},
-    {"run":"2026-04-28","desc":"test(strutil): add RandomHexWithFallback and simplify jqschema.go","pr":"closed","closes_partial":4717,"ref":4729},
+    {"run":"2026-04-28","desc":"test(strutil): add RandomHexWithFallback and simplify jqschema.go","pr":"closed","ref":4729},
     {"run":"2026-04-29","desc":"perf(middleware): eliminate os.Stat syscall and json.Marshal in large-payload path","pr":"closed","ref":4788},
     {"run":"2026-04-30","desc":"refactor(rust-guard): add scope_names constants and replace bare literals","pr":"open","closes":4846,"branch":"repo-assist/fix-issue-4846-scope-constants"},
-    {"run":"2026-05-01","desc":"fix(config): add promotion-label and demotion-label fields to AllowOnlyPolicy","pr":"open","closes":4920,"branch":"repo-assist/fix-issue-4920-promotion-demotion-labels"}
+    {"run":"2026-05-01","desc":"fix(config): add promotion-label and demotion-label fields to AllowOnlyPolicy","pr":"merged","closes":4920,"ref":4928},
+    {"run":"2026-05-02","desc":"test(launcher): add tests for clearServerForRestart and getServerConfig","pr":"open","branch":"repo-assist/test-launcher-clear-restart"}
   ],
-  "n": "2026-05-01: Tasks 5+2. Created PR for AllowOnlyPolicy promotion/demotion label fix (closes #4920). Commented on #4919 (semantic clustering - all 4 findings verified). Closed April activity issue, created May. Future: #4919 Finding 3 (writeErrorResponse removal), Finding 1 (session helpers move), #4918 BLOCKED_TOOLS const, sessionSuffix extract (#4138), ParseError assertion (#4328)."
+  "n": "2026-05-02: Tasks 2+9. Commented on #4988 (nonce eviction duplication confirmed) and #4990 (semantic clustering - all 4 findings verified). Created PR for launcher tests: clearServerForRestart (4 tests) and getServerConfig (2 tests). PR #4928 (fix #4920) was merged. Future: #4990 Finding 3 (writeErrorResponse removal), Finding 1 (session helpers move), Finding 2 (builders move), #4918 BLOCKED_TOOLS const, sessionSuffix extract (#4138)."
 }
