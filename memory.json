@@ -1,7 +1,7 @@
 {
-  "lr": "2026-04-27T12:52Z",
-  "prs": 1,
-  "m": 3002,
+  "lr": "2026-05-03T12:35Z",
+  "prs": 2,
+  "m": 4929,
   "c": {
     "3563": "2026-04-11",
     "3618": "2026-04-12",
@@ -22,7 +22,16 @@
     "4326": "2026-04-22",
     "4463": "2026-04-24",
     "4571": "2026-04-26",
-    "4645": "2026-04-27"
+    "4645": "2026-04-27",
+    "4716": "2026-04-28",
+    "4717": "2026-04-28",
+    "4847": "2026-04-30",
+    "4848": "2026-04-30",
+    "4919": "2026-05-01",
+    "4920": "2026-05-01",
+    "4988": "2026-05-02",
+    "4990": "2026-05-02",
+    "5032": "2026-05-03"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -38,11 +47,18 @@
     {"run":"2026-04-20","desc":"refactor(proxy): replace manual guard policy validation with ParseGuardPolicyJSON","pr":"merged","closes":4176,"ref":4192},
     {"run":"2026-04-21","desc":"refactor(rust-guard): extract is_any_trusted_actor helper and collapse URL fallback loop","pr":"merged","closes":4252,"ref":4260},
     {"run":"2026-04-22","desc":"fix(rust-guard): remove write-only owner-type cache and simplify get_issue_author_association","pr":"merged","closes":4329,"ref":4339},
-    {"run":"2026-04-23","desc":"perf(rust-guard): eliminate ctx.clone() and use &'static str in NormalizedPolicy","pr":"merged","ref":4394},
-    {"run":"2026-04-23","desc":"refactor(cmd): cobra UX improvements — NoArgs, MarkFlagFilename, preRun test fix","pr":"merged","ref":4395},
+    {"run":"2026-04-23","desc":"perf(rust-guard): eliminate ctx.clone() and use &static str in NormalizedPolicy","pr":"merged","ref":4394},
+    {"run":"2026-04-23","desc":"refactor(cmd): cobra UX improvements NoArgs MarkFlagFilename preRun test fix","pr":"merged","ref":4395},
     {"run":"2026-04-25","desc":"refactor(launcher): extract getServerConfig helper","pr":"merged","closes":4542,"ref":4550},
     {"run":"2026-04-26","desc":"fix(mcp): remove duplicate debug log statements in HTTP transport","pr":"merged","closes":"4584,4585","ref":4592},
-    {"run":"2026-04-27","desc":"perf(rust-guard): eliminate heap allocs in extract_items_array and policy_scope_token","pr":"open","closes":4644,"branch":"repo-assist/improve-rust-guard-heap-allocs-4644"}
+    {"run":"2026-04-27","desc":"perf(rust-guard): eliminate heap allocs in extract_items_array and policy_scope_token","pr":"merged","closes":4644,"ref":4654},
+    {"run":"2026-04-28","desc":"test(strutil): add RandomHexWithFallback and simplify jqschema.go","pr":"closed","ref":4729},
+    {"run":"2026-04-29","desc":"perf(middleware): eliminate os.Stat syscall and json.Marshal in large-payload path","pr":"closed","ref":4788},
+    {"run":"2026-04-30","desc":"refactor(rust-guard): add scope_names constants and replace bare literals","pr":"closed","closes":4846},
+    {"run":"2026-05-01","desc":"fix(config): add promotion-label and demotion-label fields to AllowOnlyPolicy","pr":"merged","closes":4920,"ref":4928},
+    {"run":"2026-05-02","desc":"test(launcher): add tests for clearServerForRestart and getServerConfig","pr":"closed"},
+    {"run":"2026-05-03","desc":"refactor(strutil): move formatResetAt to strutil.FormatResetAt","pr":"open","closes_partial":5032,"branch":"repo-assist/refactor-formatResetAt-to-strutil"},
+    {"run":"2026-05-03","desc":"perf(mcp): eliminate marshal/unmarshal round-trip in ConvertToCallToolResult","pr":"open","branch":"repo-assist/perf-tool-result-fast-path"}
   ],
-  "n": "2026-04-27: Tasks 5+2. Created PR for rust-guard heap alloc improvements (closes #4644). Commented on #4645 (semantic function clustering - confirmed all 3 suggestions accurate). Future: sessionSuffix extract (#4138), ParseError assertion removal (#4328), split mcp/connection.go (#4645), extract proxy/response_transform.go (#4645)."
+  "n": "2026-05-03: Tasks 3+8. Implemented #5032 Finding 4 (move formatResetAt to strutil.FormatResetAt). Created perf PR for ConvertToCallToolResult fast path (avoids 1 marshal+3 unmarshal per tool call). Commented on #5032. Future: #5032 Finding 3 (rate-limit parser consolidation to httputil/ratelimit.go), #4990 Finding 3 (writeErrorResponse removal), Finding 1+2, #4918 BLOCKED_TOOLS const, sessionSuffix extract (#4138)."
 }
