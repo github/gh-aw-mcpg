@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-03T12:35Z",
-  "prs": 2,
+  "lr": "2026-05-04T12:53Z",
+  "prs": 0,
   "m": 4929,
   "c": {
     "3563": "2026-04-11",
@@ -31,7 +31,9 @@
     "4920": "2026-05-01",
     "4988": "2026-05-02",
     "4990": "2026-05-02",
-    "5032": "2026-05-03"
+    "5032": "2026-05-03",
+    "5071": "2026-05-04",
+    "5074": "2026-05-04"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -57,8 +59,8 @@
     {"run":"2026-04-30","desc":"refactor(rust-guard): add scope_names constants and replace bare literals","pr":"closed","closes":4846},
     {"run":"2026-05-01","desc":"fix(config): add promotion-label and demotion-label fields to AllowOnlyPolicy","pr":"merged","closes":4920,"ref":4928},
     {"run":"2026-05-02","desc":"test(launcher): add tests for clearServerForRestart and getServerConfig","pr":"closed"},
-    {"run":"2026-05-03","desc":"refactor(strutil): move formatResetAt to strutil.FormatResetAt","pr":"open","closes_partial":5032,"branch":"repo-assist/refactor-formatResetAt-to-strutil"},
-    {"run":"2026-05-03","desc":"perf(mcp): eliminate marshal/unmarshal round-trip in ConvertToCallToolResult","pr":"open","branch":"repo-assist/perf-tool-result-fast-path"}
+    {"run":"2026-05-03","desc":"refactor(strutil): move formatResetAt to strutil.FormatResetAt","pr":"closed","closes_partial":5032},
+    {"run":"2026-05-03","desc":"perf(mcp): eliminate marshal/unmarshal round-trip in ConvertToCallToolResult","pr":"closed"}
   ],
-  "n": "2026-05-03: Tasks 3+8. Implemented #5032 Finding 4 (move formatResetAt to strutil.FormatResetAt). Created perf PR for ConvertToCallToolResult fast path (avoids 1 marshal+3 unmarshal per tool call). Commented on #5032. Future: #5032 Finding 3 (rate-limit parser consolidation to httputil/ratelimit.go), #4990 Finding 3 (writeErrorResponse removal), Finding 1+2, #4918 BLOCKED_TOOLS const, sessionSuffix extract (#4138)."
+  "n": "2026-05-04: Tasks 2+1. Labelled #5009+#5036 needs-triage. Commented #5071 (session timeout dedup: rename getRoutedSessionTimeout to getSessionTimeout) and #5074 (Rust guard Cow/ref optimizations). Future: #5071 fix (rename+move), #5032 Finding 3 (rate-limit parsers to httputil/ratelimit.go), #4990 Finding 3 (writeErrorResponse removal), #5074 implement Cow fix."
 }
