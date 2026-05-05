@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-04T12:53Z",
-  "prs": 0,
+  "lr": "2026-05-05T12:44Z",
+  "prs": 1,
   "m": 4929,
   "c": {
     "3563": "2026-04-11",
@@ -33,7 +33,8 @@
     "4990": "2026-05-02",
     "5032": "2026-05-03",
     "5071": "2026-05-04",
-    "5074": "2026-05-04"
+    "5074": "2026-05-04",
+    "5144": "2026-05-05"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -60,7 +61,8 @@
     {"run":"2026-05-01","desc":"fix(config): add promotion-label and demotion-label fields to AllowOnlyPolicy","pr":"merged","closes":4920,"ref":4928},
     {"run":"2026-05-02","desc":"test(launcher): add tests for clearServerForRestart and getServerConfig","pr":"closed"},
     {"run":"2026-05-03","desc":"refactor(strutil): move formatResetAt to strutil.FormatResetAt","pr":"closed","closes_partial":5032},
-    {"run":"2026-05-03","desc":"perf(mcp): eliminate marshal/unmarshal round-trip in ConvertToCallToolResult","pr":"closed"}
+    {"run":"2026-05-03","desc":"perf(mcp): eliminate marshal/unmarshal round-trip in ConvertToCallToolResult","pr":"closed"},
+    {"run":"2026-05-05","desc":"test(rust-guard): add unit tests for check_file_secrecy","pr":"open","closes":5143,"branch":"repo-assist/test-check-file-secrecy"}
   ],
-  "n": "2026-05-04: Tasks 2+1. Labelled #5009+#5036 needs-triage. Commented #5071 (session timeout dedup: rename getRoutedSessionTimeout to getSessionTimeout) and #5074 (Rust guard Cow/ref optimizations). Future: #5071 fix (rename+move), #5032 Finding 3 (rate-limit parsers to httputil/ratelimit.go), #4990 Finding 3 (writeErrorResponse removal), #5074 implement Cow fix."
+  "n": "2026-05-05: Tasks 9+2. Created PR for check_file_secrecy tests (12 tests, closes #5143). Commented #5144 (semantic function clustering: session timeout move, logger scaffolding, root.go growth). Future: #5071/#5144 Issue1 fix (move getSessionTimeout to config_env.go), #5032 Finding 3 (rate-limit parsers), #4990 Finding 3 (writeErrorResponse removal), #5074 Cow fix."
 }
