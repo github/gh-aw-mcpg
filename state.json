@@ -1,5 +1,5 @@
 {
-  "lr": "2026-05-02T12:35Z",
+  "lr": "2026-05-06T12:56Z",
   "prs": 1,
   "m": 4929,
   "c": {
@@ -30,7 +30,11 @@
     "4919": "2026-05-01",
     "4920": "2026-05-01",
     "4988": "2026-05-02",
-    "4990": "2026-05-02"
+    "4990": "2026-05-02",
+    "5032": "2026-05-03",
+    "5071": "2026-05-04",
+    "5074": "2026-05-04",
+    "5144": "2026-05-05"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -53,9 +57,13 @@
     {"run":"2026-04-27","desc":"perf(rust-guard): eliminate heap allocs in extract_items_array and policy_scope_token","pr":"merged","closes":4644,"ref":4654},
     {"run":"2026-04-28","desc":"test(strutil): add RandomHexWithFallback and simplify jqschema.go","pr":"closed","ref":4729},
     {"run":"2026-04-29","desc":"perf(middleware): eliminate os.Stat syscall and json.Marshal in large-payload path","pr":"closed","ref":4788},
-    {"run":"2026-04-30","desc":"refactor(rust-guard): add scope_names constants and replace bare literals","pr":"open","closes":4846,"branch":"repo-assist/fix-issue-4846-scope-constants"},
+    {"run":"2026-04-30","desc":"refactor(rust-guard): add scope_names constants and replace bare literals","pr":"closed","closes":4846},
     {"run":"2026-05-01","desc":"fix(config): add promotion-label and demotion-label fields to AllowOnlyPolicy","pr":"merged","closes":4920,"ref":4928},
-    {"run":"2026-05-02","desc":"test(launcher): add tests for clearServerForRestart and getServerConfig","pr":"open","branch":"repo-assist/test-launcher-clear-restart"}
+    {"run":"2026-05-02","desc":"test(launcher): add tests for clearServerForRestart and getServerConfig","pr":"closed"},
+    {"run":"2026-05-03","desc":"refactor(strutil): move formatResetAt to strutil.FormatResetAt","pr":"closed","closes_partial":5032},
+    {"run":"2026-05-03","desc":"perf(mcp): eliminate marshal/unmarshal round-trip in ConvertToCallToolResult","pr":"closed"},
+    {"run":"2026-05-05","desc":"test(rust-guard): add unit tests for check_file_secrecy","pr":"closed","closes":5143},
+    {"run":"2026-05-06","desc":"test(config): add tests for config_env.go gateway env var parsers (26 tests)","pr":"open","branch":"repo-assist/test-config-env-functions-2026-05-06"}
   ],
-  "n": "2026-05-02: Tasks 2+9. Commented on #4988 (nonce eviction duplication confirmed) and #4990 (semantic clustering - all 4 findings verified). Created PR for launcher tests: clearServerForRestart (4 tests) and getServerConfig (2 tests). PR #4928 (fix #4920) was merged. Future: #4990 Finding 3 (writeErrorResponse removal), Finding 1 (session helpers move), Finding 2 (builders move), #4918 BLOCKED_TOOLS const, sessionSuffix extract (#4138)."
+  "n": "2026-05-06: Tasks 9+1. Labelled #5190 (enhancement+needs investigation). Created PR for config_env.go tests: 26 tests covering GetGatewayPortFromEnv, GetGatewayDomainFromEnv, GetGatewayAPIKeyFromEnv, GetGatewayToolTimeoutFromEnv, toolTimeoutEnvOrDefault (all previously untested). Future: #5144 Issue1 fix (getSessionTimeout→config_env.go), #5032 Finding3 (rate-limit parsers), #4990 Finding3 (writeErrorResponse removal), #5074 Cow fix, #5190 tool timeout for reusable workflows."
 }
