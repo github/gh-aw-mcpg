@@ -1,5 +1,5 @@
 {
-  "lr": "2026-05-05T12:44Z",
+  "lr": "2026-05-08T13:02Z",
   "prs": 1,
   "m": 4929,
   "c": {
@@ -34,7 +34,9 @@
     "5032": "2026-05-03",
     "5071": "2026-05-04",
     "5074": "2026-05-04",
-    "5144": "2026-05-05"
+    "5144": "2026-05-05",
+    "5269": "2026-05-08",
+    "5302": "2026-05-08"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -64,5 +66,5 @@
     {"run":"2026-05-03","desc":"perf(mcp): eliminate marshal/unmarshal round-trip in ConvertToCallToolResult","pr":"closed"},
     {"run":"2026-05-05","desc":"test(rust-guard): add unit tests for check_file_secrecy","pr":"open","closes":5143,"branch":"repo-assist/test-check-file-secrecy"}
   ],
-  "n": "2026-05-05: Tasks 9+2. Created PR for check_file_secrecy tests (12 tests, closes #5143). Commented #5144 (semantic function clustering: session timeout move, logger scaffolding, root.go growth). Future: #5071/#5144 Issue1 fix (move getSessionTimeout to config_env.go), #5032 Finding 3 (rate-limit parsers), #4990 Finding 3 (writeErrorResponse removal), #5074 Cow fix."
+  "n": "2026-05-08: Tasks 2+1. Commented #5302 (verified dead code in parse_scoped_entry and scope_token duplication). Commented #5269 (per-tool jq filters: pre-compile gojq.Code, graceful degradation, TOML map[string]string). Unlabelled issues #5266/#5297/#5306 are smoke test automation - no standard labels fit. Future: implement #5302 fixes, #5269 feature, #5071 session timeout move, #5032 Finding 3 rate-limit parsers, #4990 Finding 3 writeErrorResponse removal, #5074 Cow fix."
 }
