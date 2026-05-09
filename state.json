@@ -1,5 +1,5 @@
 {
-  "lr": "2026-05-06T12:56Z",
+  "lr": "2026-05-09T12:59Z",
   "prs": 1,
   "m": 4929,
   "c": {
@@ -34,7 +34,10 @@
     "5032": "2026-05-03",
     "5071": "2026-05-04",
     "5074": "2026-05-04",
-    "5144": "2026-05-05"
+    "5144": "2026-05-05",
+    "5269": "2026-05-08",
+    "5302": "2026-05-08",
+    "5340": "2026-05-09"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -63,7 +66,8 @@
     {"run":"2026-05-03","desc":"refactor(strutil): move formatResetAt to strutil.FormatResetAt","pr":"closed","closes_partial":5032},
     {"run":"2026-05-03","desc":"perf(mcp): eliminate marshal/unmarshal round-trip in ConvertToCallToolResult","pr":"closed"},
     {"run":"2026-05-05","desc":"test(rust-guard): add unit tests for check_file_secrecy","pr":"closed","closes":5143},
-    {"run":"2026-05-06","desc":"test(config): add tests for config_env.go gateway env var parsers (26 tests)","pr":"open","branch":"repo-assist/test-config-env-functions-2026-05-06"}
+    {"run":"2026-05-06","desc":"test(config): add tests for config_env.go gateway env var parsers (26 tests)","pr":"closed"},
+    {"run":"2026-05-09","desc":"refactor(config): extract normalizeStringSlice helper in guard_policy_validation.go","pr":"open","closes":5357,"branch":"repo-assist/refactor-normalize-string-slice-5357"}
   ],
-  "n": "2026-05-06: Tasks 9+1. Labelled #5190 (enhancement+needs investigation). Created PR for config_env.go tests: 26 tests covering GetGatewayPortFromEnv, GetGatewayDomainFromEnv, GetGatewayAPIKeyFromEnv, GetGatewayToolTimeoutFromEnv, toolTimeoutEnvOrDefault (all previously untested). Future: #5144 Issue1 fix (getSessionTimeout→config_env.go), #5032 Finding3 (rate-limit parsers), #4990 Finding3 (writeErrorResponse removal), #5074 Cow fix, #5190 tool timeout for reusable workflows."
+  "n": "2026-05-09: Tasks 5+2. Refactored guard_policy_validation.go: extracted normalizeStringSlice helper replacing 5 identical 12-line blocks (closes #5357). Commented #5340 (semantic function clustering): findings 1+2 worth implementing, 3+4 leave in place. Future: #5340 F1 (ensureTracingConfig→tracing.go), #5340 F2 (parseRateLimitResetFromText→httputil), #5270 per-tool jq filters, #5071/#5144 session timeout move, #5032 F3 rate-limit parsers, #4990 F3 writeErrorResponse removal, #5074 Cow fix."
 }
