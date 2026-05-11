@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-10T12:59Z",
-  "prs": 1,
+  "lr": "2026-05-11T13:35Z",
+  "prs": 2,
   "m": 4929,
   "c": {
     "3563": "2026-04-11",
@@ -69,7 +69,8 @@
     {"run":"2026-05-05","desc":"test(rust-guard): add unit tests for check_file_secrecy","pr":"closed","closes":5143},
     {"run":"2026-05-06","desc":"test(config): add tests for config_env.go gateway env var parsers","pr":"closed"},
     {"run":"2026-05-09","desc":"refactor(config): extract normalizeStringSlice helper","pr":"closed","closes":5357},
-    {"run":"2026-05-10","desc":"refactor(middleware): extract runJqCode helper to eliminate duplicate jq execution logic","pr":"open","closes":5409,"branch":"repo-assist/fix-issue-5409-extract-runJqCode"}
+    {"run":"2026-05-10","desc":"refactor(middleware): extract runJqCode helper to eliminate duplicate jq execution logic","pr":"open","closes":5409,"branch":"repo-assist/fix-issue-5409-extract-runJqCode"},
+    {"run":"2026-05-11","desc":"perf(rust-guard): add ORDER_LOW_TO_HIGH_PIPED const and direct tests for parse_integrity/scope_string","pr":"open","closes":5459,"branch":"repo-assist/fix-issue-5459-rust-guard-order-low-high-piped-const"}
   ],
-  "n": "2026-05-10: Tasks 3+2. Created PR for #5409 (extract runJqCode helper in jqschema.go). Commented #5376 (semantic clustering: ensureTracingConfig→tracing.go, parseRateLimitResetFromText→httputil, SessionSuffix inline vs strutil, clientAddr ok where it is). Future: move ensureTracingConfig (#5376/1), move parseRateLimitResetFromText (#5376/2 / #5032/3), implement #5270 per-tool jq filters, session timeout move #5071, writeErrorResponse removal #4990/3, Rust Cow #5074."
+  "n": "2026-05-11: Tasks 2+1. Created PR for #5459 (ORDER_LOW_TO_HIGH_PIPED const + parse_integrity/scope_string direct unit tests). 4 unlabelled issues are all automated smoke tests - no suitable labels available. Future: move ensureTracingConfig (#5376/1), move parseRateLimitResetFromText (#5376/2 / #5032/3), implement #5270 per-tool jq filters, session timeout move #5071, writeErrorResponse removal #4990/3, Rust Cow #5074."
 }
