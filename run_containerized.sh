@@ -118,15 +118,17 @@ check_docker_socket() {
         sleep $retry_delay
     done
 
+    local max_wait_seconds=$((max_retries * retry_delay))
     if [ ! -S "$socket_path" ]; then
-        log_error "Docker socket not found at $socket_path after ${max_retries}s"
+        log_error "Docker socket not found at $socket_path after ${max_wait_seconds}s"
         log_error "Mount the Docker socket: -v /var/run/docker.sock:/var/run/docker.sock"
         log_error "For ARC/DinD with a custom socket path, set DOCKER_HOST and mount accordingly"
         exit 1
     fi
 
     if [ $attempt -gt 0 ]; then
-        log_info "Docker socket appeared after ${attempt}s"
+        local elapsed_seconds=$((attempt * retry_delay))
+        log_info "Docker socket appeared after ${elapsed_seconds}s"
     fi
 
     if ! docker info > /dev/null 2>&1; then
