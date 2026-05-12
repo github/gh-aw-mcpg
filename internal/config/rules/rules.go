@@ -12,7 +12,7 @@ var log = logger.New("config:rules")
 // Documentation URL constants
 const (
 	ConfigSpecURL = "https://github.com/github/gh-aw/blob/main/docs/src/content/docs/reference/mcp-gateway.md"
-	SchemaURL     = "https://raw.githubusercontent.com/github/gh-aw/v0.71.5/docs/public/schemas/mcp-gateway-config.schema.json"
+	SchemaURL     = "https://raw.githubusercontent.com/github/gh-aw/v0.72.1/docs/public/schemas/mcp-gateway-config.schema.json"
 )
 
 // ValidationError represents a configuration validation error with context.
