@@ -105,11 +105,28 @@ check_docker_socket() {
     local socket_path="${raw_host:-/var/run/docker.sock}"
     socket_path="${socket_path#unix://}"
 
+    # Retry the socket check to handle ARC/DinD race conditions where the dind
+    # sidecar hasn't created the socket yet when the gateway starts.
+    local max_retries=10
+    local retry_delay=1
+    local attempt=0
+    while [ ! -S "$socket_path" ] && [ $attempt -lt $max_retries ]; do
+        attempt=$((attempt + 1))
+        if [ $attempt -eq 1 ]; then
+            log_info "Waiting for Docker socket at $socket_path (ARC/DinD may need a moment)..."
+        fi
+        sleep $retry_delay
+    done
+
     if [ ! -S "$socket_path" ]; then
-        log_error "Docker socket not found at $socket_path"
+        log_error "Docker socket not found at $socket_path after ${max_retries}s"
         log_error "Mount the Docker socket: -v /var/run/docker.sock:/var/run/docker.sock"
         log_error "For ARC/DinD with a custom socket path, set DOCKER_HOST and mount accordingly"
         exit 1
+    fi
+
+    if [ $attempt -gt 0 ]; then
+        log_info "Docker socket appeared after ${attempt}s"
     fi
 
     if ! docker info > /dev/null 2>&1; then
