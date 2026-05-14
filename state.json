@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-12T13:18Z",
-  "prs": 1,
+  "lr": "2026-05-14T13:15Z",
+  "prs": 0,
   "m": 4929,
   "c": {
     "3563": "2026-04-11",
@@ -39,7 +39,9 @@
     "5302": "2026-05-08",
     "5340": "2026-05-09",
     "5376": "2026-05-10",
-    "5519": "2026-05-12"
+    "5519": "2026-05-12",
+    "5666": "2026-05-14",
+    "5667": "2026-05-14"
   },
   "fixes": [
     {"run":"2026-04-11","desc":"refactor: add TruncateRunes to strutil","pr":"merged","ref":3564},
@@ -72,7 +74,7 @@
     {"run":"2026-05-09","desc":"refactor(config): extract normalizeStringSlice helper","pr":"closed","closes":5357},
     {"run":"2026-05-10","desc":"refactor(middleware): extract runJqCode helper to eliminate duplicate jq execution logic","pr":"closed","closes":5409},
     {"run":"2026-05-11","desc":"perf(rust-guard): add ORDER_LOW_TO_HIGH_PIPED const and direct tests for parse_integrity/scope_string","pr":"closed","closes":5459},
-    {"run":"2026-05-12","desc":"refactor(rust-guard): extract find_org_in_items helper and simplify repo_id field loop","pr":"open","closes":5527,"branch":"repo-assist/fix-issue-5527-deduplicate-backend-rs"}
+    {"run":"2026-05-12","desc":"refactor(rust-guard): extract find_org_in_items helper and simplify repo_id field loop","pr":"closed","closes":5527}
   ],
-  "n": "2026-05-12: Tasks 3+2. Created PR for #5527 (find_org_in_items helper + repo_id field loop simplification, 7 new unit tests, 394 pass). Commented on #5519 (env var consistency fix verified safe; LookupEnv presence checks must stay). Previous open PRs 5409/5459 are 404 (closed). Future: move ensureTracingConfig (#5376/1), move parseRateLimitResetFromText (#5376/2 / #5032/3), implement #5270 per-tool jq filters, session timeout move #5071, writeErrorResponse removal #4990/3, Rust Cow #5074, implement #5519 (os.Getenv→envutil + constants)."
+  "n": "2026-05-14: Tasks 1+2. Labelled #5648, #5651, #5668 with automation/needs-triage (automated smoke tests). Commented on #5666 (ConfigureGlobalCompilationCache race condition confirmed, fix suggested). Commented on #5667 (both rust-guard heap alloc improvements verified). No open Repo Assist PRs. Future: fix wasm race #5666, Cow/Vec improvements #5667/#5074, move ensureTracingConfig #5376/1, move parseRateLimitResetFromText #5376/2, implement #5270 per-tool jq filters, session timeout move #5071, writeErrorResponse removal #4990/3, implement #5519 os.Getenv→envutil."
 }
