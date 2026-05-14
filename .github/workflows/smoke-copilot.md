@@ -83,6 +83,7 @@ timeout-minutes: 15
 3. **Playwright Testing**: Use the playwright tools to navigate to https://github.com and verify the page title contains "GitHub" (do NOT try to install playwright - use the provided MCP tools)
 4. **File Writing Testing**: Create a test file `/tmp/gh-aw/agent/smoke-test-copilot-${{ github.run_id }}.txt` with content "Smoke test passed for Copilot at $(date)" (create the directory if it doesn't exist)
 5. **Bash Tool Testing**: Execute bash commands to verify file creation was successful (use `cat` to read the file back)
+6. **Artifact Readability Testing**: Run `find /tmp/gh-aw/mcp-logs/ -not -readable 2>/dev/null` and verify the output is empty. If any files or directories are not readable, this test MUST FAIL — report the unreadable paths and mark the overall status as FAIL. This catches permission issues (like restrictive wazero-cache directories) that would silently break artifact uploads.
 
 ## Output
 
