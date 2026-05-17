@@ -1,5 +1,5 @@
 {
-  "lr": "2026-05-16T12:59Z",
+  "lr": "2026-05-17T13:00Z",
   "prs": 1,
   "m": 4929,
   "c": {
@@ -16,20 +16,11 @@
     "5074": "2026-05-04", "5144": "2026-05-05", "5269": "2026-05-08",
     "5302": "2026-05-08", "5340": "2026-05-09", "5376": "2026-05-10",
     "5519": "2026-05-12", "5666": "2026-05-14", "5667": "2026-05-14",
-    "5799": "2026-05-16"
+    "5799": "2026-05-16", "5865": "2026-05-17", "5866": "2026-05-17"
   },
   "fixes": [
-    {"run":"2026-05-01","desc":"fix(config): add promotion-label and demotion-label fields","pr":"merged","ref":4928},
-    {"run":"2026-05-02","desc":"test(launcher): add tests for clearServerForRestart","pr":"closed"},
-    {"run":"2026-05-03","desc":"refactor(strutil): move formatResetAt to strutil.FormatResetAt","pr":"closed"},
-    {"run":"2026-05-03","desc":"perf(mcp): eliminate marshal/unmarshal in ConvertToCallToolResult","pr":"closed"},
-    {"run":"2026-05-05","desc":"test(rust-guard): add unit tests for check_file_secrecy","pr":"closed"},
-    {"run":"2026-05-06","desc":"test(config): add tests for config_env.go gateway env var parsers","pr":"closed"},
-    {"run":"2026-05-09","desc":"refactor(config): extract normalizeStringSlice helper","pr":"closed"},
-    {"run":"2026-05-10","desc":"refactor(middleware): extract runJqCode helper","pr":"closed"},
-    {"run":"2026-05-11","desc":"perf(rust-guard): add ORDER_LOW_TO_HIGH_PIPED const","pr":"closed"},
-    {"run":"2026-05-12","desc":"refactor(rust-guard): extract find_org_in_items helper","pr":"closed"},
-    {"run":"2026-05-15","desc":"refactor(config): add envutil.HasEnvVar and hasMapKeyVariants","pr":"open","closes":5733,"branch":"repo-assist/fix-issue-5733-envutil-hasenvvar-hasMapKeyVariants"}
+    {"run":"2026-05-15","desc":"refactor(config): add envutil.HasEnvVar and hasMapKeyVariants helpers","pr":"merged","ref":5750},
+    {"run":"2026-05-17","desc":"refactor(server): add legacyPolicySource constant in guard_init.go","pr":"open","closes":5866,"branch":"repo-assist/refactor-guard-init-legacy-const-5866"}
   ],
-  "n": "2026-05-16: Tasks 1+2. Labelled #5810,#5803,#5777 (needs triage). Commented on #5799: discussion_comment_write missing from WRITE_OPERATIONS+tool_rules.rs confirmed. Future: fix #5799 guard gap, wasm race #5666, Cow #5739/#5074, ensureTracingConfig #5376/1, parseRateLimitResetFromText #5376/2, #5270 per-tool jq, session timeout #5071, writeErrorResponse #4990/3, #5519 os.Getenv->envutil."
+  "n": "2026-05-17: Tasks 2+3. Commented on #5865 (NewNoopGuard analysis), #5866 (legacyPolicySource). Created PR for #5866 Pattern A: const legacyPolicySource. Future: noopGuardFallback for error paths (#5865), wasm race #5666, Cow #5739/#5074, ensureTracingConfig #5376/1, parseRateLimitResetFromText #5376/2, per-tool jq #5270, session timeout #5071, writeErrorResponse #4990/3, os.Getenv->envutil #5519."
 }
