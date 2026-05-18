@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-17T13:00Z",
-  "prs": 1,
+  "lr": "2026-05-18T13:56Z",
+  "prs": 0,
   "m": 4929,
   "c": {
     "3563": "2026-04-11", "3618": "2026-04-12", "3633": "2026-04-12",
@@ -19,8 +19,7 @@
     "5799": "2026-05-16", "5865": "2026-05-17", "5866": "2026-05-17"
   },
   "fixes": [
-    {"run":"2026-05-15","desc":"refactor(config): add envutil.HasEnvVar and hasMapKeyVariants helpers","pr":"merged","ref":5750},
-    {"run":"2026-05-17","desc":"refactor(server): add legacyPolicySource constant in guard_init.go","pr":"open","closes":5866,"branch":"repo-assist/refactor-guard-init-legacy-const-5866"}
+    {"run":"2026-05-18","desc":"ci: pin actions/github-script to SHA and upgrade v7->v9 in ci.yml","pr":"open","branch":"repo-assist/eng-pin-github-script-ci-2026-05-18"}
   ],
-  "n": "2026-05-17: Tasks 2+3. Commented on #5865 (NewNoopGuard analysis), #5866 (legacyPolicySource). Created PR for #5866 Pattern A: const legacyPolicySource. Future: noopGuardFallback for error paths (#5865), wasm race #5666, Cow #5739/#5074, ensureTracingConfig #5376/1, parseRateLimitResetFromText #5376/2, per-tool jq #5270, session timeout #5071, writeErrorResponse #4990/3, os.Getenv->envutil #5519."
+  "n": "2026-05-18: Tasks 1+4. No unlabelled issues with available labels. Created PR (branch repo-assist/eng-pin-github-script-ci-2026-05-18): pin actions/github-script@v7->@SHA(v9) in ci.yml. Future: wasm race #5666, Cow #5739/#5074, per-tool jq #5270, session timeout #5071, os.Getenv->envutil #5519."
 }
