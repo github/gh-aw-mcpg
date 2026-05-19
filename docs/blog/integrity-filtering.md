@@ -1,14 +1,18 @@
 # Control what your agentic workflows see with integrity filtering
 
-*Agentic workflows filter GitHub content based on trust before it ever reaches an AI agent. Here's how integrity filtering works across the MCP server and the GitHub CLI, why it matters for repository maintainers, and how it's built.*
+*GitHub Agentic Workflows filter GitHub content based on trust before it reaches the agent. Here's how integrity filtering works across the MCP server and the GitHub CLI, why it matters for repository maintainers, and how we built it.*
 
 ---
 
-If you maintain a popular open-source project, you've probably experienced a pull request pick up steam, with lots of productive back-and-forth in the review thread, before a random, brand-new account makes a spammy or off-topic comment. As a human, you can quickly delete the comment, or maybe lock the conversation, and move on.
+If you maintain a popular open-source project, you've probably seen a pull request pick up steam, with lots of productive back-and-forth in the review thread until a random account makes an off-topic or spammy comment. You probably can deleted the comment or locked the conversation before moving on.
 
-Now imagine the PR is handled by an agent. Most agents give every comment, issue body, and PR description equal weight. In the best case, low-quality content will waste the agent's tokens, but in the worst case, a malicious comment loaded with a prompt-injection attack will cause the agent to go rogue.
+But what might seem obvious for us isn't always for an agent. Most agents give every comment, issue body, and PR description equal weight. In the best case, low-quality content wastes the agent's tokens, but in the worst case, a comment with a prompt-injection attack gives a bad actor control of the agent.
 
-The more repository work agents perform, the more vulnerable they become to low-quality content. Maintainers cannot manually vet what an agent sees before a workflow runs, and locking a conversation doesn't help if an agent has already been exposed to bad content.
+The more agents work in a repository, the more vulnerable they become to low-quality content. Maintainers cannot manually vet what an agent sees before a workflow runs, and locking a conversation doesn't help if an agent has already processed the bad content.
+
+Content filtering can be part of the solution. Most models are trained to ignore malicious instructions, and comments and issues with suspicious strings can be blocked. Those defenses are useful and worthwhile, but they are a cat-and-mouse game and hard to configure. Attackers can rephrase payloads, split them across fields, and wrap them in apparently benign context. Users must then decide how aggressively or conservatively to block
+
+ Content filtering can also be difficult to tune GitHub Agentic Workflows uses content filtering but does not exclusive rely on it.
 
 To mitigate this problem, GitHub Agentic Workflows use **integrity filtering**. Integrity filtering controls what data agents see based on a combination of how trustworthy its author is and what vetting process the data has understanding. Filtering is the dual of agentic workflows' [safe outputs](https://github.blog/ai-and-ml/generative-ai/under-the-hood-security-architecture-of-github-agentic-workflows/). Safe outputs limits what an agent can output, and integrity filtering limits what the agent is exposed to.
 
