@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-18T13:56Z",
-  "prs": 0,
+  "lr": "2026-05-19T13:43Z",
+  "prs": 2,
   "m": 4929,
   "c": {
     "3563": "2026-04-11", "3618": "2026-04-12", "3633": "2026-04-12",
@@ -16,10 +16,12 @@
     "5074": "2026-05-04", "5144": "2026-05-05", "5269": "2026-05-08",
     "5302": "2026-05-08", "5340": "2026-05-09", "5376": "2026-05-10",
     "5519": "2026-05-12", "5666": "2026-05-14", "5667": "2026-05-14",
-    "5799": "2026-05-16", "5865": "2026-05-17", "5866": "2026-05-17"
+    "5799": "2026-05-16", "5865": "2026-05-17", "5866": "2026-05-17",
+    "5997": "2026-05-19"
   },
   "fixes": [
-    {"run":"2026-05-18","desc":"ci: pin actions/github-script to SHA and upgrade v7->v9 in ci.yml","pr":"open","branch":"repo-assist/eng-pin-github-script-ci-2026-05-18"}
+    {"run":"2026-05-19","desc":"perf(rust-guard): hoist invariant integrity/secrecy outside loops + DEFAULT_BRANCH_NAMES const","pr":"open","closes":5997,"branch":"repo-assist/fix-issue-5997-hoist-invariant-loop-allocs"},
+    {"run":"2026-05-19","desc":"ci: pin actions/github-script to SHA + upgrade v7->v9.0.0","pr":"open","branch":"repo-assist/eng-pin-github-script-2026-05-19"}
   ],
-  "n": "2026-05-18: Tasks 1+4. No unlabelled issues with available labels. Created PR (branch repo-assist/eng-pin-github-script-ci-2026-05-18): pin actions/github-script@v7->@SHA(v9) in ci.yml. Future: wasm race #5666, Cow #5739/#5074, per-tool jq #5270, session timeout #5071, os.Getenv->envutil #5519."
+  "n": "2026-05-19: Tasks 3+4. Created PR for #5997: hoist invariant integrity/secrecy outside per-item loops in response_items.rs + DEFAULT_BRANCH_NAMES const in helpers.rs (cargo test: 411 passed). Created CI PR: pin github-script@v7->@SHA(v9.0.0). Future: wasm race #5666, Cow #5739/#5074, per-tool jq #5270, session timeout #5071, os.Getenv->envutil #5519."
 }
