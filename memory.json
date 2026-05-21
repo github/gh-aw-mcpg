@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-20T13:39Z",
-  "prs": 2,
+  "lr": "2026-05-21T13:44Z",
+  "prs": 1,
   "m": 4929,
   "c": {
     "3563": "2026-04-11", "3618": "2026-04-12", "3633": "2026-04-12",
@@ -17,13 +17,10 @@
     "5302": "2026-05-08", "5340": "2026-05-09", "5376": "2026-05-10",
     "5519": "2026-05-12", "5666": "2026-05-14", "5667": "2026-05-14",
     "5799": "2026-05-16", "5865": "2026-05-17", "5866": "2026-05-17",
-    "5997": "2026-05-19", "6086": "2026-05-20"
+    "5997": "2026-05-19", "6086": "2026-05-20", "6193": "2026-05-21"
   },
   "fixes": [
-    {"run":"2026-05-20","desc":"test(rust-guard): add list_commits tests for default-branch vs feature-branch integrity","pr":"open","closes":6086,"branch":"repo-assist/test-task9-list-commits-response-paths-2026-05-20"},
-    {"run":"2026-05-20","desc":"ci: pin container.yml actions to commit SHAs","pr":"open","branch":"repo-assist/eng-pin-container-yml-actions-2026-05-20"},
-    {"run":"2026-05-19","desc":"perf(rust-guard): hoist invariant integrity/secrecy outside loops + DEFAULT_BRANCH_NAMES const","pr":"open","closes":5997,"branch":"repo-assist/fix-issue-5997-hoist-invariant-loop-allocs"},
-    {"run":"2026-05-19","desc":"ci: pin actions/github-script to SHA + upgrade v7->v9.0.0","pr":"open","branch":"repo-assist/eng-pin-github-script-2026-05-19"}
+    {"run":"2026-05-21","desc":"perf(rust-guard): hoist invariant label calls and dedup PR number extraction","pr":"open","closes":6193,"branch":"repo-assist/fix-issue-6193-hoist-invariant-response-paths"}
   ],
-  "n": "2026-05-20: Tasks 4+9. Created PR: test(rust-guard): list_commits tests (closes #6086, 413 Rust tests pass). Created PR: ci pin container.yml actions to SHAs. Future: wasm race #5666, Cow #5739/#5074, per-tool jq #5270, session timeout #5071, os.Getenv->envutil #5519."
+  "n": "2026-05-21: Tasks 10+1. Created PR: perf(rust-guard): hoist private_user_label/reader_integrity in list_notifications/list_gists, dedup pull_number extraction in PR arm (closes #6193, 413 Rust tests pass). Previous PRs all closed by maintainer. Future: per-tool jq #5270, session timeout #5071, Cow #5074."
 }
