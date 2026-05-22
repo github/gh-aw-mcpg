@@ -4,21 +4,19 @@
 
 ---
 
-If you maintain a popular open-source project, you've probably seen a pull request pick up steam, with lots of productive back-and-forth in the review thread until a random account makes an off-topic or spammy comment. You probably can deleted the comment or locked the conversation before moving on.
+If you maintain a popular open-source project, you've probably seen a pull request pick up steam, with lots of productive back-and-forth in the review thread until a random account pops in to make an off-topic or spammy comment. You probably deleted the comment or locked the conversation before moving on.
 
-But what might seem obvious for us isn't always for an agent. Most agents give every comment, issue body, and PR description equal weight. In the best case, low-quality content wastes the agent's tokens, but in the worst case, a comment with a prompt-injection attack gives a bad actor control of the agent.
+But what might seem obvious to us isn't to an agent. Most agents give equal weight to every comment, issue body, and PR description. In the best case, low-quality content confuses the agent and wastes tokens, and in the worst case, a prompt-injection attack gives a bad actor control of the agent.
 
-The more agents work in a repository, the more vulnerable they become to low-quality content. Maintainers cannot manually vet what an agent sees before a workflow runs, and locking a conversation doesn't help if an agent has already processed the bad content.
+It is impractical for maintainers to manually vet everything that an agent sees, and locking a conversation is useless if the agent has already processed bad content. As a result, the more an agent works in a repository, the more vulnerable it becomes to low-quality and malicious content. 
 
-Content filtering can be part of the solution. Most models are trained to ignore malicious instructions, and comments and issues with suspicious strings can be blocked. Those defenses are useful and worthwhile, but they are a cat-and-mouse game and hard to configure. Attackers can rephrase payloads, split them across fields, and wrap them in apparently benign context. Users must then decide how aggressively or conservatively to block
+Identifying bad content, either by blocking specific patterns or by assigning a quality score, only partially solves the problem. Most models are trained to ignore malicious instructions, and comments with obviously suspicious instruction can be blocked. But content filtering is a cat-and-mouse game and challenging to configure. Over time attackers learn to rephrase payloads, split attacks across fields, and wrap them in otherwise benign context. Maintainers must constantly decide how aggressively to filter before false positives make the system unusable.
 
- Content filtering can also be difficult to tune GitHub Agentic Workflows uses content filtering but does not exclusive rely on it.
-
-To mitigate this problem, GitHub Agentic Workflows use **integrity filtering**. Integrity filtering controls what data agents see based on a combination of how trustworthy its author is and what vetting process the data has understanding. Filtering is the dual of agentic workflows' [safe outputs](https://github.blog/ai-and-ml/generative-ai/under-the-hood-security-architecture-of-github-agentic-workflows/). Safe outputs limits what an agent can output, and integrity filtering limits what the agent is exposed to.
+To mitigate this problem, GitHub Agentic Workflows augments content filtering with **integrity filtering**. Integrity filtering controls what data agents see based on a combination of an author's relationship to the repo and the vetting process the data has undergone. Integrity filtering is the dual of agentic workflows' [safe outputs](https://github.blog/ai-and-ml/generative-ai/under-the-hood-security-architecture-of-github-agentic-workflows/). Safe outputs limits what an agent can output, and integrity filtering limits what the agent can view.
 
 ## The trust hierarchy
 
-Not all GitHub content should have the same level of trust. A pull request from a maintainer is more trustworthy than one from an anonymous first-time user, and an immutable commit that's been merged into `main` is more trustworthy than an issue comment. A data item's integrity is a function of both its author (repo maintainer vs. contributor) and the vetting process it has undergone (merged into main vs. posted as a comment). Integrity filtering formalizes this intuition into a hierarchy:
+The basis for trust in integrity filtering is a repo maintainer's endorsement. A pull request from a maintainer is more trustworthy than one from an anonymous first-time user, and an immutable commit that's been merged into `main` by a maintainer is more trustworthy than an issue comment. A data item's integrity is a function of both its author (repo maintainer vs. contributor) and whether it has been explicitly endorsed by a trustworthy author (merged into main vs. posted as a comment). Integrity filtering formalizes this intuition into a hierarchy:
 
 ```
 merged > approved > unapproved > none > blocked
@@ -32,7 +30,7 @@ merged > approved > unapproved > none > blocked
 | **none** | Content from anonymous and first-time users with no prior history |
 | **blocked** | Content from explicitly blocked users |
 
-Agentic workflows intercept all GitHub requests, whether from the GitHub MCP server or `gh` CLI, to filter GitHub data before it reaches the agent. In the simplest case, a policy of `min-integrity: unapproved` removes all items from anonymous and first-time users. A policy of `min-integrity: all` allows the agent to see all content. 
+Agentic workflows intercept all responses from the GitHub MCP server and GitHub cli and assign an integrity label before it reaches the agent. In the simplest case, a policy of `min-integrity: unapproved` removes all items from anonymous and first-time users. A policy of `min-integrity: all` allows the agent to see all content. 
 
 With filtering in place, a maintainer can align their risk tolerance and a workflow's purpose in a single configuration value.
 Consider these representative workflows:
