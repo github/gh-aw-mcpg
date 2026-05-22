@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-21T13:44Z",
-  "prs": 1,
+  "lr": "2026-05-22T13:30Z",
+  "prs": 0,
   "m": 4929,
   "c": {
     "3563": "2026-04-11", "3618": "2026-04-12", "3633": "2026-04-12",
@@ -17,10 +17,11 @@
     "5302": "2026-05-08", "5340": "2026-05-09", "5376": "2026-05-10",
     "5519": "2026-05-12", "5666": "2026-05-14", "5667": "2026-05-14",
     "5799": "2026-05-16", "5865": "2026-05-17", "5866": "2026-05-17",
-    "5997": "2026-05-19", "6086": "2026-05-20", "6193": "2026-05-21"
+    "5997": "2026-05-19", "6086": "2026-05-20", "6193": "2026-05-21",
+    "6265": "2026-05-22"
   },
   "fixes": [
-    {"run":"2026-05-21","desc":"perf(rust-guard): hoist invariant label calls and dedup PR number extraction","pr":"open","closes":6193,"branch":"repo-assist/fix-issue-6193-hoist-invariant-response-paths"}
+    {"run":"2026-05-22","desc":"test(rust-guard): add GraphQL path and URL-parsing tests for helpers.rs","pr":"open","closes":6276,"branch":"repo-assist/test-graphql-helpers-6276"}
   ],
-  "n": "2026-05-21: Tasks 10+1. Created PR: perf(rust-guard): hoist private_user_label/reader_integrity in list_notifications/list_gists, dedup pull_number extraction in PR arm (closes #6193, 413 Rust tests pass). Previous PRs all closed by maintainer. Future: per-tool jq #5270, session timeout #5071, Cow #5074."
+  "n": "2026-05-22: Tasks 2+9+11. Created PR for #6276: 14 new tests for extract_items_array (GraphQL paths) and extract_repo_from_github_url (5 URL patterns). Commented on #6265: verified duplicate flag-override analysis, suggested applyFlagOrEnv helper. All prior PRs merged/closed by maintainer. Future: applyFlagOrEnv refactor #6265, Cow #5074, per-tool jq #5270, session timeout #5071."
 }
