@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-22T13:30Z",
-  "prs": 0,
+  "lr": "2026-05-23T13:00Z",
+  "prs": 1,
   "m": 4929,
   "c": {
     "3563": "2026-04-11", "3618": "2026-04-12", "3633": "2026-04-12",
@@ -21,7 +21,8 @@
     "6265": "2026-05-22"
   },
   "fixes": [
+    {"run":"2026-05-23","desc":"fix(cmd): apply OTEL_SERVICE_NAME env var override to tracing config","pr":"open","branch":"repo-assist/fix-tracing-service-name-env"},
     {"run":"2026-05-22","desc":"test(rust-guard): add GraphQL path and URL-parsing tests for helpers.rs","pr":"open","closes":6276,"branch":"repo-assist/test-graphql-helpers-6276"}
   ],
-  "n": "2026-05-22: Tasks 2+9+11. Created PR for #6276: 14 new tests for extract_items_array (GraphQL paths) and extract_repo_from_github_url (5 URL patterns). Commented on #6265: verified duplicate flag-override analysis, suggested applyFlagOrEnv helper. All prior PRs merged/closed by maintainer. Future: applyFlagOrEnv refactor #6265, Cow #5074, per-tool jq #5270, session timeout #5071."
+  "n": "2026-05-23: Tasks 5+2+11. Created PR for OTEL_SERVICE_NAME bug fix: otlp-service-name was only applied when CLI flag Changed, not when OTEL_SERVICE_NAME env var was set. Fixed using applyFlagOrEnv, 2 new tests. Task 2: no suitable issues (all auto-generated or well-documented). Future: per-tool jq #5270, session timeout #5071."
 }
