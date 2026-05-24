@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-19T13:43Z",
-  "prs": 2,
+  "lr": "2026-05-24T13:00Z",
+  "prs": 3,
   "m": 4929,
   "c": {
     "3563": "2026-04-11", "3618": "2026-04-12", "3633": "2026-04-12",
@@ -17,11 +17,13 @@
     "5302": "2026-05-08", "5340": "2026-05-09", "5376": "2026-05-10",
     "5519": "2026-05-12", "5666": "2026-05-14", "5667": "2026-05-14",
     "5799": "2026-05-16", "5865": "2026-05-17", "5866": "2026-05-17",
-    "5997": "2026-05-19"
+    "5997": "2026-05-19", "6086": "2026-05-20", "6193": "2026-05-21",
+    "6265": "2026-05-22", "6382": "2026-05-24"
   },
   "fixes": [
-    {"run":"2026-05-19","desc":"perf(rust-guard): hoist invariant integrity/secrecy outside loops + DEFAULT_BRANCH_NAMES const","pr":"open","closes":5997,"branch":"repo-assist/fix-issue-5997-hoist-invariant-loop-allocs"},
-    {"run":"2026-05-19","desc":"ci: pin actions/github-script to SHA + upgrade v7->v9.0.0","pr":"open","branch":"repo-assist/eng-pin-github-script-2026-05-19"}
+    {"run":"2026-05-24","desc":"refactor(guard): extract decodeWasmCallResult and unmarshalWasmResponse helpers","pr":"open","closes":"6384,6385","branch":"repo-assist/improve-extract-wasm-call-result"},
+    {"run":"2026-05-23","desc":"fix(cmd): apply OTEL_SERVICE_NAME env var override to tracing config","pr":"open","branch":"repo-assist/fix-tracing-service-name-env"},
+    {"run":"2026-05-22","desc":"test(rust-guard): add GraphQL path and URL-parsing tests for helpers.rs","pr":"open","closes":6276,"branch":"repo-assist/test-graphql-helpers-6276"}
   ],
-  "n": "2026-05-19: Tasks 3+4. Created PR for #5997: hoist invariant integrity/secrecy outside per-item loops in response_items.rs + DEFAULT_BRANCH_NAMES const in helpers.rs (cargo test: 411 passed). Created CI PR: pin github-script@v7->@SHA(v9.0.0). Future: wasm race #5666, Cow #5739/#5074, per-tool jq #5270, session timeout #5071, os.Getenv->envutil #5519."
+  "n": "2026-05-24: Tasks 5+2+11. Task 5: extracted decodeWasmCallResult (dedup ~30 lines in wasm_parse.go tryCallWasmFunction) and unmarshalWasmResponse (dedup JSON unmarshal in wasm.go LabelResource/LabelResponse, adds func name to error msg). PR created. Task 2: commented on #6382 (guard coverage gap) with exact fix snippets for search_commits and list_issues_ff_remote_mcp_issue_fields. Future: wasm race #5666, Cow #5074, per-tool jq #5270, session timeout #5071."
 }
