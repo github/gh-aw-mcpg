@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-23T13:00Z",
-  "prs": 1,
+  "lr": "2026-05-25T13:45Z",
+  "prs": 4,
   "m": 4929,
   "c": {
     "3563": "2026-04-11", "3618": "2026-04-12", "3633": "2026-04-12",
@@ -18,11 +18,13 @@
     "5519": "2026-05-12", "5666": "2026-05-14", "5667": "2026-05-14",
     "5799": "2026-05-16", "5865": "2026-05-17", "5866": "2026-05-17",
     "5997": "2026-05-19", "6086": "2026-05-20", "6193": "2026-05-21",
-    "6265": "2026-05-22"
+    "6265": "2026-05-22", "6382": "2026-05-24"
   },
   "fixes": [
+    {"run":"2026-05-25","desc":"refactor(rust-guard): use policy_integrity constants and add security-tool label tests","pr":"open","branch":"repo-assist/fix-rust-guard-6458","closes":6458},
+    {"run":"2026-05-24","desc":"refactor(guard): extract decodeWasmCallResult and unmarshalWasmResponse helpers","pr":"open","branch":"repo-assist/improve-extract-wasm-call-result"},
     {"run":"2026-05-23","desc":"fix(cmd): apply OTEL_SERVICE_NAME env var override to tracing config","pr":"open","branch":"repo-assist/fix-tracing-service-name-env"},
     {"run":"2026-05-22","desc":"test(rust-guard): add GraphQL path and URL-parsing tests for helpers.rs","pr":"open","closes":6276,"branch":"repo-assist/test-graphql-helpers-6276"}
   ],
-  "n": "2026-05-23: Tasks 5+2+11. Created PR for OTEL_SERVICE_NAME bug fix: otlp-service-name was only applied when CLI flag Changed, not when OTEL_SERVICE_NAME env var was set. Fixed using applyFlagOrEnv, 2 new tests. Task 2: no suitable issues (all auto-generated or well-documented). Future: per-tool jq #5270, session timeout #5071."
+  "n": "2026-05-25: Tasks 10+9+11. Implemented issue #6458: (1) replaced magic string literals in helpers.rs with policy_integrity::NONE/APPROVED constants; (2) added 3 security tests in tool_rules.rs for secret scanning, code scanning+dependabot, and job logs arms. All 435 Rust tests pass. Future: per-tool jq #5270, session timeout #5071."
 }
