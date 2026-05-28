@@ -1,5 +1,5 @@
 {
-  "lr": "2026-05-27T13:51Z",
+  "lr": "2026-05-28T14:00Z",
   "prs": 1,
   "m": 4929,
   "c": {
@@ -22,7 +22,7 @@
     "6524": "2026-05-27"
   },
   "fixes": [
-    {"issue": 6524, "branch": "repo-assist/fix-issue-6524-merge-security-match-arms", "status": "open", "date": "2026-05-27"}
+    {"issue": 6616, "branch": "repo-assist/improve-record-span-error", "status": "open", "date": "2026-05-28"}
   ],
-  "n": "2026-05-27: Tasks 2+1+11. Implemented #6524 (merge 3 security match arms + add actions_get tests, all 440 Rust tests pass). PR created. Future: max-calls #6520, #6575 (merge 12 repo-scoped write arms), per-tool jq #5270."
+  "n": "2026-05-28: Tasks 1+5+11. Task 1: unlabelled issues are smoke/automated tests, no allowed labels applicable. Task 5: extracted RecordSpanError helper (#6616) - 5 duplicates in unified.go collapsed, fixed missing WithStackTrace in rate-limit path. PR created. Note: build blocked by network (no Go module cache in sandbox). Future: max-calls #6520, #6575 (merge 12 repo-scoped write arms), per-tool jq #5270."
 }
