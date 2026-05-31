@@ -1,5 +1,5 @@
 {
-  "lr": "2026-05-30T13:00Z",
+  "lr": "2026-05-31T13:04Z",
   "prs": 1,
   "m": 4929,
   "c": {
@@ -20,10 +20,11 @@
     "5997": "2026-05-19", "6086": "2026-05-20", "6193": "2026-05-21",
     "6265": "2026-05-22", "6382": "2026-05-24", "6520": "2026-05-26",
     "6524": "2026-05-27", "6512": "2026-05-29", "6514": "2026-05-30",
-    "6523": "2026-05-30"
+    "6523": "2026-05-30", "6782": "2026-05-31"
   },
   "fixes": [
-    {"issue": 6514, "branch": "repo-assist/fix-issue-6514-extract-difc-tag-parser", "status": "open", "date": "2026-05-30"}
+    {"issue": 6514, "branch": "repo-assist/fix-issue-6514-extract-difc-tag-parser", "status": "open", "date": "2026-05-30"},
+    {"issue": 6782, "branch": "repo-assist/fix-issue-6782-extract-detail-for-keyword", "status": "open", "date": "2026-05-31"}
   ],
-  "n": "2026-05-30: Tasks 2+3+11. Task 2: commented on #6523 (go-fan jsonschema review - formatErrorContext + v6 upgrade top priorities). Task 3: extracted parseDIFCTagsFromAny helper in wasm_parse.go (#6514), PR open. Future: #6520 max-calls feature, #5270 per-tool jq, #6523 v6 upgrade + io.LimitReader, #6575 rust-guard merge 12 arms."
+  "n": "2026-05-31: Tasks 2+3+11. Task 2: commented on #6782 (duplicate code in formatErrorContext - verified and implemented fix). Task 3: extracted detailForKeyword helper in validation_schema.go (#6782), PR open. Future: #5270 per-tool jq, #6523 v6 upgrade + io.LimitReader, #6575 rust-guard merge 12 arms."
 }
