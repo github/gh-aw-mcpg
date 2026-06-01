@@ -1,6 +1,6 @@
 {
-  "lr": "2026-05-31T13:04Z",
-  "prs": 1,
+  "lr": "2026-06-01T14:41Z",
+  "prs": 0,
   "m": 4929,
   "c": {
     "3563": "2026-04-11", "3618": "2026-04-12", "3633": "2026-04-12",
@@ -20,11 +20,8 @@
     "5997": "2026-05-19", "6086": "2026-05-20", "6193": "2026-05-21",
     "6265": "2026-05-22", "6382": "2026-05-24", "6520": "2026-05-26",
     "6524": "2026-05-27", "6512": "2026-05-29", "6514": "2026-05-30",
-    "6523": "2026-05-30", "6782": "2026-05-31"
+    "6523": "2026-05-30", "6782": "2026-05-31", "6841": "2026-06-01"
   },
-  "fixes": [
-    {"issue": 6514, "branch": "repo-assist/fix-issue-6514-extract-difc-tag-parser", "status": "open", "date": "2026-05-30"},
-    {"issue": 6782, "branch": "repo-assist/fix-issue-6782-extract-detail-for-keyword", "status": "open", "date": "2026-05-31"}
-  ],
-  "n": "2026-05-31: Tasks 2+3+11. Task 2: commented on #6782 (duplicate code in formatErrorContext - verified and implemented fix). Task 3: extracted detailForKeyword helper in validation_schema.go (#6782), PR open. Future: #5270 per-tool jq, #6523 v6 upgrade + io.LimitReader, #6575 rust-guard merge 12 arms."
+  "fixes": [],
+  "n": "2026-06-01: Tasks 4+2+11. Both May fix PRs merged (#6743 for #6514, #6796 for #6782). Task 4: unified semconv to v1.34.0 in span_helpers.go/test (from v1.27.0), PR created. Task 2: commented on #6841 (Go Fan OTel). Copilot PR #6847 is superset of our semconv fix. May issue closed, June issue created. Future: #6523 v6 upgrade, #6842 rust-guard binary search (if #6846 doesn't land), per-tool jq #5270."
 }
