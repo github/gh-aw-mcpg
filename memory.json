@@ -1,7 +1,7 @@
 {
-  "lr": "2026-06-01T14:41Z",
+  "lr": "2026-06-02T13:59Z",
   "prs": 0,
-  "m": 4929,
+  "m": 6854,
   "c": {
     "3563": "2026-04-11", "3618": "2026-04-12", "3633": "2026-04-12",
     "3562": "2026-04-13", "3687": "2026-04-13", "3691": "2026-04-13",
@@ -20,8 +20,9 @@
     "5997": "2026-05-19", "6086": "2026-05-20", "6193": "2026-05-21",
     "6265": "2026-05-22", "6382": "2026-05-24", "6520": "2026-05-26",
     "6524": "2026-05-27", "6512": "2026-05-29", "6514": "2026-05-30",
-    "6523": "2026-05-30", "6782": "2026-05-31", "6841": "2026-06-01"
+    "6523": "2026-05-30", "6782": "2026-05-31", "6841": "2026-06-01",
+    "6892": "2026-06-02", "6893": "2026-06-02"
   },
   "fixes": [],
-  "n": "2026-06-01: Tasks 4+2+11. Both May fix PRs merged (#6743 for #6514, #6796 for #6782). Task 4: unified semconv to v1.34.0 in span_helpers.go/test (from v1.27.0), PR created. Task 2: commented on #6841 (Go Fan OTel). Copilot PR #6847 is superset of our semconv fix. May issue closed, June issue created. Future: #6523 v6 upgrade, #6842 rust-guard binary search (if #6846 doesn't land), per-tool jq #5270."
+  "n": "2026-06-02: Tasks 9+2+11. Tests: network blocked, can't build. Task 2: commented on #6892 (go-fan pflag - rec1 registerTracingFlags use *cobra.Command, rec2 StringArrayVar) and #6893 (rust-guard BLOCKED_TOOLS sort + cfg(test) on login field). Multiple items resolved: #6841 closed (all recs addressed by merged #6847), #6523 closed, #6512 closed, #6382 closed, #6846 merged, #6847 merged, #6502 merged. Future: registerTracingFlags refactor (#6892 rec1), per-tool jq #5270."
 }
