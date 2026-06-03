@@ -1,5 +1,5 @@
 {
-  "lr": "2026-06-02T13:59Z",
+  "lr": "2026-06-03T14:15Z",
   "prs": 0,
   "m": 6854,
   "c": {
@@ -21,8 +21,9 @@
     "6265": "2026-05-22", "6382": "2026-05-24", "6520": "2026-05-26",
     "6524": "2026-05-27", "6512": "2026-05-29", "6514": "2026-05-30",
     "6523": "2026-05-30", "6782": "2026-05-31", "6841": "2026-06-01",
-    "6892": "2026-06-02", "6893": "2026-06-02"
+    "6892": "2026-06-02", "6893": "2026-06-02",
+    "6939": "2026-06-03", "6940": "2026-06-03"
   },
   "fixes": [],
-  "n": "2026-06-02: Tasks 9+2+11. Tests: network blocked, can't build. Task 2: commented on #6892 (go-fan pflag - rec1 registerTracingFlags use *cobra.Command, rec2 StringArrayVar) and #6893 (rust-guard BLOCKED_TOOLS sort + cfg(test) on login field). Multiple items resolved: #6841 closed (all recs addressed by merged #6847), #6523 closed, #6512 closed, #6382 closed, #6846 merged, #6847 merged, #6502 merged. Future: registerTracingFlags refactor (#6892 rec1), per-tool jq #5270."
+  "n": "2026-06-03: Tasks 1+2+11. Task 1: labelled #6488, #6519, #6943, #6944 with needs-triage (smoke test grouping issues). Task 2: commented on #6939 (go-fan term dead APIs - PR #6942 already opens by Copilot) and #6940 (rust-guard list_commits + project-item tests - PR #6941 by Copilot). Open PRs: #6941 (rust-guard), #6942 (tty cleanup), #6501 (difc debug logging). Future: registerTracingFlags refactor (#6892 rec1), per-tool jq #5270."
 }
