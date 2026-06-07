@@ -1,7 +1,7 @@
 {
-  "lr": "2026-06-06T13:00Z",
-  "prs": 0,
-  "m": 7064,
+  "lr": "2026-06-07T13:10Z",
+  "prs": 2,
+  "m": 7148,
   "c": {
     "3563": "2026-04-11", "3618": "2026-04-12", "3633": "2026-04-12",
     "3562": "2026-04-13", "3687": "2026-04-13", "3691": "2026-04-13",
@@ -28,9 +28,8 @@
     "7064": "2026-06-06"
   },
   "fixes": [
-    {"issue": 6990, "pr": 6990, "status": "merged", "date": "2026-06-04", "desc": "perf(rust-guard): eliminate redundant Vec deep-clones in get_file_contents and list_releases"},
-    {"issue": 7033, "pr_branch": "repo-assist/test-gist-tool-labels-7033", "status": "missing", "date": "2026-06-05", "desc": "test(rust-guard): add apply_tool_labels tests for gist operations (Improvement 2 from #7033) - PR not found in open PRs; may have failed to push"},
-    {"pr_branch": "repo-assist/perf-jqschema-skip-marshal-20260606", "status": "open", "date": "2026-06-06", "desc": "perf(middleware): skip json.Marshal for small text responses in WrapToolHandler fast path"}
+    {"issue": 7137, "pr_branch": "repo-assist/refactor-session-id-helper-7137", "status": "open", "date": "2026-06-07", "desc": "refactor(server): extract session ID header extraction into helper"},
+    {"issue": 7136, "pr_branch": "repo-assist/refactor-remove-deprecated-apikey-aliases-7136", "status": "open", "date": "2026-06-07", "desc": "refactor: remove deprecated API key alias functions"}
   ],
-  "n": "2026-06-06: Tasks 8+2+11. Task 8: Created perf PR for jqschema WrapToolHandler fast-path (skip json.Marshal for small text responses; fastPathOverheadBound=4KB). Added 2 tests + benchmark. Note: build/test blocked by proxy.golang.org firewall. Task 2: Commented on #7064 (verified all 4 refactoring recs accurate; Rec 1 remove wrapper is highest value). rust-guard list_releases merged_integrity hoist: ALREADY DONE in response_items.rs:437, removed from future work. test-gist PR from 2026-06-05 not found in open PRs; status unclear. Future: fix #7009 headers schema in fixSchemaBytes(), #6892 rec1 registerTracingFlags refactor, #6981 rec1 go-sdk bump."
+  "n": "2026-06-07: Tasks 10+7_sub(5)+11. Task 7: no stale PRs (oldest #6501 is 13 days). Task 10/5: Created PR for #7137 (extractSessionIDFromRequest helper in server/session.go+middleware.go) and PR for #7136 (remove deprecated ValidateAPIKey/GetAPIKey/GetGatewayAPIKeyFromEnv wrappers; rename GenerateRandomAPIKey->GenerateRandomAgentID). Build blocked by proxy.golang.org. PRs #7082/#7067/#7066/#7060/#7094 all merged. Open: #6501 #7123 #7124 #7138 + new Repo Assist PRs. Future: fix #7009 headers in fixSchemaBytes(), #6892 registerTracingFlags refactor, #6981 go-sdk bump."
 }
