@@ -2,6 +2,8 @@ package mcpresult
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // itemWithoutTextKey builds an item map without a "text" key.
@@ -361,9 +363,7 @@ func TestExtractTextContent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := ExtractTextContent(tt.result)
-			if got != tt.want {
-				t.Errorf("ExtractTextContent() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -372,7 +372,5 @@ func TestExtractTextContent(t *testing.T) {
 func TestExtractTextContent_NilMap(t *testing.T) {
 	t.Parallel()
 	got := ExtractTextContent(nil)
-	if got != "" {
-		t.Errorf("ExtractTextContent(nil) = %q, want %q", got, "")
-	}
+	assert.Empty(t, got)
 }
