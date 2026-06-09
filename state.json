@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-08T14:01Z",
-  "run_id": "27142823258",
+  "lr": "2026-06-09T13:35Z",
+  "run_id": "27209796205",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -18,17 +18,15 @@
   "fixes": {
     "7094": {"pr": 7094, "branch": "repo-assist/perf-skip-json-marshal-small-7094", "status": "merged", "date": "2026-06-06"},
     "6990": {"pr": 6990, "branch": "repo-assist/perf-rust-guard-eliminate-clones-6982", "status": "merged", "date": "2026-06-04"},
-    "fix-containerized": {"branch": "repo-assist/fix-containerized-agent-id-alignment-7172", "status": "open", "date": "2026-06-08", "closes": "#7172 item 4"},
-    "eng-race-detection": {"branch": "repo-assist/eng-add-race-detection-ci-2026-06-08", "status": "open", "date": "2026-06-08", "description": "ci: add race-detection job"}
+    "launcher-refactor": {"branch": "repo-assist/improve-launcher-avoid-double-config-lookup", "status": "open", "date": "2026-06-09", "closes": "#7254"}
   },
-  "notes": "Issues #6892, #6893, #7009, #7033, #7064, #6981 all closed. PRs #7137, #7136 (from last run) - check if merged. PR #6501 still open draft. PR #7170 (Copilot) addresses #7169. PR #7173 adds debug logging to difc/reflect.go. Future: registerTracingFlags refactor (#6892 rec 1).",
+  "notes": "2026-06-09: Tasks 5+1+11. Task 5: PR for launcher refactor (extract getOrLaunchWithConfig to eliminate double config lookup for HTTP backends). Task 1: 3 unlabelled issues all smoke-test automation, no available labels fit. PRs from last run (#7229 fix-containerized, #7228 race-detection) closed/superseded by maintainer. Open automation PRs: #7240, #7239, #7232, #6501. Future: wazero improvements from #7260 (WithStartFunctions comment, IsHealthy method, NewRuntimeConfigCompiler in tests, context.WithoutCancel in Close). registerTracingFlags refactor. Per-tool jq (#5270).",
   "cursor": {
-    "issues": 7169,
-    "labels": 7212
+    "issues": 7266,
+    "labels": 7266
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/fix-containerized-agent-id-alignment-7172",
-    "repo-assist/eng-add-race-detection-ci-2026-06-08"
+    "repo-assist/improve-launcher-avoid-double-config-lookup"
   ]
 }
