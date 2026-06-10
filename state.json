@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-09T13:35Z",
-  "run_id": "27209796205",
+  "lr": "2026-06-10T13:50Z",
+  "run_id": "27280956629",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -13,20 +13,23 @@
     "6982": "2026-06-04",
     "7009": "2026-06-05",
     "7033": "2026-06-05",
-    "7064": "2026-06-06"
+    "7064": "2026-06-06",
+    "7307": "2026-06-10",
+    "7308": "2026-06-10"
   },
   "fixes": {
     "7094": {"pr": 7094, "branch": "repo-assist/perf-skip-json-marshal-small-7094", "status": "merged", "date": "2026-06-06"},
     "6990": {"pr": 6990, "branch": "repo-assist/perf-rust-guard-eliminate-clones-6982", "status": "merged", "date": "2026-06-04"},
-    "launcher-refactor": {"branch": "repo-assist/improve-launcher-avoid-double-config-lookup", "status": "open", "date": "2026-06-09", "closes": "#7254"}
+    "7268": {"pr": 7268, "branch": "repo-assist/improve-launcher-avoid-double-config-lookup", "status": "merged", "date": "2026-06-09", "closes": "#7254"},
+    "7308": {"pr": "pending", "branch": "repo-assist/refactor-rust-guard-short-sha-7308", "status": "open", "date": "2026-06-10", "closes": "#7308"}
   },
-  "notes": "2026-06-09: Tasks 5+1+11. Task 5: PR for launcher refactor (extract getOrLaunchWithConfig to eliminate double config lookup for HTTP backends). Task 1: 3 unlabelled issues all smoke-test automation, no available labels fit. PRs from last run (#7229 fix-containerized, #7228 race-detection) closed/superseded by maintainer. Open automation PRs: #7240, #7239, #7232, #6501. Future: wazero improvements from #7260 (WithStartFunctions comment, IsHealthy method, NewRuntimeConfigCompiler in tests, context.WithoutCancel in Close). registerTracingFlags refactor. Per-tool jq (#5270).",
+  "notes": "2026-06-10: Tasks 2+5+11. Task 2: commented on #7308 (rust-guard short_sha, confirmed PR) and #7307 (testify: assert.NoError→require.NoError quick wins, EventuallyWithT). Task 5: PR for short_sha helper extraction in Rust guard (5 sites→1 helper, 7-char fix, 3 new tests, 461 Rust tests pass). Go tests infra-fail (proxy.golang.org blocked). Future: assert.NoError→require.NoError audit from #7307; registerTracingFlags refactor; per-tool jq #5270. PRs #7279/#7278/#7277/#7276/#7275/#7274 are Copilot PRs awaiting review. PR #6501 still open.",
   "cursor": {
-    "issues": 7266,
-    "labels": 7266
+    "issues": 7308,
+    "labels": 7308
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/improve-launcher-avoid-double-config-lookup"
+    "repo-assist/refactor-rust-guard-short-sha-7308"
   ]
 }
