@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-10T13:50Z",
-  "run_id": "27280956629",
+  "lr": "2026-06-11T14:02Z",
+  "run_id": "27352070803",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -21,15 +21,16 @@
     "7094": {"pr": 7094, "branch": "repo-assist/perf-skip-json-marshal-small-7094", "status": "merged", "date": "2026-06-06"},
     "6990": {"pr": 6990, "branch": "repo-assist/perf-rust-guard-eliminate-clones-6982", "status": "merged", "date": "2026-06-04"},
     "7268": {"pr": 7268, "branch": "repo-assist/improve-launcher-avoid-double-config-lookup", "status": "merged", "date": "2026-06-09", "closes": "#7254"},
-    "7308": {"pr": "pending", "branch": "repo-assist/refactor-rust-guard-short-sha-7308", "status": "open", "date": "2026-06-10", "closes": "#7308"}
+    "7308": {"pr": "merged", "branch": "repo-assist/refactor-rust-guard-short-sha-7308", "status": "merged", "date": "2026-06-10", "closes": "#7308"},
+    "7369": {"pr": "pending", "branch": "repo-assist/improve-rust-guard-min-integrity-7369", "status": "open", "date": "2026-06-11", "closes": "#7369"}
   },
-  "notes": "2026-06-10: Tasks 2+5+11. Task 2: commented on #7308 (rust-guard short_sha, confirmed PR) and #7307 (testify: assert.NoError→require.NoError quick wins, EventuallyWithT). Task 5: PR for short_sha helper extraction in Rust guard (5 sites→1 helper, 7-char fix, 3 new tests, 461 Rust tests pass). Go tests infra-fail (proxy.golang.org blocked). Future: assert.NoError→require.NoError audit from #7307; registerTracingFlags refactor; per-tool jq #5270. PRs #7279/#7278/#7277/#7276/#7275/#7274 are Copilot PRs awaiting review. PR #6501 still open.",
+  "notes": "2026-06-11: Tasks 1+5+11. Task 1: labelled #7364 and #7350 with automation+smoke-test. Task 5: PR for MinIntegrity::from_policy_str in rust-guard helpers.rs (refactor integrity_level_rank+integrity_for_level + 14 new tests for from_policy_str+extract_repo_from_item, 479 Rust tests pass). Go infra-fail as before. Future: assert.NoError→require.NoError audit; registerTracingFlags refactor; per-tool jq #5270. Short_sha PR from 2026-06-10 appears merged (repo_assist_prs=0 at run start). PR #6501 still open.",
   "cursor": {
-    "issues": 7308,
-    "labels": 7308
+    "issues": 7369,
+    "labels": 7370
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/refactor-rust-guard-short-sha-7308"
+    "repo-assist/improve-rust-guard-min-integrity-7369"
   ]
 }
