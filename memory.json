@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-04T13:42Z",
-  "prs": 1,
+  "lr": "2026-06-13T13:12Z",
+  "prs": 0,
   "m": 6854,
   "c": {
     "3563": "2026-04-11", "3618": "2026-04-12", "3633": "2026-04-12",
@@ -23,10 +23,11 @@
     "6523": "2026-05-30", "6782": "2026-05-31", "6841": "2026-06-01",
     "6892": "2026-06-02", "6893": "2026-06-02",
     "6939": "2026-06-03", "6940": "2026-06-03",
-    "6981": "2026-06-04", "6982": "2026-06-04"
+    "6981": "2026-06-04", "6982": "2026-06-04",
+    "7444": "2026-06-13", "7468": "2026-06-13"
   },
   "fixes": [
-    {"issue": 6982, "pr_branch": "repo-assist/improve-rust-guard-vec-clones-20260604", "status": "open", "date": "2026-06-04"}
+    {"issue": 7468, "pr_branch": "repo-assist/fix-tracing-test-isolation-20260613", "status": "open", "date": "2026-06-13"}
   ],
-  "n": "2026-06-04: Tasks 2+5+11. Task 2: commented on #6981 (go-sdk review - Rec1 bump v1.6.1, Rec4 canary test are quick wins) and #6982 (rust-guard Vec clones - implemented fix). Task 5: PR for rust-guard Vec clone elimination in get_file_contents+list_releases + 3 new tests (Closes #6982). Go tests fail due to infra (testify v1.11.1 not cached, network blocked). Future: #6892 rec1 registerTracingFlags refactor, #6981 rec1 go-sdk bump, #6981 rec4 DisableStandaloneSSE canary, per-tool jq #5270."
+  "n": "2026-06-13: Tasks 4+2+11. Task 4 (CI improvement): fixed 3 test isolation bugs in internal/tracing/provider_test.go - added t.Setenv(GH_AW_OTLP_ENDPOINTS,'') to TestInitProvider_NoEndpoint_ReturnsNoopProvider, TestInitProvider_EmptyEndpoint_ReturnsNoopProvider, TestInitProvider_WithHeaders (Issues A+B from #7468). PR created branch repo-assist/fix-tracing-test-isolation-20260613. Task 2: commented on #7468 (root cause confirmed, PR created for A+B, Issue C needs design decision on JSON format), #7444 (comma-sep fan-out already implemented; remaining: JSON format, per-endpoint headers, container config). Future: Issue C (resolveExtraEndpoints JSON format support), registerTracingFlags refactor, per-tool jq #5270."
 }
