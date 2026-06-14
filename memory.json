@@ -1,5 +1,5 @@
 {
-  "lr": "2026-06-13T13:12Z",
+  "lr": "2026-06-14T13:15Z",
   "prs": 0,
   "m": 6854,
   "c": {
@@ -27,7 +27,7 @@
     "7444": "2026-06-13", "7468": "2026-06-13"
   },
   "fixes": [
-    {"issue": 7468, "pr_branch": "repo-assist/fix-tracing-test-isolation-20260613", "status": "open", "date": "2026-06-13"}
+    {"issue": "sanitize-perf", "pr_branch": "repo-assist/perf-sanitize-hotpath-20260614", "status": "open", "date": "2026-06-14"}
   ],
-  "n": "2026-06-13: Tasks 4+2+11. Task 4 (CI improvement): fixed 3 test isolation bugs in internal/tracing/provider_test.go - added t.Setenv(GH_AW_OTLP_ENDPOINTS,'') to TestInitProvider_NoEndpoint_ReturnsNoopProvider, TestInitProvider_EmptyEndpoint_ReturnsNoopProvider, TestInitProvider_WithHeaders (Issues A+B from #7468). PR created branch repo-assist/fix-tracing-test-isolation-20260613. Task 2: commented on #7468 (root cause confirmed, PR created for A+B, Issue C needs design decision on JSON format), #7444 (comma-sep fan-out already implemented; remaining: JSON format, per-endpoint headers, container config). Future: Issue C (resolveExtraEndpoints JSON format support), registerTracingFlags refactor, per-tool jq #5270."
+  "n": "2026-06-14: Tasks 8+1+11. Task 8 (perf): pre-compiled separatorRe regex in SanitizeString (was re-compiled on every match); used json.Compact in SanitizeJSON instead of double-parse (json.Valid+json.Unmarshal+json.Marshal); added 4 benchmarks. PR branch: repo-assist/perf-sanitize-hotpath-20260614. Task 1: 3 unlabelled issues (#7500,#7515,#7519) are all automation/smoke-test types - none fit the available label set (automation/smoke-test labels not in allowed list). PR #7478 (tracing test isolation from 2026-06-13 run) was merged 2026-06-13. Future: Issue C (resolveExtraEndpoints JSON format support), registerTracingFlags refactor, per-tool jq #5270, assert.NoError audit."
 }

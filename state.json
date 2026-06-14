@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-11T14:02Z",
-  "run_id": "27352070803",
+  "lr": "2026-06-14T13:15Z",
+  "run_id": "27499948928",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -15,22 +15,24 @@
     "7033": "2026-06-05",
     "7064": "2026-06-06",
     "7307": "2026-06-10",
-    "7308": "2026-06-10"
+    "7308": "2026-06-10",
+    "7444": "2026-06-13",
+    "7468": "2026-06-13"
   },
   "fixes": {
     "7094": {"pr": 7094, "branch": "repo-assist/perf-skip-json-marshal-small-7094", "status": "merged", "date": "2026-06-06"},
     "6990": {"pr": 6990, "branch": "repo-assist/perf-rust-guard-eliminate-clones-6982", "status": "merged", "date": "2026-06-04"},
     "7268": {"pr": 7268, "branch": "repo-assist/improve-launcher-avoid-double-config-lookup", "status": "merged", "date": "2026-06-09", "closes": "#7254"},
-    "7308": {"pr": "merged", "branch": "repo-assist/refactor-rust-guard-short-sha-7308", "status": "merged", "date": "2026-06-10", "closes": "#7308"},
-    "7369": {"pr": "pending", "branch": "repo-assist/improve-rust-guard-min-integrity-7369", "status": "open", "date": "2026-06-11", "closes": "#7369"}
+    "7478": {"pr": 7478, "branch": "repo-assist/fix-tracing-test-isolation-20260613", "status": "merged", "date": "2026-06-13", "closes": "#7468"},
+    "sanitize-perf": {"pr": "pending", "branch": "repo-assist/perf-sanitize-hotpath-20260614", "status": "open", "date": "2026-06-14"}
   },
-  "notes": "2026-06-11: Tasks 1+5+11. Task 1: labelled #7364 and #7350 with automation+smoke-test. Task 5: PR for MinIntegrity::from_policy_str in rust-guard helpers.rs (refactor integrity_level_rank+integrity_for_level + 14 new tests for from_policy_str+extract_repo_from_item, 479 Rust tests pass). Go infra-fail as before. Future: assert.NoError→require.NoError audit; registerTracingFlags refactor; per-tool jq #5270. Short_sha PR from 2026-06-10 appears merged (repo_assist_prs=0 at run start). PR #6501 still open.",
+  "notes": "2026-06-14: Tasks 8+1+11. Task 8: perf improvements to internal/sanitize - pre-compiled separatorRe (avoids regex re-compile per match in SanitizeString hot path) + json.Compact in SanitizeJSON (single pass vs 3 ops). Added 4 benchmarks. Task 1: unlabelled issues #7500/#7515/#7519 are automation/smoke-test types; no matching labels in allowed set. PR #7478 merged 2026-06-13. Future: resolveExtraEndpoints JSON format (#7468 Issue C), registerTracingFlags refactor, per-tool jq #5270.",
   "cursor": {
-    "issues": 7369,
-    "labels": 7370
+    "issues": 7524,
+    "labels": 7525
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/improve-rust-guard-min-integrity-7369"
+    "repo-assist/perf-sanitize-hotpath-20260614"
   ]
 }
