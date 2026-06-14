@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
-	oteltrace "go.opentelemetry.io/otel/trace"
 
 	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/github/gh-aw-mcpg/internal/guard"
