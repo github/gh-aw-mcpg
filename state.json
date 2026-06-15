@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-14T13:15Z",
-  "run_id": "27499948928",
+  "lr": "2026-06-15T14:48Z",
+  "run_id": "27554286474",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -17,22 +17,24 @@
     "7307": "2026-06-10",
     "7308": "2026-06-10",
     "7444": "2026-06-13",
-    "7468": "2026-06-13"
+    "7468": "2026-06-13",
+    "7544": "2026-06-15",
+    "7569": "2026-06-15"
   },
   "fixes": {
     "7094": {"pr": 7094, "branch": "repo-assist/perf-skip-json-marshal-small-7094", "status": "merged", "date": "2026-06-06"},
     "6990": {"pr": 6990, "branch": "repo-assist/perf-rust-guard-eliminate-clones-6982", "status": "merged", "date": "2026-06-04"},
     "7268": {"pr": 7268, "branch": "repo-assist/improve-launcher-avoid-double-config-lookup", "status": "merged", "date": "2026-06-09", "closes": "#7254"},
     "7478": {"pr": 7478, "branch": "repo-assist/fix-tracing-test-isolation-20260613", "status": "merged", "date": "2026-06-13", "closes": "#7468"},
-    "sanitize-perf": {"pr": "pending", "branch": "repo-assist/perf-sanitize-hotpath-20260614", "status": "open", "date": "2026-06-14"}
+    "test-require-noop": {"pr": "pending", "branch": "repo-assist/test-require-noop-upgrade-20260615", "status": "open", "date": "2026-06-15", "desc": "test: upgrade assert.NoError to require.NoError where result is used downstream (4 cases)"}
   },
-  "notes": "2026-06-14: Tasks 8+1+11. Task 8: perf improvements to internal/sanitize - pre-compiled separatorRe (avoids regex re-compile per match in SanitizeString hot path) + json.Compact in SanitizeJSON (single pass vs 3 ops). Added 4 benchmarks. Task 1: unlabelled issues #7500/#7515/#7519 are automation/smoke-test types; no matching labels in allowed set. PR #7478 merged 2026-06-13. Future: resolveExtraEndpoints JSON format (#7468 Issue C), registerTracingFlags refactor, per-tool jq #5270.",
+  "notes": "2026-06-15: Tasks 3+2+11. Task 3: test quality fix - 4 places where assert.NoError before dereference could produce cascaded failures; upgraded to require.NoError in evaluator_test.go, resource_test.go (x2), wasm_test.go. Note: perf/sanitize code (separatorRe+json.Compact) is already in main from prev run, no PR needed. Task 2: #7544 README already has POST /close (PR #7572 fixed it before issue ran); #7569 Copilot PR #7576 addresses P0+P1, P2-P4 remain. Issues #7444+#7468 now CLOSED. Issue C from #7468 (resolveExtraEndpoints JSON array) already implemented via resolveJSONExtraEndpoints. Future: per-tool jq #5270. Copilot opened 5 PRs today: #7573-#7577.",
   "cursor": {
-    "issues": 7524,
-    "labels": 7525
+    "issues": 7590,
+    "labels": 7590
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/perf-sanitize-hotpath-20260614"
+    "repo-assist/test-require-noop-upgrade-20260615"
   ]
 }
