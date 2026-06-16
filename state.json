@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-15T14:48Z",
-  "run_id": "27554286474",
+  "lr": "2026-06-16T14:30Z",
+  "run_id": "27624505188",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -26,15 +26,16 @@
     "6990": {"pr": 6990, "branch": "repo-assist/perf-rust-guard-eliminate-clones-6982", "status": "merged", "date": "2026-06-04"},
     "7268": {"pr": 7268, "branch": "repo-assist/improve-launcher-avoid-double-config-lookup", "status": "merged", "date": "2026-06-09", "closes": "#7254"},
     "7478": {"pr": 7478, "branch": "repo-assist/fix-tracing-test-isolation-20260613", "status": "merged", "date": "2026-06-13", "closes": "#7468"},
-    "test-require-noop": {"pr": "pending", "branch": "repo-assist/test-require-noop-upgrade-20260615", "status": "open", "date": "2026-06-15", "desc": "test: upgrade assert.NoError to require.NoError where result is used downstream (4 cases)"}
+    "7591": {"pr": 7591, "branch": "repo-assist/test-require-noop-upgrade-20260615", "status": "merged", "date": "2026-06-15", "desc": "test: upgrade assert.NoError to require.NoError where result is used downstream"},
+    "strings-cut": {"pr": "pending", "branch": "repo-assist/improve-strings-cut-consistency", "status": "open", "date": "2026-06-16", "desc": "refactor: replace strings.SplitN(x,sep,2) with strings.Cut in sanitize.go, envfile.go, logger.go"}
   },
-  "notes": "2026-06-15: Tasks 3+2+11. Task 3: test quality fix - 4 places where assert.NoError before dereference could produce cascaded failures; upgraded to require.NoError in evaluator_test.go, resource_test.go (x2), wasm_test.go. Note: perf/sanitize code (separatorRe+json.Compact) is already in main from prev run, no PR needed. Task 2: #7544 README already has POST /close (PR #7572 fixed it before issue ran); #7569 Copilot PR #7576 addresses P0+P1, P2-P4 remain. Issues #7444+#7468 now CLOSED. Issue C from #7468 (resolveExtraEndpoints JSON array) already implemented via resolveJSONExtraEndpoints. Future: per-tool jq #5270. Copilot opened 5 PRs today: #7573-#7577.",
+  "notes": "2026-06-16: Tasks 1+5+11. Task 1: 3 unlabelled issues (#7624,#7616,#7586) all smoke-test types, no applicable labels. Task 5: strings.Cut consistency refactor - 3 files (sanitize.go, envfile.go, logger.go). PR created on branch repo-assist/improve-strings-cut-consistency. Copilot PRs #7573-#7577 all merged 2026-06-15. #7591 (RA test-require) also merged. Open automation PRs: #6501, #7597, #7599, #7600. Future: per-tool jq #5270.",
   "cursor": {
-    "issues": 7590,
-    "labels": 7590
+    "issues": 7625,
+    "labels": 7625
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/test-require-noop-upgrade-20260615"
+    "repo-assist/improve-strings-cut-consistency"
   ]
 }
