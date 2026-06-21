@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-20T13:20Z",
-  "run_id": "27872125842",
+  "lr": "2026-06-21T13:21Z",
+  "run_id": "27905590368",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -22,7 +22,8 @@
     "7569": "2026-06-15",
     "7647": "2026-06-17",
     "7712": "2026-06-19",
-    "7817": "2026-06-20"
+    "7817": "2026-06-20",
+    "7860": "2026-06-21"
   },
   "fixes": {
     "7094": {"pr": 7094, "branch": "repo-assist/perf-skip-json-marshal-small-7094", "status": "merged", "date": "2026-06-06"},
@@ -31,17 +32,18 @@
     "7478": {"pr": 7478, "branch": "repo-assist/fix-tracing-test-isolation-20260613", "status": "merged", "date": "2026-06-13", "closes": "#7468"},
     "7591": {"pr": 7591, "branch": "repo-assist/test-require-noop-upgrade-20260615", "status": "merged", "date": "2026-06-15"},
     "7628": {"pr": 7628, "branch": "repo-assist/improve-strings-cut-consistency", "status": "merged", "date": "2026-06-16", "desc": "refactor: replace strings.SplitN with strings.Cut"},
-    "7684": {"pr": 7684, "branch": "repo-assist/fix-host-network-validation-7647", "status": "merged", "date": "2026-06-17", "merged_at": "2026-06-17", "closes": "#7647", "desc": "fix(run_containerized): skip port mapping validation for host-networked containers"},
-    "7786": {"pr": 7786, "branch": "repo-assist/improve-check-file-secrecy-7773", "status": "closed", "date": "2026-06-19", "closed_by": "lpcox", "closes": "#7773", "desc": "refactor(rust-guard): consolidate check_file_secrecy into is_sensitive predicate"},
-    "7819": {"pr": "aw_tls7819pr", "branch": "repo-assist/improve-tls-config-central-7819", "status": "open", "date": "2026-06-20", "closes": "#7819", "desc": "refactor(httputil): centralize TLS min-version policy (NewServerTLSConfig/NewClientTLSConfig/MinTLSVersion)"}
+    "7684": {"pr": 7684, "branch": "repo-assist/fix-host-network-validation-7647", "status": "merged", "date": "2026-06-17", "closes": "#7647"},
+    "7786": {"pr": 7786, "branch": "repo-assist/improve-check-file-secrecy-7773", "status": "closed", "date": "2026-06-19", "closed_by": "lpcox"},
+    "7834": {"pr": 7834, "branch": "repo-assist/improve-tls-config-central-7819", "status": "merged", "date": "2026-06-20", "merged_at": "2026-06-20", "closes": "#7819", "desc": "refactor(httputil): centralize TLS min-version policy"},
+    "7862": {"pr": "pending", "branch": "repo-assist/fix-tls-duplicate-7862", "status": "open", "date": "2026-06-21", "closes": "#7862", "desc": "fix(httputil): remove duplicate TLS declarations"}
   },
-  "notes": "2026-06-20: Tasks 5+2+11. Task 5: Added httputil/tls.go (MinTLSVersion, NewServerTLSConfig, NewClientTLSConfig) and updated 3 call sites; PR on branch repo-assist/improve-tls-config-central-7819 (Closes #7819). Task 2: Commented on #7817 (guard coverage gap) - confirmed 4 missing ops, provided exact tool_rules.rs patterns and test suggestions. PR #7786 was closed (not merged) by lpcox 2026-06-19. Future: per-tool jq #5270, refusal-labels #7646, guard coverage #7817 (implement delete_gpg_key/delete_ssh_key/delete_workflow_run/delete_release_asset).",
+  "notes": "2026-06-21: Tasks 2+3+11. Task 3: Fixed compile error from duplicate TLS declarations (tls_config.go/tls_config_test.go redeclared same identifiers as tls.go/tls_test.go); PR on branch repo-assist/fix-tls-duplicate-7862 (Closes #7862). Task 2: Commented on #7860 (7 CLI-only guard coverage gaps: delete_issue, delete_repository, update_project, delete_project, copy_project, link_project, unlink_project) with exact tool_rules.rs patterns. PR #7834 merged. PR #7842 (4 guard ops from #7817) merged. Future: per-tool jq #5270, refusal-labels #7646, guard coverage #7860 (implement 7 CLI operations).",
   "cursor": {
-    "issues": 7817,
-    "labels": 7817
+    "issues": 7862,
+    "labels": 7862
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/improve-tls-config-central-7819"
+    "repo-assist/fix-tls-duplicate-7862"
   ]
 }
