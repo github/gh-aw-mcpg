@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-21T13:21Z",
-  "run_id": "27905590368",
+  "lr": "2026-06-23T13:34Z",
+  "run_id": "28029987865",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -35,15 +35,15 @@
     "7684": {"pr": 7684, "branch": "repo-assist/fix-host-network-validation-7647", "status": "merged", "date": "2026-06-17", "closes": "#7647"},
     "7786": {"pr": 7786, "branch": "repo-assist/improve-check-file-secrecy-7773", "status": "closed", "date": "2026-06-19", "closed_by": "lpcox"},
     "7834": {"pr": 7834, "branch": "repo-assist/improve-tls-config-central-7819", "status": "merged", "date": "2026-06-20", "merged_at": "2026-06-20", "closes": "#7819", "desc": "refactor(httputil): centralize TLS min-version policy"},
-    "7862": {"pr": "pending", "branch": "repo-assist/fix-tls-duplicate-7862", "status": "open", "date": "2026-06-21", "closes": "#7862", "desc": "fix(httputil): remove duplicate TLS declarations"}
+    "otel_genai": {"pr": "pending", "branch": "repo-assist/eng-otel-genai-attrs-20260623", "status": "open", "date": "2026-06-23", "closes": "#7972", "desc": "feat(tracing): add GenAIOperationName and GenAIAgentName to StartToolCallSpan"}
   },
-  "notes": "2026-06-21: Tasks 2+3+11. Task 3: Fixed compile error from duplicate TLS declarations (tls_config.go/tls_config_test.go redeclared same identifiers as tls.go/tls_test.go); PR on branch repo-assist/fix-tls-duplicate-7862 (Closes #7862). Task 2: Commented on #7860 (7 CLI-only guard coverage gaps: delete_issue, delete_repository, update_project, delete_project, copy_project, link_project, unlink_project) with exact tool_rules.rs patterns. PR #7834 merged. PR #7842 (4 guard ops from #7817) merged. Future: per-tool jq #5270, refusal-labels #7646, guard coverage #7860 (implement 7 CLI operations).",
+  "notes": "2026-06-23: Tasks 4+1+11. Task 4 (eng): Added GenAIOperationName('execute_tool') and GenAIAgentName('mcp-gateway') to StartToolCallSpan in internal/tracing/span_helpers.go — both were defined but unused (issue #7972 items 1+2). PR branch: repo-assist/eng-otel-genai-attrs-20260623. Note: make agent-finished failed due to proxy.golang.org blocked (infra constraint). Task 1: 3 unlabelled issues (#7977,#7969,#7954) all automation/smoke-test — no applicable labels. Resolved items: PR #6501 merged 2026-06-22, issue #7860 closed 2026-06-22, issue #7862 closed 2026-06-21. Future: per-tool jq #5270, refusal-labels #7646, guard coverage #7916 (11 CLI ops — already implemented in recent commits, verify closed).",
   "cursor": {
-    "issues": 7862,
-    "labels": 7862
+    "issues": 7979,
+    "labels": 7979
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/fix-tls-duplicate-7862"
+    "repo-assist/eng-otel-genai-attrs-20260623"
   ]
 }
