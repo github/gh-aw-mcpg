@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-24T13:28Z",
-  "run_id": "28101833448",
+  "lr": "2026-06-25T13:25Z",
+  "run_id": "28173312891",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -23,7 +23,9 @@
     "7647": "2026-06-17",
     "7712": "2026-06-19",
     "7817": "2026-06-20",
-    "7860": "2026-06-21"
+    "7860": "2026-06-21",
+    "8072": "2026-06-25",
+    "8081": "2026-06-25"
   },
   "fixes": {
     "7094": {"pr": 7094, "branch": "repo-assist/perf-skip-json-marshal-small-7094", "status": "merged", "date": "2026-06-06"},
@@ -36,15 +38,16 @@
     "7786": {"pr": 7786, "branch": "repo-assist/improve-check-file-secrecy-7773", "status": "closed", "date": "2026-06-19", "closed_by": "lpcox"},
     "7834": {"pr": 7834, "branch": "repo-assist/improve-tls-config-central-7819", "status": "merged", "date": "2026-06-20", "closes": "#7819"},
     "7981": {"pr": 7981, "branch": "repo-assist/eng-otel-genai-attrs-20260623", "status": "closed", "date": "2026-06-23", "closed_by": "lpcox", "closes": "#7972"},
-    "8022": {"pr": "pending(#aw_pr8022)", "branch": "repo-assist/improve-dedup-strutil-8022", "status": "open", "date": "2026-06-24", "closes": "#8022 #8023", "desc": "refactor: extract SortedSetKeys + atomicWriteFile"}
+    "8042": {"pr": 8042, "branch": "repo-assist/improve-dedup-strutil-8022", "status": "merged", "date": "2026-06-24", "closes": "#8022 #8023", "desc": "refactor: extract SortedSetKeys + atomicWriteFile"},
+    "8073fix": {"pr": "pending(#aw_pr8073fix)", "branch": "repo-assist/refactor-config-validation-cleanup-8073", "status": "open", "date": "2026-06-25", "closes": "#8073 #8074", "desc": "refactor: consolidate UnsupportedField and remove dead type normalization"}
   },
-  "notes": "2026-06-24: Tasks 4+10+11. Task 10: added strutil.SortedSetKeys utility + replaced 3 duplicate map-to-sorted-slice blocks (closes #8022). Task 4: extracted atomicWriteFile helper to logger/common.go, fixed latent os.IsNotExist bug in tools_logger.go (closes #8023). PR branch: repo-assist/improve-dedup-strutil-8022. Network blocked (proxy.golang.org) — can't run tests locally. PR #7981 (otel-genai) closed by lpcox. Future: per-tool jq #5270, refusal-labels #7646, Rust guard first_matching_label from #8031, cursor cycle detection from #8024.",
+  "notes": "2026-06-25: Tasks 3+2+11. Task 3: UnsupportedField->InvalidValue wrapper (closes #8073); dead normalization block removed in convertStdinServerConfig (closes #8074). PR branch: repo-assist/refactor-config-validation-cleanup-8073. Task 2: commented on #8072 (dead 'local' check on line 62 confirmed; IsStdioServerType sequencing advice) and #8081 (both Rust guard improvements confirmed sound). Network blocked (proxy.golang.org). Future: per-tool jq #5270, refusal-labels #7646, Rust guard first_matching_label #8031, IsStdioServerType helper #8072.",
   "cursor": {
-    "issues": 8037,
-    "labels": 8037
+    "issues": 8088,
+    "labels": 8088
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/improve-dedup-strutil-8022"
+    "repo-assist/refactor-config-validation-cleanup-8073"
   ]
 }
