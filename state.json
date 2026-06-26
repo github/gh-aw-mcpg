@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-25T13:25Z",
-  "run_id": "28173312891",
+  "lr": "2026-06-26T13:22Z",
+  "run_id": "28240657295",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -25,7 +25,8 @@
     "7817": "2026-06-20",
     "7860": "2026-06-21",
     "8072": "2026-06-25",
-    "8081": "2026-06-25"
+    "8081": "2026-06-25",
+    "8131": "2026-06-26"
   },
   "fixes": {
     "7094": {"pr": 7094, "branch": "repo-assist/perf-skip-json-marshal-small-7094", "status": "merged", "date": "2026-06-06"},
@@ -39,15 +40,15 @@
     "7834": {"pr": 7834, "branch": "repo-assist/improve-tls-config-central-7819", "status": "merged", "date": "2026-06-20", "closes": "#7819"},
     "7981": {"pr": 7981, "branch": "repo-assist/eng-otel-genai-attrs-20260623", "status": "closed", "date": "2026-06-23", "closed_by": "lpcox", "closes": "#7972"},
     "8042": {"pr": 8042, "branch": "repo-assist/improve-dedup-strutil-8022", "status": "merged", "date": "2026-06-24", "closes": "#8022 #8023", "desc": "refactor: extract SortedSetKeys + atomicWriteFile"},
-    "8073fix": {"pr": "pending(#aw_pr8073fix)", "branch": "repo-assist/refactor-config-validation-cleanup-8073", "status": "open", "date": "2026-06-25", "closes": "#8073 #8074", "desc": "refactor: consolidate UnsupportedField and remove dead type normalization"}
+    "8131fix": {"pr": "pending(#aw_pr8131)", "branch": "repo-assist/refactor-rust-guard-pathlabel-secrecy-8131", "status": "open", "date": "2026-06-26", "closes": "#8131", "desc": "refactor: remove PathLabelEntry, use PathLabel directly; simplify secrecy conditions"}
   },
-  "notes": "2026-06-25: Tasks 3+2+11. Task 3: UnsupportedField->InvalidValue wrapper (closes #8073); dead normalization block removed in convertStdinServerConfig (closes #8074). PR branch: repo-assist/refactor-config-validation-cleanup-8073. Task 2: commented on #8072 (dead 'local' check on line 62 confirmed; IsStdioServerType sequencing advice) and #8081 (both Rust guard improvements confirmed sound). Network blocked (proxy.golang.org). Future: per-tool jq #5270, refusal-labels #7646, Rust guard first_matching_label #8031, IsStdioServerType helper #8072.",
+  "notes": "2026-06-26: Tasks 3+8+11. Found that #8072 and #8081 improvements already implemented in codebase (server_type.go helpers exist; &[Value] slices and try_write_json_output already done). Focused on #8131: removed PathLabelEntry (identical to PathLabel), removed 8-line conversion loop in lib.rs, replaced 3-way positive secrecy conditions with negative checks in response_items.rs. PR branch: repo-assist/refactor-rust-guard-pathlabel-secrecy-8131 (534 Rust tests pass). Copilot's PRs #8096+#8097 cover #8073+#8074 (dead server type normalization). Future: per-tool jq #5270, refusal-labels #7646, Rust guard first_matching_label #8031.",
   "cursor": {
-    "issues": 8088,
-    "labels": 8088
+    "issues": 8131,
+    "labels": 8131
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/refactor-config-validation-cleanup-8073"
+    "repo-assist/refactor-rust-guard-pathlabel-secrecy-8131"
   ]
 }
