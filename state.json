@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-27T13:02Z",
-  "run_id": "28289931728",
+  "lr": "2026-06-28T13:06Z",
+  "run_id": "28323146403",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -28,7 +28,11 @@
     "8081": "2026-06-25",
     "8131": "2026-06-26",
     "8169": "2026-06-27",
-    "8122": "2026-06-27"
+    "8122": "2026-06-27",
+    "8171": "2026-06-28",
+    "8172": "2026-06-28",
+    "8173": "2026-06-28",
+    "8222": "2026-06-28"
   },
   "fixes": {
     "7094": {"pr": 7094, "branch": "repo-assist/perf-skip-json-marshal-small-7094", "status": "merged", "date": "2026-06-06"},
@@ -41,14 +45,15 @@
     "7786": {"pr": 7786, "branch": "repo-assist/improve-check-file-secrecy-7773", "status": "closed", "date": "2026-06-19", "closed_by": "lpcox"},
     "7834": {"pr": 7834, "branch": "repo-assist/improve-tls-config-central-7819", "status": "merged", "date": "2026-06-20", "closes": "#7819"},
     "7981": {"pr": 7981, "branch": "repo-assist/eng-otel-genai-attrs-20260623", "status": "closed", "date": "2026-06-23", "closed_by": "lpcox", "closes": "#7972"},
-    "8042": {"pr": 8042, "branch": "repo-assist/improve-dedup-strutil-8022", "status": "merged", "date": "2026-06-24", "closes": "#8022 #8023", "desc": "refactor: extract SortedSetKeys + atomicWriteFile"},
-    "8139": {"pr": 8139, "branch": "repo-assist/refactor-rust-guard-pathlabel-secrecy-8131", "status": "merged", "date": "2026-06-26", "closes": "#8131", "desc": "refactor: remove PathLabelEntry, use PathLabel directly; simplify secrecy conditions"}
+    "8042": {"pr": 8042, "branch": "repo-assist/improve-dedup-strutil-8022", "status": "merged", "date": "2026-06-24", "closes": "#8022 #8023"},
+    "8139": {"pr": 8139, "branch": "repo-assist/refactor-rust-guard-pathlabel-secrecy-8131", "status": "merged", "date": "2026-06-26", "closes": "#8131"},
+    "8222_fix": {"pr": 0, "branch": "repo-assist/fix-guard-reaction-ops-8222", "status": "open", "date": "2026-06-28", "closes": "#8222", "desc": "fix(guard): add reaction ops to WRITE_OPERATIONS and DIFC rules"}
   },
-  "notes": "2026-06-27: Tasks 1+2+11. Task 1: 3 unlabelled issues (#8160,#8177,#8182) all automation/smoke-test, none fit allowed labels. Task 2: Commented on #8169 (guard coverage gap for issue_dependency_write/read - verified both missing from tools.rs READ_WRITE_OPERATIONS and tool_rules.rs, provided exact insertion points); commented on #8122 (duplicate backend request pattern - confirmed, noted error-logging divergence). PR #8139 (from 2026-06-26 run) was merged by lpcox on 2026-06-26. Future: per-tool jq #5270, refusal-labels #7646, Rust guard first_matching_label #8031, guard coverage fix #8169, semantic refactoring #8149.",
+  "notes": "2026-06-28: Tasks 2+3+11. Task 3: Created PR for #8222 (add_issue_reaction, add_issue_comment_reaction, add_pull_request_review_comment_reaction to WRITE_OPERATIONS in tools.rs + repo-scoped write match arms in tool_rules.rs). 539 Rust tests pass; Go tests fail due to sandbox network restriction. Task 2: Commented on #8171 (fillLabeledResourceFromMap already in use), #8172 (ServerFileLogger.Close() already uses closeLogFile), #8173 (mountValidationError already applied), #8222 (link to PR). #8122 was closed by lpcox on 2026-06-27 (completed). Future: per-tool jq #5270, refusal-labels #7646, Rust guard first_matching_label #8031, semantic refactoring #8149, executeBackendRequest generic helper.",
   "cursor": {
-    "issues": 8182,
-    "labels": 8182
+    "issues": 8228,
+    "labels": 8228
   },
   "checked_off_by_user": [],
-  "open_ra_prs": []
+  "open_ra_prs": ["repo-assist/fix-guard-reaction-ops-8222"]
 }
