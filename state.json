@@ -1,6 +1,6 @@
 {
-  "lr": "2026-06-28T13:06Z",
-  "run_id": "28323146403",
+  "lr": "2026-06-29T14:21Z",
+  "run_id": "28377475113",
   "monthly_issue": 6854,
   "monthly_month": "2026-06",
   "comments_made": {
@@ -47,13 +47,14 @@
     "7981": {"pr": 7981, "branch": "repo-assist/eng-otel-genai-attrs-20260623", "status": "closed", "date": "2026-06-23", "closed_by": "lpcox", "closes": "#7972"},
     "8042": {"pr": 8042, "branch": "repo-assist/improve-dedup-strutil-8022", "status": "merged", "date": "2026-06-24", "closes": "#8022 #8023"},
     "8139": {"pr": 8139, "branch": "repo-assist/refactor-rust-guard-pathlabel-secrecy-8131", "status": "merged", "date": "2026-06-26", "closes": "#8131"},
-    "8222_fix": {"pr": 0, "branch": "repo-assist/fix-guard-reaction-ops-8222", "status": "open", "date": "2026-06-28", "closes": "#8222", "desc": "fix(guard): add reaction ops to WRITE_OPERATIONS and DIFC rules"}
+    "8222_fix": {"pr": 8235, "branch": "repo-assist/fix-guard-reaction-ops-8222", "status": "merged", "date": "2026-06-28", "closes": "#8222", "desc": "fix(guard): add reaction ops to WRITE_OPERATIONS and DIFC rules"},
+    "test_issue_pr_integrity": {"pr": 0, "branch": "repo-assist/test-issue-pr-integrity-compliance", "status": "open", "date": "2026-06-29", "desc": "test(guards): add 17 unit tests for issue_integrity and pr_integrity (T-GP-004, T-GP-005, T-GP-007)"}
   },
-  "notes": "2026-06-28: Tasks 2+3+11. Task 3: Created PR for #8222 (add_issue_reaction, add_issue_comment_reaction, add_pull_request_review_comment_reaction to WRITE_OPERATIONS in tools.rs + repo-scoped write match arms in tool_rules.rs). 539 Rust tests pass; Go tests fail due to sandbox network restriction. Task 2: Commented on #8171 (fillLabeledResourceFromMap already in use), #8172 (ServerFileLogger.Close() already uses closeLogFile), #8173 (mountValidationError already applied), #8222 (link to PR). #8122 was closed by lpcox on 2026-06-27 (completed). Future: per-tool jq #5270, refusal-labels #7646, Rust guard first_matching_label #8031, semantic refactoring #8149, executeBackendRequest generic helper.",
+  "notes": "2026-06-29: Tasks 1+10+11. Task 1: 2 unlabelled issues (#8281, #8282) are smoke-test automation issues; no applicable labels from allowed set. Task 10: Added 17 direct unit tests for issue_integrity (9) and pr_integrity (8) in helpers.rs — these had zero direct tests. Tests cover T-GP-004 (refusal label caps to none), T-GP-005 (refusal overrides approval), T-GP-007 (blocked_users trumps refusal). All 556 Rust tests pass. Go tests fail due to sandbox network restriction. Created draft PR (branch: repo-assist/test-issue-pr-integrity-compliance). 2026-06-28: PR #8235 merged (reaction ops fix). Issues #8169, #8171, #8172, #8173, #8222 all closed by lpcox. Future: continue test coverage improvements for Rust guard.",
   "cursor": {
-    "issues": 8228,
-    "labels": 8228
+    "issues": 8282,
+    "labels": 8282
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["repo-assist/fix-guard-reaction-ops-8222"]
+  "open_ra_prs": ["repo-assist/test-issue-pr-integrity-compliance"]
 }
