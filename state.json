@@ -1,7 +1,7 @@
 {
-  "lr": "2026-07-01T13:30Z",
-  "run_id": "28521135849",
-  "monthly_issue": "aw_july2026",
+  "lr": "2026-07-02T13:15Z",
+  "run_id": "28592794421",
+  "monthly_issue": 8418,
   "monthly_month": "2026-07",
   "comments_made": {
     "6841": "2026-06-01", "6892": "2026-06-02", "6893": "2026-06-02",
@@ -21,7 +21,8 @@
     "8169": "2026-06-27", "8122": "2026-06-27",
     "8171": "2026-06-28", "8172": "2026-06-28", "8173": "2026-06-28", "8222": "2026-06-28",
     "8297": "2026-06-30", "8320": "2026-06-30", "8328": "2026-06-30",
-    "8409": "2026-07-01"
+    "8409": "2026-07-01",
+    "8461": "2026-07-02"
   },
   "fixes": {
     "7094": {"pr": 7094, "status": "merged", "date": "2026-06-06"},
@@ -38,13 +39,14 @@
     "8139": {"pr": 8139, "status": "merged", "date": "2026-06-26", "closes": "#8131"},
     "8222_fix": {"pr": 8235, "status": "merged", "date": "2026-06-28", "closes": "#8222"},
     "8328_fix": {"pr": 8343, "status": "merged", "date": "2026-06-30", "closes": "#8328"},
-    "8409_fix": {"pr": 0, "branch": "repo-assist/refactor-rust-guard-extract-helpers-8409", "status": "open", "date": "2026-07-01", "closes": "#8409", "desc": "refactor(rust-guard): extract extract_items_slice and is_pr_merged helpers"}
+    "8409_fix": {"pr": 8417, "status": "merged", "date": "2026-07-01", "closes": "#8409"},
+    "perf_log1": {"pr": 0, "branch": "repo-assist/perf-formatlogline-pool-20260702", "status": "open", "date": "2026-07-02", "desc": "perf(logger): reduce allocations in formatLogLine with sync.Pool"}
   },
-  "notes": "2026-07-01: Tasks 10+1+11. Task 10: Implemented both improvements from #8409 - extracted extract_items_slice helper (response_items.rs) and is_pr_merged helper (helpers.rs/backend.rs). All 556 Rust tests pass. PR branch: repo-assist/refactor-rust-guard-extract-helpers-8409. Task 1: 3 unlabelled issues (#8410, #8405, #8389) all automation/smoke test types; no applicable labels. Task 11: Created new July 2026 monthly issue (aw_july2026); closed June 2026 issue #6854. Previous: PR #8343 merged (dedup label_response write paths, fixes #8328).",
+  "notes": "2026-07-02: Tasks 2+8+11. PR #8417 (rust-guard helpers, closes #8409) was merged by lpcox. Task 8: Created PR for formatLogLine optimization using sync.Pool - reduces allocations from 2 to 1 per log call (branch: repo-assist/perf-formatlogline-pool-20260702). Task 2: Commented on #8461 (OTEL headers compliance gap - verified diagnosis, outlined 4-file fix sequence). Task 11: Updated monthly issue #8418. Future: implement #8461 OTEL headers compliance fix; implement #8485 rust-guard resolve_integrity_level helper.",
   "cursor": {
-    "issues": 8409,
-    "labels": 8409
+    "issues": 8461,
+    "labels": 8461
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["repo-assist/refactor-rust-guard-extract-helpers-8409"]
+  "open_ra_prs": ["repo-assist/perf-formatlogline-pool-20260702"]
 }
