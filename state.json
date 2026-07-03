@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-02T13:15Z",
-  "run_id": "28592794421",
+  "lr": "2026-07-03T14:00Z",
+  "run_id": "28663011588",
   "monthly_issue": 8418,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -22,7 +22,7 @@
     "8171": "2026-06-28", "8172": "2026-06-28", "8173": "2026-06-28", "8222": "2026-06-28",
     "8297": "2026-06-30", "8320": "2026-06-30", "8328": "2026-06-30",
     "8409": "2026-07-01",
-    "8461": "2026-07-02"
+    "8461": "2026-07-03"
   },
   "fixes": {
     "7094": {"pr": 7094, "status": "merged", "date": "2026-06-06"},
@@ -40,13 +40,15 @@
     "8222_fix": {"pr": 8235, "status": "merged", "date": "2026-06-28", "closes": "#8222"},
     "8328_fix": {"pr": 8343, "status": "merged", "date": "2026-06-30", "closes": "#8328"},
     "8409_fix": {"pr": 8417, "status": "merged", "date": "2026-07-01", "closes": "#8409"},
-    "perf_log1": {"pr": 0, "branch": "repo-assist/perf-formatlogline-pool-20260702", "status": "open", "date": "2026-07-02", "desc": "perf(logger): reduce allocations in formatLogLine with sync.Pool"}
+    "8493": {"pr": 8493, "branch": "repo-assist/perf-formatlogline-pool-20260702", "status": "merged", "date": "2026-07-02", "desc": "perf(logger): reduce allocations in formatLogLine with sync.Pool"},
+    "8461_fix": {"pr": 0, "branch": "repo-assist/fix-otel-headers-stdin-8461", "status": "open", "date": "2026-07-03", "closes": "#8461", "desc": "fix(config): add headers field to JSON stdin opentelemetry config"},
+    "eng_otel_schema": {"pr": 0, "branch": "repo-assist/eng-otel-schema-tests-20260703", "status": "open", "date": "2026-07-03", "desc": "test(config): add JSON schema validation tests for opentelemetry config"}
   },
-  "notes": "2026-07-02: Tasks 2+8+11. PR #8417 (rust-guard helpers, closes #8409) was merged by lpcox. Task 8: Created PR for formatLogLine optimization using sync.Pool - reduces allocations from 2 to 1 per log call (branch: repo-assist/perf-formatlogline-pool-20260702). Task 2: Commented on #8461 (OTEL headers compliance gap - verified diagnosis, outlined 4-file fix sequence). Task 11: Updated monthly issue #8418. Future: implement #8461 OTEL headers compliance fix; implement #8485 rust-guard resolve_integrity_level helper.",
+  "notes": "2026-07-03: Tasks 3+4+11. Task 3: Implemented fix for #8461 (OTEL headers in JSON stdin) - added Headers field to StdinOpenTelemetryConfig, fixed schema, updated converter and tests. Task 4: Added TestSchema_OpenTelemetryConfig to validation_schema_test.go - catches schema/struct drift for opentelemetry block. Both PRs created as drafts. Task 11: Updated monthly issue #8418. Future: implement #8485 rust-guard resolve_integrity_level helper.",
   "cursor": {
-    "issues": 8461,
-    "labels": 8461
+    "issues": 8578,
+    "labels": 8578
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["repo-assist/perf-formatlogline-pool-20260702"]
+  "open_ra_prs": ["repo-assist/fix-otel-headers-stdin-8461", "repo-assist/eng-otel-schema-tests-20260703"]
 }
