@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-03T14:00Z",
-  "run_id": "28663011588",
+  "lr": "2026-07-04T12:59Z",
+  "run_id": "28706950804",
   "monthly_issue": 8418,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -40,15 +40,22 @@
     "8222_fix": {"pr": 8235, "status": "merged", "date": "2026-06-28", "closes": "#8222"},
     "8328_fix": {"pr": 8343, "status": "merged", "date": "2026-06-30", "closes": "#8328"},
     "8409_fix": {"pr": 8417, "status": "merged", "date": "2026-07-01", "closes": "#8409"},
-    "8493": {"pr": 8493, "branch": "repo-assist/perf-formatlogline-pool-20260702", "status": "merged", "date": "2026-07-02", "desc": "perf(logger): reduce allocations in formatLogLine with sync.Pool"},
-    "8461_fix": {"pr": 0, "branch": "repo-assist/fix-otel-headers-stdin-8461", "status": "open", "date": "2026-07-03", "closes": "#8461", "desc": "fix(config): add headers field to JSON stdin opentelemetry config"},
-    "eng_otel_schema": {"pr": 0, "branch": "repo-assist/eng-otel-schema-tests-20260703", "status": "open", "date": "2026-07-03", "desc": "test(config): add JSON schema validation tests for opentelemetry config"}
+    "8493": {"pr": 8493, "status": "merged", "date": "2026-07-02", "desc": "perf(logger): reduce allocations in formatLogLine with sync.Pool"},
+    "8461_fix": {"pr": 8587, "status": "merged", "date": "2026-07-03", "closes": "#8461"},
+    "eng_otel_schema": {"pr": 8588, "status": "merged", "date": "2026-07-03"},
+    "8634_fix": {"pr": 0, "branch": "repo-assist/improve-validation-error-consistency-20260704", "status": "open", "date": "2026-07-04", "closes": "#8634", "desc": "refactor(config): route all ValidationError constructors through newValidationError"}
   },
-  "notes": "2026-07-03: Tasks 3+4+11. Task 3: Implemented fix for #8461 (OTEL headers in JSON stdin) - added Headers field to StdinOpenTelemetryConfig, fixed schema, updated converter and tests. Task 4: Added TestSchema_OpenTelemetryConfig to validation_schema_test.go - catches schema/struct drift for opentelemetry block. Both PRs created as drafts. Task 11: Updated monthly issue #8418. Future: implement #8485 rust-guard resolve_integrity_level helper.",
+  "labels_applied": {
+    "8610": ["automated", "smoke-test"],
+    "8615": ["off topic"],
+    "8637": ["automated", "smoke-test"],
+    "8642": ["automated", "smoke-test"]
+  },
+  "notes": "2026-07-04: Tasks 4+1+11. Task 4: Fixed ValidationError literal inconsistency (#8634) - mountValidationError, RequiredStringField, NonEmptyString, InvalidValue all now use newValidationError helper. Task 1: Labelled 4 unlabelled issues (#8610, #8615, #8637, #8642). Task 11: Updated monthly #8418. Future: extract shared secureCompileOpts from config/middleware packages.",
   "cursor": {
-    "issues": 8578,
-    "labels": 8578
+    "issues": 8645,
+    "labels": 8645
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["repo-assist/fix-otel-headers-stdin-8461", "repo-assist/eng-otel-schema-tests-20260703"]
+  "open_ra_prs": ["repo-assist/improve-validation-error-consistency-20260704"]
 }
