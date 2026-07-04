@@ -123,3 +123,62 @@ func TestServeAndWait_ServeFnError(t *testing.T) {
 	assert.ErrorIs(t, result, serveErrExpected, "unexpected serve error should be propagated")
 	assert.ErrorIs(t, ctx.Err(), context.Canceled, "serveAndWait should cancel the context on unexpected serve error")
 }
+
+// TestServeAndWait_ShutdownTimesOut verifies that when graceful shutdown exceeds
+// its timeout because active connections are not drained in time, serveAndWait
+// forces a close and returns the shutdown deadline error.
+func TestServeAndWait_ShutdownTimesOut(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	handlerStarted := make(chan struct{})
+	handlerUnblock := make(chan struct{})
+	// Always unblock the handler goroutine when the test ends to prevent leaks.
+	t.Cleanup(func() { close(handlerUnblock) })
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	httpServer := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			close(handlerStarted)
+			<-handlerUnblock
+			w.WriteHeader(http.StatusOK)
+		}),
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- serveAndWait(
+			ctx,
+			cancel,
+			httpServer,
+			time.Nanosecond, // near-zero timeout forces immediate shutdown deadline
+			nil,
+			func() error {
+				return httpServer.Serve(listener)
+			},
+		)
+	}()
+
+	// Fire a request so the blocking handler holds an active connection open.
+	go func() {
+		client := &http.Client{Timeout: 5 * time.Second}
+		_, _ = client.Get("http://" + listener.Addr().String())
+	}()
+
+	// Wait until the handler is executing to guarantee an in-flight connection exists.
+	select {
+	case <-handlerStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for handler to start")
+	}
+
+	// Trigger shutdown. With a 1 ns timeout the shutdown context expires immediately,
+	// so httpServer.Shutdown returns context.DeadlineExceeded while the connection
+	// is still open, exercising the forced-close path.
+	cancel()
+
+	result := <-errCh
+	require.Error(t, result)
+	assert.ErrorIs(t, result, context.DeadlineExceeded, "shutdown timeout should return context.DeadlineExceeded")
+}
