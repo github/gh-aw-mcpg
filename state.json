@@ -1,61 +1,198 @@
 {
-  "lr": "2026-07-04T12:59Z",
-  "run_id": "28706950804",
+  "lr": "2026-07-05T13:19Z",
+  "run_id": "28741575935",
   "monthly_issue": 8418,
   "monthly_month": "2026-07",
   "comments_made": {
-    "6841": "2026-06-01", "6892": "2026-06-02", "6893": "2026-06-02",
-    "6939": "2026-06-03", "6940": "2026-06-03",
-    "6981": "2026-06-04", "6982": "2026-06-04",
-    "7009": "2026-06-05", "7033": "2026-06-05",
+    "6841": "2026-06-01",
+    "6892": "2026-06-02",
+    "6893": "2026-06-02",
+    "6939": "2026-06-03",
+    "6940": "2026-06-03",
+    "6981": "2026-06-04",
+    "6982": "2026-06-04",
+    "7009": "2026-06-05",
+    "7033": "2026-06-05",
     "7064": "2026-06-06",
-    "7307": "2026-06-10", "7308": "2026-06-10",
-    "7444": "2026-06-13", "7468": "2026-06-13",
-    "7544": "2026-06-15", "7569": "2026-06-15",
+    "7307": "2026-06-10",
+    "7308": "2026-06-10",
+    "7444": "2026-06-13",
+    "7468": "2026-06-13",
+    "7544": "2026-06-15",
+    "7569": "2026-06-15",
     "7647": "2026-06-17",
     "7712": "2026-06-19",
     "7817": "2026-06-20",
     "7860": "2026-06-21",
-    "8072": "2026-06-25", "8081": "2026-06-25",
+    "8072": "2026-06-25",
+    "8081": "2026-06-25",
     "8131": "2026-06-26",
-    "8169": "2026-06-27", "8122": "2026-06-27",
-    "8171": "2026-06-28", "8172": "2026-06-28", "8173": "2026-06-28", "8222": "2026-06-28",
-    "8297": "2026-06-30", "8320": "2026-06-30", "8328": "2026-06-30",
+    "8169": "2026-06-27",
+    "8122": "2026-06-27",
+    "8171": "2026-06-28",
+    "8172": "2026-06-28",
+    "8173": "2026-06-28",
+    "8222": "2026-06-28",
+    "8297": "2026-06-30",
+    "8320": "2026-06-30",
+    "8328": "2026-06-30",
     "8409": "2026-07-01",
     "8461": "2026-07-03"
   },
   "fixes": {
-    "7094": {"pr": 7094, "status": "merged", "date": "2026-06-06"},
-    "6990": {"pr": 6990, "status": "merged", "date": "2026-06-04"},
-    "7268": {"pr": 7268, "status": "merged", "date": "2026-06-09", "closes": "#7254"},
-    "7478": {"pr": 7478, "status": "merged", "date": "2026-06-13", "closes": "#7468"},
-    "7591": {"pr": 7591, "status": "merged", "date": "2026-06-15"},
-    "7628": {"pr": 7628, "status": "merged", "date": "2026-06-16"},
-    "7684": {"pr": 7684, "status": "merged", "date": "2026-06-17", "closes": "#7647"},
-    "7786": {"pr": 7786, "status": "closed", "date": "2026-06-19"},
-    "7834": {"pr": 7834, "status": "merged", "date": "2026-06-20", "closes": "#7819"},
-    "7981": {"pr": 7981, "status": "closed", "date": "2026-06-23"},
-    "8042": {"pr": 8042, "status": "merged", "date": "2026-06-24", "closes": "#8022 #8023"},
-    "8139": {"pr": 8139, "status": "merged", "date": "2026-06-26", "closes": "#8131"},
-    "8222_fix": {"pr": 8235, "status": "merged", "date": "2026-06-28", "closes": "#8222"},
-    "8328_fix": {"pr": 8343, "status": "merged", "date": "2026-06-30", "closes": "#8328"},
-    "8409_fix": {"pr": 8417, "status": "merged", "date": "2026-07-01", "closes": "#8409"},
-    "8493": {"pr": 8493, "status": "merged", "date": "2026-07-02", "desc": "perf(logger): reduce allocations in formatLogLine with sync.Pool"},
-    "8461_fix": {"pr": 8587, "status": "merged", "date": "2026-07-03", "closes": "#8461"},
-    "eng_otel_schema": {"pr": 8588, "status": "merged", "date": "2026-07-03"},
-    "8634_fix": {"pr": 0, "branch": "repo-assist/improve-validation-error-consistency-20260704", "status": "open", "date": "2026-07-04", "closes": "#8634", "desc": "refactor(config): route all ValidationError constructors through newValidationError"}
+    "7094": {
+      "pr": 7094,
+      "status": "merged",
+      "date": "2026-06-06"
+    },
+    "6990": {
+      "pr": 6990,
+      "status": "merged",
+      "date": "2026-06-04"
+    },
+    "7268": {
+      "pr": 7268,
+      "status": "merged",
+      "date": "2026-06-09",
+      "closes": "#7254"
+    },
+    "7478": {
+      "pr": 7478,
+      "status": "merged",
+      "date": "2026-06-13",
+      "closes": "#7468"
+    },
+    "7591": {
+      "pr": 7591,
+      "status": "merged",
+      "date": "2026-06-15"
+    },
+    "7628": {
+      "pr": 7628,
+      "status": "merged",
+      "date": "2026-06-16"
+    },
+    "7684": {
+      "pr": 7684,
+      "status": "merged",
+      "date": "2026-06-17",
+      "closes": "#7647"
+    },
+    "7786": {
+      "pr": 7786,
+      "status": "closed",
+      "date": "2026-06-19"
+    },
+    "7834": {
+      "pr": 7834,
+      "status": "merged",
+      "date": "2026-06-20",
+      "closes": "#7819"
+    },
+    "7981": {
+      "pr": 7981,
+      "status": "closed",
+      "date": "2026-06-23"
+    },
+    "8042": {
+      "pr": 8042,
+      "status": "merged",
+      "date": "2026-06-24",
+      "closes": "#8022 #8023"
+    },
+    "8139": {
+      "pr": 8139,
+      "status": "merged",
+      "date": "2026-06-26",
+      "closes": "#8131"
+    },
+    "8222_fix": {
+      "pr": 8235,
+      "status": "merged",
+      "date": "2026-06-28",
+      "closes": "#8222"
+    },
+    "8328_fix": {
+      "pr": 8343,
+      "status": "merged",
+      "date": "2026-06-30",
+      "closes": "#8328"
+    },
+    "8409_fix": {
+      "pr": 8417,
+      "status": "merged",
+      "date": "2026-07-01",
+      "closes": "#8409"
+    },
+    "8493": {
+      "pr": 8493,
+      "status": "merged",
+      "date": "2026-07-02",
+      "desc": "perf(logger): reduce allocations in formatLogLine with sync.Pool"
+    },
+    "8461_fix": {
+      "pr": 8587,
+      "status": "merged",
+      "date": "2026-07-03",
+      "closes": "#8461"
+    },
+    "eng_otel_schema": {
+      "pr": 8588,
+      "status": "merged",
+      "date": "2026-07-03"
+    },
+    "8634_fix": {
+      "pr": 0,
+      "branch": "repo-assist/improve-validation-error-consistency-20260704",
+      "status": "merged",
+      "date": "2026-07-04",
+      "closes": "#8634",
+      "desc": "refactor(config): route all ValidationError constructors through newValidationError"
+    },
+    "perf_rpc_sanitize": {
+      "pr": 0,
+      "branch": "repo-assist/perf-rpc-single-sanitize-20260705",
+      "status": "open",
+      "date": "2026-07-05",
+      "desc": "perf(logger): sanitize RPC payload once for text+markdown previews (temporary_id: #aw_perf_pr)"
+    }
   },
   "labels_applied": {
-    "8610": ["automated", "smoke-test"],
-    "8615": ["off topic"],
-    "8637": ["automated", "smoke-test"],
-    "8642": ["automated", "smoke-test"]
+    "8610": [
+      "automated",
+      "smoke-test"
+    ],
+    "8615": [
+      "off topic"
+    ],
+    "8637": [
+      "automated",
+      "smoke-test"
+    ],
+    "8642": [
+      "automated",
+      "smoke-test"
+    ],
+    "8692": [
+      "automated",
+      "smoke-test"
+    ],
+    "8693": [
+      "automated",
+      "smoke-test"
+    ],
+    "8715": [
+      "automated",
+      "smoke-test"
+    ]
   },
-  "notes": "2026-07-04: Tasks 4+1+11. Task 4: Fixed ValidationError literal inconsistency (#8634) - mountValidationError, RequiredStringField, NonEmptyString, InvalidValue all now use newValidationError helper. Task 1: Labelled 4 unlabelled issues (#8610, #8615, #8637, #8642). Task 11: Updated monthly #8418. Future: extract shared secureCompileOpts from config/middleware packages.",
+  "notes": "2026-07-05: Tasks 8+1+11. Task 8: Identified RPC logging double-sanitization hot path. Created perf PR (perf-rpc-single-sanitize-20260705): sanitize.SanitizeString called once per RPC hop instead of twice; formatRPCMessage uses strings.Builder instead of slice+Join. Task 1: Labelled 3 smoke-test issues (#8692, #8693, #8715). Task 11: Updated monthly #8418. Future: extract shared secureCompileOpts from config/middleware.",
   "cursor": {
-    "issues": 8645,
-    "labels": 8645
+    "issues": 8715,
+    "labels": 8715
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["repo-assist/improve-validation-error-consistency-20260704"]
+  "open_ra_prs": [
+    "repo-assist/perf-rpc-single-sanitize-20260705"
+  ]
 }
