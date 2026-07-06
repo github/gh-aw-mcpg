@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-05T13:19Z",
-  "run_id": "28741575935",
+  "lr": "2026-07-06T13:56Z",
+  "run_id": "28796840743",
   "monthly_issue": 8418,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -143,18 +143,15 @@
     },
     "8634_fix": {
       "pr": 0,
-      "branch": "repo-assist/improve-validation-error-consistency-20260704",
       "status": "merged",
       "date": "2026-07-04",
-      "closes": "#8634",
       "desc": "refactor(config): route all ValidationError constructors through newValidationError"
     },
     "perf_rpc_sanitize": {
       "pr": 0,
-      "branch": "repo-assist/perf-rpc-single-sanitize-20260705",
-      "status": "open",
+      "status": "merged",
       "date": "2026-07-05",
-      "desc": "perf(logger): sanitize RPC payload once for text+markdown previews (temporary_id: #aw_perf_pr)"
+      "desc": "perf(logger): sanitize RPC payload once for text+markdown previews"
     }
   },
   "labels_applied": {
@@ -184,15 +181,21 @@
     "8715": [
       "automated",
       "smoke-test"
+    ],
+    "8794": [
+      "automated",
+      "smoke-test"
+    ],
+    "8803": [
+      "automated",
+      "smoke-test"
     ]
   },
-  "notes": "2026-07-05: Tasks 8+1+11. Task 8: Identified RPC logging double-sanitization hot path. Created perf PR (perf-rpc-single-sanitize-20260705): sanitize.SanitizeString called once per RPC hop instead of twice; formatRPCMessage uses strings.Builder instead of slice+Join. Task 1: Labelled 3 smoke-test issues (#8692, #8693, #8715). Task 11: Updated monthly #8418. Future: extract shared secureCompileOpts from config/middleware.",
+  "notes": "2026-07-06: Tasks 1+2+11. Task 1: Labelled #8794, #8803 with automated/smoke-test. Task 2: All open issues were automated/smoke-test, no substantive comment candidates. Task 11: update_issue limit exhausted by empty call; recorded run via add_comment on #8418. Future: secureCompileOpts consolidation from config/middleware.",
   "cursor": {
-    "issues": 8715,
-    "labels": 8715
+    "issues": 8803,
+    "labels": 8803
   },
   "checked_off_by_user": [],
-  "open_ra_prs": [
-    "repo-assist/perf-rpc-single-sanitize-20260705"
-  ]
+  "open_ra_prs": []
 }
