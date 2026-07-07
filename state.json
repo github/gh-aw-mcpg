@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-06T13:56Z",
-  "run_id": "28796840743",
+  "lr": "2026-07-07T13:25Z",
+  "run_id": "28869605417",
   "monthly_issue": 8418,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -37,7 +37,8 @@
     "8320": "2026-06-30",
     "8328": "2026-06-30",
     "8409": "2026-07-01",
-    "8461": "2026-07-03"
+    "8461": "2026-07-03",
+    "8830": "2026-07-07"
   },
   "fixes": {
     "7094": {
@@ -152,6 +153,13 @@
       "status": "merged",
       "date": "2026-07-05",
       "desc": "perf(logger): sanitize RPC payload once for text+markdown previews"
+    },
+    "jqutil_consolidate": {
+      "pr": 0,
+      "status": "open",
+      "branch": "repo-assist/improve-jqsecure-consolidate-20260707",
+      "date": "2026-07-07",
+      "desc": "refactor: centralise SecureCompileOpts into internal/jqutil"
     }
   },
   "labels_applied": {
@@ -191,11 +199,13 @@
       "smoke-test"
     ]
   },
-  "notes": "2026-07-06: Tasks 1+2+11. Task 1: Labelled #8794, #8803 with automated/smoke-test. Task 2: All open issues were automated/smoke-test, no substantive comment candidates. Task 11: update_issue limit exhausted by empty call; recorded run via add_comment on #8418. Future: secureCompileOpts consolidation from config/middleware.",
+  "notes": "2026-07-07: Tasks 3+2+11. Task 3: Created PR on branch repo-assist/improve-jqsecure-consolidate-20260707 - refactored SecureCompileOpts into internal/jqutil leaf package to eliminate security-sensitive duplication between config and middleware. Build of jqutil passes, full tests blocked by network restrictions (pre-existing infra issue). Task 2: Commented on #8830 (EACCES infrastructure failure, not a code bug). #8814 also infrastructure failure (false positive - PR was actually created successfully). Task 11: Updated monthly issue #8418.",
   "cursor": {
-    "issues": 8803,
-    "labels": 8803
+    "issues": 8863,
+    "labels": 8863
   },
   "checked_off_by_user": [],
-  "open_ra_prs": []
+  "open_ra_prs": [
+    "repo-assist/improve-jqsecure-consolidate-20260707"
+  ]
 }
