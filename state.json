@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-07T13:25Z",
-  "run_id": "28869605417",
+  "lr": "2026-07-08T13:30Z",
+  "run_id": "28945131964",
   "monthly_issue": 8418,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -38,7 +38,10 @@
     "8328": "2026-06-30",
     "8409": "2026-07-01",
     "8461": "2026-07-03",
-    "8830": "2026-07-07"
+    "8830": "2026-07-07",
+    "8900": "2026-07-08",
+    "8920": "2026-07-08",
+    "8921": "2026-07-08"
   },
   "fixes": {
     "7094": {
@@ -160,6 +163,21 @@
       "branch": "repo-assist/improve-jqsecure-consolidate-20260707",
       "date": "2026-07-07",
       "desc": "refactor: centralise SecureCompileOpts into internal/jqutil"
+    },
+    "eng_makefile_test": {
+      "pr": 0,
+      "status": "open",
+      "branch": "repo-assist/eng-makefile-test-consistency-20260714",
+      "date": "2026-07-08",
+      "desc": "build(makefile): add -parallel=8 and -timeout flags to test targets"
+    },
+    "rust_guard_notif_deadcode": {
+      "pr": 0,
+      "status": "open",
+      "branch": "repo-assist/fix-rust-guard-notifications-deadcode-8921",
+      "date": "2026-07-08",
+      "desc": "fix(rust-guard): remove dead .or_else() fallback in notifications arm",
+      "closes": "#8921"
     }
   },
   "labels_applied": {
@@ -197,15 +215,26 @@
     "8803": [
       "automated",
       "smoke-test"
+    ],
+    "8900": [
+      "enhancement",
+      "security",
+      "mcp-gateway"
+    ],
+    "8925": [
+      "automated",
+      "smoke-test"
     ]
   },
-  "notes": "2026-07-07: Tasks 3+2+11. Task 3: Created PR on branch repo-assist/improve-jqsecure-consolidate-20260707 - refactored SecureCompileOpts into internal/jqutil leaf package to eliminate security-sensitive duplication between config and middleware. Build of jqutil passes, full tests blocked by network restrictions (pre-existing infra issue). Task 2: Commented on #8830 (EACCES infrastructure failure, not a code bug). #8814 also infrastructure failure (false positive - PR was actually created successfully). Task 11: Updated monthly issue #8418.",
+  "notes": "2026-07-08: Tasks 4+2+11. Task 4: Makefile improvement - added -parallel=8 -timeout=3m to test-unit (and similar to test-all, test-integration) to match test-ci behavior. PR branch: repo-assist/eng-makefile-test-consistency-20260714. Also did implicit Task 3: fixed rust-guard #8921 (removed dead .or_else() fallback in notifications arm, added 3 tests). All 576 Rust tests pass. PR branch: repo-assist/fix-rust-guard-notifications-deadcode-8921. Task 2: Commented on #8900 (sink-visibility compiler feature - gateway already has runtime check, compiler needs compile-time emit), #8920 (testify v1.11.1 already current), #8921 (linking to fix PR). Task 11: Updated monthly issue #8418. Labels: #8900 enhancement/security/mcp-gateway, #8925 automated/smoke-test. Future: check status of jqutil consolidation PR from 07-07; investigate code-quality issues #8912-#8915; check if assert.Equal(t, true/false) in util_test.go lines 131/137 is addressed.",
   "cursor": {
-    "issues": 8863,
-    "labels": 8863
+    "issues": 8927,
+    "labels": 8927
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/improve-jqsecure-consolidate-20260707"
+    "repo-assist/improve-jqsecure-consolidate-20260707",
+    "repo-assist/eng-makefile-test-consistency-20260714",
+    "repo-assist/fix-rust-guard-notifications-deadcode-8921"
   ]
 }
