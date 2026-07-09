@@ -128,6 +128,14 @@ steps:
       echo "Secret stored in $TEST_FS/$SECRET_FILE"
       grep -H $TEST_SECRET $TEST_FS/$SECRET_FILE
 
+  - name: Redirect AWS config paths away from chroot home
+    run: |
+      mkdir -p /tmp/gh-aw/aws
+      {
+        echo "AWS_CONFIG_FILE=/tmp/gh-aw/aws/config"
+        echo "AWS_SHARED_CREDENTIALS_FILE=/tmp/gh-aw/aws/credentials"
+      } >> "$GITHUB_ENV"
+
 post-steps:
   - name: Upload Test Results
     if: always()
