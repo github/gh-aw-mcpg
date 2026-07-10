@@ -1,49 +1,158 @@
 {
-  "lr": "2026-06-30T13:19Z",
-  "run_id": "28447262986",
-  "monthly_issue": 6854,
-  "monthly_month": "2026-06",
+  "lr": "2026-07-10T13:20Z",
+  "run_id": "29095589383",
+  "monthly_issue": "aw_july2026",
+  "monthly_month": "2026-07",
   "comments_made": {
-    "6841": "2026-06-01", "6892": "2026-06-02", "6893": "2026-06-02",
-    "6939": "2026-06-03", "6940": "2026-06-03",
-    "6981": "2026-06-04", "6982": "2026-06-04",
-    "7009": "2026-06-05", "7033": "2026-06-05",
+    "6841": "2026-06-01",
+    "6892": "2026-06-02",
+    "6893": "2026-06-02",
+    "6939": "2026-06-03",
+    "6940": "2026-06-03",
+    "6981": "2026-06-04",
+    "6982": "2026-06-04",
+    "7009": "2026-06-05",
+    "7033": "2026-06-05",
     "7064": "2026-06-06",
-    "7307": "2026-06-10", "7308": "2026-06-10",
-    "7444": "2026-06-13", "7468": "2026-06-13",
-    "7544": "2026-06-15", "7569": "2026-06-15",
+    "7307": "2026-06-10",
+    "7308": "2026-06-10",
+    "7444": "2026-06-13",
+    "7468": "2026-06-13",
+    "7544": "2026-06-15",
+    "7569": "2026-06-15",
     "7647": "2026-06-17",
     "7712": "2026-06-19",
     "7817": "2026-06-20",
     "7860": "2026-06-21",
-    "8072": "2026-06-25", "8081": "2026-06-25",
+    "8072": "2026-06-25",
+    "8081": "2026-06-25",
     "8131": "2026-06-26",
-    "8169": "2026-06-27", "8122": "2026-06-27",
-    "8171": "2026-06-28", "8172": "2026-06-28", "8173": "2026-06-28", "8222": "2026-06-28",
-    "8297": "2026-06-30", "8320": "2026-06-30", "8328": "2026-06-30"
+    "8169": "2026-06-27",
+    "8122": "2026-06-27",
+    "8171": "2026-06-28",
+    "8172": "2026-06-28",
+    "8173": "2026-06-28",
+    "8222": "2026-06-28",
+    "8297": "2026-06-30",
+    "8320": "2026-06-30",
+    "8328": "2026-06-30",
+    "9047": "2026-07-10"
   },
   "fixes": {
-    "7094": {"pr": 7094, "branch": "repo-assist/perf-skip-json-marshal-small-7094", "status": "merged", "date": "2026-06-06"},
-    "6990": {"pr": 6990, "branch": "repo-assist/perf-rust-guard-eliminate-clones-6982", "status": "merged", "date": "2026-06-04"},
-    "7268": {"pr": 7268, "branch": "repo-assist/improve-launcher-avoid-double-config-lookup", "status": "merged", "date": "2026-06-09", "closes": "#7254"},
-    "7478": {"pr": 7478, "branch": "repo-assist/fix-tracing-test-isolation-20260613", "status": "merged", "date": "2026-06-13", "closes": "#7468"},
-    "7591": {"pr": 7591, "branch": "repo-assist/test-require-noop-upgrade-20260615", "status": "merged", "date": "2026-06-15"},
-    "7628": {"pr": 7628, "branch": "repo-assist/improve-strings-cut-consistency", "status": "merged", "date": "2026-06-16"},
-    "7684": {"pr": 7684, "branch": "repo-assist/fix-host-network-validation-7647", "status": "merged", "date": "2026-06-17", "closes": "#7647"},
-    "7786": {"pr": 7786, "branch": "repo-assist/improve-check-file-secrecy-7773", "status": "closed", "date": "2026-06-19"},
-    "7834": {"pr": 7834, "branch": "repo-assist/improve-tls-config-central-7819", "status": "merged", "date": "2026-06-20", "closes": "#7819"},
-    "7981": {"pr": 7981, "branch": "repo-assist/eng-otel-genai-attrs-20260623", "status": "closed", "date": "2026-06-23"},
-    "8042": {"pr": 8042, "branch": "repo-assist/improve-dedup-strutil-8022", "status": "merged", "date": "2026-06-24", "closes": "#8022 #8023"},
-    "8139": {"pr": 8139, "branch": "repo-assist/refactor-rust-guard-pathlabel-secrecy-8131", "status": "merged", "date": "2026-06-26", "closes": "#8131"},
-    "8222_fix": {"pr": 8235, "branch": "repo-assist/fix-guard-reaction-ops-8222", "status": "merged", "date": "2026-06-28", "closes": "#8222"},
-    "test_issue_pr_integrity": {"pr": 0, "branch": "repo-assist/test-issue-pr-integrity-compliance", "status": "closed_or_never_created", "date": "2026-06-29"},
-    "8328_fix": {"pr": 0, "branch": "repo-assist/fix-rust-guard-dedup-8328", "status": "open", "date": "2026-06-30", "closes": "#8328", "desc": "refactor(guard): deduplicate label_response write paths and extract get_author_association"}
+    "7094": {
+      "pr": 7094,
+      "branch": "repo-assist/perf-skip-json-marshal-small-7094",
+      "status": "merged",
+      "date": "2026-06-06"
+    },
+    "6990": {
+      "pr": 6990,
+      "branch": "repo-assist/perf-rust-guard-eliminate-clones-6982",
+      "status": "merged",
+      "date": "2026-06-04"
+    },
+    "7268": {
+      "pr": 7268,
+      "branch": "repo-assist/improve-launcher-avoid-double-config-lookup",
+      "status": "merged",
+      "date": "2026-06-09",
+      "closes": "#7254"
+    },
+    "7478": {
+      "pr": 7478,
+      "branch": "repo-assist/fix-tracing-test-isolation-20260613",
+      "status": "merged",
+      "date": "2026-06-13",
+      "closes": "#7468"
+    },
+    "7591": {
+      "pr": 7591,
+      "branch": "repo-assist/test-require-noop-upgrade-20260615",
+      "status": "merged",
+      "date": "2026-06-15"
+    },
+    "7628": {
+      "pr": 7628,
+      "branch": "repo-assist/improve-strings-cut-consistency",
+      "status": "merged",
+      "date": "2026-06-16"
+    },
+    "7684": {
+      "pr": 7684,
+      "branch": "repo-assist/fix-host-network-validation-7647",
+      "status": "merged",
+      "date": "2026-06-17",
+      "closes": "#7647"
+    },
+    "7786": {
+      "pr": 7786,
+      "branch": "repo-assist/improve-check-file-secrecy-7773",
+      "status": "closed",
+      "date": "2026-06-19"
+    },
+    "7834": {
+      "pr": 7834,
+      "branch": "repo-assist/improve-tls-config-central-7819",
+      "status": "merged",
+      "date": "2026-06-20",
+      "closes": "#7819"
+    },
+    "7981": {
+      "pr": 7981,
+      "branch": "repo-assist/eng-otel-genai-attrs-20260623",
+      "status": "closed",
+      "date": "2026-06-23"
+    },
+    "8042": {
+      "pr": 8042,
+      "branch": "repo-assist/improve-dedup-strutil-8022",
+      "status": "merged",
+      "date": "2026-06-24",
+      "closes": "#8022 #8023"
+    },
+    "8139": {
+      "pr": 8139,
+      "branch": "repo-assist/refactor-rust-guard-pathlabel-secrecy-8131",
+      "status": "merged",
+      "date": "2026-06-26",
+      "closes": "#8131"
+    },
+    "8222_fix": {
+      "pr": 8235,
+      "branch": "repo-assist/fix-guard-reaction-ops-8222",
+      "status": "merged",
+      "date": "2026-06-28",
+      "closes": "#8222"
+    },
+    "test_issue_pr_integrity": {
+      "pr": 0,
+      "branch": "repo-assist/test-issue-pr-integrity-compliance",
+      "status": "closed_or_never_created",
+      "date": "2026-06-29"
+    },
+    "8328_fix": {
+      "pr": 0,
+      "branch": "repo-assist/fix-rust-guard-dedup-8328",
+      "status": "open",
+      "date": "2026-06-30",
+      "closes": "#8328",
+      "desc": "refactor(guard): deduplicate label_response write paths and extract get_author_association"
+    },
+    "perf_gojq": {
+      "pr": "aw_perf_gojq",
+      "branch": "repo-assist/perf-bypass-gojq-schema-inference-20260710",
+      "status": "open",
+      "date": "2026-07-10",
+      "desc": "perf: bypass gojq interpreter for inferSchema in applyJqSchema"
+    }
   },
-  "notes": "2026-06-30: Tasks 2+3+11. Task 3: Fixed #8328 - deduplicated label_response write paths in lib.rs (replaced 2 duplicate 10-line blocks with try_write_json_output calls) and extracted get_author_association helper in helpers.rs. All 556 Rust tests pass. PR branch: repo-assist/fix-rust-guard-dedup-8328. Task 2: Commented on #8328 (fix linked), #8297 (strutil/difc/middleware consolidation notes), #8320 (ReadAndCheckResponse impl guidance). Future: Implement ReadAndCheckResponse for #8320; strutil consolidation from #8297.",
+  "notes": "2026-07-10: Tasks 8+2+11. Task 8: Created PR bypassing gojq for applyJqSchema - calls inferSchema directly. Task 2: Commented on #9047 (gojq module review) with usage analysis. Task 11: Created July 2026 monthly issue, closed June #8418. Unlabelled issues #9036 #9043 #9064 need investigation next run. PR #9051 (rust downscope) and PRs #9052-9054 await review.",
   "cursor": {
-    "issues": 8328,
-    "labels": 8328
+    "issues": 9047,
+    "labels": 9047
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["repo-assist/fix-rust-guard-dedup-8328"]
+  "open_ra_prs": [
+    "repo-assist/perf-bypass-gojq-schema-inference-20260710"
+  ]
 }
