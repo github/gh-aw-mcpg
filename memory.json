@@ -1,7 +1,7 @@
 {
-  "lr": "2026-07-10T13:20Z",
-  "run_id": "29095589383",
-  "monthly_issue": "aw_july2026",
+  "lr": "2026-07-11T12:59Z",
+  "run_id": "29153508462",
+  "monthly_issue": 9072,
   "monthly_month": "2026-07",
   "comments_made": {
     "6841": "2026-06-01",
@@ -36,123 +36,25 @@
     "8297": "2026-06-30",
     "8320": "2026-06-30",
     "8328": "2026-06-30",
-    "9047": "2026-07-10"
+    "9047": "2026-07-10",
+    "9100": "2026-07-11"
   },
   "fixes": {
-    "7094": {
-      "pr": 7094,
-      "branch": "repo-assist/perf-skip-json-marshal-small-7094",
-      "status": "merged",
-      "date": "2026-06-06"
-    },
-    "6990": {
-      "pr": 6990,
-      "branch": "repo-assist/perf-rust-guard-eliminate-clones-6982",
-      "status": "merged",
-      "date": "2026-06-04"
-    },
-    "7268": {
-      "pr": 7268,
-      "branch": "repo-assist/improve-launcher-avoid-double-config-lookup",
-      "status": "merged",
-      "date": "2026-06-09",
-      "closes": "#7254"
-    },
-    "7478": {
-      "pr": 7478,
-      "branch": "repo-assist/fix-tracing-test-isolation-20260613",
-      "status": "merged",
-      "date": "2026-06-13",
-      "closes": "#7468"
-    },
-    "7591": {
-      "pr": 7591,
-      "branch": "repo-assist/test-require-noop-upgrade-20260615",
-      "status": "merged",
-      "date": "2026-06-15"
-    },
-    "7628": {
-      "pr": 7628,
-      "branch": "repo-assist/improve-strings-cut-consistency",
-      "status": "merged",
-      "date": "2026-06-16"
-    },
-    "7684": {
-      "pr": 7684,
-      "branch": "repo-assist/fix-host-network-validation-7647",
-      "status": "merged",
-      "date": "2026-06-17",
-      "closes": "#7647"
-    },
-    "7786": {
-      "pr": 7786,
-      "branch": "repo-assist/improve-check-file-secrecy-7773",
-      "status": "closed",
-      "date": "2026-06-19"
-    },
-    "7834": {
-      "pr": 7834,
-      "branch": "repo-assist/improve-tls-config-central-7819",
-      "status": "merged",
-      "date": "2026-06-20",
-      "closes": "#7819"
-    },
-    "7981": {
-      "pr": 7981,
-      "branch": "repo-assist/eng-otel-genai-attrs-20260623",
-      "status": "closed",
-      "date": "2026-06-23"
-    },
-    "8042": {
-      "pr": 8042,
-      "branch": "repo-assist/improve-dedup-strutil-8022",
-      "status": "merged",
-      "date": "2026-06-24",
-      "closes": "#8022 #8023"
-    },
-    "8139": {
-      "pr": 8139,
-      "branch": "repo-assist/refactor-rust-guard-pathlabel-secrecy-8131",
-      "status": "merged",
-      "date": "2026-06-26",
-      "closes": "#8131"
-    },
-    "8222_fix": {
-      "pr": 8235,
-      "branch": "repo-assist/fix-guard-reaction-ops-8222",
-      "status": "merged",
-      "date": "2026-06-28",
-      "closes": "#8222"
-    },
-    "test_issue_pr_integrity": {
-      "pr": 0,
-      "branch": "repo-assist/test-issue-pr-integrity-compliance",
-      "status": "closed_or_never_created",
-      "date": "2026-06-29"
-    },
-    "8328_fix": {
-      "pr": 0,
-      "branch": "repo-assist/fix-rust-guard-dedup-8328",
+    "sanitize_mcp_clone": {
+      "pr": "aw_ra_sanitize_pr",
+      "branch": "repo-assist/improve-sanitize-truncatesecret-20260711",
       "status": "open",
-      "date": "2026-06-30",
-      "closes": "#8328",
-      "desc": "refactor(guard): deduplicate label_response write paths and extract get_author_association"
-    },
-    "perf_gojq": {
-      "pr": "aw_perf_gojq",
-      "branch": "repo-assist/perf-bypass-gojq-schema-inference-20260710",
-      "status": "open",
-      "date": "2026-07-10",
-      "desc": "perf: bypass gojq interpreter for inferSchema in applyJqSchema"
+      "date": "2026-07-11",
+      "desc": "refactor: simplify TruncateSecret; extract cloneHTTPClientWithTransport helper (addresses #9100)"
     }
   },
-  "notes": "2026-07-10: Tasks 8+2+11. Task 8: Created PR bypassing gojq for applyJqSchema - calls inferSchema directly. Task 2: Commented on #9047 (gojq module review) with usage analysis. Task 11: Created July 2026 monthly issue, closed June #8418. Unlabelled issues #9036 #9043 #9064 need investigation next run. PR #9051 (rust downscope) and PRs #9052-9054 await review.",
+  "notes": "2026-07-11: Tasks 2+5+11. Task 5: Created PR (aw_ra_sanitize_pr) - simplified TruncateSecret (removed util dep, inline prefixLen const) and extracted cloneHTTPClientWithTransport/resolveBaseTransport helpers in internal/mcp to address #9100 duplicate-code pattern. Task 2: Commented on #9100 linking to fix PR. Task 11: Updated monthly issue #9072 with new run entry. Old #8418 monthly issue still open - flagged for maintainer to close. Open PRs: #9088 #9087 #9084 need review.",
   "cursor": {
-    "issues": 9047,
-    "labels": 9047
+    "issues": 9100,
+    "labels": 9100
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/perf-bypass-gojq-schema-inference-20260710"
+    "repo-assist/improve-sanitize-truncatesecret-20260711"
   ]
 }
