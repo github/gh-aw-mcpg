@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-11T12:59Z",
-  "run_id": "29153508462",
+  "lr": "2026-07-12T12:59Z",
+  "run_id": "29193543530",
   "monthly_issue": 9072,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -46,15 +46,23 @@
       "status": "open",
       "date": "2026-07-11",
       "desc": "refactor: simplify TruncateSecret; extract cloneHTTPClientWithTransport helper (addresses #9100)"
+    },
+    "perf_gql_rewrite": {
+      "pr": "aw_perf_gql_re",
+      "branch": "repo-assist/perf-graphql-rewrite-precompile-regexp-20260712",
+      "status": "open",
+      "date": "2026-07-12",
+      "desc": "perf: pre-compile 4 regexps in injectFieldsIntoQuery at package init"
     }
   },
-  "notes": "2026-07-11: Tasks 2+5+11. Task 5: Created PR (aw_ra_sanitize_pr) - simplified TruncateSecret (removed util dep, inline prefixLen const) and extracted cloneHTTPClientWithTransport/resolveBaseTransport helpers in internal/mcp to address #9100 duplicate-code pattern. Task 2: Commented on #9100 linking to fix PR. Task 11: Updated monthly issue #9072 with new run entry. Old #8418 monthly issue still open - flagged for maintainer to close. Open PRs: #9088 #9087 #9084 need review.",
+  "notes": "2026-07-12: Tasks 8+4+11. Task 8 (perf): Pre-compile 4 regexp.MustCompile calls in internal/proxy/graphql_rewrite.go:injectFieldsIntoQuery to package-level vars — compiled on every GraphQL request previously. Created draft PR (aw_perf_gql_re). Task 4 (eng): checked dep updates but network blocked so couldn't verify latest versions. Task 11: Updated monthly issue #9072. Old #8418 monthly issue from state.json is stale (different file), memory.json is canonical.",
   "cursor": {
     "issues": 9100,
     "labels": 9100
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/improve-sanitize-truncatesecret-20260711"
+    "repo-assist/improve-sanitize-truncatesecret-20260711",
+    "repo-assist/perf-graphql-rewrite-precompile-regexp-20260712"
   ]
 }
