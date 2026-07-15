@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-14T13:20Z",
-  "run_id": "29334590065",
+  "lr": "2026-07-15T13:01Z",
+  "run_id": "29417358012",
   "monthly_issue": 9072,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -37,24 +37,26 @@
     "8320": "2026-06-30",
     "8328": "2026-06-30",
     "9047": "2026-07-10",
-    "9100": "2026-07-11"
+    "9100": "2026-07-11",
+    "9381": "2026-07-15",
+    "9382": "2026-07-15"
   },
   "fixes": {
-    "perf_matchroute": {
-      "pr": "aw_perf_matchroute",
-      "branch": "repo-assist/perf-matchroute-prefix-dispatch-20260714",
+    "fix_9382": {
+      "pr": "aw_fix9382",
+      "branch": "repo-assist/fix-issue-9382-bare-string-labels",
       "status": "open",
-      "date": "2026-07-14",
-      "desc": "perf: dispatch MatchRoute via segment bucket map, reducing average regexp tries"
+      "date": "2026-07-15",
+      "desc": "fix: handle bare-string labels from MCP tool path in rust guard"
     }
   },
-  "notes": "2026-07-14: Tasks 1+8+11. Task 1 (labelling): labelled issues #9314, #9305, #9280 with automated+smoke-test. Task 8 (perf): Added segment-based dispatch map to MatchRoute in router.go - reduces avg regexp tries from O(49) to O(bucket), e.g. actions=14, search=3. Created draft PR (aw_perf_matchroute). Network blocked so tests not runnable. Previous PRs from memory (sanitize, graphql_rewrite) not found in PR list - may have been merged/closed. Task 11: Updated monthly issue.",
+  "notes": "2026-07-15: Tasks 2+3+11. Task 2: commented on #9381 (analysis partially already applied) and #9382 (linked to fix PR). Task 3: fixed #9382 - extract_github_label_names now handles bare string labels from MCP tool path in addition to REST object shape. PR aw_fix9382 created. 585 Rust tests pass. Task 11: updated monthly issue #9072. Previous RA PRs all merged/closed - only #9071 still open.",
   "cursor": {
-    "issues": 9314,
-    "labels": 9314
+    "issues": 9382,
+    "labels": 9387
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/perf-matchroute-prefix-dispatch-20260714"
+    "repo-assist/fix-issue-9382-bare-string-labels"
   ]
 }
