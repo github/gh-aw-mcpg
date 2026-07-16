@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-15T13:01Z",
-  "run_id": "29417358012",
+  "lr": "2026-07-16T13:06Z",
+  "run_id": "29500732707",
   "monthly_issue": 9072,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -39,24 +39,26 @@
     "9047": "2026-07-10",
     "9100": "2026-07-11",
     "9381": "2026-07-15",
-    "9382": "2026-07-15"
+    "9382": "2026-07-15",
+    "9444": "2026-07-16",
+    "9446": "2026-07-16"
   },
   "fixes": {
-    "fix_9382": {
-      "pr": "aw_fix9382",
-      "branch": "repo-assist/fix-issue-9382-bare-string-labels",
+    "fix_9446tests": {
+      "pr": "aw_fix9446tests",
+      "branch": "repo-assist/fix-search-users-scope-and-add-tests-20260716",
       "status": "open",
-      "date": "2026-07-15",
-      "desc": "fix: handle bare-string labels from MCP tool path in rust guard"
+      "date": "2026-07-16",
+      "desc": "fix(rust-guard): set baseline_scope=GITHUB for search_users + add unstar/search_users label tests"
     }
   },
-  "notes": "2026-07-15: Tasks 2+3+11. Task 2: commented on #9381 (analysis partially already applied) and #9382 (linked to fix PR). Task 3: fixed #9382 - extract_github_label_names now handles bare string labels from MCP tool path in addition to REST object shape. PR aw_fix9382 created. 585 Rust tests pass. Task 11: updated monthly issue #9072. Previous RA PRs all merged/closed - only #9071 still open.",
+  "notes": "2026-07-16: Tasks 4+2+11. Task 4 (eng): fixed missing baseline_scope=GITHUB in search_users tool rule arm (matches search_orgs), added 3 new tests for search_users and unstar_repository. PR aw_fix9446tests created, 588 Rust tests pass. Task 2: commented on #9446 (linked PR, noted create_agent_task already covered) and #9444 (cobra usage analysis). Task 11: updated monthly issue #9072. Previous run: #9382 was closed by lpcox on 2026-07-15.",
   "cursor": {
-    "issues": 9382,
-    "labels": 9387
+    "issues": 9446,
+    "labels": 9452
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/fix-issue-9382-bare-string-labels"
+    "repo-assist/fix-search-users-scope-and-add-tests-20260716"
   ]
 }
