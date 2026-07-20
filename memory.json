@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-19T12:58Z",
-  "run_id": "29687960277",
+  "lr": "2026-07-20T13:19Z",
+  "run_id": "29745621749",
   "monthly_issue": 9072,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -44,7 +44,8 @@
     "9446": "2026-07-16",
     "9604": "2026-07-19",
     "9618": "2026-07-19",
-    "9619": "2026-07-19"
+    "9619": "2026-07-19",
+    "9687": "2026-07-20"
   },
   "fixes": {
     "fix_9446tests": {
@@ -53,15 +54,23 @@
       "status": "open",
       "date": "2026-07-16",
       "desc": "fix(rust-guard): set baseline_scope=GITHUB for search_users + add unstar/search_users label tests"
+    },
+    "fix_9687": {
+      "pr": "aw_fix9687",
+      "branch": "repo-assist/fix-issue-9687-rust-guard-helper-login-consistency",
+      "status": "open",
+      "date": "2026-07-20",
+      "desc": "fix(rust-guard): use get_author_association and field_names::LOGIN for consistency"
     }
   },
-  "notes": "2026-07-19: Tasks 2+4+11. Task 4 (eng): dependency update checks blocked by network; investigated codebase for improvements. Task 2: commented on #9619 (log analyzer 403 infra issue), #9618 (per-file logger duplication - advised keeping explicit declarations), #9604 (semantic refactor - advised resolveGuardPolicyFromFlags rename). Task 11: updated monthly issue #9072. Previous run 2026-07-16: Rust guard fix PR created.",
+  "notes": "2026-07-20: Tasks 3+2+11. Task 3: Fixed #9687 - replaced get_str_or(content,\"author_association\",\"\") with get_author_association(content) in response_paths.rs (GraphQL support), and raw \"login\" with field_names::LOGIN in helpers.rs. 595 Rust tests pass. Created draft PR aw_fix9687. Task 2 (implicit): commented on #9687. Task 11: updated monthly issue #9072.",
   "cursor": {
-    "issues": 9619,
+    "issues": 9687,
     "labels": 9452
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/fix-search-users-scope-and-add-tests-20260716"
+    "repo-assist/fix-search-users-scope-and-add-tests-20260716",
+    "repo-assist/fix-issue-9687-rust-guard-helper-login-consistency"
   ]
 }
