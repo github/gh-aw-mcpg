@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-20T13:19Z",
-  "run_id": "29745621749",
+  "lr": "2026-07-21T13:06Z",
+  "run_id": "29832802503",
   "monthly_issue": 9072,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -45,32 +45,16 @@
     "9604": "2026-07-19",
     "9618": "2026-07-19",
     "9619": "2026-07-19",
-    "9687": "2026-07-20"
+    "9687": "2026-07-20",
+    "9776": "2026-07-21",
+    "9777": "2026-07-21"
   },
-  "fixes": {
-    "fix_9446tests": {
-      "pr": "aw_fix9446tests",
-      "branch": "repo-assist/fix-search-users-scope-and-add-tests-20260716",
-      "status": "open",
-      "date": "2026-07-16",
-      "desc": "fix(rust-guard): set baseline_scope=GITHUB for search_users + add unstar/search_users label tests"
-    },
-    "fix_9687": {
-      "pr": "aw_fix9687",
-      "branch": "repo-assist/fix-issue-9687-rust-guard-helper-login-consistency",
-      "status": "open",
-      "date": "2026-07-20",
-      "desc": "fix(rust-guard): use get_author_association and field_names::LOGIN for consistency"
-    }
-  },
-  "notes": "2026-07-20: Tasks 3+2+11. Task 3: Fixed #9687 - replaced get_str_or(content,\"author_association\",\"\") with get_author_association(content) in response_paths.rs (GraphQL support), and raw \"login\" with field_names::LOGIN in helpers.rs. 595 Rust tests pass. Created draft PR aw_fix9687. Task 2 (implicit): commented on #9687. Task 11: updated monthly issue #9072.",
+  "fixes": {},
+  "notes": "2026-07-21: Tasks 2+11. Commented on #9776 (Go Fan cobra review, PR #9779 covers the fix) and #9777 (rust-guard pub->pub(crate), PR #9778 covers both improvements). Labelled #9747 #9769 #9784 with automation+smoke-test. No open RA PRs (previous PRs #9693, #9457 all merged/closed). Open Copilot PRs: #9778, #9779. Updated monthly issue #9072.",
   "cursor": {
-    "issues": 9687,
-    "labels": 9452
+    "issues": 9784,
+    "labels": 9784
   },
   "checked_off_by_user": [],
-  "open_ra_prs": [
-    "repo-assist/fix-search-users-scope-and-add-tests-20260716",
-    "repo-assist/fix-issue-9687-rust-guard-helper-login-consistency"
-  ]
+  "open_ra_prs": []
 }
