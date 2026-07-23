@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-22T13:08Z",
-  "run_id": "29922466727",
+  "lr": "2026-07-23T13:09Z",
+  "run_id": "30009878108",
   "monthly_issue": 9072,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -49,16 +49,17 @@
     "9776": "2026-07-21",
     "9777": "2026-07-21",
     "9813": "2026-07-22",
-    "9815": "2026-07-22"
+    "9815": "2026-07-22",
+    "9903": "2026-07-23"
   },
   "fixes": {
     "9813": {"pr": "aw_ra_guard_intent_pr", "status": "open", "date": "2026-07-22"}
   },
-  "notes": "2026-07-22: Tasks 4+2+11. No outdated deps found. Commented on #9815 (schemaErr duplication refactor suggestion). Fixed #9813: created PR aw_ra_guard_intent_pr adding assign_copilot_to_issue_with_intent to WRITE_OPERATIONS and tool_rules. All 596 Rust tests pass. Updated monthly issue #9072.",
+  "notes": "2026-07-23: Tasks 4+2+11. Labelled #9907,#9898,#9879 smoke-test. Commented on #9903 (go-sdk module review). Created PR aw_ra_sdk_comment: tighten streamableMaxRetries/DisableStandaloneSSE comments, removing brittle go-sdk line number reference. Build blocked by proxy.golang.org firewall (infrastructure). Comment-only change. Updated monthly issue #9072.",
   "cursor": {
-    "issues": 9815,
-    "labels": 9784
+    "issues": 9903,
+    "labels": 9907
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["aw_ra_guard_intent_pr"]
+  "open_ra_prs": ["aw_ra_guard_intent_pr", "aw_ra_sdk_comment"]
 }
