@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-23T13:09Z",
-  "run_id": "30009878108",
+  "lr": "2026-07-24T13:07Z",
+  "run_id": "30095480391",
   "monthly_issue": 9072,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -53,13 +53,14 @@
     "9903": "2026-07-23"
   },
   "fixes": {
-    "9813": {"pr": "aw_ra_guard_intent_pr", "status": "open", "date": "2026-07-22"}
+    "9813": {"pr": "aw_ra_guard_intent_pr", "status": "open", "date": "2026-07-22"},
+    "9966": {"pr": "aw_is_error_pr", "status": "open", "date": "2026-07-24"}
   },
-  "notes": "2026-07-23: Tasks 4+2+11. Labelled #9907,#9898,#9879 smoke-test. Commented on #9903 (go-sdk module review). Created PR aw_ra_sdk_comment: tighten streamableMaxRetries/DisableStandaloneSSE comments, removing brittle go-sdk line number reference. Build blocked by proxy.golang.org firewall (infrastructure). Comment-only change. Updated monthly issue #9072.",
+  "notes": "2026-07-24: Tasks 5+3+11. Created PR for #9966 (IsErrorResult helper extraction to mcpresult). Labelled #9950,#9969,#9994 with needs-triage. Updated monthly issue #9072.",
   "cursor": {
-    "issues": 9903,
-    "labels": 9907
+    "issues": 9966,
+    "labels": 9994
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["aw_ra_guard_intent_pr", "aw_ra_sdk_comment"]
+  "open_ra_prs": ["aw_ra_guard_intent_pr", "aw_ra_sdk_comment", "aw_is_error_pr"]
 }
