@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-24T13:07Z",
-  "run_id": "30095480391",
+  "lr": "2026-07-27T13:32Z",
+  "run_id": "30270562052",
   "monthly_issue": 9072,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -52,15 +52,12 @@
     "9815": "2026-07-22",
     "9903": "2026-07-23"
   },
-  "fixes": {
-    "9813": {"pr": "aw_ra_guard_intent_pr", "status": "open", "date": "2026-07-22"},
-    "9966": {"pr": "aw_is_error_pr", "status": "open", "date": "2026-07-24"}
-  },
-  "notes": "2026-07-24: Tasks 5+3+11. Created PR for #9966 (IsErrorResult helper extraction to mcpresult). Labelled #9950,#9969,#9994 with needs-triage. Updated monthly issue #9072.",
+  "fixes": {},
+  "notes": "2026-07-27: Tasks 4+5+11. Created PR for golangci-lint v2.8.0->v2.12.2 update (Makefile+ci.yml). Created PR for interface{}->any modernization in internal/util. Updated monthly issue #9072. Previous fix PRs (#9966 etc) appear to have been merged/closed.",
   "cursor": {
-    "issues": 9966,
+    "issues": 9994,
     "labels": 9994
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["aw_ra_guard_intent_pr", "aw_ra_sdk_comment", "aw_is_error_pr"]
+  "open_ra_prs": ["aw_eng_lint_pr", "aw_any_alias_pr"]
 }
