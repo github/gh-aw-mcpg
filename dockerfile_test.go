@@ -30,3 +30,18 @@ func TestDockerfileUsesPinnedBaseImages(t *testing.T) {
 	assert.Regexp(t, pinnedBuilderPattern, dockerfile)
 	assert.Regexp(t, pinnedRuntimePattern, dockerfile)
 }
+
+func TestDockerfileRuntimePackageInstallExcludesPodman(t *testing.T) {
+	t.Parallel()
+
+	_, thisFile, _, ok := runtime.Caller(0)
+	require.True(t, ok, "runtime.Caller should resolve this test file path")
+
+	dockerfilePath := filepath.Join(filepath.Dir(thisFile), "Dockerfile")
+	content, err := os.ReadFile(dockerfilePath)
+	require.NoError(t, err)
+
+	dockerfile := string(content)
+	assert.Contains(t, dockerfile, "RUN apk add --no-cache docker-cli bash")
+	assert.NotContains(t, dockerfile, "podman")
+}
