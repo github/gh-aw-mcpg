@@ -1,6 +1,6 @@
 {
-  "lr": "2026-07-27T13:32Z",
-  "run_id": "30270562052",
+  "lr": "2026-07-28T13:13Z",
+  "run_id": "30362265666",
   "monthly_issue": 9072,
   "monthly_month": "2026-07",
   "comments_made": {
@@ -50,14 +50,15 @@
     "9777": "2026-07-21",
     "9813": "2026-07-22",
     "9815": "2026-07-22",
-    "9903": "2026-07-23"
+    "9903": "2026-07-23",
+    "10194": "2026-07-28"
   },
   "fixes": {},
-  "notes": "2026-07-27: Tasks 4+5+11. Created PR for golangci-lint v2.8.0->v2.12.2 update (Makefile+ci.yml). Created PR for interface{}->any modernization in internal/util. Updated monthly issue #9072. Previous fix PRs (#9966 etc) appear to have been merged/closed.",
+  "notes": "2026-07-28: Tasks 2+5+11. Commented on #10194 (v0.4.6 security/Podman CVEs). Created PR refactor(mcp): replace interface{} with any (8 files, 67 occurrences). PR #10192 (golangci-lint) still open awaiting review. Previous lint/util PRs merged.",
   "cursor": {
-    "issues": 9994,
-    "labels": 9994
+    "issues": 10194,
+    "labels": 10194
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["aw_eng_lint_pr", "aw_any_alias_pr"]
+  "open_ra_prs": ["improve-mcp-any-alias"]
 }
