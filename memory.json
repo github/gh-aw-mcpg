@@ -1,35 +1,21 @@
 {
-  "lr": "2026-07-30T13:13Z",
-  "run_id": "30545627991",
-  "monthly_issue": 9072,
-  "monthly_month": "2026-07",
+  "lr": "2026-08-01T13:00Z",
+  "run_id": "30700746525",
+  "monthly_issue": "pending-lookup",
+  "monthly_month": "2026-08",
   "comments_made": {
-    "6841": "2026-06-01", "6892": "2026-06-02", "6893": "2026-06-02",
-    "6939": "2026-06-03", "6940": "2026-06-03", "6981": "2026-06-04",
-    "6982": "2026-06-04", "7009": "2026-06-05", "7033": "2026-06-05",
-    "7064": "2026-06-06", "7307": "2026-06-10", "7308": "2026-06-10",
-    "7444": "2026-06-13", "7468": "2026-06-13", "7544": "2026-06-15",
-    "7569": "2026-06-15", "7647": "2026-06-17", "7712": "2026-06-19",
-    "7817": "2026-06-20", "7860": "2026-06-21", "8072": "2026-06-25",
-    "8081": "2026-06-25", "8131": "2026-06-26", "8169": "2026-06-27",
-    "8122": "2026-06-27", "8171": "2026-06-28", "8172": "2026-06-28",
-    "8173": "2026-06-28", "8222": "2026-06-28", "8297": "2026-06-30",
-    "8320": "2026-06-30", "8328": "2026-06-30", "9047": "2026-07-10",
-    "9100": "2026-07-11", "9381": "2026-07-15", "9382": "2026-07-15",
-    "9444": "2026-07-16", "9446": "2026-07-16", "9604": "2026-07-19",
-    "9618": "2026-07-19", "9619": "2026-07-19", "9687": "2026-07-20",
-    "9776": "2026-07-21", "9777": "2026-07-21", "9813": "2026-07-22",
-    "9815": "2026-07-22", "9903": "2026-07-23", "10194": "2026-07-28"
+    "10194": "2026-07-28"
   },
   "fixes": {
     "10321": "2026-07-29",
-    "10393": "2026-07-30"
+    "10393": "2026-07-30",
+    "10519": "2026-08-01"
   },
-  "notes": "2026-07-30: Tasks 2+10+11. Created PR for #10393 (rust-guard: add tests for PR review write tools and legacy aliases). PR #10192 (golangci-lint) confirmed merged. PR #10329 (discussion-read/projects-read tests) confirmed closed/merged.",
+  "notes": "2026-08-01: Tasks 3+4+11. Task 3: fixed #10519 (guard coverage gap for rebuild_codespace and update_codespace_port_visibility) - added to WRITE_OPERATIONS in tools.rs and user-private codespaces lifecycle rule in tool_rules.rs, extended existing tests, 615 rust tests pass, clippy clean. PR created. Task 4: checked Go module updates (none outdated), Dependabot PRs (none open), golangci-lint version (already latest v2.12.2), CI action versions (all current majors) - no engineering action needed this run. Task 11: closed July monthly issue #9072, created new August monthly issue.",
   "cursor": {
     "issues": 10393,
     "labels": 10394
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["repo-assist/fix-issue-10393-pr-review-write-tests"]
+  "open_ra_prs": ["repo-assist/fix-issue-10519-codespace-guard-coverage"]
 }
