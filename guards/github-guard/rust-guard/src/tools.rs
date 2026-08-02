@@ -117,7 +117,6 @@ pub const READ_WRITE_OPERATIONS: &[&str] = &[
     "issue_write",
     "issue_write_ff_remote_mcp_issue_fields", // feature-flag variant of issue_write
     "merge_pull_request",
-    "pull_request_read", // consolidated PR tool exposes write-capable methods (reviews, comments, merge) alongside reads
     "pull_request_review_write",
     "remove_sub_issue",               // DELETE/POST — remove sub-issue link
     "reprioritize_sub_issue",         // PATCH — reorder sub-issues
@@ -549,21 +548,6 @@ mod tests {
                 op
             );
         }
-    }
-
-    #[test]
-    fn test_pull_request_read_is_read_write_operation() {
-        // pull_request_read is the consolidated PR tool: its `method` parameter
-        // exposes write-capable operations (reviews, comments, merge-adjacent
-        // actions) alongside reads, so it must be classified as read-write.
-        assert!(
-            is_read_write_operation("pull_request_read"),
-            "pull_request_read must be classified as a read-write operation"
-        );
-        assert!(
-            !is_write_operation("pull_request_read"),
-            "pull_request_read should not be in WRITE_OPERATIONS (it is in READ_WRITE_OPERATIONS)"
-        );
     }
 
     #[test]
