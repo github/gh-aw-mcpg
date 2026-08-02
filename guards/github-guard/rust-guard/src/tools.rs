@@ -117,6 +117,7 @@ pub const READ_WRITE_OPERATIONS: &[&str] = &[
     "issue_write",
     "issue_write_ff_remote_mcp_issue_fields", // feature-flag variant of issue_write
     "merge_pull_request",
+    "pull_request_read", // consolidated PR tool exposes both reads and mutating sub-methods
     "pull_request_review_write",
     "remove_sub_issue",               // DELETE/POST — remove sub-issue link
     "reprioritize_sub_issue",         // PATCH — reorder sub-issues
@@ -532,6 +533,7 @@ mod tests {
             "add_pull_request_review_comment",
             "create_pull_request_review",
             "delete_pending_pull_request_review",
+            "pull_request_read",
             "request_pull_request_reviewers",
             "resolve_review_thread",
             "submit_pending_pull_request_review",
