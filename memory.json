@@ -1,21 +1,23 @@
 {
-  "lr": "2026-08-01T13:00Z",
-  "run_id": "30700746525",
-  "monthly_issue": "pending-lookup",
+  "lr": "2026-08-02T12:59Z",
+  "run_id": "30748917857",
+  "monthly_issue": "pending-lookup-new",
   "monthly_month": "2026-08",
   "comments_made": {
-    "10194": "2026-07-28"
+    "10194": "2026-07-28",
+    "10564": "2026-08-02"
   },
   "fixes": {
     "10321": "2026-07-29",
     "10393": "2026-07-30",
-    "10519": "2026-08-01"
+    "10519": "2026-08-01",
+    "10564": "2026-08-02"
   },
-  "notes": "2026-08-01: Tasks 3+4+11. Task 3: fixed #10519 (guard coverage gap for rebuild_codespace and update_codespace_port_visibility) - added to WRITE_OPERATIONS in tools.rs and user-private codespaces lifecycle rule in tool_rules.rs, extended existing tests, 615 rust tests pass, clippy clean. PR created. Task 4: checked Go module updates (none outdated), Dependabot PRs (none open), golangci-lint version (already latest v2.12.2), CI action versions (all current majors) - no engineering action needed this run. Task 11: closed July monthly issue #9072, created new August monthly issue.",
+  "notes": "2026-08-02: Tasks 2+1+11. Task 1: labelled unlabelled smoke-test group/report issues #10555, #10566, #10570 with 'automation'. Task 2: reviewed guard-coverage issue #10564 (pull_request_read missing from tools.rs classification despite being labeled in tool_rules.rs), commented confirming the gap and created a fix PR (added to READ_WRITE_OPERATIONS + regression test, 616 rust tests pass, clippy clean). Task 11: previous August monthly issue #10534 was closed (not-planned) so created a fresh one.",
   "cursor": {
-    "issues": 10393,
-    "labels": 10394
+    "issues": 10573,
+    "labels": 10573
   },
   "checked_off_by_user": [],
-  "open_ra_prs": ["repo-assist/fix-issue-10519-codespace-guard-coverage"]
+  "open_ra_prs": ["repo-assist/fix-issue-10519-codespace-guard-coverage", "repo-assist/fix-issue-10564-pull-request-read-guard-coverage"]
 }
