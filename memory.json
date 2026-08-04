@@ -1,27 +1,30 @@
 {
-    "lr": "2026-08-03T13:34Z",
-    "run_id": "30818278389",
-    "monthly_issue": "pending-lookup-new",
+    "lr": "2026-08-04T13:14Z",
+    "run_id": "30912701766",
+    "monthly_issue": "10615",
     "monthly_month": "2026-08",
     "comments_made": {
         "10194": "2026-07-28",
         "10564": "2026-08-02",
-        "10603": "2026-08-03"
+        "10603": "2026-08-03",
+        "10662": "2026-08-04"
     },
     "fixes": {
         "10321": "2026-07-29",
         "10393": "2026-07-30",
         "10519": "2026-08-01",
         "10564": "2026-08-02",
-        "10607": "2026-08-03"
+        "10607": "2026-08-03",
+        "10662": "2026-08-04"
     },
-    "notes": "2026-08-03: Tasks 3+2+11. Task 3: implemented rust-guard refactor issue #10607 (centralize duplicated repo-private fallback expressions in response_items.rs/response_paths.rs/tool_rules.rs) - added repo_private_fallback (fail-open) and repo_private_or_secure_default (fail-secure) helpers in labels/helpers.rs, replaced 6 duplicated call sites, 615/615 tests pass, clippy clean, created draft PR. Task 2: investigated integrity-audit issue #10603 (get_job_logs/download_workflow_run_artifact always blocked by secrecy policy even for public repos) - confirmed via tool_rules.rs source that this is intentional (CI logs/artifacts may leak secrets), not a bug; posted explanatory comment with code references, noted recommendation #2 (low-secrecy DIFC summary export) as the real path forward. Task 11: both prior August monthly issues (#10534, #10576) were closed, created a fresh #new one for 2026-08.",
+    "notes": "2026-08-04: Tasks 3+2+11. Task 3: implemented rust-guard improvement issue #10662 (downscope is_search_result_wrapper/is_mcp_text_wrapper to pub(crate); extract is_search_pr_variant/is_search_issue_variant helpers to dedupe 6 inline matches! sites in response_items.rs/response_paths.rs) - build clean, 624/624 tests pass, clippy clean, created draft PR (branch repo-assist/refactor-rust-guard-search-variants-10662). Task 2: commented on #10662 linking the PR. Task 11: updated existing August monthly issue #10615 (no need to create new one), added #10662 PR to suggested actions, checked guard filtering log (no filtering this run).",
     "cursor": {
-        "issues": 10573,
-        "labels": 10573
+        "issues": 10662,
+        "labels": 10662
     },
     "checked_off_by_user": [],
     "open_ra_prs": [
-        "repo-assist/refactor-repo-private-fallback-10607"
+        "repo-assist/refactor-repo-private-fallback-10607",
+        "repo-assist/refactor-rust-guard-search-variants-10662"
     ]
 }
