@@ -1,13 +1,14 @@
 {
-    "lr": "2026-08-04T13:14Z",
-    "run_id": "30912701766",
+    "lr": "2026-08-07T12:58Z",
+    "run_id": "31180361368",
     "monthly_issue": "10615",
     "monthly_month": "2026-08",
     "comments_made": {
         "10194": "2026-07-28",
         "10564": "2026-08-02",
         "10603": "2026-08-03",
-        "10662": "2026-08-04"
+        "10662": "2026-08-04",
+        "10810": "2026-08-07"
     },
     "fixes": {
         "10321": "2026-07-29",
@@ -17,14 +18,11 @@
         "10607": "2026-08-03",
         "10662": "2026-08-04"
     },
-    "notes": "2026-08-04: Tasks 3+2+11. Task 3: implemented rust-guard improvement issue #10662 (downscope is_search_result_wrapper/is_mcp_text_wrapper to pub(crate); extract is_search_pr_variant/is_search_issue_variant helpers to dedupe 6 inline matches! sites in response_items.rs/response_paths.rs) - build clean, 624/624 tests pass, clippy clean, created draft PR (branch repo-assist/refactor-rust-guard-search-variants-10662). Task 2: commented on #10662 linking the PR. Task 11: updated existing August monthly issue #10615 (no need to create new one), added #10662 PR to suggested actions, checked guard filtering log (no filtering this run).",
+    "notes": "2026-08-07: Tasks 1+2+11. Task 1: labelled 3 previously-unlabelled issues - #10789 (Smoke Copilot parent group) and #10813 (Smoke AllowOnly parent group) got 'automated'; #10823 (Smoke Test: Copilot result) got 'automated','smoke-test'. Task 2: investigated #10810 (guard-coverage gap report claiming 8 tool_rules.rs tools uncovered) - verified via grep that all 8 tools (add_pull_request_review_comment_reaction, add_reply_to_pull_request_comment, projects_write, reprioritize_sub_issue, set_issue_fields, unresolve_review_thread, update_pull_request_branch, update_pull_request_title) already exist in the repo-scoped write match arm in tool_rules.rs (merged via #10782), so posted a comment noting this is a stale/duplicate scan result, safe to close. No fix PR needed since code already correct. Task 11: updated monthly issue #10615 (Aug), refreshed suggested actions (removed 2 merged PR review items for #10662/#10607 since those PRs are closed/merged, added #10810 comment check item), confirmed no guard filtering occurred this run.",
     "cursor": {
-        "issues": 10662,
-        "labels": 10662
+        "issues": 10810,
+        "labels": 10823
     },
     "checked_off_by_user": [],
-    "open_ra_prs": [
-        "repo-assist/refactor-repo-private-fallback-10607",
-        "repo-assist/refactor-rust-guard-search-variants-10662"
-    ]
+    "open_ra_prs": []
 }
