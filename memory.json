@@ -1,14 +1,15 @@
 {
-    "lr": "2026-08-09T12:58Z",
-    "run_id": "31314494367",
-    "monthly_issue": "10615",
+    "lr": "2026-08-16T12:55Z",
+    "run_id": "31948295368",
+    "monthly_issue": "new-2026-08-16",
     "monthly_month": "2026-08",
     "comments_made": {
         "10194": "2026-07-28",
         "10564": "2026-08-02",
         "10603": "2026-08-03",
         "10662": "2026-08-04",
-        "10810": "2026-08-07"
+        "10810": "2026-08-07",
+        "11309": "2026-08-16"
     },
     "fixes": {
         "10321": "2026-07-29",
@@ -16,13 +17,16 @@
         "10519": "2026-08-01",
         "10564": "2026-08-02",
         "10607": "2026-08-03",
-        "10662": "2026-08-04"
+        "10662": "2026-08-04",
+        "11309_create_project": "2026-08-16"
     },
-    "notes": "2026-08-09: Tasks 5+8 selected but blocked - the sandbox firewall returns 403 Forbidden for proxy.golang.org (both module downloads and the required go1.26.4 toolchain zip), so `go build`/`go test` cannot run at all this run. This is the exact same root cause already tracked in issues #10887 and #10893, with fix PR #10892 open (allowlists Go module proxy domains). Reported missing_tool rather than attempting unverified Go code changes. Also updated monthly issue #10615 (Aug) - added suggested action to review/merge #10892 since merging it would also restore Repo Assist's own ability to do Tasks 3/4/5/8/9/10. No guard filtering occurred this run (checked rpc-messages.jsonl, total=0). IMPORTANT FOR NEXT RUN: retry Tasks 5/8 after checking if #10892 has merged - if go build works, resume normal coding/perf improvement work. Candidate areas already scoped for when build works: internal/sanitize (regex-based secret redaction, has existing benchmarks), internal/proxy/graphql.go (linear pattern match loop in MatchGraphQL, could add early-exit dispatch like router.go's routeDispatch bucketing), internal/logger/rpc_format.go (string building, already fairly optimized).",
+    "notes": "2026-08-16: Tasks 2+10 selected. Prior monthly issue #10615 (Aug) was already closed by maintainer on 2026-08-09, so created a new one for August since we're still in the same month. Investigated #11309 (guard coverage gap report claiming 15 missing operations) - found 14/15 were already fully classified in both tools.rs WRITE_OPERATIONS and tool_rules.rs DIFC arms (automated scanner report appears stale/against old snapshot). Only genuine gap: create_project was in WRITE_OPERATIONS but missing its own match arm in apply_tool_labels (tool_rules.rs), falling through to default handling instead of the org-scoped Projects v2 write labels its siblings (copy_project, delete_project, link_project, unlink_project, update_project) get. Fixed by adding create_project to that match arm. cargo build + cargo test (641 tests) pass. Commented on #11309 with findings, opened draft PR. Also reviewed #11318 (docker-sbx read-only stress methodology gap, not a real leak - noted in monthly issue as triage item, did not comment since it's a well-written self-contained report needing no additional Repo Assist input). Most other open issues (11282, 11284, 11299-11324) are automated bot-generated reports/smoke-tests with no substantive human engagement needed. IMPORTANT FOR NEXT RUN: verify create_project fix PR merges; check if Go build/test now works (proxy.golang.org firewall issue from #10887/#10893/#10892 - check if #10892 merged) to resume Tasks 4/5/8/9 Go work.",
     "cursor": {
-        "issues": 10810,
+        "issues": 11318,
         "labels": 10823
     },
     "checked_off_by_user": [],
-    "open_ra_prs": []
+    "open_ra_prs": [
+        "repo-assist/fix-guard-create-project-11309"
+    ]
 }
