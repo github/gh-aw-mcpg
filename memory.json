@@ -1,7 +1,7 @@
 {
-    "lr": "2026-08-16T12:55Z",
-    "run_id": "31948295368",
-    "monthly_issue": "new-2026-08-16",
+    "lr": "2026-08-17T12:57Z",
+    "run_id": "32032256185",
+    "monthly_issue": "new-2026-08-17",
     "monthly_month": "2026-08",
     "comments_made": {
         "10194": "2026-07-28",
@@ -18,15 +18,16 @@
         "10564": "2026-08-02",
         "10607": "2026-08-03",
         "10662": "2026-08-04",
-        "11309_create_project": "2026-08-16"
+        "11309_create_project": "2026-08-16",
+        "11384_tool_names_const": "2026-08-17"
     },
-    "notes": "2026-08-16: Tasks 2+10 selected. Prior monthly issue #10615 (Aug) was already closed by maintainer on 2026-08-09, so created a new one for August since we're still in the same month. Investigated #11309 (guard coverage gap report claiming 15 missing operations) - found 14/15 were already fully classified in both tools.rs WRITE_OPERATIONS and tool_rules.rs DIFC arms (automated scanner report appears stale/against old snapshot). Only genuine gap: create_project was in WRITE_OPERATIONS but missing its own match arm in apply_tool_labels (tool_rules.rs), falling through to default handling instead of the org-scoped Projects v2 write labels its siblings (copy_project, delete_project, link_project, unlink_project, update_project) get. Fixed by adding create_project to that match arm. cargo build + cargo test (641 tests) pass. Commented on #11309 with findings, opened draft PR. Also reviewed #11318 (docker-sbx read-only stress methodology gap, not a real leak - noted in monthly issue as triage item, did not comment since it's a well-written self-contained report needing no additional Repo Assist input). Most other open issues (11282, 11284, 11299-11324) are automated bot-generated reports/smoke-tests with no substantive human engagement needed. IMPORTANT FOR NEXT RUN: verify create_project fix PR merges; check if Go build/test now works (proxy.golang.org firewall issue from #10887/#10893/#10892 - check if #10892 merged) to resume Tasks 4/5/8/9 Go work.",
+    "notes": "2026-08-17: Tasks 3+2 selected. Task 3: fixed #11384 (Rust Guard tool_names constants refactor) - centralized pull_request_read/get_pull_request/issue_read/get_issue literals into labels/constants.rs tool_names module across tool_rules.rs, backend.rs, response_items.rs, response_paths.rs. cargo build + cargo test (641 tests) pass, cargo fmt clean on touched files. Created draft PR on branch repo-assist/rust-guard-tool-names-const-11384. Task 2: reviewed backlog - #11370 (guard-coverage gap, 8 ops) already has open Copilot PR #11371 with regression tests, no comment needed. #11383 (go-fan cobra module review) is informational only, no urgent action, not worth commenting. Recent issues (11376, 11379, 11388, 11390, 11391, 11393, 11382) are all automated smoke-test/parent-group issues needing no human engagement. Prior monthly issue #11327 (Aug) was closed by maintainer, created new one #new (see monthly_issue) since still same month. IMPORTANT FOR NEXT RUN: check if PR for #11384 merged; check #11371 status (Copilot's guard-coverage regression PR) and comment/nudge if stale; verify Go build/test proxy.golang.org firewall status to resume Tasks 4/5/8/9 Go work.",
     "cursor": {
-        "issues": 11318,
-        "labels": 10823
+        "issues": 11393,
+        "labels": 11393
     },
     "checked_off_by_user": [],
     "open_ra_prs": [
-        "repo-assist/fix-guard-create-project-11309"
+        "repo-assist/rust-guard-tool-names-const-11384"
     ]
 }
