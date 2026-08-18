@@ -1,7 +1,7 @@
 {
-    "lr": "2026-08-17T12:57Z",
-    "run_id": "32032256185",
-    "monthly_issue": "new-2026-08-17",
+    "lr": "2026-08-18T12:57Z",
+    "run_id": "32139410535",
+    "monthly_issue": 11396,
     "monthly_month": "2026-08",
     "comments_made": {
         "10194": "2026-07-28",
@@ -19,15 +19,16 @@
         "10607": "2026-08-03",
         "10662": "2026-08-04",
         "11309_create_project": "2026-08-16",
-        "11384_tool_names_const": "2026-08-17"
+        "11384_tool_names_const": "2026-08-17",
+        "11439_full_name_const": "2026-08-18"
     },
-    "notes": "2026-08-17: Tasks 3+2 selected. Task 3: fixed #11384 (Rust Guard tool_names constants refactor) - centralized pull_request_read/get_pull_request/issue_read/get_issue literals into labels/constants.rs tool_names module across tool_rules.rs, backend.rs, response_items.rs, response_paths.rs. cargo build + cargo test (641 tests) pass, cargo fmt clean on touched files. Created draft PR on branch repo-assist/rust-guard-tool-names-const-11384. Task 2: reviewed backlog - #11370 (guard-coverage gap, 8 ops) already has open Copilot PR #11371 with regression tests, no comment needed. #11383 (go-fan cobra module review) is informational only, no urgent action, not worth commenting. Recent issues (11376, 11379, 11388, 11390, 11391, 11393, 11382) are all automated smoke-test/parent-group issues needing no human engagement. Prior monthly issue #11327 (Aug) was closed by maintainer, created new one #new (see monthly_issue) since still same month. IMPORTANT FOR NEXT RUN: check if PR for #11384 merged; check #11371 status (Copilot's guard-coverage regression PR) and comment/nudge if stale; verify Go build/test proxy.golang.org firewall status to resume Tasks 4/5/8/9 Go work.",
+    "notes": "2026-08-18: Tasks 2+5 selected. Task 5: fixed #11439 (Rust Guard: replace raw full_name/fullName literals with field_names constants in repo_id_from_repo_object) - added field_names::FULL_NAME_CAMEL constant, updated backend.rs to use it. cargo build + cargo test (642 tests) pass. Created draft PR on branch repo-assist/improve-full-name-const-11439. Reverted an unrelated cargo fmt reflow of tools.rs/mod.rs (pre-existing formatter version drift, not caused by my edit) to keep the diff surgical. Task 2: reviewed backlog - #11425 (guard-coverage gap, 39 ops) already has open Copilot draft PR #11432; #11413 (semantic clustering) already has open Copilot draft PR #11433; #11383 (go-fan cobra review) now addressed by open PR #11408 (MarkFlagsMutuallyExclusive); remaining open issues (11410, 11429 parent groups, 11424/11426/11427/11430 aw workflow-failure reports, 11436 integrity audit clean bill, 11437/11443/11444/11445/11447/11448 smoke-test noise, 11438 go-fan test issue) are automated/infra reports with no substantive human-toned comment to add this run - listed the actionable workflow-failure issues in the monthly summary suggested actions instead of commenting individually (low value, no code fix identified). IMPORTANT FOR NEXT RUN: check if PR #11432 (guard inventory split, closes #11425), PR #11433 (tag-scope helper, closes #11413), and my new PR (closes #11439) merged; check PR #11408 (cobra MarkFlagsMutuallyExclusive) status; verify Go build/test proxy.golang.org firewall status to resume Tasks 4/5/8/9 Go work; consider investigating #11424/#11426/#11427/#11430 aw workflow failures for genuine root-cause fixes (infra/tooling gaps) if a maintainer flags them as worth fixing.",
     "cursor": {
-        "issues": 11393,
-        "labels": 11393
+        "issues": 11448,
+        "labels": 11448
     },
     "checked_off_by_user": [],
     "open_ra_prs": [
-        "repo-assist/rust-guard-tool-names-const-11384"
+        "repo-assist/improve-full-name-const-11439"
     ]
 }
