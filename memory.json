@@ -1,6 +1,6 @@
 {
-    "lr": "2026-08-19T12:57Z",
-    "run_id": "32255183538",
+    "lr": "2026-08-20T12:57Z",
+    "run_id": "32371368907",
     "monthly_issue": 11396,
     "monthly_month": "2026-08",
     "comments_made": {
@@ -10,7 +10,8 @@
         "10662": "2026-08-04",
         "10810": "2026-08-07",
         "11309": "2026-08-16",
-        "11491": "2026-08-19"
+        "11491": "2026-08-19",
+        "11542": "2026-08-20"
     },
     "fixes": {
         "10321": "2026-07-29",
@@ -22,15 +23,17 @@
         "11309_create_project": "2026-08-16",
         "11384_tool_names_const": "2026-08-17",
         "11439_full_name_const": "2026-08-18",
-        "11491_wazero_test_helper": "2026-08-19"
+        "11491_wazero_test_helper": "2026-08-19",
+        "11542_split_repo_id": "2026-08-20"
     },
-    "notes": "2026-08-19: Tasks 2+3 selected. Task 3: implemented go-fan review #11491's first quick-win - consolidated 7 duplicated wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter()) call sites in internal/guard/wasm_test.go, wasm_dispatch_test.go, wasm_parse_coverage_test.go into a single newTestInterpreterRuntime(ctx) helper. go build + go test ./internal/guard/... pass, gofmt clean. Created draft PR on branch repo-assist/improve-wazero-test-helper-11491. Task 2: commented on #11491 linking the new PR; posted go-fan follow-up comment (deferred WithDebugInfoEnabled(false) and disk-backed cache-default suggestions to maintainer judgement). Remaining open issues (11489/11493/11494/11495/11496/11498/11490) are self-expiring automated smoke-test/workflow-failure/integrity-audit bot reports with no actionable code fix - not commented on individually. #11450 (prior run's fix for #11439) merged. NEXT RUN: check if new PR (consolidate wazero test helper) merged; verify PR #11408/#11432/#11433 statuses if still open; resume Tasks 4/5/8/9 broader Go engineering backlog.",
+    "notes": "2026-08-20: Tasks 1+2 selected. Task 1: labelled unlabelled issues #11524 (Smoke Copilot group), #11538 (Smoke AllowOnly group), #11550 (Smoke Copilot test report) with `automation` - all self-expiring bot reports, no other labels needed. Task 2/3: found #11542 (rust-guard split_once('/') consolidation report) - implemented both suggested improvements (4 split_repo_id() call sites + 3 tool_names test constants); cargo build + cargo test (642 pass) + cargo fmt --check (no new diffs) all pass. Created draft PR on branch repo-assist/fix-issue-11542-split-repo-id, commented on #11542 linking it. Also reviewed #11541 (go-fan testify v1.11.1->v1.12.1 bump recommendation) - noted as future work, not implemented this run (deferred to next Engineering Investments run). Remaining open issues (11528/11533/11534/11536/11539/11540/11547/11548/11549/11552/11553) are self-expiring automated smoke-test/workflow-failure/integrity-audit bot reports with no actionable code fix - not commented on individually. NEXT RUN: check if PR #11450/repo-assist fix PRs merged; consider implementing testify bump from #11541 under Task 4 (Engineering Investments); resume broader Go/Rust engineering backlog.",
     "cursor": {
-        "issues": 11498,
-        "labels": 11498
+        "issues": 11553,
+        "labels": 11553
     },
     "checked_off_by_user": [],
     "open_ra_prs": [
-        "repo-assist/improve-wazero-test-helper-11491"
+        "repo-assist/improve-wazero-test-helper-11491",
+        "repo-assist/fix-issue-11542-split-repo-id"
     ]
 }
