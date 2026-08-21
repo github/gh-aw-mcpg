@@ -1,39 +1,35 @@
 {
-    "lr": "2026-08-20T12:57Z",
-    "run_id": "32371368907",
+    "lr": "2026-08-21T12:57Z",
+    "run_id": "32484203987",
     "monthly_issue": 11396,
     "monthly_month": "2026-08",
     "comments_made": {
-        "10194": "2026-07-28",
-        "10564": "2026-08-02",
         "10603": "2026-08-03",
         "10662": "2026-08-04",
         "10810": "2026-08-07",
         "11309": "2026-08-16",
         "11491": "2026-08-19",
-        "11542": "2026-08-20"
+        "11542": "2026-08-20",
+        "11616": "2026-08-21"
     },
     "fixes": {
-        "10321": "2026-07-29",
-        "10393": "2026-07-30",
-        "10519": "2026-08-01",
-        "10564": "2026-08-02",
-        "10607": "2026-08-03",
         "10662": "2026-08-04",
         "11309_create_project": "2026-08-16",
         "11384_tool_names_const": "2026-08-17",
         "11439_full_name_const": "2026-08-18",
         "11491_wazero_test_helper": "2026-08-19",
-        "11542_split_repo_id": "2026-08-20"
+        "11542_split_repo_id": "2026-08-20",
+        "11616_owner_constant": "2026-08-21"
     },
-    "notes": "2026-08-20: Tasks 1+2 selected. Task 1: labelled unlabelled issues #11524 (Smoke Copilot group), #11538 (Smoke AllowOnly group), #11550 (Smoke Copilot test report) with `automation` - all self-expiring bot reports, no other labels needed. Task 2/3: found #11542 (rust-guard split_once('/') consolidation report) - implemented both suggested improvements (4 split_repo_id() call sites + 3 tool_names test constants); cargo build + cargo test (642 pass) + cargo fmt --check (no new diffs) all pass. Created draft PR on branch repo-assist/fix-issue-11542-split-repo-id, commented on #11542 linking it. Also reviewed #11541 (go-fan testify v1.11.1->v1.12.1 bump recommendation) - noted as future work, not implemented this run (deferred to next Engineering Investments run). Remaining open issues (11528/11533/11534/11536/11539/11540/11547/11548/11549/11552/11553) are self-expiring automated smoke-test/workflow-failure/integrity-audit bot reports with no actionable code fix - not commented on individually. NEXT RUN: check if PR #11450/repo-assist fix PRs merged; consider implementing testify bump from #11541 under Task 4 (Engineering Investments); resume broader Go/Rust engineering backlog.",
+    "notes": "2026-08-21: Tasks 2+3 selected. Found #11616 (rust-guard: dedup PR fork-detection fallback + OWNER constant report). Implemented only Improvement 2 (field_names::OWNER constant in owner_type_from_repo_object / repo_id_from_repo_object in backend.rs) - build+645 tests+fmt-check pass. Improvement 1 (removing is_forked_pr .or_else fallback in response_items.rs) was attempted but REJECTED: it broke test list_pull_requests_preserves_empty_full_name_fork_semantics because is_forked_pr returns None for empty full_name strings while the inline fallback deliberately treats two empty full_names as same-repo (non-forked) - not actually dead code as the bot report claimed. Created draft PR on branch repo-assist/fix-issue-11616-owner-constant, commented on #11616 explaining the partial implementation and why Improvement 1 was skipped. Reviewed #11615 (go-fan otel module review, already at latest v1.45.0, no action needed - informational only). Remaining open issues (11591/11593/11605/11606/11611/11612/11613/11614/11620/11621/11622/11624/11625/11626) are self-expiring automated smoke-test/workflow-failure/integrity-audit bot reports with no actionable code fix - not commented on individually. NEXT RUN: check if PR #11542/#11491/#11616 merged; consider implementing testify v1.11.1->v1.12.1 bump from #11541 under Task 4 (Engineering Investments); resume broader Go/Rust engineering backlog. IMPORTANT LESSON: verify bot 'dead code' claims by running tests before applying suggested removals - not all report suggestions are correct, some report authors miss edge-case semantics differences.",
     "cursor": {
-        "issues": 11553,
-        "labels": 11553
+        "issues": 11626,
+        "labels": 11626
     },
     "checked_off_by_user": [],
     "open_ra_prs": [
         "repo-assist/improve-wazero-test-helper-11491",
-        "repo-assist/fix-issue-11542-split-repo-id"
+        "repo-assist/fix-issue-11542-split-repo-id",
+        "repo-assist/fix-issue-11616-owner-constant"
     ]
 }
