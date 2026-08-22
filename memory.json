@@ -1,7 +1,7 @@
 {
-    "lr": "2026-08-21T12:57Z",
-    "run_id": "32484203987",
-    "monthly_issue": 11396,
+    "lr": "2026-08-22T13:00Z",
+    "run_id": "32574241947",
+    "monthly_issue": null,
     "monthly_month": "2026-08",
     "comments_made": {
         "10603": "2026-08-03",
@@ -19,17 +19,16 @@
         "11439_full_name_const": "2026-08-18",
         "11491_wazero_test_helper": "2026-08-19",
         "11542_split_repo_id": "2026-08-20",
-        "11616_owner_constant": "2026-08-21"
+        "11616_owner_constant": "2026-08-21",
+        "11649_remove_deprecated_resource": "2026-08-22"
     },
-    "notes": "2026-08-21: Tasks 2+3 selected. Found #11616 (rust-guard: dedup PR fork-detection fallback + OWNER constant report). Implemented only Improvement 2 (field_names::OWNER constant in owner_type_from_repo_object / repo_id_from_repo_object in backend.rs) - build+645 tests+fmt-check pass. Improvement 1 (removing is_forked_pr .or_else fallback in response_items.rs) was attempted but REJECTED: it broke test list_pull_requests_preserves_empty_full_name_fork_semantics because is_forked_pr returns None for empty full_name strings while the inline fallback deliberately treats two empty full_names as same-repo (non-forked) - not actually dead code as the bot report claimed. Created draft PR on branch repo-assist/fix-issue-11616-owner-constant, commented on #11616 explaining the partial implementation and why Improvement 1 was skipped. Reviewed #11615 (go-fan otel module review, already at latest v1.45.0, no action needed - informational only). Remaining open issues (11591/11593/11605/11606/11611/11612/11613/11614/11620/11621/11622/11624/11625/11626) are self-expiring automated smoke-test/workflow-failure/integrity-audit bot reports with no actionable code fix - not commented on individually. NEXT RUN: check if PR #11542/#11491/#11616 merged; consider implementing testify v1.11.1->v1.12.1 bump from #11541 under Task 4 (Engineering Investments); resume broader Go/Rust engineering backlog. IMPORTANT LESSON: verify bot 'dead code' claims by running tests before applying suggested removals - not all report suggestions are correct, some report authors miss edge-case semantics differences.",
+    "notes": "2026-08-22: Tasks 10+5 selected. Prior monthly issue #11396 was closed 'not_planned' by maintainer lpcox on 2026-08-21 - created a NEW monthly activity issue for 2026-08 since none was open. Task 5 (Coding Improvements): implemented Priority 1 from #11649 (refactor report) - removed deprecated internal/difc/resource.go Resource struct + NewResource/EmptyResource constructors (dead code, zero callers outside own tests). Removed corresponding TestNewResource/TestEmptyResource tests. Build+vet+fmt+all internal unit tests pass. Created draft PR on branch repo-assist/remove-deprecated-difc-resource. Did NOT implement Priority 2 (relocate customSchemaCache from validation_shared.go into validation_server.go) this run - low priority, deferred to next run. Task 10 folded into Task 5 work this run (no separate long-running initiative in progress). NEXT RUN: check if PR repo-assist/remove-deprecated-difc-resource merged; consider Priority 2 of #11649; check status of open PRs #11491/#11542/#11616-related repo-assist branches (may need to verify merge status - previous memory listed them as open_ra_prs but issue #11396 shows all three referenced and closed by maintainer, so they may already be resolved - verify via PR search next run); testify already bumped to v1.12.1 in go.mod (issue #11541 recommendation already satisfied, can note for closing).",
     "cursor": {
-        "issues": 11626,
-        "labels": 11626
+        "issues": 11675,
+        "labels": 11675
     },
     "checked_off_by_user": [],
     "open_ra_prs": [
-        "repo-assist/improve-wazero-test-helper-11491",
-        "repo-assist/fix-issue-11542-split-repo-id",
-        "repo-assist/fix-issue-11616-owner-constant"
+        "repo-assist/remove-deprecated-difc-resource"
     ]
 }
