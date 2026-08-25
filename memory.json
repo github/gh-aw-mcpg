@@ -1,6 +1,6 @@
 {
-    "lr": "2026-08-24T12:57Z",
-    "run_id": "32729700575",
+    "lr": "2026-08-25T12:56Z",
+    "run_id": "32850277036",
     "monthly_issue": 11730,
     "monthly_month": "2026-08",
     "comments_made": {
@@ -22,15 +22,17 @@
         "11616_owner_constant": "2026-08-21",
         "11649_remove_deprecated_resource": "2026-08-22",
         "11649_priority2_customSchemaCache": "2026-08-22 (verified via PR #11685, merged)",
-        "eng_bump_xtext": "2026-08-24 (PR created: repo-assist/eng-bump-x-text-20260824, bumps golang.org/x/text v0.40.0->v0.41.0, build+test pass)"
+        "eng_bump_xtext": "2026-08-24 (PR created: repo-assist/eng-bump-x-text-20260824, bumps golang.org/x/text v0.40.0->v0.41.0, build+test pass)",
+        "11839_mcp_wrapped_text_dedupe": "2026-08-25 (PR created: repo-assist/improve-mcp-wrapped-text-dedupe, closes #11839, dedupe MCP-wrapped text extraction + IS_ERROR constant, build+test pass 645/645)"
     },
-    "notes": "2026-08-24: Tasks 4+1 selected. Task 4 (Engineering Investments): checked `go list -m -u all` for outdated deps - only golang.org/x/text (direct dep) had a safe patch bump available (v0.40.0->v0.41.0); all other outdated entries are indirect/transitive (OTel, gRPC, Google Cloud SDKs) - left alone per minimal-deps guidance. Created branch repo-assist/eng-bump-x-text-20260824, ran `go get golang.org/x/text@v0.41.0 && go mod tidy`, make build passed, make test-unit passed (exit 0, no new failures - pre-existing test names containing 'FAILED'/'FAIL' substrings are expected negative-path test logs, not actual failures). Opened draft PR. Task 1 (Issue Labelling): reviewed the 2 unlabelled open items - #11752 (Smoke Copilot - Issue Group, parent tracker, bot-authored, self-expiring Aug 24) and #11778 (Smoke Test: Copilot sub-issue, PASS report, self-expiring). Both are ephemeral automated smoke-test artifacts with no clear fit among the allowed label taxonomy (bug/enhancement/docs/etc.) - similar smoke-test issues in memory history were previously labelled 'automated'+'smoke-test' but those labels aren't in the currently allowed list for this tool, so skipped labelling rather than force a low-confidence label. No other genuinely unlabelled human-actionable issues found. Zero human-authored open issues again this run (all 17 open issues are bot-authored: smoke tests, [aw] failure/no-op reports, integrity-audit, go-fan module review, large-payload-test, release, duplicate-code report, monthly activity). No dependabot PRs open to bundle. 3 pre-existing Repo Assist PRs open (#11753 log, #11754 test-improver) + #11775 (smoke-test bot PR, not ours) + #11773 (human PR by lpcox, gh-aw upgrade) - none require our intervention this run (Task 6 not selected). No stale (14+ day) non-RA PRs found needing nudge. NEXT RUN: continue checking for human-authored issues; monitor #11753/#11754 for merge status; consider Task 5 code-quality pass on #6513 duplicate-code report if still relevant.",
+    "notes": "2026-08-25: Tasks 5+2 selected. Task 5 (Coding Improvements): implemented issue #11839 (rust-guard-improver suggestion) - extracted shared mcp_wrapped_text() helper in backend.rs to dedupe the content[0].text unwrap chain across 3 functions, and added field_names::IS_ERROR constant used at 3 non-test read sites (backend.rs, response_items.rs, response_paths.rs). cargo build --release + cargo test --release (645/645 pass) + cargo fmt --check on touched files all clean. Note: repo-wide `cargo fmt --check` shows pre-existing unrelated diffs in labels/mod.rs (not introduced by me, left untouched - reverted after running fmt across whole crate). Created draft PR closes #11839. Task 2 (Issue Investigation and Comment): reviewed all 19 open issues - zero human-authored issues open; all are bot-authored automated reports (smoke tests, [aw] failure/no-op reports, integrity-audit, go-fan module review #11838 (no action needed, SDK already up to date), rust-guard analysis (#11839, addressed via Task 5), large-payload-test, release, duplicate-code report #6513 (stale, from May, sub-issues already resolved), monthly activity #11730). No genuinely new human commentary opportunities found - consistent with prior runs. No new comments posted this run (correctly restrained per anti-spam guidance).",
     "cursor": {
-        "issues": 11781,
-        "labels": 11781
+        "issues": 11846,
+        "labels": 11846
     },
     "checked_off_by_user": [],
     "open_ra_prs": [
-        "repo-assist/eng-bump-x-text-20260824"
+        "repo-assist/eng-bump-x-text-20260824",
+        "repo-assist/improve-mcp-wrapped-text-dedupe"
     ]
 }
