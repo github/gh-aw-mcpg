@@ -1,6 +1,6 @@
 {
-    "lr": "2026-08-26T13:00Z",
-    "run_id": "32971222795",
+    "lr": "2026-08-27T16:24Z",
+    "run_id": "33092904649",
     "monthly_issue": 11730,
     "monthly_month": "2026-08",
     "comments_made": {
@@ -22,19 +22,18 @@
         "11616_owner_constant": "2026-08-21",
         "11649_remove_deprecated_resource": "2026-08-22",
         "11649_priority2_customSchemaCache": "2026-08-22 (verified via PR #11685, merged)",
-        "eng_bump_xtext": "2026-08-24 (PR created: repo-assist/eng-bump-x-text-20260824, bumps golang.org/x/text v0.40.0->v0.41.0, build+test pass)",
-        "11839_mcp_wrapped_text_dedupe": "2026-08-25 (PR created: repo-assist/improve-mcp-wrapped-text-dedupe, closes #11839, dedupe MCP-wrapped text extraction + IS_ERROR constant, build+test pass 645/645)",
-        "11903_visibility_constants": "2026-08-26 (PR created: repo-assist/improve-rust-guard-visibility-constants, closes #11903, centralized visibility literals in private_flag_from_repo_object + added field_names::IS_PRIVATE/IS_PRIVATE_CAMEL + visibility_values module + direct unit test, build+test pass 645/645)"
+        "eng_bump_xtext": "2026-08-24 (PR repo-assist/eng-bump-x-text-20260824 - NOT merged, superseded/closed - branch may be stale, review needed)",
+        "11839_mcp_wrapped_text_dedupe": "2026-08-25 (PR #11848 closed without merge)",
+        "11903_visibility_constants": "2026-08-26 (PR #11912 closed without merge)",
+        "11959_author_association_constants": "2026-08-27 (PR created: repo-assist/improve-author-association-constants, closes #11959, added field_names::AUTHOR_ASSOCIATION/_CAMEL constants + matches_any_ci() dedup helper, build+test pass 645/645)"
     },
-    "notes": "2026-08-26: Tasks 3+5 selected. No open bug/help-wanted/good-first-issue labeled issues existed for Task 3, so pivoted to reviewing the newest bot-authored improvement suggestion (#11903, rust-guard-improver). Task 5 (Coding Improvements): implemented issue #11903 - centralized raw string literals ('private','is_private','isPrivate','visibility' values) into field_names::IS_PRIVATE/IS_PRIVATE_CAMEL and a new visibility_values module (PRIVATE/INTERNAL/PUBLIC) in constants.rs; updated private_flag_from_repo_object in backend.rs to use them; added a direct unit test isolating field-priority + case-insensitive visibility matching independent of the repo_visibility_from_items shape-detection wrapper. cargo build --release + cargo test --release (645/645 pass, including new test) + cargo fmt --check on touched files (backend.rs, constants.rs) clean. Repo-wide cargo fmt --check shows pre-existing unrelated diffs in labels/mod.rs and labels/tool_rules.rs (not introduced by me, left untouched). Created draft PR closes #11903.",
+    "notes": "2026-08-27: Tasks 10+5 selected. Task 10 (Take Repository Forward): reviewed monthly issue #11730's suggested actions - noted several previously-tracked Repo Assist PRs (eng-bump-x-text, mcp-wrapped-text-dedupe #11848, rust-guard-visibility-constants #11912) were closed without merging (likely superseded/rejected by maintainer or CI). No longer open, so removed from active tracking. Task 5 (Coding Improvements): implemented fresh bot-suggested issue #11959 (rust-guard-improver) - added AUTHOR_ASSOCIATION/_CAMEL field_names constants (last raw-literal dual-form field read site) + extracted matches_any_ci() shared helper deduping identical trim+case-insensitive-match logic in author_association_floor_from_str and collaborator_permission_floor. cargo build --release + cargo test --release (645/645 pass) + cargo fmt --check on touched files clean (pre-existing unrelated diffs remain in backend.rs/mod.rs/tool_rules.rs, untouched). Created draft PR closes #11959.",
     "cursor": {
-        "issues": 11910,
+        "issues": 11965,
         "labels": 11846
     },
     "checked_off_by_user": [],
     "open_ra_prs": [
-        "repo-assist/eng-bump-x-text-20260824",
-        "repo-assist/improve-mcp-wrapped-text-dedupe",
-        "repo-assist/improve-rust-guard-visibility-constants"
+        "repo-assist/improve-author-association-constants"
     ]
 }
