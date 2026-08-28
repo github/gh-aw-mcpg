@@ -1,6 +1,6 @@
 {
-    "lr": "2026-08-27T16:24Z",
-    "run_id": "33092904649",
+    "lr": "2026-08-28T16:45Z",
+    "run_id": "33191333305",
     "monthly_issue": 11730,
     "monthly_month": "2026-08",
     "comments_made": {
@@ -22,18 +22,20 @@
         "11616_owner_constant": "2026-08-21",
         "11649_remove_deprecated_resource": "2026-08-22",
         "11649_priority2_customSchemaCache": "2026-08-22 (verified via PR #11685, merged)",
-        "eng_bump_xtext": "2026-08-24 (PR repo-assist/eng-bump-x-text-20260824 - NOT merged, superseded/closed - branch may be stale, review needed)",
+        "eng_bump_xtext": "2026-08-24 (PR repo-assist/eng-bump-x-text-20260824 - NOT merged, closed - stale)",
         "11839_mcp_wrapped_text_dedupe": "2026-08-25 (PR #11848 closed without merge)",
         "11903_visibility_constants": "2026-08-26 (PR #11912 closed without merge)",
-        "11959_author_association_constants": "2026-08-27 (PR created: repo-assist/improve-author-association-constants, closes #11959, added field_names::AUTHOR_ASSOCIATION/_CAMEL constants + matches_any_ci() dedup helper, build+test pass 645/645)"
+        "11959_author_association_constants": "2026-08-27 (PR created: repo-assist/improve-author-association-constants, closes #11959, build+test pass 645/645 - status pending)",
+        "eng_bump_otel_v1_46": "2026-08-28 (PR created: repo-assist/eng-bump-otel-20260828, bumps go.opentelemetry.io/otel* v1.45.0->v1.46.0, go build/vet/fmt/test all pass)"
     },
-    "notes": "2026-08-27: Tasks 10+5 selected. Task 10 (Take Repository Forward): reviewed monthly issue #11730's suggested actions - noted several previously-tracked Repo Assist PRs (eng-bump-x-text, mcp-wrapped-text-dedupe #11848, rust-guard-visibility-constants #11912) were closed without merging (likely superseded/rejected by maintainer or CI). No longer open, so removed from active tracking. Task 5 (Coding Improvements): implemented fresh bot-suggested issue #11959 (rust-guard-improver) - added AUTHOR_ASSOCIATION/_CAMEL field_names constants (last raw-literal dual-form field read site) + extracted matches_any_ci() shared helper deduping identical trim+case-insensitive-match logic in author_association_floor_from_str and collaborator_permission_floor. cargo build --release + cargo test --release (645/645 pass) + cargo fmt --check on touched files clean (pre-existing unrelated diffs remain in backend.rs/mod.rs/tool_rules.rs, untouched). Created draft PR closes #11959.",
+    "notes": "2026-08-28: Tasks 10+4 selected. Task 10 (Take Repository Forward): reviewed monthly issue #11730 suggested actions - all remain open PRs awaiting maintainer review (11753,11754,11816,11817,11813,11938,11939, plus repo-assist author-association-constants PR); no open human-authored issues found among the 14 open issues (mostly automated/smoke-test noise: #12020,#12035,#12037,#12039,#12045,#12048,#12049,#12050,#12051,#12053, plus stale #6498/#6513/#6522 already flagged for closure). No fixable bug/help-wanted/good-first-issue labelled issues open. Task 4 (Engineering Investments): checked `go list -u -m all` for outdated deps - bumped go.opentelemetry.io/otel and related submodules (otel/sdk/trace/metric/sdk-metric/otlptrace/otlptracehttp) from v1.45.0 to v1.46.0 via go get + go mod tidy. build+vet+fmt+full test suite (go test ./... including integration) all pass. Created draft PR repo-assist/eng-bump-otel-20260828.",
     "cursor": {
         "issues": 11965,
         "labels": 11846
     },
     "checked_off_by_user": [],
     "open_ra_prs": [
-        "repo-assist/improve-author-association-constants"
+        "repo-assist/improve-author-association-constants",
+        "repo-assist/eng-bump-otel-20260828"
     ]
 }
