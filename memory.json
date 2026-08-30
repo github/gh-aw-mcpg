@@ -1,6 +1,6 @@
 {
-    "lr": "2026-08-29T12:44Z",
-    "run_id": "33253185573",
+    "lr": "2026-08-30T12:45Z",
+    "run_id": "33312260725",
     "monthly_issue": 11730,
     "monthly_month": "2026-08",
     "comments_made": {
@@ -11,7 +11,8 @@
         "11491": "2026-08-19",
         "11542": "2026-08-20",
         "11616": "2026-08-21",
-        "12081": "2026-08-29"
+        "12081": "2026-08-29",
+        "12125": "2026-08-30"
     },
     "fixes": {
         "10662": "2026-08-04",
@@ -28,17 +29,21 @@
         "11903_visibility_constants": "2026-08-26 (PR #11912 closed without merge)",
         "11959_author_association_constants": "2026-08-27 (PR created: repo-assist/improve-author-association-constants, closes #11959, build+test pass 645/645 - status pending)",
         "eng_bump_otel_v1_46": "2026-08-28 (PR created: repo-assist/eng-bump-otel-20260828, bumps go.opentelemetry.io/otel* v1.45.0->v1.46.0, go build/vet/fmt/test all pass)",
-        "eng_bump_golangci_lint": "2026-08-29 (PR created: repo-assist/eng-bump-golangci-lint-20260829, bumps golangci-lint v2.12.2->v2.13.2, lint/build/fmt/full test suite pass)"
+        "eng_bump_golangci_lint": "2026-08-29 (PR created: repo-assist/eng-bump-golangci-lint-20260829, bumps golangci-lint v2.12.2->v2.13.2, lint/build/fmt/full test suite pass)",
+        "12143_dedupe_string_array_validation": "2026-08-30 (PR created: repo-assist/improve-dedupe-string-array-validation, closes #12143 recommendation 1, extracted validateNonEmptyStringSlice shared helper for validateAgentIDs/validateTrustedBots; left guard_policy_validation.go's ValidateStringArrayField unchanged - different signature/error wording pinned by tests; build/vet/fmt/full test suite incl integration pass)",
+        "12125_spec_version_bump": "2026-08-30 (PR created: repo-assist/fix-issue-12125-spec-version-bump, closes #12125, bumps MCPGatewaySpecVersion 1.16.0->1.17.0 after verifying apiKey removal + agentIds plural support were already fully implemented; build/vet/fmt/test pass)"
     },
-    "notes": "2026-08-29: Tasks 2+4 selected. Task 2: reviewed open issues - #12081 (guard-coverage-gap) flagged 6 tools as missing from tools.rs/tool_rules.rs, but verified all 6 (dismiss_notification, mark_all_notifications_read, manage_notification_subscription, manage_repository_notification_subscription, star_repository, unstar_repository) are already present in WRITE_OPERATIONS/READ_WRITE_OPERATIONS and tool_rules.rs match arms - commented that report appears stale, recommended closing. Other open issues are automated bot noise (smoke tests, aw failure reports, group parents) with no actionable human content. Task 4: checked go list -u -m all for outdated deps - direct deps (toml, go-sdk, cobra, x/term, gojq, jsonschema, testify, wazero, x/text) all already at latest. Bumped golangci-lint tool version v2.12.2->v2.13.2 in Makefile (dev tool, zero code changes needed, 0 lint issues with new version). build+vet+fmt+full test suite (go test ./... incl integration, binary built via make build) all pass. Created draft PR repo-assist/eng-bump-golangci-lint-20260829.",
+    "notes": "2026-08-30: Tasks 5+2 selected. Task 2: reviewed open issues incl #12125 (compliance gap report for spec 1.17.0) - investigated and found apiKey already removed from schema + agentIds(plural) already fully implemented with mutual-exclusion validation in both TOML and JSON stdin loaders; only MCPGatewaySpecVersion constant was stale at 1.16.0. Commented with findings and opened a trivial fix PR. Other open issues remain automated bot noise (smoke tests, aw failure reports, duplicate-code reports, group parents). Task 5: addressed duplicate-code finding #12143 by extracting shared validateNonEmptyStringSlice() helper in validation_rules.go, consolidating validateAgentIDs/validateTrustedBots (recommendation 1 of 2); intentionally left ValidateStringArrayField in guard_policy_validation.go unchanged since it takes []interface{} not []string and its error wording is pinned by an extensive existing test suite - flagged as optional follow-up in PR description. Both PRs: build/vet/gofmt clean, go test ./... (all unit packages) pass, go test ./test/integration/... (binary built via make build) pass.",
     "cursor": {
-        "issues": 12094,
+        "issues": 12153,
         "labels": 11846
     },
     "checked_off_by_user": [],
     "open_ra_prs": [
         "repo-assist/improve-author-association-constants",
         "repo-assist/eng-bump-otel-20260828",
-        "repo-assist/eng-bump-golangci-lint-20260829"
+        "repo-assist/eng-bump-golangci-lint-20260829",
+        "repo-assist/improve-dedupe-string-array-validation",
+        "repo-assist/fix-issue-12125-spec-version-bump"
     ]
 }
