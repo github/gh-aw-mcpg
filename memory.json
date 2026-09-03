@@ -1,53 +1,54 @@
 {
-    "lr": "2026-09-02T12:51Z",
-    "run_id": "33632089694",
-    "monthly_issue": "TBD_new_2026-09",
-    "monthly_month": "2026-09",
-    "comments_made": {
-        "10603": "2026-08-03",
-        "10662": "2026-08-04",
-        "10810": "2026-08-07",
-        "11309": "2026-08-16",
-        "11491": "2026-08-19",
-        "11542": "2026-08-20",
-        "11616": "2026-08-21",
-        "12081": "2026-08-29",
-        "12125": "2026-08-30"
-    },
-    "fixes": {
-        "10662": "2026-08-04",
-        "11309_create_project": "2026-08-16",
-        "11384_tool_names_const": "2026-08-17",
-        "11439_full_name_const": "2026-08-18",
-        "11491_wazero_test_helper": "2026-08-19",
-        "11542_split_repo_id": "2026-08-20",
-        "11616_owner_constant": "2026-08-21",
-        "11649_remove_deprecated_resource": "2026-08-22",
-        "11649_priority2_customSchemaCache": "2026-08-22 (verified via PR #11685, merged)",
-        "eng_bump_xtext": "2026-08-24 (PR repo-assist/eng-bump-x-text-20260824 - NOT merged, closed - stale)",
-        "11839_mcp_wrapped_text_dedupe": "2026-08-25 (PR #11848 closed without merge)",
-        "11903_visibility_constants": "2026-08-26 (PR #11912 closed without merge)",
-        "11959_author_association_constants": "2026-08-27 (PR created: repo-assist/improve-author-association-constants, closes #11959, build+test pass 645/645 - status pending)",
-        "eng_bump_otel_v1_46": "2026-08-28 (PR created: repo-assist/eng-bump-otel-20260828, bumps go.opentelemetry.io/otel* v1.45.0->v1.46.0, go build/vet/fmt/test all pass)",
-        "eng_bump_golangci_lint": "2026-08-29 (PR created: repo-assist/eng-bump-golangci-lint-20260829, bumps golangci-lint v2.12.2->v2.13.2, lint/build/fmt/full test suite pass)",
-        "12143_dedupe_string_array_validation": "2026-08-30 (PR created: repo-assist/improve-dedupe-string-array-validation, closes #12143 recommendation 1)",
-        "12125_spec_version_bump": "2026-08-30 (PR created: repo-assist/fix-issue-12125-spec-version-bump, closes #12125)",
-        "12215_rust_guard_dedupe": "2026-08-31 (PR created: repo-assist/improve-rust-guard-dedupe-tool-names, closes #12215)",
-        "12327_guard_coverage_gap": "2026-09-02 (PR created: repo-assist/fix-issue-12327-guard-coverage-gap, closes #12327, added mark_answer/unmark_answer to WRITE_OPERATIONS, resolve_thread to READ_WRITE_OPERATIONS in tools.rs, added DIFC match arms + tests in tool_rules.rs; cargo build/test 655/655 pass, clippy clean)"
-    },
-    "notes": "2026-09-02: Tasks 2+3 selected. Task 3: implemented fix for #12327 (guard coverage gap) - added 3 missing tool classifications (mark_answer, unmark_answer, resolve_thread) to rust-guard tools.rs/tool_rules.rs with test coverage; opened draft PR repo-assist/fix-issue-12327-guard-coverage-gap. Task 2: reviewed all open issues - all remaining open issues are automated bot report/tracking issues (duplicate-code #12323-12326, guard-coverage #12327 now fixed, go-fan #12333, integrity-audit #12331, rust-guard-improver #12334, release notes #12309, no-op tracker #12322, smoke-test group parents #12306/#12329 and their sub-issues #12335/12337/12338/12340) - none need a substantive human-facing comment this run. Task 11: closed stale August monthly issue #11730, created new September monthly issue.",
-    "cursor": {
-        "issues": 12340,
-        "labels": 11846
-    },
-    "checked_off_by_user": [],
-    "open_ra_prs": [
-        "repo-assist/improve-author-association-constants",
-        "repo-assist/eng-bump-otel-20260828",
-        "repo-assist/eng-bump-golangci-lint-20260829",
-        "repo-assist/improve-dedupe-string-array-validation",
-        "repo-assist/fix-issue-12125-spec-version-bump",
-        "repo-assist/improve-rust-guard-dedupe-tool-names",
-        "repo-assist/fix-issue-12327-guard-coverage-gap"
-    ]
+  "lr": "2026-09-03T13:00Z",
+  "run_id": "33757436602",
+  "monthly_issue": "aw_monthly9 (created this run, see PR/issue create result; number resolved post-run)",
+  "monthly_month": "2026-09",
+  "comments_made": {
+    "10603": "2026-08-03",
+    "10662": "2026-08-04",
+    "10810": "2026-08-07",
+    "11309": "2026-08-16",
+    "11491": "2026-08-19",
+    "11542": "2026-08-20",
+    "11616": "2026-08-21",
+    "12081": "2026-08-29",
+    "12125": "2026-08-30",
+    "12402": "2026-09-03"
+  },
+  "fixes": {
+    "10662": "2026-08-04",
+    "11309_create_project": "2026-08-16",
+    "11384_tool_names_const": "2026-08-17",
+    "11439_full_name_const": "2026-08-18",
+    "11491_wazero_test_helper": "2026-08-19",
+    "11542_split_repo_id": "2026-08-20",
+    "11616_owner_constant": "2026-08-21",
+    "11649_remove_deprecated_resource": "2026-08-22",
+    "11649_priority2_customSchemaCache": "2026-08-22 (verified via PR #11685, merged)",
+    "eng_bump_xtext": "2026-08-24 (PR repo-assist/eng-bump-x-text-20260824 - NOT merged, closed - stale)",
+    "11839_mcp_wrapped_text_dedupe": "2026-08-25 (PR #11848 closed without merge)",
+    "11903_visibility_constants": "2026-08-26 (PR #11912 closed without merge)",
+    "11959_author_association_constants": "2026-08-27 (PR created: repo-assist/improve-author-association-constants, closes #11959, build+test pass 645/645 - status pending)",
+    "eng_bump_otel_v1_46": "2026-08-28 (PR created: repo-assist/eng-bump-otel-20260828, bumps go.opentelemetry.io/otel* v1.45.0->v1.46.0, go build/vet/fmt/test all pass)",
+    "eng_bump_golangci_lint": "2026-08-29 (PR created: repo-assist/eng-bump-golangci-lint-20260829, bumps golangci-lint v2.12.2->v2.13.2, lint/build/fmt/full test suite pass)",
+    "12143_dedupe_string_array_validation": "2026-08-30 (PR created: repo-assist/improve-dedupe-string-array-validation, closes #12143 recommendation 1)",
+    "12125_spec_version_bump": "2026-08-30 (PR created: repo-assist/fix-issue-12125-spec-version-bump, closes #12125)",
+    "12215_rust_guard_dedupe": "2026-08-31 (PR created: repo-assist/improve-rust-guard-dedupe-tool-names, closes #12215)",
+    "12327_guard_coverage_gap": "2026-09-02 (PR created: repo-assist/fix-issue-12327-guard-coverage-gap, closes #12327, added mark_answer/unmark_answer to WRITE_OPERATIONS, resolve_thread to READ_WRITE_OPERATIONS in tools.rs, added DIFC match arms + tests in tool_rules.rs; cargo build/test 655/655 pass, clippy clean)"
+  },
+  "notes": "2026-09-03: Tasks 1+2 selected. Task 1: labelled 7 issues - #12359/#12392/#12399 (automated, smoke-test); #12360/#12393 (needs investigation); #12363 (bug, needs investigation); #12402 (bug). Task 2: investigated #12402 (missing safeinputs-go/make tools) - confirmed root cause via lock-file inspection: safe-inputs defined in imported shared/go-make.md is not compiled into consuming workflows lock.yml (smoke-copilot, smoke-long-session, smoke-otel-tracing all affected, 0 safeinputs refs in compiled lock files). Posted substantive root-cause comment on #12402. Other candidates scanned (#12397 rust-guard refactor, #12396 testifylint suggestion, #12363 gVisor segfault, #12360 network egress blocked) - noted as future work, not commented on this run (no new human activity, would be duplicative). Task 11: found Sept monthly issue #12343 unexpectedly closed with no open replacement (likely merged/closed by maintainer or prior automation error) - created new monthly issue titled Monthly Activity 2026-09 tracking Sept activity + suggested actions. NOTE: open_ra_prs list below may be stale - task_selection.json reported 0 open repo-assist PRs this run, meaning the 7 PRs listed were likely merged or closed since 2026-09-02; verify/clear this list next run.",
+  "cursor": {
+    "issues": 12405,
+    "labels": 12405
+  },
+  "checked_off_by_user": [],
+  "open_ra_prs": [
+    "repo-assist/improve-author-association-constants",
+    "repo-assist/eng-bump-otel-20260828",
+    "repo-assist/eng-bump-golangci-lint-20260829",
+    "repo-assist/improve-dedupe-string-array-validation",
+    "repo-assist/fix-issue-12125-spec-version-bump",
+    "repo-assist/improve-rust-guard-dedupe-tool-names",
+    "repo-assist/fix-issue-12327-guard-coverage-gap"
+  ]
 }
