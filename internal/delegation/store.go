@@ -2,8 +2,10 @@ package delegation
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -24,6 +26,7 @@ type Store struct {
 	generation uint64
 
 	byHandle      map[string]*Identity
+	byBearer      map[[sha256.Size]byte]*Identity
 	byIdempotency map[string]*Identity
 	byLabel       map[string]map[string]*Identity // labelKey -> handle -> identity
 
@@ -46,6 +49,7 @@ func NewStore(envelope *Envelope, generation uint64) (*Store, error) {
 		envelope:      envelope,
 		generation:    generation,
 		byHandle:      make(map[string]*Identity),
+		byBearer:      make(map[[sha256.Size]byte]*Identity),
 		byIdempotency: make(map[string]*Identity),
 		byLabel:       make(map[string]map[string]*Identity),
 	}, nil
@@ -110,6 +114,9 @@ func (s *Store) validateAgainstEnvelope(req CreateOrConfirmRequest, now time.Tim
 	if req.RequestedTTL <= 0 || req.RequestedTTL > s.envelope.MaxIdentityTTL {
 		return fmt.Errorf("requested ttl outside envelope")
 	}
+	if !req.InvocationExpiresAt.IsZero() && !now.Before(req.InvocationExpiresAt) {
+		return fmt.Errorf("invocation deadline has elapsed")
+	}
 	return nil
 }
 
@@ -137,6 +144,9 @@ func (s *Store) createOrConfirmAt(req CreateOrConfirmRequest, now time.Time) (*I
 	key := idempotencyScopeKey(req.RunID, req.EnclaveEntryID, req.InvocationID, req.IdempotencyKey)
 	if existing, ok := s.byIdempotency[key]; ok {
 		if existing.bindingEquals(req) {
+			if existing.Revoked {
+				return nil, fmt.Errorf("delegation request denied: idempotency key has a terminal outcome")
+			}
 			emitAudit(newAuditEvent("confirm", req, "confirmed", "idempotent-replay", s.generation))
 			return existing.toResult(), nil
 		}
@@ -172,7 +182,8 @@ func (s *Store) createOrConfirmAt(req CreateOrConfirmRequest, now time.Time) (*I
 		ToolPolicy:               req.ToolPolicy,
 		SchemaHash:               req.SchemaHash,
 		AdmittedDefaultBranchSHA: req.AdmittedDefaultBranchSHA,
-		ExpiresAt:                now.Add(req.RequestedTTL),
+		ExpiresAt:                identityExpiry(now, req.RequestedTTL, s.envelope.ExpiresAt, req.InvocationExpiresAt),
+		InvocationExpiresAt:      req.InvocationExpiresAt,
 		PolicyGeneration:         s.generation,
 		IdempotencyKey:           req.IdempotencyKey,
 		CreatedAt:                now,
@@ -186,6 +197,7 @@ func (s *Store) createOrConfirmAt(req CreateOrConfirmRequest, now time.Time) (*I
 func (s *Store) indexLocked(identity *Identity) {
 	key := idempotencyScopeKey(identity.RunID, identity.EnclaveEntryID, identity.InvocationID, identity.IdempotencyKey)
 	s.byHandle[identity.Handle] = identity
+	s.byBearer[sha256.Sum256([]byte(identity.ExecutorBearer))] = identity
 	s.byIdempotency[key] = identity
 	label := labelKey(identity.RunID, identity.EnclaveEntryID)
 	if s.byLabel[label] == nil {
@@ -194,11 +206,24 @@ func (s *Store) indexLocked(identity *Identity) {
 	s.byLabel[label][identity.Handle] = identity
 }
 
+func identityExpiry(now time.Time, requestedTTL time.Duration, deadlines ...time.Time) time.Time {
+	expiry := now.Add(requestedTTL)
+	for _, deadline := range deadlines {
+		if !deadline.IsZero() && deadline.Before(expiry) {
+			expiry = deadline
+		}
+	}
+	return expiry
+}
+
 func (s *Store) revokeLocked(identity *Identity) {
 	identity.Revoked = true
 	delete(s.byHandle, identity.Handle)
+	delete(s.byBearer, sha256.Sum256([]byte(identity.ExecutorBearer)))
 	key := idempotencyScopeKey(identity.RunID, identity.EnclaveEntryID, identity.InvocationID, identity.IdempotencyKey)
-	delete(s.byIdempotency, key)
+	// Retain a terminal tombstone for the envelope lifetime. Reusing this
+	// idempotency key must never mint a renewed identity.
+	s.byIdempotency[key] = identity
 	label := labelKey(identity.RunID, identity.EnclaveEntryID)
 	if labelled, ok := s.byLabel[label]; ok {
 		delete(labelled, identity.Handle)
@@ -258,20 +283,40 @@ func (s *Store) RevokeByLabels(runID, enclaveEntryID string) int {
 	return len(handles)
 }
 
-// Authorize enforces that handle is a live identity bound to exactly the
+// Authorize enforces that executorBearer is a live identity bound to exactly the
 // given run, enclave backend, repository, and tool. It rejects replayed,
 // expired, revoked, wrong-repository, wrong-tool, and wrong-run identities;
 // none of those can establish or continue a session.
-func (s *Store) Authorize(handle, runID, enclaveBackend, repository, tool string) error {
+func (s *Store) Authorize(executorBearer, runID, enclaveBackend, repository, tool string) error {
+	return s.authorize(executorBearer, repository, tool, func(identity *Identity) bool {
+		return identity.RunID == runID && identity.EnclaveBackend == enclaveBackend
+	})
+}
+
+// AuthorizeExecutor authorizes an executor bearer against the repository and
+// tool derived by the data-plane route. The run and backend are read from the
+// authenticated identity rather than supplied by the executor.
+func (s *Store) AuthorizeExecutor(executorBearer, repository, tool string) error {
+	return s.authorize(executorBearer, repository, tool, func(*Identity) bool { return true })
+}
+
+func (s *Store) authorize(executorBearer, repository, tool string, bindingMatches func(*Identity) bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.cleanupExpiredLocked(time.Now())
+	now := time.Now()
+	s.cleanupExpiredLocked(now)
 
-	identity, ok := s.byHandle[handle]
+	if !now.Before(s.envelope.ExpiresAt) {
+		return fmt.Errorf("delegation envelope has expired")
+	}
+	if bearer, ok := strings.CutPrefix(executorBearer, "Bearer "); ok {
+		executorBearer = bearer
+	}
+	identity, ok := s.byBearer[sha256.Sum256([]byte(executorBearer))]
 	if !ok {
 		return fmt.Errorf("unknown or revoked delegated identity")
 	}
-	if identity.RunID != runID || identity.EnclaveBackend != enclaveBackend {
+	if !bindingMatches(identity) {
 		return fmt.Errorf("delegated identity is not bound to this run or enclave backend")
 	}
 	if identity.Repository != repository {

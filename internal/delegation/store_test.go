@@ -67,13 +67,12 @@ func TestCreateOrConfirm_MismatchIsTerminalAndRevokesPartialState(t *testing.T) 
 
 	// The original identity must have been revoked as part of the terminal
 	// mismatch, so it can no longer authorize anything.
-	assert.Error(t, store.Authorize(created.Handle, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
+	assert.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
 
-	// And a fresh confirm attempt with the *original* binding must not
-	// silently resurrect the old identity's handle/bearer.
-	recreated, err := store.CreateOrConfirm(req)
-	require.NoError(t, err)
-	assert.NotEqual(t, created.Handle, recreated.Handle)
+	// Replaying the original binding must not silently renew the revoked
+	// identity.
+	_, err = store.CreateOrConfirm(req)
+	assert.Error(t, err)
 }
 
 func TestCreateOrConfirm_RejectsOutsideEnvelope(t *testing.T) {
@@ -136,14 +135,15 @@ func TestAuthorize_RejectsWrongRepoWrongToolWrongRunAndReplay(t *testing.T) {
 	created, err := store.CreateOrConfirm(req)
 	require.NoError(t, err)
 
-	assert.NoError(t, store.Authorize(created.Handle, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
-	assert.Error(t, store.Authorize(created.Handle, req.RunID, req.EnclaveBackend, "github/gh-aw-firewall", "issue_read"), "wrong repository must be rejected")
-	assert.Error(t, store.Authorize(created.Handle, req.RunID, req.EnclaveBackend, req.Repository, "list_repositories"), "wrong/unscoped tool must be rejected")
-	assert.Error(t, store.Authorize(created.Handle, "other-run", req.EnclaveBackend, req.Repository, "issue_read"), "wrong run must be rejected")
-	assert.Error(t, store.Authorize("unknown-handle", req.RunID, req.EnclaveBackend, req.Repository, "issue_read"), "unknown/replayed handle must be rejected")
+	assert.NoError(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
+	assert.Error(t, store.Authorize(created.Handle, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"), "control-plane handles must not authorize executor requests")
+	assert.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, "github/gh-aw-firewall", "issue_read"), "wrong repository must be rejected")
+	assert.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "list_repositories"), "wrong/unscoped tool must be rejected")
+	assert.Error(t, store.Authorize(created.ExecutorBearer, "other-run", req.EnclaveBackend, req.Repository, "issue_read"), "wrong run must be rejected")
+	assert.Error(t, store.Authorize("unknown-bearer", req.RunID, req.EnclaveBackend, req.Repository, "issue_read"), "unknown/replayed bearer must be rejected")
 
 	require.NoError(t, store.Revoke(created.Handle))
-	assert.Error(t, store.Authorize(created.Handle, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"), "revoked identity must be rejected")
+	assert.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"), "revoked identity must be rejected")
 }
 
 func TestExpiry_AutomaticAndExplicit(t *testing.T) {
@@ -155,17 +155,15 @@ func TestExpiry_AutomaticAndExplicit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Well before expiry: still authorized.
-	assert.NoError(t, store.Authorize(created.Handle, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
+	assert.NoError(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
 
 	// After the TTL elapses, cleanup happens lazily on the next store access.
-	// The expired identity is pruned, so a request reusing the same
-	// idempotency key mints a fresh identity rather than confirming stale
-	// state; this is ordinary lifecycle behavior, not a mismatch.
-	recreated, err := store.createOrConfirmAt(validRequest(), base.Add(2*time.Minute))
-	require.NoError(t, err)
-	assert.NotEqual(t, created.Handle, recreated.Handle)
+	// Expiry is terminal for this idempotency key and cannot renew the
+	// delegation.
+	_, err = store.createOrConfirmAt(validRequest(), base.Add(2*time.Minute))
+	assert.Error(t, err)
 
-	err = store.Authorize(created.Handle, req.RunID, req.EnclaveBackend, req.Repository, "issue_read")
+	err = store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read")
 	assert.Error(t, err, "expired identity must not continue a session")
 }
 
@@ -197,8 +195,8 @@ func TestRevokeByLabels_RevokesAllMatchingAndIsIdempotent(t *testing.T) {
 
 	count := store.RevokeByLabels(reqA.RunID, reqA.EnclaveEntryID)
 	assert.Equal(t, 2, count)
-	assert.Error(t, store.Authorize(createdA.Handle, reqA.RunID, reqA.EnclaveBackend, reqA.Repository, "issue_read"))
-	assert.Error(t, store.Authorize(createdB.Handle, reqB.RunID, reqB.EnclaveBackend, reqB.Repository, "issue_read"))
+	assert.Error(t, store.Authorize(createdA.ExecutorBearer, reqA.RunID, reqA.EnclaveBackend, reqA.Repository, "issue_read"))
+	assert.Error(t, store.Authorize(createdB.ExecutorBearer, reqB.RunID, reqB.EnclaveBackend, reqB.Repository, "issue_read"))
 
 	// Idempotent: revoking an already-empty label is a no-op, not an error.
 	assert.Equal(t, 0, store.RevokeByLabels(reqA.RunID, reqA.EnclaveEntryID))
@@ -242,4 +240,22 @@ func TestCreateOrConfirm_EnvelopeExpiredDeniesEverything(t *testing.T) {
 
 	_, err = store.CreateOrConfirm(validRequest())
 	assert.Error(t, err)
+}
+
+func TestCreateOrConfirm_BoundsExpiryToPolicyAndInvocationDeadlines(t *testing.T) {
+	envelope := validEnvelope()
+	base := time.Now()
+	envelope.ExpiresAt = base.Add(30 * time.Second)
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+
+	req := validRequest()
+	req.RequestedTTL = time.Minute
+	req.InvocationExpiresAt = base.Add(10 * time.Second)
+	created, err := store.createOrConfirmAt(req, base)
+	require.NoError(t, err)
+	assert.Equal(t, req.InvocationExpiresAt, created.ExpiresAt)
+
+	envelope.ExpiresAt = base.Add(-time.Second)
+	assert.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
 }

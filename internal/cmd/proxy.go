@@ -10,9 +10,11 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
+	"github.com/github/gh-aw-mcpg/internal/delegation"
 	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/github/gh-aw-mcpg/internal/enclavegithub"
 	"github.com/github/gh-aw-mcpg/internal/envutil"
@@ -52,6 +54,36 @@ var (
 
 func init() {
 	rootCmd.AddCommand(newProxyCmd())
+}
+
+func resolveDelegationProxyConfig() (*proxy.DelegationConfig, string, error) {
+	envelopeJSON := os.Getenv("MCP_GATEWAY_DELEGATION_ENVELOPE")
+	capabilityKey := os.Getenv(delegation.EnvControlCapabilityKey)
+	statePath := os.Getenv("MCP_GATEWAY_DELEGATION_STATE_PATH")
+	generationRaw := os.Getenv("MCP_GATEWAY_DELEGATION_GENERATION")
+	if envelopeJSON == "" && capabilityKey == "" && statePath == "" && generationRaw == "" {
+		return nil, "", nil
+	}
+	if envelopeJSON == "" || capabilityKey == "" || statePath == "" || generationRaw == "" {
+		return nil, "", fmt.Errorf("MCP_GATEWAY_DELEGATION_ENVELOPE, %s, MCP_GATEWAY_DELEGATION_STATE_PATH, and MCP_GATEWAY_DELEGATION_GENERATION must be configured together", delegation.EnvControlCapabilityKey)
+	}
+	var envelope delegation.Envelope
+	if err := json.Unmarshal([]byte(envelopeJSON), &envelope); err != nil {
+		return nil, "", fmt.Errorf("invalid delegation envelope: %w", err)
+	}
+	generation, err := strconv.ParseUint(generationRaw, 10, 64)
+	if err != nil {
+		return nil, "", fmt.Errorf("invalid delegation generation: %w", err)
+	}
+	capability, err := delegation.NewControlCapability(capabilityKey)
+	if err != nil {
+		return nil, "", err
+	}
+	store, err := delegation.LoadStore(statePath, &envelope, generation)
+	if err != nil {
+		return nil, "", err
+	}
+	return &proxy.DelegationConfig{Store: store, Capability: capability, StatePath: statePath}, statePath, nil
 }
 
 func newProxyCmd() *cobra.Command {
@@ -214,6 +246,13 @@ func runProxy(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	delegationConfig, delegationStatePath, err := resolveDelegationProxyConfig()
+	if err != nil {
+		return err
+	}
+	if delegationConfig != nil && enclaveEnabled {
+		return fmt.Errorf("delegation and enclave proxy modes cannot be combined")
+	}
 	effectiveDIFCMode := proxyDIFCMode
 	if enclaveEnabled {
 		effectiveDIFCMode = difc.ModePropagate
@@ -309,6 +348,7 @@ func runProxy(cmd *cobra.Command, args []string) error {
 		TrustedBots:  proxyTrustedBots,
 		TrustedUsers: proxyTrustedUsers,
 		Enclave:      enclaveConfig,
+		Delegation:   delegationConfig,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create proxy server: %w", err)
@@ -397,6 +437,11 @@ func runProxy(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		logger.LogError("shutdown", "Proxy server exited with error: %v", err)
 		return err
+	}
+	if delegationConfig != nil {
+		if err := delegationConfig.Store.SaveState(delegationStatePath); err != nil {
+			return fmt.Errorf("failed to persist delegation state: %w", err)
+		}
 	}
 
 	return nil

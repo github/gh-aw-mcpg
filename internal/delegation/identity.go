@@ -8,32 +8,35 @@ import "time"
 // wider than the envelope allows.
 type CreateOrConfirmRequest struct {
 	// RunID must equal the envelope's bound workflow run.
-	RunID string
+	RunID string `json:"run_id"`
 	// EnclaveBackend must equal the envelope's single AWF enclave backend.
-	EnclaveBackend string
+	EnclaveBackend string `json:"enclave_backend"`
 	// EnclaveEntryID identifies the enclave entry (frontmatter block) this
 	// invocation belongs to.
-	EnclaveEntryID string
+	EnclaveEntryID string `json:"enclave_entry_id"`
 	// InvocationID identifies one bounded enclave invocation.
-	InvocationID string
+	InvocationID string `json:"invocation_id"`
 	// Repository is the canonical, exact-byte owner/repo selector chosen
 	// for this invocation. It must already be canonical: the Store performs
 	// no trimming, case folding, Unicode normalization, or URL decoding.
-	Repository string
+	Repository string `json:"repository"`
 	// ToolPolicy must equal ToolPolicyGitHubRepositoryReadV1.
-	ToolPolicy string
+	ToolPolicy string `json:"tool_policy"`
 	// SchemaHash is the finite response schema hash approved for this
 	// invocation; it must be a member of the envelope's allowed set.
-	SchemaHash string
+	SchemaHash string `json:"schema_hash"`
 	// AdmittedDefaultBranchSHA is the default-branch SHA AWF resolved
 	// during live-read admission, when known at request time.
-	AdmittedDefaultBranchSHA string
+	AdmittedDefaultBranchSHA string `json:"admitted_default_branch_sha,omitempty"`
 	// RequestedTTL bounds how long the identity should live; it is capped
 	// by (and must not exceed) the envelope's MaxIdentityTTL.
-	RequestedTTL time.Duration
+	RequestedTTL time.Duration `json:"requested_ttl"`
+	// InvocationExpiresAt is the absolute deadline of the invocation, when
+	// one is supplied by AWF. An identity can never outlive this deadline.
+	InvocationExpiresAt time.Time `json:"invocation_expires_at,omitempty"`
 	// IdempotencyKey deduplicates retried create/confirm calls for the same
 	// (RunID, EnclaveEntryID, InvocationID, Repository) tuple.
-	IdempotencyKey string
+	IdempotencyKey string `json:"idempotency_key"`
 }
 
 // Identity is one invocation-scoped delegated identity bound to a single
@@ -50,6 +53,7 @@ type Identity struct {
 	SchemaHash               string    `json:"schema_hash"`
 	AdmittedDefaultBranchSHA string    `json:"admitted_default_branch_sha,omitempty"`
 	ExpiresAt                time.Time `json:"expires_at"`
+	InvocationExpiresAt      time.Time `json:"invocation_expires_at,omitempty"`
 	PolicyGeneration         uint64    `json:"policy_generation"`
 	IdempotencyKey           string    `json:"idempotency_key"`
 	CreatedAt                time.Time `json:"created_at"`
@@ -112,5 +116,6 @@ func (id *Identity) bindingEquals(req CreateOrConfirmRequest) bool {
 		id.Repository == req.Repository &&
 		id.ToolPolicy == req.ToolPolicy &&
 		id.SchemaHash == req.SchemaHash &&
-		id.AdmittedDefaultBranchSHA == req.AdmittedDefaultBranchSHA
+		id.AdmittedDefaultBranchSHA == req.AdmittedDefaultBranchSHA &&
+		id.InvocationExpiresAt.Equal(req.InvocationExpiresAt)
 }

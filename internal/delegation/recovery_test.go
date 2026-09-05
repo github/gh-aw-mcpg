@@ -39,7 +39,7 @@ func TestSaveAndLoadStore_RoundTripsLiveIdentities(t *testing.T) {
 	assert.Equal(t, created.Handle, confirmed.Handle)
 	assert.Equal(t, created.ExecutorBearer, confirmed.ExecutorBearer)
 
-	assert.NoError(t, reloaded.Authorize(created.Handle, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
+	assert.NoError(t, reloaded.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
 }
 
 func TestLoadStore_NoPriorFileIsFreshStartNotIncomplete(t *testing.T) {
@@ -108,7 +108,43 @@ func TestLoadStore_DropsAlreadyExpiredIdentitiesSilently(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, reloaded.IsRecoveryIncomplete(), "naturally expired identities are not a reconciliation failure")
 
-	// A fresh create for the same key must succeed rather than confirm stale state.
+	// Expiry tombstones prevent a stale idempotency key from renewing a
+	// delegation after restart.
 	_, err = reloaded.CreateOrConfirm(req)
-	assert.NoError(t, err)
+	assert.Error(t, err)
+}
+
+func TestLoadStore_RejectsGenerationAndEnvelopeMismatches(t *testing.T) {
+	envelope := validEnvelope()
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+	_, err = store.CreateOrConfirm(validRequest())
+	require.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "state.json")
+	require.NoError(t, store.SaveState(path))
+
+	reloaded, err := LoadStore(path, envelope, 2)
+	require.NoError(t, err)
+	assert.True(t, reloaded.IsRecoveryIncomplete())
+
+	require.NoError(t, store.SaveState(path))
+	narrowed := validEnvelope()
+	narrowed.AllowedRepositories = []string{"github/other"}
+	reloaded, err = LoadStore(path, narrowed, 1)
+	require.NoError(t, err)
+	assert.True(t, reloaded.IsRecoveryIncomplete())
+}
+
+func TestSaveState_ReplacesExistingPermissions(t *testing.T) {
+	store, _ := newTestStore(t)
+	_, err := store.CreateOrConfirm(validRequest())
+	require.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "state.json")
+	require.NoError(t, os.WriteFile(path, []byte("insecure"), 0o644))
+	require.NoError(t, store.SaveState(path))
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }

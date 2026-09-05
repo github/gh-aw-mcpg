@@ -15,27 +15,27 @@ import (
 type Envelope struct {
 	// RunID is the workflow run this envelope, and every identity minted
 	// from it, is bound to.
-	RunID string
+	RunID string `json:"run_id"`
 	// EnclaveBackend is the single AWF enclave backend identities may be
 	// bound to.
-	EnclaveBackend string
+	EnclaveBackend string `json:"enclave_backend"`
 	// AllowedRepositories is the closed set of canonical owner/repo
 	// selectors the compiler admitted for this run. Selectors are compared
 	// as exact ASCII byte sequences; no normalization is performed.
-	AllowedRepositories []string
+	AllowedRepositories []string `json:"allowed_repositories"`
 	// ToolPolicy is the single delegated tool policy this envelope allows.
 	// Only ToolPolicyGitHubRepositoryReadV1 is currently supported.
-	ToolPolicy string
+	ToolPolicy string `json:"tool_policy"`
 	// AllowedSchemaHashes is the closed set of finite response schema
 	// hashes the compiler approved for this run.
-	AllowedSchemaHashes []string
+	AllowedSchemaHashes []string `json:"allowed_schema_hashes"`
 	// MaxIdentityTTL bounds how long any single delegated identity may
 	// live, and therefore how long an executor bearer remains valid.
-	MaxIdentityTTL time.Duration
+	MaxIdentityTTL time.Duration `json:"max_identity_ttl"`
 	// ExpiresAt is the envelope's own absolute expiry, no later than the
 	// workflow job lifetime. No identity may be created once the envelope
 	// itself has expired.
-	ExpiresAt time.Time
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 // Validate checks the envelope's own invariants. It does not check any
