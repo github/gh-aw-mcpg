@@ -211,10 +211,11 @@ func (s *Store) revokeLocked(identity *Identity) {
 // cleanupExpiredLocked removes identities whose expiry has passed. It must be
 // called with s.mu held.
 func (s *Store) cleanupExpiredLocked(now time.Time) {
-	for handle, identity := range s.byHandle {
+	for _, identity := range s.byHandle {
 		if !now.Before(identity.ExpiresAt) {
+			expired := *identity
 			s.revokeLocked(identity)
-			logDelegationAudit.Printf("delegation audit: op=expire handle=%s outcome=expired", hashForAudit(handle))
+			emitAudit(newIdentityAuditEvent("expire", &expired, "expired", "ttl-elapsed"))
 		}
 	}
 }
@@ -226,11 +227,11 @@ func (s *Store) Revoke(handle string) error {
 	defer s.mu.Unlock()
 	identity, ok := s.byHandle[handle]
 	if !ok {
-		logDelegationAudit.Printf("delegation audit: op=revoke handle=%s outcome=revoked reason=already-absent", hashForAudit(handle))
+		emitAudit(newHandleAuditEvent("revoke", handle, "revoked", "already-absent"))
 		return nil
 	}
 	s.revokeLocked(identity)
-	logDelegationAudit.Printf("delegation audit: op=revoke handle=%s outcome=revoked", hashForAudit(handle))
+	emitAudit(newIdentityAuditEvent("revoke", identity, "revoked", "explicit"))
 	return nil
 }
 
@@ -253,7 +254,7 @@ func (s *Store) RevokeByLabels(runID, enclaveEntryID string) int {
 	for _, handle := range handles {
 		s.revokeLocked(s.byHandle[handle])
 	}
-	logDelegationAudit.Printf("delegation audit: op=revoke_by_labels run=%s entry=%s outcome=revoked count=%d", hashForAudit(runID), enclaveEntryID, len(handles))
+	emitAudit(newLabelAuditEvent("revoke_by_labels", runID, enclaveEntryID, "revoked", fmt.Sprintf("count=%d", len(handles))))
 	return len(handles)
 }
 
@@ -276,14 +277,7 @@ func (s *Store) Authorize(handle, runID, enclaveBackend, repository, tool string
 	if identity.Repository != repository {
 		return fmt.Errorf("delegated identity is not bound to this repository")
 	}
-	found := false
-	for _, allowed := range DelegatedTools() {
-		if allowed == tool {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !IsDelegatedTool(tool) {
 		return fmt.Errorf("tool is outside the delegated policy")
 	}
 	return nil

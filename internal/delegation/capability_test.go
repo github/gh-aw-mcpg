@@ -15,31 +15,31 @@ func TestNewControlCapabilityRejectsShortSecret(t *testing.T) {
 
 func TestControlCapabilityAuthenticate(t *testing.T) {
 	secret := strings.Repeat("a", 40)
-	cap, err := NewControlCapability(secret)
+	capability, err := NewControlCapability(secret)
 	require.NoError(t, err)
 
 	t.Run("accepts bearer scheme", func(t *testing.T) {
-		assert.NoError(t, cap.Authenticate("Bearer "+secret))
+		assert.NoError(t, capability.Authenticate("Bearer "+secret))
 	})
 
 	t.Run("accepts bare value per MCP spec 7.1", func(t *testing.T) {
-		assert.NoError(t, cap.Authenticate(secret))
+		assert.NoError(t, capability.Authenticate(secret))
 	})
 
 	t.Run("rejects empty header", func(t *testing.T) {
-		assert.Error(t, cap.Authenticate(""))
+		assert.Error(t, capability.Authenticate(""))
 	})
 
 	t.Run("rejects wrong secret", func(t *testing.T) {
-		assert.Error(t, cap.Authenticate(strings.Repeat("b", 40)))
+		assert.Error(t, capability.Authenticate(strings.Repeat("b", 40)))
 	})
 
 	t.Run("rejects truncated secret", func(t *testing.T) {
-		assert.Error(t, cap.Authenticate(secret[:len(secret)-1]))
+		assert.Error(t, capability.Authenticate(secret[:len(secret)-1]))
 	})
 
-	t.Run("rejects primary/enclave agent tokens unrelated to control capability", func(t *testing.T) {
-		unrelatedAgentToken := strings.Repeat("c", 40)
-		assert.Error(t, cap.Authenticate(unrelatedAgentToken))
+	t.Run("rejects another arbitrary secret of the same length", func(t *testing.T) {
+		unrelatedSecret := strings.Repeat("c", 40)
+		assert.Error(t, capability.Authenticate(unrelatedSecret))
 	})
 }

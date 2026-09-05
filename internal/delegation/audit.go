@@ -13,13 +13,15 @@ var logDelegationAudit = logger.ForFile()
 // sensitive value (repository selector, identity handle, idempotency key).
 // Audit records must never disclose an unredacted private repository name,
 // identity, credential, or header, so every sensitive field is hashed before
-// it reaches a log line.
+// it reaches a log line. 32 hex characters (128 bits) of the SHA-256 digest
+// are kept to make accidental collisions across a large fleet of runs and
+// repositories negligible while still discarding the raw value.
 func hashForAudit(value string) string {
 	if value == "" {
 		return "(none)"
 	}
 	sum := sha256.Sum256([]byte(value))
-	return hex.EncodeToString(sum[:])[:16]
+	return hex.EncodeToString(sum[:])[:32]
 }
 
 // AuditEvent is a redacted lifecycle record for one delegation-control
@@ -60,6 +62,45 @@ func newAuditEventWithHandle(operation string, req CreateOrConfirmRequest, outco
 	event := newAuditEvent(operation, req, outcome, reason, generation)
 	event.HandleHash = hashForAudit(handle)
 	return event
+}
+
+// newIdentityAuditEvent builds an audit event for an operation keyed off an
+// already-known Identity (revoke, expire) rather than an inbound request.
+func newIdentityAuditEvent(operation string, identity *Identity, outcome, reason string) AuditEvent {
+	return AuditEvent{
+		Operation:      operation,
+		RunIDHash:      hashForAudit(identity.RunID),
+		EnclaveEntryID: identity.EnclaveEntryID,
+		InvocationID:   identity.InvocationID,
+		RepositoryHash: hashForAudit(identity.Repository),
+		HandleHash:     hashForAudit(identity.Handle),
+		PolicyGen:      identity.PolicyGeneration,
+		Outcome:        outcome,
+		Reason:         reason,
+	}
+}
+
+// newHandleAuditEvent builds an audit event for a revoke request whose
+// handle does not (or no longer) resolves to a stored Identity.
+func newHandleAuditEvent(operation, handle, outcome, reason string) AuditEvent {
+	return AuditEvent{
+		Operation:  operation,
+		HandleHash: hashForAudit(handle),
+		Outcome:    outcome,
+		Reason:     reason,
+	}
+}
+
+// newLabelAuditEvent builds an audit event for a label-scoped bulk
+// revocation, which is not bound to a single identity or request.
+func newLabelAuditEvent(operation, runID, enclaveEntryID, outcome, reason string) AuditEvent {
+	return AuditEvent{
+		Operation:      operation,
+		RunIDHash:      hashForAudit(runID),
+		EnclaveEntryID: enclaveEntryID,
+		Outcome:        outcome,
+		Reason:         reason,
+	}
 }
 
 // emit writes the redacted audit event to the debug logger. Callers that need

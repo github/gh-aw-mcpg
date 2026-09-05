@@ -8,6 +8,7 @@ package delegation
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -16,11 +17,32 @@ import (
 // GitHub tools (list_issues and issue_read).
 const ToolPolicyGitHubRepositoryReadV1 = "github-repository-read-v1"
 
-// DelegatedTools returns the exact, closed set of tools permitted by
-// github-repository-read-v1. This list must never grow without a new
+// delegatedTools is the fixed, closed set of tools permitted by
+// github-repository-read-v1. This set must never grow without a new
 // versioned policy name.
+var delegatedTools = map[string]struct{}{
+	"issue_read":  {},
+	"list_issues": {},
+}
+
+// DelegatedTools returns the exact, closed set of tools permitted by
+// github-repository-read-v1. Each call allocates a fresh slice; callers on a
+// hot path (such as per-call authorization checks) should use
+// IsDelegatedTool instead.
 func DelegatedTools() []string {
-	return []string{"issue_read", "list_issues"}
+	tools := make([]string, 0, len(delegatedTools))
+	for tool := range delegatedTools {
+		tools = append(tools, tool)
+	}
+	slices.Sort(tools)
+	return tools
+}
+
+// IsDelegatedTool reports whether tool is a member of the closed
+// github-repository-read-v1 tool set, without allocating.
+func IsDelegatedTool(tool string) bool {
+	_, ok := delegatedTools[tool]
+	return ok
 }
 
 // canonicalSelectorPattern mirrors the ADR's owner/repo shape. Go's RE2 engine

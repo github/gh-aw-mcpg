@@ -13,7 +13,7 @@ func TestHashForAudit(t *testing.T) {
 	h2 := hashForAudit("github/private-repo")
 	h3 := hashForAudit("github/other-repo")
 
-	assert.Len(t, h1, 16)
+	assert.Len(t, h1, 32)
 	assert.Equal(t, h1, h2, "hashing must be deterministic")
 	assert.NotEqual(t, h1, h3)
 	assert.NotContains(t, h1, "private-repo", "hash must not disclose the raw value")
