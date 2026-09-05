@@ -56,10 +56,13 @@ type Identity struct {
 	Revoked                  bool      `json:"revoked"`
 }
 
-// idempotencyScopeKey returns the compound key CreateOrConfirm dedupes on.
-// Idempotency is scoped to (run, enclave entry, invocation id, repository) as
-// required by the ADR's quota/serialization section, combined with the
-// caller-supplied idempotency key so an unrelated retry cannot collide.
+// idempotencyScopeKey returns the compound key CreateOrConfirm dedupes on:
+// (run, enclave entry, invocation id, caller-supplied idempotency key). The
+// ADR's quota/serialization section additionally scopes idempotency by
+// canonical repository, but that binding is enforced separately by
+// Identity.bindingEquals, which compares the full request (including
+// Repository) against any identity already stored under this key and treats
+// a mismatch as terminal rather than silently keying on it.
 func idempotencyScopeKey(runID, enclaveEntryID, invocationID, idempotencyKey string) string {
 	return runID + "\x00" + enclaveEntryID + "\x00" + invocationID + "\x00" + idempotencyKey
 }

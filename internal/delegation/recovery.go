@@ -1,6 +1,7 @@
 package delegation
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -128,7 +129,7 @@ func parsePersistedState(raw []byte) (persistedState, bool) {
 		return persistedState{}, false
 	}
 	got := sha256.Sum256(body)
-	if hex.EncodeToString(got[:]) != hex.EncodeToString(want) {
+	if !bytes.Equal(got[:], want) {
 		return persistedState{}, false
 	}
 	var state persistedState
