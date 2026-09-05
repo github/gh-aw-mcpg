@@ -55,7 +55,8 @@ type Server struct {
 	// guardInitialized tracks whether LabelAgent has been called
 	guardInitialized bool
 
-	enclave *enclaveState
+	enclave    *enclaveState
+	delegation *delegationState
 }
 
 // EnclaveConfig enables the fail-closed issues-read-v1 proxy profile.
@@ -95,6 +96,9 @@ type Config struct {
 
 	// Enclave enables invocation-capability enforcement for issues-read-v1.
 	Enclave *EnclaveConfig
+
+	// Delegation enables runtime AWF-controlled repository-read identities.
+	Delegation *DelegationConfig
 }
 
 // New creates a new proxy Server from the given Config.
@@ -104,6 +108,16 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 
 	if cfg.WasmPath == "" {
 		return nil, fmt.Errorf("guard WASM path is required")
+	}
+	if cfg.Enclave != nil && cfg.Delegation != nil {
+		return nil, fmt.Errorf("enclave and delegation proxy modes cannot be combined")
+	}
+	delegation, err := newDelegationState(cfg.Delegation)
+	if err != nil {
+		return nil, err
+	}
+	if delegation != nil && cfg.GitHubToken == "" {
+		return nil, fmt.Errorf("GitHub token is required for delegation proxy mode")
 	}
 	if cfg.Enclave != nil {
 		if cfg.Enclave.Policy == nil || cfg.Enclave.Verifier == nil {
@@ -145,6 +159,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		DIFCComponents: difcComponents,
 		githubToken:    cfg.GitHubToken,
 		githubAPIURL:   apiURL,
+		delegation:     delegation,
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
 			Transport: &http.Transport{
@@ -167,6 +182,9 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		}
 	} else {
 		logProxy.Printf("No guard policy configured, running without policy enforcement")
+	}
+	if s.delegation != nil && !s.guardInitialized {
+		return nil, fmt.Errorf("guard policy is required for delegation proxy mode")
 	}
 	if s.enclave != nil {
 		if !s.guardInitialized {
@@ -424,7 +442,7 @@ func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body 
 
 	// Enclave mode always replaces the invocation capability with mcpg's token.
 	var authHeader string
-	if s.enclave != nil {
+	if s.enclave != nil || s.delegation != nil {
 		authHeader = "token " + s.githubToken
 	} else if clientAuth != "" {
 		authHeader = clientAuth

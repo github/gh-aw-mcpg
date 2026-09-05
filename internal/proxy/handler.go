@@ -83,6 +83,10 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handleEnclaveRequest(w, r)
 		return
 	}
+	if h.server.delegation != nil {
+		h.handleDelegatedRequest(w, r)
+		return
+	}
 
 	// Reflect endpoint exposes a live DIFC label snapshot.
 	if r.Method == http.MethodGet && rawPath == "/reflect" {
