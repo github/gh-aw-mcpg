@@ -18,6 +18,10 @@ var logDelegationCapability = logger.ForFile()
 // requests on the private awf-enclave-mcp-control channel.
 const EnvControlCapabilityKey = "MCP_GATEWAY_DELEGATION_CONTROL_KEY"
 
+// EnvControlListenAddr is the private listener address for the AWF control
+// channel. It must not be shared with the executor-facing proxy listener.
+const EnvControlListenAddr = "MCP_GATEWAY_DELEGATION_CONTROL_LISTEN"
+
 // minControlCapabilityBytes is a floor on the accepted capability length so a
 // misconfigured empty or trivially guessable value cannot be used.
 const minControlCapabilityBytes = 32

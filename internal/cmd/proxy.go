@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -61,15 +63,21 @@ func resolveDelegationProxyConfig() (*proxy.DelegationConfig, string, error) {
 	capabilityKey := os.Getenv(delegation.EnvControlCapabilityKey)
 	statePath := os.Getenv("MCP_GATEWAY_DELEGATION_STATE_PATH")
 	generationRaw := os.Getenv("MCP_GATEWAY_DELEGATION_GENERATION")
-	if envelopeJSON == "" && capabilityKey == "" && statePath == "" && generationRaw == "" {
+	controlListenAddr := os.Getenv(delegation.EnvControlListenAddr)
+	if envelopeJSON == "" && capabilityKey == "" && statePath == "" && generationRaw == "" && controlListenAddr == "" {
 		return nil, "", nil
 	}
-	if envelopeJSON == "" || capabilityKey == "" || statePath == "" || generationRaw == "" {
-		return nil, "", fmt.Errorf("MCP_GATEWAY_DELEGATION_ENVELOPE, %s, MCP_GATEWAY_DELEGATION_STATE_PATH, and MCP_GATEWAY_DELEGATION_GENERATION must be configured together", delegation.EnvControlCapabilityKey)
+	if envelopeJSON == "" || capabilityKey == "" || statePath == "" || generationRaw == "" || controlListenAddr == "" {
+		return nil, "", fmt.Errorf("MCP_GATEWAY_DELEGATION_ENVELOPE, %s, MCP_GATEWAY_DELEGATION_STATE_PATH, %s, and MCP_GATEWAY_DELEGATION_GENERATION must be configured together", delegation.EnvControlCapabilityKey, delegation.EnvControlListenAddr)
 	}
 	var envelope delegation.Envelope
-	if err := json.Unmarshal([]byte(envelopeJSON), &envelope); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader([]byte(envelopeJSON)))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&envelope); err != nil {
 		return nil, "", fmt.Errorf("invalid delegation envelope: %w", err)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return nil, "", fmt.Errorf("invalid delegation envelope: trailing JSON")
 	}
 	generation, err := strconv.ParseUint(generationRaw, 10, 64)
 	if err != nil {
@@ -83,7 +91,7 @@ func resolveDelegationProxyConfig() (*proxy.DelegationConfig, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	return &proxy.DelegationConfig{Store: store, Capability: capability, StatePath: statePath}, statePath, nil
+	return &proxy.DelegationConfig{Store: store, Capability: capability, StatePath: statePath, ControlListenAddr: controlListenAddr}, statePath, nil
 }
 
 func newProxyCmd() *cobra.Command {
@@ -355,6 +363,26 @@ func runProxy(cmd *cobra.Command, args []string) error {
 	}
 	logProxyCmd.Printf("Proxy server created successfully")
 
+	var controlHTTPServer *http.Server
+	if delegationConfig != nil {
+		controlListener, err := net.Listen("tcp", delegationConfig.ControlListenAddr)
+		if err != nil {
+			return fmt.Errorf("failed to listen on private delegation control channel %s: %w", delegationConfig.ControlListenAddr, err)
+		}
+		controlHTTPServer = &http.Server{
+			Handler: delegationConfigHandler(proxySrv),
+		}
+		go func() {
+			if err := controlHTTPServer.Serve(controlListener); err != nil && err != http.ErrServerClosed {
+				logger.LogError("delegation", "Private delegation control channel exited: %v", err)
+			}
+		}()
+		defer func() {
+			_ = controlHTTPServer.Shutdown(context.Background())
+		}()
+		logger.LogInfo("startup", "Private delegation control channel listening on %s", controlListener.Addr())
+	}
+
 	// Generate TLS certificates if requested
 	var tlsCfg *proxy.TLSConfig
 	if proxyTLS {
@@ -445,6 +473,10 @@ func runProxy(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func delegationConfigHandler(server *proxy.Server) http.Handler {
+	return server.ControlHandler()
 }
 
 // proxyForcePublicReposIfNeeded checks if GITHUB_REPOSITORY is public and, if so,

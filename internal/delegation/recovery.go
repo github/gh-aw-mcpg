@@ -21,9 +21,10 @@ var logDelegationRecovery = logger.ForFile()
 const statePersistVersion = 1
 
 type persistedState struct {
-	Version    int                 `json:"version"`
-	Generation uint64              `json:"generation"`
-	Identities map[string]Identity `json:"identities"`
+	Version            int                 `json:"version"`
+	Generation         uint64              `json:"generation"`
+	RecoveryIncomplete bool                `json:"recovery_incomplete"`
+	Identities         map[string]Identity `json:"identities"`
 }
 
 // SaveState persists every currently live identity to path so the controller
@@ -34,6 +35,7 @@ type persistedState struct {
 func (s *Store) SaveState(path string) error {
 	s.mu.Lock()
 	generation := s.generation
+	recoveryIncomplete := s.recoveryIncomplete
 	identities := make(map[string]Identity, len(s.byIdempotency))
 	for key, identity := range s.byIdempotency {
 		identities[key] = *identity
@@ -41,9 +43,10 @@ func (s *Store) SaveState(path string) error {
 	s.mu.Unlock()
 
 	body, err := json.Marshal(persistedState{
-		Version:    statePersistVersion,
-		Generation: generation,
-		Identities: identities,
+		Version:            statePersistVersion,
+		Generation:         generation,
+		RecoveryIncomplete: recoveryIncomplete,
+		Identities:         identities,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to encode delegation state: %w", err)
@@ -125,6 +128,7 @@ func loadStoreAt(path string, envelope *Envelope, generation uint64, now time.Ti
 		store.recoveryIncomplete = true
 		return store, nil
 	}
+	store.recoveryIncomplete = state.RecoveryIncomplete
 
 	restored := 0
 	for _, identity := range state.Identities {

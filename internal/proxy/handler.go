@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -53,10 +52,6 @@ type proxyHandler struct {
 }
 
 func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h.server.delegation != nil && strings.HasPrefix(r.URL.Path, delegationControlPath) {
-		h.handleDelegationControl(w, r)
-		return
-	}
 	// Avoid logging enclave paths before capability and repository authorization.
 	rawPath := r.URL.Path
 	if h.server.enclave != nil {

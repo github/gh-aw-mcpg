@@ -256,6 +256,7 @@ func TestCreateOrConfirm_BoundsExpiryToPolicyAndInvocationDeadlines(t *testing.T
 	require.NoError(t, err)
 	assert.Equal(t, req.InvocationExpiresAt, created.ExpiresAt)
 
+	// The store owns an immutable copy of the compiler envelope.
 	envelope.ExpiresAt = base.Add(-time.Second)
-	assert.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
+	assert.NoError(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
 }

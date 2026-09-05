@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -45,8 +46,11 @@ func NewStore(envelope *Envelope, generation uint64) (*Store, error) {
 	if err := envelope.Validate(); err != nil {
 		return nil, err
 	}
+	envelopeCopy := *envelope
+	envelopeCopy.AllowedRepositories = slices.Clone(envelope.AllowedRepositories)
+	envelopeCopy.AllowedSchemaHashes = slices.Clone(envelope.AllowedSchemaHashes)
 	return &Store{
-		envelope:      envelope,
+		envelope:      &envelopeCopy,
 		generation:    generation,
 		byHandle:      make(map[string]*Identity),
 		byBearer:      make(map[[sha256.Size]byte]*Identity),

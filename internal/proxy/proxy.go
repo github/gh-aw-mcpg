@@ -183,6 +183,9 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	} else {
 		logProxy.Printf("No guard policy configured, running without policy enforcement")
 	}
+	if s.delegation != nil && !s.guardInitialized {
+		return nil, fmt.Errorf("guard policy is required for delegation proxy mode")
+	}
 	if s.enclave != nil {
 		if !s.guardInitialized {
 			return nil, fmt.Errorf("guard policy is required for enclave proxy mode")

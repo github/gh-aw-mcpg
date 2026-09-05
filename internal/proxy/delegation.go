@@ -6,10 +6,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/delegation"
 	"github.com/github/gh-aw-mcpg/internal/enclavegithub"
 	"github.com/github/gh-aw-mcpg/internal/httputil"
+	"github.com/github/gh-aw-mcpg/internal/tracing"
 )
 
 const delegationControlPath = "/internal/awf-enclave-mcp-control/"
@@ -23,9 +25,10 @@ type delegationState struct {
 // DelegationConfig enables runtime repository-read delegation and its
 // AWF-authenticated private control channel.
 type DelegationConfig struct {
-	Store      *delegation.Store
-	Capability *delegation.ControlCapability
-	StatePath  string
+	Store             *delegation.Store
+	Capability        *delegation.ControlCapability
+	StatePath         string
+	ControlListenAddr string
 }
 
 func newDelegationState(cfg *DelegationConfig) (*delegationState, error) {
@@ -52,9 +55,13 @@ func (h *proxyHandler) handleDelegationControl(w http.ResponseWriter, r *http.Re
 		}
 		result, err := h.server.delegation.store.CreateOrConfirm(request)
 		if err != nil {
+			if !h.persistDelegationState(w) {
+				return
+			}
 			httputil.WriteErrorResponse(w, http.StatusForbidden, "delegation_request_denied", "delegation request denied")
 			return
 		}
+
 		if !h.persistDelegationState(w) {
 			return
 		}
@@ -90,6 +97,23 @@ func (h *proxyHandler) handleDelegationControl(w http.ResponseWriter, r *http.Re
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// ControlHandler returns the private control-plane handler. It is intentionally
+// separate from Handler so executor-facing GitHub traffic cannot reach control
+// operations even if it presents a valid executor bearer.
+func (s *Server) ControlHandler() http.Handler {
+	handler := &proxyHandler{
+		server:       s,
+		CachedTracer: tracing.CachedTracer{Tracer: tracing.Tracer()},
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.delegation == nil || !strings.HasPrefix(r.URL.Path, delegationControlPath) {
+			http.NotFound(w, r)
+			return
+		}
+		handler.handleDelegationControl(w, r)
+	})
 }
 
 func (h *proxyHandler) persistDelegationState(w http.ResponseWriter) bool {

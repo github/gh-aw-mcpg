@@ -7,8 +7,6 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
-var logDelegationAudit = logger.ForFile()
-
 // hashForAudit returns a stable, non-reversible attribution token for a
 // sensitive value (repository selector, identity handle, idempotency key).
 // Audit records must never disclose an unredacted private repository name,
@@ -103,12 +101,12 @@ func newLabelAuditEvent(operation, runID, enclaveEntryID, outcome, reason string
 	}
 }
 
-// emit writes the redacted audit event to the debug logger. Callers that need
-// durable audit storage should have the process's log pipeline capture this
-// output; the event struct itself never carries raw sensitive values so it is
-// always safe to forward.
+// emit writes the redacted audit event to the always-on operational logger; the
+// event struct itself never carries raw sensitive values so it is safe to
+// forward.
 func emitAudit(event AuditEvent) {
-	logDelegationAudit.Printf(
+	logger.LogInfo(
+		"delegation",
 		"delegation audit: op=%s run=%s entry=%s invocation=%s repo=%s handle=%s gen=%d outcome=%s reason=%s",
 		event.Operation, event.RunIDHash, event.EnclaveEntryID, event.InvocationID,
 		event.RepositoryHash, event.HandleHash, event.PolicyGen, event.Outcome, event.Reason,
