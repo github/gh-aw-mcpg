@@ -63,11 +63,11 @@ func TestCreateOrConfirm_MismatchIsTerminalAndRevokesPartialState(t *testing.T) 
 	mismatched.Repository = "github/gh-aw-firewall" // same idempotency key, different repo
 
 	_, err = store.CreateOrConfirm(mismatched)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// The original identity must have been revoked as part of the terminal
 	// mismatch, so it can no longer authorize anything.
-	assert.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
+	require.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
 
 	// Replaying the original binding must not silently renew the revoked
 	// identity.
@@ -136,11 +136,11 @@ func TestAuthorize_RejectsWrongRepoWrongToolWrongRunAndReplay(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NoError(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
-	assert.Error(t, store.Authorize(created.Handle, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"), "control-plane handles must not authorize executor requests")
-	assert.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, "github/gh-aw-firewall", "issue_read"), "wrong repository must be rejected")
-	assert.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "list_repositories"), "wrong/unscoped tool must be rejected")
-	assert.Error(t, store.Authorize(created.ExecutorBearer, "other-run", req.EnclaveBackend, req.Repository, "issue_read"), "wrong run must be rejected")
-	assert.Error(t, store.Authorize("unknown-bearer", req.RunID, req.EnclaveBackend, req.Repository, "issue_read"), "unknown/replayed bearer must be rejected")
+	require.Error(t, store.Authorize(created.Handle, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"), "control-plane handles must not authorize executor requests")
+	require.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, "github/gh-aw-firewall", "issue_read"), "wrong repository must be rejected")
+	require.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "list_repositories"), "wrong/unscoped tool must be rejected")
+	require.Error(t, store.Authorize(created.ExecutorBearer, "other-run", req.EnclaveBackend, req.Repository, "issue_read"), "wrong run must be rejected")
+	require.Error(t, store.Authorize("unknown-bearer", req.RunID, req.EnclaveBackend, req.Repository, "issue_read"), "unknown/replayed bearer must be rejected")
 
 	require.NoError(t, store.Revoke(created.Handle))
 	assert.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"), "revoked identity must be rejected")
@@ -161,7 +161,7 @@ func TestExpiry_AutomaticAndExplicit(t *testing.T) {
 	// Expiry is terminal for this idempotency key and cannot renew the
 	// delegation.
 	_, err = store.createOrConfirmAt(validRequest(), base.Add(2*time.Minute))
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read")
 	assert.Error(t, err, "expired identity must not continue a session")
@@ -195,8 +195,8 @@ func TestRevokeByLabels_RevokesAllMatchingAndIsIdempotent(t *testing.T) {
 
 	count := store.RevokeByLabels(reqA.RunID, reqA.EnclaveEntryID)
 	assert.Equal(t, 2, count)
-	assert.Error(t, store.Authorize(createdA.ExecutorBearer, reqA.RunID, reqA.EnclaveBackend, reqA.Repository, "issue_read"))
-	assert.Error(t, store.Authorize(createdB.ExecutorBearer, reqB.RunID, reqB.EnclaveBackend, reqB.Repository, "issue_read"))
+	require.Error(t, store.Authorize(createdA.ExecutorBearer, reqA.RunID, reqA.EnclaveBackend, reqA.Repository, "issue_read"))
+	require.Error(t, store.Authorize(createdB.ExecutorBearer, reqB.RunID, reqB.EnclaveBackend, reqB.Repository, "issue_read"))
 
 	// Idempotent: revoking an already-empty label is a no-op, not an error.
 	assert.Equal(t, 0, store.RevokeByLabels(reqA.RunID, reqA.EnclaveEntryID))
@@ -224,7 +224,7 @@ func TestCreateOrConfirm_RecoveryIncompleteBlocksNewAdmissionsOnly(t *testing.T)
 	newReq.InvocationID = "inv-new"
 	newReq.IdempotencyKey = "idem-new"
 	_, err = store.CreateOrConfirm(newReq)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	store.MarkReconciled()
 	assert.False(t, store.IsRecoveryIncomplete())
