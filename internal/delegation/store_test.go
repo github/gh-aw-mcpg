@@ -384,3 +384,67 @@ func TestCreateOrConfirm_BoundsExpiryToPolicyAndInvocationDeadlines(t *testing.T
 	envelope.ExpiresAt = base.Add(-time.Second)
 	assert.NoError(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
 }
+
+func TestSnapshot_EmptyStoreReturnsEmptyMap(t *testing.T) {
+	store, _ := newTestStore(t)
+
+	snap := store.Snapshot()
+	assert.NotNil(t, snap)
+	assert.Empty(t, snap)
+}
+
+func TestSnapshot_ReturnsLiveIdentityAndExcludesExpiredAndRevoked(t *testing.T) {
+	store, _ := newTestStore(t)
+	base := time.Now()
+
+	// A live identity that should appear in the snapshot.
+	live := validRequest()
+	created, err := store.createOrConfirmAt(live, base)
+	require.NoError(t, err)
+
+	snap := store.Snapshot()
+	require.Len(t, snap, 1)
+	identity, ok := snap[created.Handle]
+	require.True(t, ok, "snapshot must contain the live identity keyed by handle")
+	assert.Equal(t, live.RunID, identity.RunID)
+	assert.Equal(t, live.Repository, identity.Repository)
+	assert.False(t, identity.Revoked)
+
+	// Revoke it: it must no longer appear.
+	require.NoError(t, store.Revoke(created.Handle))
+	snap = store.Snapshot()
+	assert.Empty(t, snap, "revoked identities must be excluded from the snapshot")
+
+	// A second identity that expires must be cleaned up lazily and excluded.
+	expiring := validRequest()
+	expiring.InvocationID = "inv-expiring"
+	expiring.IdempotencyKey = "idem-expiring"
+	expiring.RequestedTTL = time.Minute
+	_, err = store.createOrConfirmAt(expiring, base)
+	require.NoError(t, err)
+
+	// Sanity check: still live immediately after creation.
+	require.Len(t, store.Snapshot(), 1)
+
+	// Advance time past expiry: Snapshot must lazily clean up and exclude it.
+	future := base.Add(2 * time.Minute)
+	store.mu.Lock()
+	store.cleanupExpiredLocked(future)
+	store.mu.Unlock()
+	assert.Empty(t, store.Snapshot(), "expired identities must be excluded from the snapshot")
+}
+
+func TestSnapshot_ReturnsDefensiveCopyNotAliasedToInternalState(t *testing.T) {
+	store, _ := newTestStore(t)
+	req := validRequest()
+	created, err := store.CreateOrConfirm(req)
+	require.NoError(t, err)
+
+	snap := store.Snapshot()
+	identity := snap[created.Handle]
+	identity.Repository = "mutated/repo"
+
+	// Mutating the snapshot's copy must not affect the store's internal state.
+	snap2 := store.Snapshot()
+	assert.Equal(t, req.Repository, snap2[created.Handle].Repository, "Snapshot must return a defensive copy, not a pointer alias")
+}
