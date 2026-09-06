@@ -470,12 +470,14 @@ func runProxy(cmd *cobra.Command, args []string) error {
 		},
 	)
 
-	if err == nil {
-		select {
-		case controlErr := <-controlListenerErrCh:
-			err = fmt.Errorf("private delegation control channel failed: %w", controlErr)
-		default:
-		}
+	// A control-listener failure triggers cancel(), which typically makes the
+	// main serve loop above return its own (e.g. context-canceled) error first.
+	// Always drain the channel and prioritize the control-listener error as the
+	// real root cause when present, regardless of what the serve loop returned.
+	select {
+	case controlErr := <-controlListenerErrCh:
+		err = fmt.Errorf("private delegation control channel failed: %w", controlErr)
+	default:
 	}
 	if err != nil {
 		logger.LogError("shutdown", "Proxy server exited with error: %v", err)

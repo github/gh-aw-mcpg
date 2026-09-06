@@ -78,8 +78,6 @@ func TestDelegationControlStatusAndReconcile(t *testing.T) {
 	handler.handleDelegationControl(createRec, createReq)
 	require.Equal(t, http.StatusOK, createRec.Code)
 
-	// Simulate a recovery-incomplete controller.
-	store.MarkReconciled() // no-op here, but exercises the method directly too
 	statusBody, err := json.Marshal(map[string]string{"run_id": "run", "enclave_entry_id": "entry"})
 	require.NoError(t, err)
 	statusReq := httptest.NewRequest(http.MethodPost, delegationControlPath+"status", bytes.NewReader(statusBody))
@@ -106,4 +104,10 @@ func TestDelegationControlStatusAndReconcile(t *testing.T) {
 	handler.handleDelegationControl(reconcileRec, reconcileReq)
 	assert.Equal(t, http.StatusOK, reconcileRec.Code)
 	assert.JSONEq(t, `{"reconciled":true}`, reconcileRec.Body.String())
+
+	missingFieldsReq := httptest.NewRequest(http.MethodPost, delegationControlPath+"status", bytes.NewReader([]byte(`{"run_id":"run"}`)))
+	missingFieldsReq.Header.Set("Authorization", "Bearer "+capabilityKey)
+	missingFieldsRec := httptest.NewRecorder()
+	handler.handleDelegationControl(missingFieldsRec, missingFieldsReq)
+	assert.Equal(t, http.StatusBadRequest, missingFieldsRec.Code, "status must require both run_id and enclave_entry_id")
 }

@@ -133,6 +133,10 @@ func (s *Store) validateAgainstEnvelope(req CreateOrConfirmRequest, now time.Tim
 		return fmt.Errorf("schema hash outside envelope")
 	}
 	if len(s.envelope.AllowedSchemaHashes) == 0 && s.envelope.MaxDynamicSchemaHashes <= 0 {
+		// Defensive invariant check: Envelope.Validate (enforced by NewStore)
+		// already rejects this combination, so this should be unreachable in
+		// practice. Kept as a fail-closed guard against a future envelope
+		// constructed without going through Validate.
 		return fmt.Errorf("envelope does not admit any schema hash")
 	}
 	if req.RequestedTTL <= 0 || req.RequestedTTL > s.envelope.MaxIdentityTTL {

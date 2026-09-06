@@ -110,6 +110,10 @@ func (h *proxyHandler) handleDelegationControl(w http.ResponseWriter, r *http.Re
 		if !decodeDelegationJSON(w, r, &request) {
 			return
 		}
+		if request.RunID == "" || request.EnclaveEntryID == "" {
+			httputil.WriteErrorResponse(w, http.StatusBadRequest, "delegation_status_invalid_request", "run_id and enclave_entry_id are required")
+			return
+		}
 		status := h.server.delegation.store.Status()
 		httputil.WriteJSONResponse(w, http.StatusOK, map[string]any{
 			"recovery_incomplete": status.RecoveryIncomplete,
