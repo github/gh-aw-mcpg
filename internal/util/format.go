@@ -31,11 +31,25 @@ func FormatSessionIDForLog(sessionID string) string {
 // so the same identity is attributable across log lines without exposing the raw
 // value or any recoverable prefix of it.
 func HashIdentifierForLog(id string) string {
-	if id == "" {
+	return HashForLog(id, 12, "agent:")
+}
+
+// HashForLog returns a stable, non-reversible attribution token for a sensitive
+// value that is safe to write to logs, traces, audit records, or error messages.
+// Empty values render as "(none)". Non-empty values are rendered as prefix
+// followed by the first hexLen hex characters of their SHA-256 digest. The
+// mapping is deterministic, so the same value is attributable across log lines
+// without exposing the raw value or any recoverable prefix of it. This is the
+// single source of truth for the "non-reversible attribution token" pattern
+// used across packages (e.g. internal/util for agent/session IDs,
+// internal/delegation for audit records); callers should use this helper
+// instead of hand-rolling their own truncated SHA-256 hash.
+func HashForLog(value string, hexLen int, prefix string) string {
+	if value == "" {
 		return "(none)"
 	}
-	sum := sha256.Sum256([]byte(id))
-	return "agent:" + hex.EncodeToString(sum[:])[:12]
+	sum := sha256.Sum256([]byte(value))
+	return prefix + hex.EncodeToString(sum[:])[:hexLen]
 }
 
 // FormatFutureTime returns a human-readable representation of a future time,
