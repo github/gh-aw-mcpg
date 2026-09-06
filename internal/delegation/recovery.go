@@ -21,7 +21,14 @@ var logDelegationRecovery = logger.ForFile()
 // statePersistVersion pins the on-disk state file shape so a future
 // incompatible change is detected as corruption (fail closed) rather than
 // silently misparsed.
-const statePersistVersion = 2
+//
+// v3 added Identity.RequestedTTL. A v2 file predates that field, so every
+// restored identity would come back with RequestedTTL == 0 and compare equal
+// to a retry that actually requested a different TTL — silently weakening the
+// terminal-mismatch check bindingEquals is there to enforce. Rather than
+// guess, a v2 file is now rejected like any other unsupported version and the
+// store fails closed until the operator reconciles.
+const statePersistVersion = 3
 
 type persistedState struct {
 	Version             int                 `json:"version"`
@@ -31,32 +38,43 @@ type persistedState struct {
 	DynamicSchemaHashes []string            `json:"dynamic_schema_hashes,omitempty"`
 }
 
+// MarkReconciledAndSaveState publishes the reconciled state to path and only
+// then opens the in-memory admission gate, so reconciliation is atomic from
+// the caller's perspective.
+//
+// Ordering matters: the durable write happens first and the in-memory
+// recoveryIncomplete flag is cleared afterwards, while s.persistMu is still
+// held. A persistence failure therefore returns with the gate untouched — it
+// never has to be "restored", and there is no window in which a concurrent
+// CreateOrConfirm can admit a new identity against state that was never
+// persisted. The reverse order (clear, then save, then restore on error)
+// leaves exactly that window open, because the store lock is released while
+// the file is written.
+//
+// If the process dies between the successful write and the flag flip, the
+// on-disk state already records the reconciliation, so the next LoadStore
+// comes back reconciled. That is the intended outcome: the operator did
+// complete reconciliation.
+func (s *Store) MarkReconciledAndSaveState(path string) error {
+	s.persistMu.Lock()
+	defer s.persistMu.Unlock()
+
+	if err := s.saveStateLocked(path, true); err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	s.recoveryIncomplete = false
+	s.mu.Unlock()
+	return nil
+}
+
 // SaveState persists every currently live identity to path so the controller
 // can reconstruct labelled live delegations after a restart. The file is
 // written with 0600 permissions because it contains executor bearer secrets.
 // A trailing SHA-256 checksum lets LoadStore detect truncation or corruption
 // and fail closed instead of silently reconstructing partial state.
 //
-// MarkReconciledAndSaveState clears the recoveryIncomplete flag and persists
-// the updated state to path. If state persistence fails, recoveryIncomplete is
-// restored to true under synchronization.
-func (s *Store) MarkReconciledAndSaveState(path string) error {
-	s.persistMu.Lock()
-	defer s.persistMu.Unlock()
-
-	s.mu.Lock()
-	s.recoveryIncomplete = false
-	s.mu.Unlock()
-
-	if err := s.saveStateLocked(path); err != nil {
-		s.mu.Lock()
-		s.recoveryIncomplete = true
-		s.mu.Unlock()
-		return err
-	}
-	return nil
-}
-
 // SaveState serializes concurrent callers on s.persistMu so that whichever
 // snapshot is taken later (in lock-acquisition order) is always the one
 // published last: an older, already-superseded snapshot can never overwrite
@@ -64,13 +82,20 @@ func (s *Store) MarkReconciledAndSaveState(path string) error {
 func (s *Store) SaveState(path string) error {
 	s.persistMu.Lock()
 	defer s.persistMu.Unlock()
-	return s.saveStateLocked(path)
+	return s.saveStateLocked(path, false)
 }
 
-func (s *Store) saveStateLocked(path string) error {
+// saveStateLocked writes a snapshot of the store to path. The caller must hold
+// s.persistMu.
+//
+// When forceReconciled is set the snapshot records the store as reconciled
+// even though the in-memory flag is still set. That is what lets
+// MarkReconciledAndSaveState make the durable write first and open the
+// admission gate only after it succeeds.
+func (s *Store) saveStateLocked(path string, forceReconciled bool) error {
 	s.mu.Lock()
 	generation := s.generation
-	recoveryIncomplete := s.recoveryIncomplete
+	recoveryIncomplete := s.recoveryIncomplete && !forceReconciled
 	identities := make(map[string]Identity, len(s.byInvocation))
 	for key, identity := range s.byInvocation {
 		identities[key] = *identity
@@ -302,6 +327,16 @@ func validatePersistedSchemaHashes(state *persistedState, envelope *Envelope) er
 // invocation-scoped credentials, so only their stable hash is logged.
 func identityLogID(identity *Identity) string {
 	return util.HashForLog(identity.Handle, 16, "dlg:")
+}
+
+// selectorLogID renders a repository or owner selector as a stable hash so
+// validation errors stay correlatable without embedding the raw private
+// selector. Envelope validation runs at startup, before proxy.New installs
+// the process-wide sensitive-logging redaction, so these errors have to be
+// safe on their own: they reach stderr and the operator's terminal with no
+// sink-level redaction in front of them.
+func selectorLogID(selector string) string {
+	return util.HashForLog(selector, 16, "sel:")
 }
 
 func validateRestoredIdentity(identity *Identity, envelope *Envelope, generation uint64) error {

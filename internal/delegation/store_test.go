@@ -350,7 +350,7 @@ func TestCreateOrConfirm_RecoveryIncompleteBlocksNewAdmissionsOnly(t *testing.T)
 	_, err = store.CreateOrConfirm(newReq)
 	require.Error(t, err)
 
-	store.MarkReconciled()
+	store.markReconciled()
 	assert.False(t, store.IsRecoveryIncomplete())
 	_, err = store.CreateOrConfirm(newReq)
 	assert.NoError(t, err)

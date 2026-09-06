@@ -217,7 +217,7 @@ func TestLoadStore_FailsClosedOnDuplicateLiveInvocationKeys(t *testing.T) {
 		CreatedAt:           now,
 	}
 
-	body := fmt.Sprintf(`{"version":2,"generation":1,"recovery_incomplete":false,"identities":{"h1":%s,"h2":%s}}`, marshalJSON(id1), marshalJSON(id2))
+	body := fmt.Sprintf(`{"version":%d,"generation":1,"recovery_incomplete":false,"identities":{"h1":%s,"h2":%s}}`, statePersistVersion, marshalJSON(id1), marshalJSON(id2))
 	writeStateWithChecksum(t, path, []byte(body))
 
 	reloaded, err := LoadStore(path, envelope, 1)
@@ -276,7 +276,7 @@ func TestLoadStore_FailsClosedOnDuplicateLiveAndTerminalInvocationKeys(t *testin
 		Revoked:             true,
 	}
 
-	body := fmt.Sprintf(`{"version":2,"generation":1,"recovery_incomplete":false,"identities":{"h1":%s,"h2":%s}}`, marshalJSON(live), marshalJSON(terminal))
+	body := fmt.Sprintf(`{"version":%d,"generation":1,"recovery_incomplete":false,"identities":{"h1":%s,"h2":%s}}`, statePersistVersion, marshalJSON(live), marshalJSON(terminal))
 	writeStateWithChecksum(t, path, []byte(body))
 
 	reloaded, err := LoadStore(path, envelope, 1)
@@ -334,7 +334,7 @@ func TestLoadStore_FailsClosedWhenUniqueDynamicSchemaHashesExceedEnvelopeBound(t
 	}
 
 	// 2 unique schema hashes across identities > bound of 1
-	body := fmt.Sprintf(`{"version":2,"generation":1,"recovery_incomplete":false,"identities":{"h1":%s,"h2":%s},"dynamic_schema_hashes":["sha256:hash1"]}`, marshalJSON(id1), marshalJSON(id2))
+	body := fmt.Sprintf(`{"version":%d,"generation":1,"recovery_incomplete":false,"identities":{"h1":%s,"h2":%s},"dynamic_schema_hashes":["sha256:hash1"]}`, statePersistVersion, marshalJSON(id1), marshalJSON(id2))
 	writeStateWithChecksum(t, path, []byte(body))
 
 	reloaded, err := LoadStore(path, envelope, 1)
@@ -343,19 +343,124 @@ func TestLoadStore_FailsClosedWhenUniqueDynamicSchemaHashesExceedEnvelopeBound(t
 	assert.Empty(t, reloaded.byHandle, "no identity may be indexed when recovery fails closed")
 }
 
-func TestMarkReconciledAndSaveState_RestoresRecoveryIncompleteOnSaveFailure(t *testing.T) {
+// TestMarkReconciledAndSaveState_FailedPersistNeverOpensTheAdmissionGate is
+// the transactionality contract: reconciliation must be atomic from the
+// caller's perspective. If the durable write fails, the gate must never have
+// been opened — not opened-then-restored, which leaves a window where a
+// concurrent CreateOrConfirm admits an identity against state that was never
+// persisted.
+func TestMarkReconciledAndSaveState_FailedPersistNeverOpensTheAdmissionGate(t *testing.T) {
 	envelope := validEnvelope()
 	store, err := NewStore(envelope, 1)
 	require.NoError(t, err)
 
 	store.recoveryIncomplete = true
+	require.True(t, store.IsRecoveryIncomplete())
+
+	// A new admission is refused while the gate is closed.
+	_, err = store.CreateOrConfirm(validRequest())
+	require.Error(t, err)
+
+	// Save into a directory that does not exist so the write fails.
+	invalidPath := filepath.Join(t.TempDir(), "non-existent-dir", "state.json")
+	require.Error(t, store.MarkReconciledAndSaveState(invalidPath))
+
+	assert.True(t, store.IsRecoveryIncomplete(), "a failed persist must leave the recovery gate closed")
+	assert.NoFileExists(t, invalidPath)
+
+	// The data plane and the admission path both stay fail closed.
+	_, err = store.CreateOrConfirm(validRequest())
+	require.Error(t, err, "admissions must remain refused after a failed reconcile persist")
+	require.Error(t, store.Authorize("dlgbearer_anything", "run-123", "awf-enclave", "github/gh-aw", "issue_read"))
+}
+
+// TestMarkReconciledAndSaveState_PersistsBeforeOpeningTheGate asserts the
+// ordering directly: the reconciled state is on disk by the time the in-memory
+// gate opens, so a crash in between cannot lose the reconciliation.
+func TestMarkReconciledAndSaveState_PersistsBeforeOpeningTheGate(t *testing.T) {
+	envelope := validEnvelope()
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+	store.recoveryIncomplete = true
+
+	path := filepath.Join(t.TempDir(), "reconciled-state.json")
+	require.NoError(t, store.MarkReconciledAndSaveState(path))
+	assert.False(t, store.IsRecoveryIncomplete())
+
+	// Reloading the persisted file must come back reconciled, which is only
+	// true if the snapshot was written with the cleared flag.
+	reloaded, err := LoadStore(path, envelope, 1)
+	require.NoError(t, err)
+	assert.False(t, reloaded.IsRecoveryIncomplete(), "persisted state must record the reconciliation")
+
+	_, err = reloaded.CreateOrConfirm(validRequest())
+	assert.NoError(t, err, "a reconciled store must admit again after a restart")
+}
+
+// TestMarkReconciledAndSaveState_NoAdmissionWindowDuringFailedPersist is the
+// concurrency half of the transactionality contract. Clearing the gate before
+// the write opens a window in which the store lock is free and a concurrent
+// CreateOrConfirm can admit an identity that the failing write never records.
+// Persisting first closes that window: every concurrent admission attempted
+// across a failing reconcile must be refused.
+func TestMarkReconciledAndSaveState_NoAdmissionWindowDuringFailedPersist(t *testing.T) {
+	envelope := validEnvelope()
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+	store.recoveryIncomplete = true
+
+	invalidPath := filepath.Join(t.TempDir(), "non-existent-dir", "state.json")
+
+	var wg sync.WaitGroup
+	admitted := make(chan string, 32)
+	start := make(chan struct{})
+
+	for i := range 16 {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			req := validRequest()
+			req.InvocationID = fmt.Sprintf("inv-race-%d", i)
+			req.IdempotencyKey = fmt.Sprintf("idem-race-%d", i)
+			if result, err := store.CreateOrConfirm(req); err == nil {
+				admitted <- result.Handle
+			}
+		}(i)
+	}
+
+	reconcileErr := make(chan error, 1)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-start
+		reconcileErr <- store.MarkReconciledAndSaveState(invalidPath)
+	}()
+
+	close(start)
+	wg.Wait()
+	close(admitted)
+
+	require.Error(t, <-reconcileErr, "the reconcile persist must fail for this test to mean anything")
+	assert.Empty(t, admitted, "no identity may be admitted while a reconcile persist is failing")
+	assert.True(t, store.IsRecoveryIncomplete(), "the gate must remain closed after a failed persist")
+}
+
+// TestSaveState_DoesNotClearRecoveryIncomplete guards the forceReconciled flag
+// from leaking into the ordinary persistence path.
+func TestSaveState_DoesNotClearRecoveryIncomplete(t *testing.T) {
+	envelope := validEnvelope()
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+	store.recoveryIncomplete = true
+
+	path := filepath.Join(t.TempDir(), "incomplete-state.json")
+	require.NoError(t, store.SaveState(path))
 	assert.True(t, store.IsRecoveryIncomplete())
 
-	// Save to an invalid path (directory doesn't exist)
-	invalidPath := filepath.Join(t.TempDir(), "non-existent-dir", "state.json")
-	err = store.MarkReconciledAndSaveState(invalidPath)
-	require.Error(t, err)
-	assert.True(t, store.IsRecoveryIncomplete(), "recoveryIncomplete must be restored to true if state persistence fails")
+	reloaded, err := LoadStore(path, envelope, 1)
+	require.NoError(t, err)
+	assert.True(t, reloaded.IsRecoveryIncomplete(), "an unreconciled store must persist as unreconciled")
 }
 
 func marshalJSON(v any) string {
@@ -517,7 +622,7 @@ func writePersistedIdentities(t *testing.T, path string, identities ...Identity)
 	for i, id := range identities {
 		entries = append(entries, fmt.Sprintf(`%q:%s`, fmt.Sprintf("k%d", i), marshalJSON(id)))
 	}
-	body := fmt.Sprintf(`{"version":2,"generation":1,"recovery_incomplete":false,"identities":{%s}}`, strings.Join(entries, ","))
+	body := fmt.Sprintf(`{"version":%d,"generation":1,"recovery_incomplete":false,"identities":{%s}}`, statePersistVersion, strings.Join(entries, ","))
 	writeStateWithChecksum(t, path, []byte(body))
 }
 
@@ -663,7 +768,7 @@ func TestLoadStore_FailsClosedOnPersistedDynamicSchemaHashViolations(t *testing.
 	t.Run("set under a closed-set envelope", func(t *testing.T) {
 		envelope := validEnvelope() // AllowedSchemaHashes is non-empty
 		path := filepath.Join(t.TempDir(), "static-envelope-state.json")
-		body := `{"version":2,"generation":1,"recovery_incomplete":false,"identities":{},"dynamic_schema_hashes":["sha256:dynamic"]}`
+		body := fmt.Sprintf(`{"version":%d,"generation":1,"recovery_incomplete":false,"identities":{},"dynamic_schema_hashes":["sha256:dynamic"]}`, statePersistVersion)
 		writeStateWithChecksum(t, path, []byte(body))
 
 		reloaded, err := LoadStore(path, envelope, 1)
@@ -677,7 +782,7 @@ func TestLoadStore_FailsClosedOnPersistedDynamicSchemaHashViolations(t *testing.
 		envelope.AllowedSchemaHashes = nil
 		envelope.MaxDynamicSchemaHashes = 1
 		path := filepath.Join(t.TempDir(), "oversized-schema-state.json")
-		body := `{"version":2,"generation":1,"recovery_incomplete":false,"identities":{},"dynamic_schema_hashes":["sha256:one","sha256:two"]}`
+		body := fmt.Sprintf(`{"version":%d,"generation":1,"recovery_incomplete":false,"identities":{},"dynamic_schema_hashes":["sha256:one","sha256:two"]}`, statePersistVersion)
 		writeStateWithChecksum(t, path, []byte(body))
 
 		reloaded, err := LoadStore(path, envelope, 1)
@@ -693,15 +798,62 @@ func TestLoadStore_FailsClosedOnPersistedDynamicSchemaHashViolations(t *testing.
 // authorize and nothing may be indexed.
 func TestLoadStore_FailsClosedOnLegacyVersionRefusesEveryPersistedBearer(t *testing.T) {
 	envelope := validEnvelope()
-	path := filepath.Join(t.TempDir(), "legacy-v1-full-state.json")
 
-	id := persistedIdentity("dlg_legacy", "dlgbearer_legacy", "inv-1", time.Now())
-	body := fmt.Sprintf(`{"version":1,"generation":1,"recovery_incomplete":false,"identities":{"k0":%s}}`, marshalJSON(id))
-	writeStateWithChecksum(t, path, []byte(body))
+	// Every superseded on-disk shape must fail closed, not just the oldest
+	// one. v2 predates Identity.RequestedTTL, so restoring it would hand back
+	// identities whose requested TTL silently reads as zero and compares equal
+	// to a retry that asked for a different TTL.
+	for _, version := range []int{1, statePersistVersion - 1} {
+		t.Run(fmt.Sprintf("version %d", version), func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "legacy-full-state.json")
+
+			id := persistedIdentity("dlg_legacy", "dlgbearer_legacy", "inv-1", time.Now())
+			body := fmt.Sprintf(`{"version":%d,"generation":1,"recovery_incomplete":false,"identities":{"k0":%s}}`, version, marshalJSON(id))
+			writeStateWithChecksum(t, path, []byte(body))
+
+			reloaded, err := LoadStore(path, envelope, 1)
+			require.NoError(t, err)
+			assertFailedClosedRecovery(t, reloaded, "dlgbearer_legacy")
+		})
+	}
+}
+
+// TestSaveState_RoundTripsRequestedTTLAcrossRestart pins the reason
+// statePersistVersion moved to 3: RequestedTTL has to survive persistence, or
+// a post-restart confirm with a different TTL would compare equal to the
+// stored binding instead of being the terminal mismatch bindingEquals
+// promises.
+func TestSaveState_RoundTripsRequestedTTLAcrossRestart(t *testing.T) {
+	envelope := validEnvelope()
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+
+	req := validRequest()
+	req.RequestedTTL = 2 * time.Minute
+	created, err := store.CreateOrConfirm(req)
+	require.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "ttl-state.json")
+	require.NoError(t, store.SaveState(path))
 
 	reloaded, err := LoadStore(path, envelope, 1)
 	require.NoError(t, err)
-	assertFailedClosedRecovery(t, reloaded, "dlgbearer_legacy")
+	require.False(t, reloaded.IsRecoveryIncomplete())
+
+	restored, ok := reloaded.byHandle[created.Handle]
+	require.True(t, ok, "identity must survive the restart")
+	assert.Equal(t, 2*time.Minute, restored.RequestedTTL, "requested TTL must round-trip through persistence")
+
+	// Same binding, same TTL: still a confirm.
+	confirmed, err := reloaded.CreateOrConfirm(req)
+	require.NoError(t, err)
+	assert.Equal(t, created.Handle, confirmed.Handle)
+
+	// Same binding, different TTL: terminal mismatch even after a restart.
+	changed := req
+	changed.RequestedTTL = 3 * time.Minute
+	_, err = reloaded.CreateOrConfirm(changed)
+	require.Error(t, err, "a changed requested TTL must stay a terminal mismatch across a restart")
 }
 
 // TestLoadStore_FailsClosedOnGenerationMismatchRefusesPersistedBearer covers a
@@ -711,7 +863,7 @@ func TestLoadStore_FailsClosedOnGenerationMismatchRefusesPersistedBearer(t *test
 	path := filepath.Join(t.TempDir(), "generation-mismatch-state.json")
 
 	id := persistedIdentity("dlg_stale", "dlgbearer_stale", "inv-1", time.Now())
-	body := fmt.Sprintf(`{"version":2,"generation":1,"recovery_incomplete":false,"identities":{"k0":%s}}`, marshalJSON(id))
+	body := fmt.Sprintf(`{"version":%d,"generation":1,"recovery_incomplete":false,"identities":{"k0":%s}}`, statePersistVersion, marshalJSON(id))
 	writeStateWithChecksum(t, path, []byte(body))
 
 	reloaded, err := LoadStore(path, envelope, 2)

@@ -103,10 +103,11 @@ func assertNoDelegatedSecrets(t *testing.T, logs string, extra ...string) {
 // newDelegationRedactionServer builds a delegation-mode proxy pointed at
 // upstreamURL, admits one delegated identity through the control plane, and
 // returns the server plus the executor bearer the data plane must present.
-func newDelegationRedactionServer(t *testing.T, upstreamURL string) (*Server, string) {
-	t.Helper()
-
-	envelope := &delegation.Envelope{
+// redactionEnvelope is the single envelope every delegation redaction test
+// binds to, so a store rebuilt from a state file can be loaded against the
+// exact same policy the server was constructed with.
+func redactionEnvelope() *delegation.Envelope {
+	return &delegation.Envelope{
 		RunID:               redactionRunID,
 		EnclaveBackend:      "awf-enclave",
 		AllowedRepositories: []string{redactionSelector},
@@ -115,6 +116,12 @@ func newDelegationRedactionServer(t *testing.T, upstreamURL string) (*Server, st
 		MaxIdentityTTL:      time.Minute,
 		ExpiresAt:           time.Now().Add(time.Hour),
 	}
+}
+
+func newDelegationRedactionServer(t *testing.T, upstreamURL string) (*Server, string) {
+	t.Helper()
+
+	envelope := redactionEnvelope()
 	store, err := delegation.NewStore(envelope, 1)
 	require.NoError(t, err)
 	capabilityKey := strings.Repeat("c", 32)
@@ -327,19 +334,89 @@ func TestDelegationControlReconcileValidationAndTransactionality(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
-	t.Run("restores recoveryIncomplete on save failure", func(t *testing.T) {
+	t.Run("rejects trailing data after the object with 400", func(t *testing.T) {
+		rec := postRaw([]byte(`{} {"extra":true}`))
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("rejects a non-object body with 400", func(t *testing.T) {
+		rec := postRaw([]byte(`[]`))
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("rejects an empty body with 400", func(t *testing.T) {
+		rec := postRaw(nil)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("rejects a body over 64KiB with 400", func(t *testing.T) {
+		oversized := append([]byte(`{"pad":"`), bytes.Repeat([]byte("a"), 64*1024)...)
+		oversized = append(oversized, []byte(`"}`)...)
+		rec := postRaw(oversized)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("a failed persist does not mark a healthy store unreconciled", func(t *testing.T) {
 		s.delegation.statePath = filepath.Join(t.TempDir(), "non-existent-dir", "state.json")
-		s.delegation.store.MarkReconciledAndSaveState(s.delegation.statePath) // force it to be incomplete first
-		// set statePath to invalid
 		rec := postRaw([]byte(`{}`))
 		assert.Equal(t, http.StatusInternalServerError, rec.Code)
-		assert.True(t, s.delegation.store.IsRecoveryIncomplete())
+		assert.False(t, s.delegation.store.IsRecoveryIncomplete(),
+			"a store that was never in recovery must not be closed by a failed reconcile persist")
 	})
 
 	t.Run("succeeds on empty object and persists state", func(t *testing.T) {
-		s.delegation.statePath = filepath.Join(t.TempDir(), "valid-state.json")
+		statePath := filepath.Join(t.TempDir(), "valid-state.json")
+		s.delegation.statePath = statePath
 		rec := postRaw([]byte(`{}`))
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.False(t, s.delegation.store.IsRecoveryIncomplete())
+		assert.FileExists(t, statePath)
 	})
+}
+
+// TestDelegationControlReconcileIsTransactional drives the control plane with
+// a store that really is recovery-incomplete (reconstructed from a corrupt
+// state file) and asserts a failed persist leaves the admission gate closed
+// rather than opening it and reporting 500.
+func TestDelegationControlReconcileIsTransactional(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer upstream.Close()
+
+	s, _ := newDelegationRedactionServer(t, upstream.URL)
+
+	corruptPath := filepath.Join(t.TempDir(), "corrupt-state.json")
+	require.NoError(t, os.WriteFile(corruptPath, []byte("{not json}\ndeadbeef\n"), 0o600))
+	incomplete, err := delegation.LoadStore(corruptPath, redactionEnvelope(), 1)
+	require.NoError(t, err)
+	require.True(t, incomplete.IsRecoveryIncomplete(), "a corrupt state file must load fail closed")
+	s.delegation.store = incomplete
+
+	handler := &proxyHandler{server: s}
+	capabilityKey := strings.Repeat("c", 32)
+	postReconcile := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, delegationControlPath+"reconcile", bytes.NewReader([]byte(`{}`)))
+		req.Header.Set("Authorization", "Bearer "+capabilityKey)
+		rec := httptest.NewRecorder()
+		handler.handleDelegationControl(rec, req)
+		return rec
+	}
+
+	// A failed persist must not open the gate.
+	s.delegation.statePath = filepath.Join(t.TempDir(), "non-existent-dir", "state.json")
+	assert.Equal(t, http.StatusInternalServerError, postReconcile().Code)
+	assert.True(t, incomplete.IsRecoveryIncomplete(),
+		"reconcile must stay fail closed when its state write fails")
+
+	// A successful persist opens it, and the durable state agrees.
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	s.delegation.statePath = statePath
+	assert.Equal(t, http.StatusOK, postReconcile().Code)
+	assert.False(t, incomplete.IsRecoveryIncomplete())
+
+	reloaded, err := delegation.LoadStore(statePath, redactionEnvelope(), 1)
+	require.NoError(t, err)
+	assert.False(t, reloaded.IsRecoveryIncomplete(),
+		"the persisted state must record the reconciliation the API reported")
 }

@@ -78,16 +78,21 @@ func NewStore(envelope *Envelope, generation uint64) (*Store, error) {
 // IsRecoveryIncomplete reports whether restart reconstruction left this Store
 // unable to vouch for prior state. When true the Store holds zero identities
 // and both new dynamic admissions and data-plane authorizations are refused
-// until MarkReconciled clears the flag.
+// until MarkReconciledAndSaveState clears the flag.
 func (s *Store) IsRecoveryIncomplete() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.recoveryIncomplete
 }
 
-// MarkReconciled clears the recovery-incomplete flag once an operator or
-// automated process has confirmed outstanding state is safe to resume from.
-func (s *Store) MarkReconciled() {
+// markReconciled clears the recovery-incomplete flag in memory only.
+//
+// It is deliberately unexported: clearing the gate without durably recording
+// it lets the in-memory store and the state file disagree, so a crash right
+// afterwards silently re-closes admissions that an operator believed were
+// reconciled. Callers outside this package must use
+// MarkReconciledAndSaveState, which persists first and opens the gate second.
+func (s *Store) markReconciled() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.recoveryIncomplete = false
