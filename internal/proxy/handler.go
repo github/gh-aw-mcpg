@@ -222,15 +222,16 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 
 	// **Phases 0–2: Get agent labels, label resource, coarse access check**
 	pipelineIn := guard.PipelineInput{
-		AgentID:         agentIDFromContext(ctx),
-		ToolName:        toolName,
-		Args:            args,
-		Guard:           s.guard,
-		Evaluator:       evaluator,
-		AgentRegistry:   s.AgentRegistry,
-		Capabilities:    s.Capabilities,
-		EnforcementMode: s.Mode,
-		BackendCaller:   backend,
+		AgentID:          agentIDFromContext(ctx),
+		ToolName:         toolName,
+		Args:             args,
+		Guard:            s.guard,
+		Evaluator:        evaluator,
+		AgentRegistry:    s.AgentRegistry,
+		Capabilities:     s.Capabilities,
+		EnforcementMode:  s.Mode,
+		BackendCaller:    backend,
+		SensitiveLogging: s.enclave != nil || s.delegation != nil,
 	}
 	ctx, pre, err := guard.RunPipelinePrePhases(ctx, pipelineIn)
 	if err != nil {
@@ -487,19 +488,27 @@ func (h *proxyHandler) forwardAndReadBody(
 	w http.ResponseWriter, ctx context.Context, span oteltrace.Span,
 	method, path string, body io.Reader, contentType, clientAuth string,
 ) (*http.Response, []byte) {
-	logHandler.Printf("forwardAndReadBody: %s %s", method, path)
+	// Enclave and delegation modes admit only private, dynamically-discovered
+	// repository paths; never write the raw path to logs or error messages in
+	// those modes, only its non-reversible hash.
+	sensitive := h.server.enclave != nil || h.server.delegation != nil
+	pathForLog := path
+	if sensitive {
+		pathForLog = util.HashForLog(path, 16, "path:")
+	}
+	logHandler.Printf("forwardAndReadBody: %s %s", method, pathForLog)
 	resp, err := h.server.forwardToGitHub(ctx, method, path, body, contentType, clientAuth)
 	if err != nil {
-		rejectProxyRequest(w, span, http.StatusBadGateway, "bad_gateway", "upstream request failed", fmt.Errorf("%s %s: %w", method, path, err))
+		rejectProxyRequest(w, span, http.StatusBadGateway, "bad_gateway", "upstream request failed", fmt.Errorf("%s %s: %w", method, pathForLog, err))
 		return nil, nil
 	}
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		rejectProxyRequest(w, span, http.StatusBadGateway, "bad_gateway", "failed to read upstream response", fmt.Errorf("%s %s status=%d: %w", method, path, resp.StatusCode, err))
+		rejectProxyRequest(w, span, http.StatusBadGateway, "bad_gateway", "failed to read upstream response", fmt.Errorf("%s %s status=%d: %w", method, pathForLog, resp.StatusCode, err))
 		return nil, nil
 	}
-	logHandler.Printf("forwardAndReadBody: %s %s -> status=%d bodyLen=%d", method, path, resp.StatusCode, len(respBody))
+	logHandler.Printf("forwardAndReadBody: %s %s -> status=%d bodyLen=%d", method, pathForLog, resp.StatusCode, len(respBody))
 	return resp, respBody
 }
 

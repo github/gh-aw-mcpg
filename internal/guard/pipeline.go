@@ -35,6 +35,11 @@ type PipelineInput struct {
 	EnforcementMode difc.EnforcementMode
 	// BackendCaller is used by the guard for metadata enrichment calls.
 	BackendCaller BackendCaller
+	// SensitiveLogging indicates the resource description may contain a
+	// private repository selector (enclave or delegation mode). When true,
+	// RunPipelinePrePhases hashes resource.Description before writing it to
+	// the shared debug log sink instead of logging it verbatim.
+	SensitiveLogging bool
 }
 
 // PipelinePreResult holds the outputs from phases 0–2 of the DIFC pipeline.
@@ -109,8 +114,12 @@ func RunPipelinePrePhases(ctx context.Context, in PipelineInput) (context.Contex
 		logPipeline.Printf("[DIFC] Phase 1 failed: tool=%s err=%v", in.ToolName, err)
 		return ctx, nil, fmt.Errorf("resource labeling failed: %w", err)
 	}
+	resourceDescForLog := resource.Description
+	if in.SensitiveLogging {
+		resourceDescForLog = util.HashForLog(resource.Description, 16, "resource:")
+	}
 	logPipeline.Printf("[DIFC] Phase 1: resource=%s op=%s secrecy=%v integrity=%v",
-		resource.Description, operation,
+		resourceDescForLog, operation,
 		resource.Secrecy.Label.GetTags(), resource.Integrity.Label.GetTags())
 
 	// **Phase 2: Coarse-grained access check**
@@ -118,12 +127,12 @@ func RunPipelinePrePhases(ctx context.Context, in PipelineInput) (context.Contex
 		in.Evaluator, agentLabels.Secrecy, agentLabels.Integrity, resource, operation)
 	switch coarseOutcome {
 	case difc.CoarseAllowed:
-		logPipeline.Printf("[DIFC] Phase 2: access allowed for agent %s to %s", util.HashIdentifierForLog(in.AgentID), resource.Description)
+		logPipeline.Printf("[DIFC] Phase 2: access allowed for agent %s to %s", util.HashIdentifierForLog(in.AgentID), resourceDescForLog)
 	case difc.CoarseBypassForRead:
 		logPipeline.Printf("[DIFC] Phase 2: coarse check failed for read, proceeding to Phase 3")
 	case difc.CoarseDenied:
 		logPipeline.Printf("[DIFC] Phase 2: access denied for agent %s to %s: %s",
-			util.HashIdentifierForLog(in.AgentID), resource.Description, evalResult.Reason)
+			util.HashIdentifierForLog(in.AgentID), resourceDescForLog, evalResult.Reason)
 		return ctx, nil, &PipelineAccessDenied{
 			EvalResult:  evalResult,
 			Resource:    resource,

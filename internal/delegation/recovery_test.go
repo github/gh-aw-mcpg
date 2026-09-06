@@ -222,6 +222,72 @@ func TestLoadStore_FailsClosedOnDuplicateLiveInvocationKeys(t *testing.T) {
 	reloaded, err := LoadStore(path, envelope, 1)
 	require.NoError(t, err)
 	assert.True(t, reloaded.IsRecoveryIncomplete(), "duplicate live invocation keys must fail closed")
+	assert.Empty(t, reloaded.byHandle, "no identity may be indexed when recovery fails closed")
+	assert.Empty(t, reloaded.byBearer, "no bearer may be indexed when recovery fails closed")
+	assert.Empty(t, reloaded.byInvocation, "no invocation tombstone may be indexed when recovery fails closed")
+}
+
+// TestLoadStore_FailsClosedOnDuplicateLiveAndTerminalInvocationKeys covers a
+// duplicate invocation key where one persisted record is live and the other
+// is already terminal (revoked or expired). Map iteration order is
+// randomized, so a naive "only check the current winner" comparison could
+// index the live identity first, before ever observing the terminal
+// duplicate, leaving an authorized orphan bearer reachable after restart in
+// one iteration order but not the other. Every duplicate must fail closed
+// with nothing indexed, regardless of iteration order or liveness.
+func TestLoadStore_FailsClosedOnDuplicateLiveAndTerminalInvocationKeys(t *testing.T) {
+	envelope := validEnvelope()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "duplicate-live-terminal-state.json")
+
+	now := time.Now()
+	live := Identity{
+		Handle:              "dlg_live",
+		ExecutorBearer:      "dlgbearer_live",
+		RunID:               "run-123",
+		EnclaveBackend:      "awf-enclave",
+		EnclaveEntryID:      "entry-1",
+		InvocationID:        "inv-1",
+		Repository:          "github/gh-aw",
+		ToolPolicy:          ToolPolicyGitHubRepositoryReadV1,
+		SchemaHash:          "sha256:abc",
+		ExpiresAt:           now.Add(time.Hour),
+		InvocationExpiresAt: now.Add(time.Hour),
+		PolicyGeneration:    1,
+		IdempotencyKey:      "idem-1",
+		CreatedAt:           now,
+	}
+	terminal := Identity{
+		Handle:              "dlg_terminal",
+		ExecutorBearer:      "dlgbearer_terminal",
+		RunID:               "run-123",
+		EnclaveBackend:      "awf-enclave",
+		EnclaveEntryID:      "entry-1",
+		InvocationID:        "inv-1", // same invocation ID
+		Repository:          "github/gh-aw",
+		ToolPolicy:          ToolPolicyGitHubRepositoryReadV1,
+		SchemaHash:          "sha256:abc",
+		ExpiresAt:           now.Add(time.Hour),
+		InvocationExpiresAt: now.Add(time.Hour),
+		PolicyGeneration:    1,
+		IdempotencyKey:      "idem-2",
+		CreatedAt:           now,
+		Revoked:             true,
+	}
+
+	body := fmt.Sprintf(`{"version":2,"generation":1,"recovery_incomplete":false,"identities":{"h1":%s,"h2":%s}}`, marshalJSON(live), marshalJSON(terminal))
+	writeStateWithChecksum(t, path, []byte(body))
+
+	reloaded, err := LoadStore(path, envelope, 1)
+	require.NoError(t, err)
+	assert.True(t, reloaded.IsRecoveryIncomplete(), "duplicate live/terminal invocation keys must fail closed")
+	assert.Empty(t, reloaded.byHandle, "no identity may be indexed when recovery fails closed")
+	assert.Empty(t, reloaded.byBearer, "no bearer may be indexed when recovery fails closed")
+	assert.Empty(t, reloaded.byInvocation, "no invocation tombstone may be indexed when recovery fails closed")
+
+	if _, err := reloaded.AuthorizeExecutor("dlgbearer_live", "github/gh-aw", "issue_read"); err == nil {
+		t.Fatal("the live half of a duplicate pair must not remain an authorized orphan bearer")
+	}
 }
 
 func marshalJSON(v any) string {
@@ -303,7 +369,7 @@ func TestLoadStore_RestoresDynamicSchemaHashBound(t *testing.T) {
 	other.IdempotencyKey = "idem-other"
 	other.SchemaHash = "sha256:another-dynamic"
 	_, err = reloaded.CreateOrConfirm(other)
-	assert.Error(t, err, "the dynamic schema hash bound must not reset across a restart")
+	require.Error(t, err, "the dynamic schema hash bound must not reset across a restart")
 
 	// But the already-admitted hash still works for a new invocation.
 	reuse := validRequest()

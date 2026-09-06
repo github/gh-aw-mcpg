@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 var logDelegationRecovery = logger.ForFile()
@@ -149,7 +150,19 @@ func loadStoreAt(path string, envelope *Envelope, generation uint64, now time.Ti
 		store.dynamicSchemaHashes[hash] = struct{}{}
 	}
 
-	restored := 0
+	// Pre-scan every persisted identity for validity and duplicate invocation
+	// keys before indexing anything. A v0.4.16 (and earlier) state file could
+	// legitimately contain more than one identity for the same (run, entry,
+	// invocation) tuple recorded under different idempotency keys, and map
+	// iteration order is randomized, so indexing identities one at a time and
+	// only checking the winner-so-far let an earlier iteration populate
+	// byHandle/byBearer/byLabel for an identity that a later duplicate should
+	// have invalidated. Any duplicate key — live/live, live/terminal, or
+	// terminal/terminal — is therefore treated as corrupt, and the store is
+	// returned with zero identities indexed rather than a partially
+	// reconstructed set that could leave an orphaned bearer authorized.
+	seenKeys := make(map[string]struct{}, len(state.Identities))
+	validated := make([]Identity, 0, len(state.Identities))
 	for _, identity := range state.Identities {
 		id := identity
 		if err := validateRestoredIdentity(&id, envelope, generation); err != nil {
@@ -158,13 +171,18 @@ func loadStoreAt(path string, envelope *Envelope, generation uint64, now time.Ti
 			return store, nil
 		}
 		key := invocationScopeKey(id.RunID, id.EnclaveEntryID, id.InvocationID)
-		if existing, ok := store.byInvocation[key]; ok {
-			if (!existing.Revoked && now.Before(existing.ExpiresAt)) && (!id.Revoked && now.Before(id.ExpiresAt)) {
-				logDelegationRecovery.Printf("Delegation state contains duplicate live identity for invocation key %s, failing closed", key)
-				store.recoveryIncomplete = true
-				return store, nil
-			}
+		if _, dup := seenKeys[key]; dup {
+			logDelegationRecovery.Printf("Delegation state contains duplicate invocation key %s, failing closed", util.HashForLog(key, 16, "invocation:"))
+			store.recoveryIncomplete = true
+			return store, nil
 		}
+		seenKeys[key] = struct{}{}
+		validated = append(validated, id)
+	}
+
+	restored := 0
+	for i := range validated {
+		id := validated[i]
 		store.indexLocked(&id)
 		if id.Revoked || !now.Before(id.ExpiresAt) {
 			// revokeLocked removes id from every index it was just added

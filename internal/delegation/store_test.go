@@ -187,7 +187,7 @@ func TestCreateOrConfirm_BoundedDynamicSchemaHashAdmission(t *testing.T) {
 	third.IdempotencyKey = "idem-3"
 	third.SchemaHash = "sha256:dynamic-3"
 	_, err = store.CreateOrConfirm(third)
-	assert.Error(t, err, "a third distinct dynamic schema hash must exceed the bound")
+	require.Error(t, err, "a third distinct dynamic schema hash must exceed the bound")
 
 	// Reusing an already-admitted hash for a new invocation still works: the
 	// bound is on distinct hashes, not on identities.
@@ -264,7 +264,7 @@ func TestNewStore_ClonesAllowedOwnersDefensively(t *testing.T) {
 	req := validRequest()
 	req.Repository = "github/gh-aw"
 	_, err = store.CreateOrConfirm(req)
-	assert.NoError(t, err, "mutating original envelope.AllowedOwners must not affect store policy")
+	require.NoError(t, err, "mutating original envelope.AllowedOwners must not affect store policy")
 
 	reqMutated := validRequest()
 	reqMutated.InvocationID = "inv-2"

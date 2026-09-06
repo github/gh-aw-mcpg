@@ -24,6 +24,7 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/mcp"
 	"github.com/github/gh-aw-mcpg/internal/tracing"
+	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 var artifactZipDownloadPathPattern = regexp.MustCompile(`^/repos/[^/]+/[^/]+/actions/artifacts/\d+/zip$`)
@@ -301,6 +302,11 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 		return nil, fmt.Errorf("unexpected args type: %T", args)
 	}
 
+	// Enclave and delegation modes admit only private, dynamically-discovered
+	// repository paths; never write raw path/owner/repo selectors to logs in
+	// those modes, only their non-reversible hashes.
+	sensitive := r.server.enclave != nil || r.server.delegation != nil
+
 	var (
 		apiPath                                 string
 		collabOwner, collabRepo, collabUsername string
@@ -344,7 +350,11 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 		var parseErr error
 		collabOwner, collabRepo, collabUsername, parseErr = githubhttp.ParseCollaboratorPermissionArgs(argsMap)
 		if parseErr != nil {
-			logProxy.Printf("restBackendCaller: get_collaborator_permission missing args (owner=%q repo=%q username=%q)", collabOwner, collabRepo, collabUsername)
+			if sensitive {
+				logProxy.Printf("restBackendCaller: get_collaborator_permission missing args")
+			} else {
+				logProxy.Printf("restBackendCaller: get_collaborator_permission missing args (owner=%q repo=%q username=%q)", collabOwner, collabRepo, collabUsername)
+			}
 			return nil, parseErr
 		}
 		apiPath = fmt.Sprintf("/repos/%s/%s/collaborators/%s/permission", collabOwner, collabRepo, collabUsername)
@@ -354,7 +364,11 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 		return nil, fmt.Errorf("unsupported tool: %s", toolName)
 	}
 
-	logProxy.Printf("restBackendCaller: %s → GET %s", toolName, apiPath)
+	apiPathForLog := apiPath
+	if sensitive {
+		apiPathForLog = util.HashForLog(apiPath, 16, "path:")
+	}
+	logProxy.Printf("restBackendCaller: %s → GET %s", toolName, apiPathForLog)
 
 	// Use the server's configured token for enrichment calls rather than the
 	// client's auth header. Enrichment needs org-level visibility (e.g. to get
@@ -380,6 +394,7 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 				return resp, nil
 			},
 			logProxy.Printf,
+			sensitive,
 		)
 		if err != nil {
 			logProxy.Printf("restBackendCaller: %s returned error: %v", toolName, err)
