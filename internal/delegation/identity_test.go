@@ -10,7 +10,7 @@ import (
 
 func TestIdentityBindingRoundTrip(t *testing.T) {
 	req := validRequest()
-	req.InvocationExpiresAt = time.Now().Add(time.Minute)
+	req.InvocationExpiresAt = time.Now().Add(time.Minute).In(time.FixedZone("test", 3600))
 	identity := &Identity{
 		delegationBinding: bindingFromRequest(req),
 		ExpiresAt:         time.Now().Add(30 * time.Second),
@@ -20,6 +20,6 @@ func TestIdentityBindingRoundTrip(t *testing.T) {
 
 	restored := identity.toRequest()
 	require.Equal(t, req.IdempotencyKey, restored.IdempotencyKey)
-	assert.True(t, bindingFromRequest(req).equals(bindingFromRequest(restored)))
+	assert.Equal(t, bindingFromRequest(req), bindingFromRequest(restored))
 	assert.Equal(t, identity.ExpiresAt.Sub(identity.CreatedAt), restored.RequestedTTL)
 }

@@ -63,20 +63,8 @@ func bindingFromRequest(req CreateOrConfirmRequest) delegationBinding {
 		ToolPolicy:               req.ToolPolicy,
 		SchemaHash:               req.SchemaHash,
 		AdmittedDefaultBranchSHA: req.AdmittedDefaultBranchSHA,
-		InvocationExpiresAt:      req.InvocationExpiresAt,
+		InvocationExpiresAt:      req.InvocationExpiresAt.Round(0).UTC(),
 	}
-}
-
-func (b delegationBinding) equals(other delegationBinding) bool {
-	return b.RunID == other.RunID &&
-		b.EnclaveBackend == other.EnclaveBackend &&
-		b.EnclaveEntryID == other.EnclaveEntryID &&
-		b.InvocationID == other.InvocationID &&
-		b.Repository == other.Repository &&
-		b.ToolPolicy == other.ToolPolicy &&
-		b.SchemaHash == other.SchemaHash &&
-		b.AdmittedDefaultBranchSHA == other.AdmittedDefaultBranchSHA &&
-		b.InvocationExpiresAt.Equal(other.InvocationExpiresAt)
 }
 
 func (b delegationBinding) toRequest(requestedTTL time.Duration, idempotencyKey string) CreateOrConfirmRequest {
@@ -157,7 +145,11 @@ func (id *Identity) toResult() *IdentityResult {
 // toResult) always stands. Per the ADR, any mismatch here is terminal: the
 // caller must revoke any partial identity and fail the request.
 func (id *Identity) bindingEquals(req CreateOrConfirmRequest) bool {
-	return id.delegationBinding.equals(bindingFromRequest(req))
+	return id.binding() == bindingFromRequest(req)
+}
+
+func (id *Identity) binding() delegationBinding {
+	return id.delegationBinding
 }
 
 func (id *Identity) toRequest() CreateOrConfirmRequest {
