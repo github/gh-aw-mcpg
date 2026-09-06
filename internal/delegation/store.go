@@ -222,6 +222,7 @@ func (s *Store) createOrConfirmAt(req CreateOrConfirmRequest, now time.Time) (*I
 		Handle:            handle,
 		ExecutorBearer:    bearer,
 		delegationBinding: binding,
+		RequestedTTL:      req.RequestedTTL,
 		ExpiresAt:         identityExpiry(now, req.RequestedTTL, s.envelope.ExpiresAt, req.InvocationExpiresAt),
 		PolicyGeneration:  s.generation,
 		IdempotencyKey:    req.IdempotencyKey,

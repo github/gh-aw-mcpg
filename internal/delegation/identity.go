@@ -89,11 +89,12 @@ type Identity struct {
 	Handle         string `json:"handle"`
 	ExecutorBearer string `json:"executor_bearer"`
 	delegationBinding
-	ExpiresAt        time.Time `json:"expires_at"`
-	PolicyGeneration uint64    `json:"policy_generation"`
-	IdempotencyKey   string    `json:"idempotency_key"`
-	CreatedAt        time.Time `json:"created_at"`
-	Revoked          bool      `json:"revoked"`
+	RequestedTTL     time.Duration `json:"requested_ttl,omitempty"`
+	ExpiresAt        time.Time     `json:"expires_at"`
+	PolicyGeneration uint64        `json:"policy_generation"`
+	IdempotencyKey   string        `json:"idempotency_key"`
+	CreatedAt        time.Time     `json:"created_at"`
+	Revoked          bool          `json:"revoked"`
 }
 
 // invocationScopeKey returns the compound key CreateOrConfirm dedupes on:
@@ -150,7 +151,7 @@ func (id *Identity) toResult() *IdentityResult {
 // by toResult) always stands. Per the ADR, any mismatch here is terminal: the
 // caller must revoke any partial identity and fail the request.
 func (id *Identity) bindingEquals(req CreateOrConfirmRequest) bool {
-	return id.binding() == bindingFromRequest(req)
+	return id.binding() == bindingFromRequest(req) && id.RequestedTTL == req.RequestedTTL
 }
 
 func (id *Identity) binding() delegationBinding {
@@ -158,5 +159,9 @@ func (id *Identity) binding() delegationBinding {
 }
 
 func (id *Identity) toRequest() CreateOrConfirmRequest {
-	return id.delegationBinding.toRequest(id.ExpiresAt.Sub(id.CreatedAt), id.IdempotencyKey)
+	requestedTTL := id.RequestedTTL
+	if requestedTTL == 0 {
+		requestedTTL = id.ExpiresAt.Sub(id.CreatedAt)
+	}
+	return id.delegationBinding.toRequest(requestedTTL, id.IdempotencyKey)
 }
