@@ -15,7 +15,7 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/tracing"
 )
 
-var logDelegation = logger.New("proxy:delegation")
+var logDelegation = logger.ForFile()
 
 const delegationControlPath = "/internal/awf-enclave-mcp-control/"
 
