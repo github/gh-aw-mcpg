@@ -11,8 +11,11 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/delegation"
 	"github.com/github/gh-aw-mcpg/internal/enclavegithub"
 	"github.com/github/gh-aw-mcpg/internal/httputil"
+	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/tracing"
 )
+
+var logDelegation = logger.ForFile()
 
 const delegationControlPath = "/internal/awf-enclave-mcp-control/"
 
@@ -43,9 +46,11 @@ func newDelegationState(cfg *DelegationConfig) (*delegationState, error) {
 
 func (h *proxyHandler) handleDelegationControl(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost || h.server.delegation.capability.Authenticate(r.Header.Get("Authorization")) != nil {
+		logDelegation.Printf("Delegation control access denied: method=%s path=%s", r.Method, r.URL.Path)
 		httputil.WriteErrorResponse(w, http.StatusForbidden, "delegation_access_denied", "delegation control access denied")
 		return
 	}
+	logDelegation.Printf("Handling delegation control request: path=%s", r.URL.Path)
 
 	switch r.URL.Path {
 	case delegationControlPath + "create-or-confirm":
@@ -74,6 +79,7 @@ func (h *proxyHandler) handleDelegationControl(w http.ResponseWriter, r *http.Re
 			return
 		}
 		if err := h.server.delegation.store.Revoke(request.Handle); err != nil {
+			logDelegation.Printf("Delegation revoke failed for handle=%s", request.Handle)
 			httputil.WriteErrorResponse(w, http.StatusInternalServerError, "delegation_revoke_failed", "delegation revoke failed")
 			return
 		}
@@ -90,6 +96,7 @@ func (h *proxyHandler) handleDelegationControl(w http.ResponseWriter, r *http.Re
 			return
 		}
 		revoked := h.server.delegation.store.RevokeByLabels(request.RunID, request.EnclaveEntryID)
+		logDelegation.Printf("Revoked %d delegation(s) by labels: run_id=%s enclave_entry_id=%s", revoked, request.RunID, request.EnclaveEntryID)
 		if !h.persistDelegationState(w) {
 			return
 		}
@@ -149,11 +156,13 @@ func (h *proxyHandler) handleDelegatedRequest(w http.ResponseWriter, r *http.Req
 	}
 	route, err := enclavegithub.MatchRoute(path, query)
 	if err != nil {
+		logDelegation.Printf("No matching enclave route for path=%s", path)
 		writeEnclaveDenied(w)
 		return
 	}
 	toolName, args := enclaveToolAndArgs(route)
 	if toolName == "" || h.server.delegation.store.AuthorizeExecutor(r.Header.Get("Authorization"), route.FullRepo(), toolName) != nil {
+		logDelegation.Printf("Executor not authorized for tool=%s repo=%s", toolName, route.FullRepo())
 		writeEnclaveDenied(w)
 		return
 	}
@@ -161,5 +170,6 @@ func (h *proxyHandler) handleDelegatedRequest(w http.ResponseWriter, r *http.Req
 	if r.URL.RawQuery != "" {
 		fullPath += "?" + r.URL.RawQuery
 	}
+	logDelegation.Printf("Delegating request: tool=%s repo=%s path=%s", toolName, route.FullRepo(), path)
 	h.handleWithDIFC(w, r, fullPath, toolName, args, nil)
 }
