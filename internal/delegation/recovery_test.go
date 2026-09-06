@@ -1,6 +1,9 @@
 package delegation
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -136,6 +139,101 @@ func TestLoadStore_RejectsGenerationAndEnvelopeMismatches(t *testing.T) {
 	reloaded, err = LoadStore(path, narrowed, 1)
 	require.NoError(t, err)
 	assert.True(t, reloaded.IsRecoveryIncomplete())
+}
+
+func TestLoadStore_FailsClosedOnLegacyVersion(t *testing.T) {
+	envelope := validEnvelope()
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+	_, err = store.CreateOrConfirm(validRequest())
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "legacy-v1-state.json")
+
+	// Construct a legacy version 1 state file payload
+	now := time.Now()
+	id := Identity{
+		Handle:              "dlg_legacy123",
+		ExecutorBearer:      "dlgbearer_legacy123",
+		RunID:               "run-123",
+		EnclaveBackend:      "awf-enclave",
+		EnclaveEntryID:      "entry-1",
+		InvocationID:        "inv-1",
+		Repository:          "github/gh-aw",
+		ToolPolicy:          ToolPolicyGitHubRepositoryReadV1,
+		SchemaHash:          "sha256:abc",
+		ExpiresAt:           now.Add(time.Hour),
+		InvocationExpiresAt: now.Add(time.Hour),
+		PolicyGeneration:    1,
+		IdempotencyKey:      "idem-1",
+		CreatedAt:           now,
+	}
+	body := fmt.Sprintf(`{"version":1,"generation":1,"recovery_incomplete":false,"identities":{"dlg_legacy123":%s}}`, marshalJSON(id))
+	writeStateWithChecksum(t, path, []byte(body))
+
+	reloaded, err := LoadStore(path, envelope, 1)
+	require.NoError(t, err)
+	assert.True(t, reloaded.IsRecoveryIncomplete(), "legacy v1 state file must fail closed")
+}
+
+func TestLoadStore_FailsClosedOnDuplicateLiveInvocationKeys(t *testing.T) {
+	envelope := validEnvelope()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "duplicate-keys-state.json")
+
+	now := time.Now()
+	id1 := Identity{
+		Handle:              "dlg_handle1",
+		ExecutorBearer:      "dlgbearer_bearer1",
+		RunID:               "run-123",
+		EnclaveBackend:      "awf-enclave",
+		EnclaveEntryID:      "entry-1",
+		InvocationID:        "inv-1",
+		Repository:          "github/gh-aw",
+		ToolPolicy:          ToolPolicyGitHubRepositoryReadV1,
+		SchemaHash:          "sha256:abc",
+		ExpiresAt:           now.Add(time.Hour),
+		InvocationExpiresAt: now.Add(time.Hour),
+		PolicyGeneration:    1,
+		IdempotencyKey:      "idem-1",
+		CreatedAt:           now,
+	}
+	id2 := Identity{
+		Handle:              "dlg_handle2",
+		ExecutorBearer:      "dlgbearer_bearer2",
+		RunID:               "run-123",
+		EnclaveBackend:      "awf-enclave",
+		EnclaveEntryID:      "entry-1",
+		InvocationID:        "inv-1", // same invocation ID
+		Repository:          "github/gh-aw",
+		ToolPolicy:          ToolPolicyGitHubRepositoryReadV1,
+		SchemaHash:          "sha256:abc",
+		ExpiresAt:           now.Add(time.Hour),
+		InvocationExpiresAt: now.Add(time.Hour),
+		PolicyGeneration:    1,
+		IdempotencyKey:      "idem-2",
+		CreatedAt:           now,
+	}
+
+	body := fmt.Sprintf(`{"version":2,"generation":1,"recovery_incomplete":false,"identities":{"h1":%s,"h2":%s}}`, marshalJSON(id1), marshalJSON(id2))
+	writeStateWithChecksum(t, path, []byte(body))
+
+	reloaded, err := LoadStore(path, envelope, 1)
+	require.NoError(t, err)
+	assert.True(t, reloaded.IsRecoveryIncomplete(), "duplicate live invocation keys must fail closed")
+}
+
+func marshalJSON(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+func writeStateWithChecksum(t *testing.T, path string, body []byte) {
+	t.Helper()
+	checksum := sha256.Sum256(body)
+	out := append(body, []byte("\n"+hex.EncodeToString(checksum[:])+"\n")...)
+	require.NoError(t, os.WriteFile(path, out, 0o600))
 }
 
 func TestSaveState_ReplacesExistingPermissions(t *testing.T) {

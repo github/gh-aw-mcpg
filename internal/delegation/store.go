@@ -61,6 +61,7 @@ func NewStore(envelope *Envelope, generation uint64) (*Store, error) {
 	}
 	envelopeCopy := *envelope
 	envelopeCopy.AllowedRepositories = slices.Clone(envelope.AllowedRepositories)
+	envelopeCopy.AllowedOwners = slices.Clone(envelope.AllowedOwners)
 	envelopeCopy.AllowedSchemaHashes = slices.Clone(envelope.AllowedSchemaHashes)
 	return &Store{
 		envelope:            &envelopeCopy,

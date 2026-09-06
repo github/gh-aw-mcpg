@@ -97,7 +97,7 @@ func (h *proxyHandler) handleDelegationControl(w http.ResponseWriter, r *http.Re
 			return
 		}
 		revoked := h.server.delegation.store.RevokeByLabels(request.RunID, request.EnclaveEntryID)
-		logDelegation.Printf("Revoked %d delegation(s) by labels: run_hash=%s enclave_entry_id=%s", revoked, util.HashForLog(request.RunID, 16, ""), request.EnclaveEntryID)
+		logDelegation.Printf("Revoked %d delegation(s) by labels: run_hash=%s enclave_entry_id_hash=%s", revoked, util.HashForLog(request.RunID, 16, ""), util.HashForLog(request.EnclaveEntryID, 16, ""))
 		if !h.persistDelegationState(w) {
 			return
 		}

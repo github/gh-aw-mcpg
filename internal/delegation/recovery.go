@@ -19,7 +19,7 @@ var logDelegationRecovery = logger.ForFile()
 // statePersistVersion pins the on-disk state file shape so a future
 // incompatible change is detected as corruption (fail closed) rather than
 // silently misparsed.
-const statePersistVersion = 1
+const statePersistVersion = 2
 
 type persistedState struct {
 	Version             int                 `json:"version"`
@@ -156,6 +156,14 @@ func loadStoreAt(path string, envelope *Envelope, generation uint64, now time.Ti
 			logDelegationRecovery.Printf("Delegation state identity failed active-envelope validation, failing closed: %v", err)
 			store.recoveryIncomplete = true
 			return store, nil
+		}
+		key := invocationScopeKey(id.RunID, id.EnclaveEntryID, id.InvocationID)
+		if existing, ok := store.byInvocation[key]; ok {
+			if (!existing.Revoked && now.Before(existing.ExpiresAt)) && (!id.Revoked && now.Before(id.ExpiresAt)) {
+				logDelegationRecovery.Printf("Delegation state contains duplicate live identity for invocation key %s, failing closed", key)
+				store.recoveryIncomplete = true
+				return store, nil
+			}
 		}
 		store.indexLocked(&id)
 		if id.Revoked || !now.Before(id.ExpiresAt) {

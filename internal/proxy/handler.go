@@ -70,6 +70,8 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if h.server.enclave != nil {
 		logHandler.Printf("incoming enclave request: method=%s", r.Method)
+	} else if h.server.delegation != nil {
+		logHandler.Printf("incoming delegated request: method=%s", r.Method)
 	} else {
 		logHandler.Printf("incoming %s %s", r.Method, rawPath)
 	}
@@ -232,7 +234,7 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 	}
 	ctx, pre, err := guard.RunPipelinePrePhases(ctx, pipelineIn)
 	if err != nil {
-		if s.enclave != nil {
+		if s.enclave != nil || s.delegation != nil {
 			writeEnclaveDenied(w)
 			return
 		}

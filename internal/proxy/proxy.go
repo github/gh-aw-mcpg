@@ -183,8 +183,17 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	} else {
 		logProxy.Printf("No guard policy configured, running without policy enforcement")
 	}
-	if s.delegation != nil && !s.guardInitialized {
-		return nil, fmt.Errorf("guard policy is required for delegation proxy mode")
+	if s.delegation != nil {
+		if !s.guardInitialized {
+			return nil, fmt.Errorf("guard policy is required for delegation proxy mode")
+		}
+		initialLabels, ok := s.AgentRegistry.Get(proxyAgentID)
+		if !ok {
+			return nil, fmt.Errorf("delegation guard did not initialize agent labels")
+		}
+		s.AgentRegistry.SetDefaultLabels(nil, initialLabels.GetIntegrityTags())
+		s.Mode = difc.EnforcementPropagate
+		s.Evaluator.SetMode(difc.EnforcementPropagate)
 	}
 	if s.enclave != nil {
 		if !s.guardInitialized {
@@ -433,7 +442,13 @@ func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body 
 			url += "?" + query
 		}
 	}
-	logProxy.Printf("forwarding %s %s → %s", method, path, url)
+	if s.enclave != nil {
+		logProxy.Printf("forwarding enclave request: %s", method)
+	} else if s.delegation != nil {
+		logProxy.Printf("forwarding delegated request: %s", method)
+	} else {
+		logProxy.Printf("forwarding %s %s → %s", method, path, url)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {

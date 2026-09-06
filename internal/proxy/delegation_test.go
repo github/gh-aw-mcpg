@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/delegation"
+	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -110,4 +112,50 @@ func TestDelegationControlStatusAndReconcile(t *testing.T) {
 	missingFieldsRec := httptest.NewRecorder()
 	handler.handleDelegationControl(missingFieldsRec, missingFieldsReq)
 	assert.Equal(t, http.StatusBadRequest, missingFieldsRec.Code, "status must require both run_id and enclave_entry_id")
+}
+
+func TestNew_DelegationMode_InheritsGuardIntegrityLabelsAndPropagateMode(t *testing.T) {
+	wasmPath := writeSuccessGuardWasm(t)
+
+	envelope := &delegation.Envelope{
+		RunID:               "run",
+		EnclaveBackend:      "backend",
+		AllowedRepositories: []string{"github/gh-aw"},
+		ToolPolicy:          delegation.ToolPolicyGitHubRepositoryReadV1,
+		AllowedSchemaHashes: []string{"sha256:test"},
+		MaxIdentityTTL:      time.Minute,
+		ExpiresAt:           time.Now().Add(time.Hour),
+	}
+	store, err := delegation.NewStore(envelope, 1)
+	require.NoError(t, err)
+	capabilityKey := strings.Repeat("a", 32)
+	capability, err := delegation.NewControlCapability(capabilityKey)
+	require.NoError(t, err)
+
+	s, err := New(context.Background(), Config{
+		WasmPath:    wasmPath,
+		Policy:      markerFreePolicyJSON,
+		GitHubToken: "gh-token-secret",
+		Delegation: &DelegationConfig{
+			Store:      store,
+			Capability: capability,
+			StatePath:  t.TempDir() + "/state.json",
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, s)
+	closeGuard(t, s)
+
+	// Mode must be explicitly set to propagate
+	assert.Equal(t, difc.EnforcementPropagate, s.Mode)
+
+	// Initial proxyAgentID labels should have been populated by guard
+	proxyLabels, ok := s.AgentRegistry.Get("proxy")
+	require.True(t, ok)
+	proxyIntegrity := proxyLabels.GetIntegrityTags()
+	require.NotEmpty(t, proxyIntegrity, "proxyAgentID must have guard-assigned integrity tags")
+
+	// Newly created delegation agent must inherit those default integrity tags
+	delegatedAgent := s.AgentRegistry.GetOrCreate("delegation:handle_12345")
+	assert.Equal(t, proxyIntegrity, delegatedAgent.GetIntegrityTags(), "delegated agent must inherit guard-derived integrity tags")
 }

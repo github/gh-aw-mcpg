@@ -251,6 +251,29 @@ func TestExpiry_AutomaticAndExplicit(t *testing.T) {
 	assert.Error(t, err, "expired identity must not continue a session")
 }
 
+func TestNewStore_ClonesAllowedOwnersDefensively(t *testing.T) {
+	envelope := validEnvelope()
+	envelope.AllowedOwners = []string{"github"}
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+
+	// Mutate the original slice passed to NewStore
+	envelope.AllowedOwners[0] = "mutated-owner"
+
+	// The store's internal copy must remain "github"
+	req := validRequest()
+	req.Repository = "github/gh-aw"
+	_, err = store.CreateOrConfirm(req)
+	assert.NoError(t, err, "mutating original envelope.AllowedOwners must not affect store policy")
+
+	reqMutated := validRequest()
+	reqMutated.InvocationID = "inv-2"
+	reqMutated.IdempotencyKey = "idem-2"
+	reqMutated.Repository = "mutated-owner/repo"
+	_, err = store.CreateOrConfirm(reqMutated)
+	assert.Error(t, err, "mutated owner must not be admitted by store")
+}
+
 func TestRevoke_IsIdempotent(t *testing.T) {
 	store, _ := newTestStore(t)
 	req := validRequest()
