@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
@@ -21,10 +22,11 @@ var logDelegationRecovery = logger.ForFile()
 const statePersistVersion = 1
 
 type persistedState struct {
-	Version            int                 `json:"version"`
-	Generation         uint64              `json:"generation"`
-	RecoveryIncomplete bool                `json:"recovery_incomplete"`
-	Identities         map[string]Identity `json:"identities"`
+	Version             int                 `json:"version"`
+	Generation          uint64              `json:"generation"`
+	RecoveryIncomplete  bool                `json:"recovery_incomplete"`
+	Identities          map[string]Identity `json:"identities"`
+	DynamicSchemaHashes []string            `json:"dynamic_schema_hashes,omitempty"`
 }
 
 // SaveState persists every currently live identity to path so the controller
@@ -32,21 +34,35 @@ type persistedState struct {
 // written with 0600 permissions because it contains executor bearer secrets.
 // A trailing SHA-256 checksum lets LoadStore detect truncation or corruption
 // and fail closed instead of silently reconstructing partial state.
+//
+// SaveState serializes concurrent callers on s.persistMu so that whichever
+// snapshot is taken later (in lock-acquisition order) is always the one
+// published last: an older, already-superseded snapshot can never overwrite
+// a newer one on disk merely because its write happened to finish first.
 func (s *Store) SaveState(path string) error {
+	s.persistMu.Lock()
+	defer s.persistMu.Unlock()
+
 	s.mu.Lock()
 	generation := s.generation
 	recoveryIncomplete := s.recoveryIncomplete
-	identities := make(map[string]Identity, len(s.byIdempotency))
-	for key, identity := range s.byIdempotency {
+	identities := make(map[string]Identity, len(s.byInvocation))
+	for key, identity := range s.byInvocation {
 		identities[key] = *identity
 	}
+	dynamicSchemaHashes := make([]string, 0, len(s.dynamicSchemaHashes))
+	for hash := range s.dynamicSchemaHashes {
+		dynamicSchemaHashes = append(dynamicSchemaHashes, hash)
+	}
 	s.mu.Unlock()
+	slices.Sort(dynamicSchemaHashes)
 
 	body, err := json.Marshal(persistedState{
-		Version:            statePersistVersion,
-		Generation:         generation,
-		RecoveryIncomplete: recoveryIncomplete,
-		Identities:         identities,
+		Version:             statePersistVersion,
+		Generation:          generation,
+		RecoveryIncomplete:  recoveryIncomplete,
+		Identities:          identities,
+		DynamicSchemaHashes: dynamicSchemaHashes,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to encode delegation state: %w", err)
@@ -129,6 +145,9 @@ func loadStoreAt(path string, envelope *Envelope, generation uint64, now time.Ti
 		return store, nil
 	}
 	store.recoveryIncomplete = state.RecoveryIncomplete
+	for _, hash := range state.DynamicSchemaHashes {
+		store.dynamicSchemaHashes[hash] = struct{}{}
+	}
 
 	restored := 0
 	for _, identity := range state.Identities {
@@ -139,13 +158,14 @@ func loadStoreAt(path string, envelope *Envelope, generation uint64, now time.Ti
 			return store, nil
 		}
 		store.indexLocked(&id)
-		if !now.Before(id.ExpiresAt) {
-			id.Revoked = true
-			store.byIdempotency[idempotencyScopeKey(id.RunID, id.EnclaveEntryID, id.InvocationID, id.IdempotencyKey)] = &id
-		}
-		if id.Revoked {
-			delete(store.byHandle, id.Handle)
-			delete(store.byBearer, sha256.Sum256([]byte(id.ExecutorBearer)))
+		if id.Revoked || !now.Before(id.ExpiresAt) {
+			// revokeLocked removes id from every index it was just added
+			// to (byHandle, byBearer, and byLabel), leaving only the
+			// terminal byInvocation tombstone. Without this, an
+			// already-terminal restored identity would remain reachable
+			// from byLabel with no corresponding byHandle entry, letting
+			// RevokeByLabels dereference a missing handle.
+			store.revokeLocked(&id)
 			continue
 		}
 		restored++

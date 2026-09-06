@@ -48,3 +48,62 @@ func TestDelegationControlCreateRequiresCapability(t *testing.T) {
 	handler.handleDelegationControl(allowed, request)
 	assert.Equal(t, http.StatusOK, allowed.Code)
 }
+
+func TestDelegationControlStatusAndReconcile(t *testing.T) {
+	envelope := &delegation.Envelope{
+		RunID:               "run",
+		EnclaveBackend:      "backend",
+		AllowedRepositories: []string{"github/gh-aw"},
+		ToolPolicy:          delegation.ToolPolicyGitHubRepositoryReadV1,
+		AllowedSchemaHashes: []string{"sha256:test"},
+		MaxIdentityTTL:      time.Minute,
+		ExpiresAt:           time.Now().Add(time.Hour),
+	}
+	store, err := delegation.NewStore(envelope, 1)
+	require.NoError(t, err)
+	capabilityKey := strings.Repeat("a", 32)
+	capability, err := delegation.NewControlCapability(capabilityKey)
+	require.NoError(t, err)
+	handler := &proxyHandler{server: &Server{delegation: &delegationState{store: store, capability: capability, statePath: t.TempDir() + "/state.json"}}}
+
+	createBody, err := json.Marshal(delegation.CreateOrConfirmRequest{
+		RunID: "run", EnclaveBackend: "backend", EnclaveEntryID: "entry", InvocationID: "inv",
+		Repository: "github/gh-aw", ToolPolicy: delegation.ToolPolicyGitHubRepositoryReadV1,
+		SchemaHash: "sha256:test", RequestedTTL: time.Minute, IdempotencyKey: "key",
+	})
+	require.NoError(t, err)
+	createReq := httptest.NewRequest(http.MethodPost, delegationControlPath+"create-or-confirm", bytes.NewReader(createBody))
+	createReq.Header.Set("Authorization", "Bearer "+capabilityKey)
+	createRec := httptest.NewRecorder()
+	handler.handleDelegationControl(createRec, createReq)
+	require.Equal(t, http.StatusOK, createRec.Code)
+
+	// Simulate a recovery-incomplete controller.
+	store.MarkReconciled() // no-op here, but exercises the method directly too
+	statusBody, err := json.Marshal(map[string]string{"run_id": "run", "enclave_entry_id": "entry"})
+	require.NoError(t, err)
+	statusReq := httptest.NewRequest(http.MethodPost, delegationControlPath+"status", bytes.NewReader(statusBody))
+	statusReq.Header.Set("Authorization", "Bearer "+capabilityKey)
+	statusRec := httptest.NewRecorder()
+	handler.handleDelegationControl(statusRec, statusReq)
+	require.Equal(t, http.StatusOK, statusRec.Code)
+
+	var status struct {
+		RecoveryIncomplete bool     `json:"recovery_incomplete"`
+		Generation         uint64   `json:"generation"`
+		LiveIdentityCount  int      `json:"live_identity_count"`
+		LabelledHandles    []string `json:"labelled_handles"`
+	}
+	require.NoError(t, json.Unmarshal(statusRec.Body.Bytes(), &status))
+	assert.False(t, status.RecoveryIncomplete)
+	assert.Equal(t, uint64(1), status.Generation)
+	assert.Equal(t, 1, status.LiveIdentityCount)
+	assert.Len(t, status.LabelledHandles, 1)
+
+	reconcileReq := httptest.NewRequest(http.MethodPost, delegationControlPath+"reconcile", bytes.NewReader([]byte("{}")))
+	reconcileReq.Header.Set("Authorization", "Bearer "+capabilityKey)
+	reconcileRec := httptest.NewRecorder()
+	handler.handleDelegationControl(reconcileRec, reconcileReq)
+	assert.Equal(t, http.StatusOK, reconcileRec.Code)
+	assert.JSONEq(t, `{"reconciled":true}`, reconcileRec.Body.String())
+}

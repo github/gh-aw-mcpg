@@ -1,8 +1,10 @@
 package delegation
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -147,4 +149,108 @@ func TestSaveState_ReplacesExistingPermissions(t *testing.T) {
 	info, err := os.Stat(path)
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+}
+
+func TestLoadStore_RepairsLabelIndexForRestoredTerminalIdentities(t *testing.T) {
+	envelope := validEnvelope()
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+
+	req := validRequest()
+	created, err := store.CreateOrConfirm(req)
+	require.NoError(t, err)
+	// Revoking leaves a terminal tombstone under the same (run, enclave
+	// entry, invocation) key, which is what gets persisted and restored.
+	require.NoError(t, store.Revoke(created.Handle))
+
+	path := filepath.Join(t.TempDir(), "state.json")
+	require.NoError(t, store.SaveState(path))
+
+	reloaded, err := LoadStore(path, envelope, 1)
+	require.NoError(t, err)
+	assert.False(t, reloaded.IsRecoveryIncomplete())
+
+	// Before the fix, restoring an already-terminal identity added it to
+	// byLabel (via indexLocked) but only removed it from byHandle/byBearer,
+	// leaving a dangling byLabel entry with no corresponding byHandle entry.
+	// RevokeByLabels would then dereference that missing handle and panic.
+	assert.NotPanics(t, func() {
+		assert.Equal(t, 0, reloaded.RevokeByLabels(req.RunID, req.EnclaveEntryID), "the tombstoned identity is no longer live or labelled")
+	})
+	assert.Empty(t, reloaded.byLabel, "the label index must not retain a restored terminal identity")
+}
+
+func TestLoadStore_RestoresDynamicSchemaHashBound(t *testing.T) {
+	envelope := validEnvelope()
+	envelope.AllowedSchemaHashes = nil
+	envelope.MaxDynamicSchemaHashes = 1
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+
+	req := validRequest()
+	req.SchemaHash = "sha256:dynamic-only"
+	_, err = store.CreateOrConfirm(req)
+	require.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "state.json")
+	require.NoError(t, store.SaveState(path))
+
+	reloaded, err := LoadStore(path, envelope, 1)
+	require.NoError(t, err)
+
+	// The bound was already exhausted by the persisted hash, so a
+	// brand-new distinct hash must still be denied after restart.
+	other := validRequest()
+	other.InvocationID = "inv-other"
+	other.IdempotencyKey = "idem-other"
+	other.SchemaHash = "sha256:another-dynamic"
+	_, err = reloaded.CreateOrConfirm(other)
+	assert.Error(t, err, "the dynamic schema hash bound must not reset across a restart")
+
+	// But the already-admitted hash still works for a new invocation.
+	reuse := validRequest()
+	reuse.InvocationID = "inv-reuse"
+	reuse.IdempotencyKey = "idem-reuse"
+	reuse.SchemaHash = "sha256:dynamic-only"
+	_, err = reloaded.CreateOrConfirm(reuse)
+	assert.NoError(t, err)
+}
+
+func TestSaveState_ConcurrentCallsRemainConsistent(t *testing.T) {
+	envelope := validEnvelope()
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+	path := filepath.Join(t.TempDir(), "state.json")
+
+	const n = 20
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			req := validRequest()
+			req.InvocationID = fmt.Sprintf("inv-%d", i)
+			req.IdempotencyKey = fmt.Sprintf("idem-%d", i)
+			_, err := store.CreateOrConfirm(req)
+			assert.NoError(t, err)
+			assert.NoError(t, store.SaveState(path))
+		}(i)
+	}
+	wg.Wait()
+
+	// A final save after every concurrent create must capture every
+	// identity: concurrent SaveState calls must never corrupt the file or
+	// leave it holding a stale, already-superseded snapshot.
+	require.NoError(t, store.SaveState(path))
+	reloaded, err := LoadStore(path, envelope, 1)
+	require.NoError(t, err)
+	require.False(t, reloaded.IsRecoveryIncomplete())
+
+	for i := 0; i < n; i++ {
+		req := validRequest()
+		req.InvocationID = fmt.Sprintf("inv-%d", i)
+		req.IdempotencyKey = fmt.Sprintf("idem-%d", i)
+		_, err := reloaded.CreateOrConfirm(req)
+		assert.NoError(t, err, "identity for invocation %d must have survived concurrent persistence", i)
+	}
 }
