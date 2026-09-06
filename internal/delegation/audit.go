@@ -1,10 +1,8 @@
 package delegation
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 // hashForAudit returns a stable, non-reversible attribution token for a
@@ -13,13 +11,11 @@ import (
 // identity, credential, or header, so every sensitive field is hashed before
 // it reaches a log line. 32 hex characters (128 bits) of the SHA-256 digest
 // are kept to make accidental collisions across a large fleet of runs and
-// repositories negligible while still discarding the raw value.
+// repositories negligible while still discarding the raw value. This delegates
+// to the shared util.HashForLog helper so the redaction algorithm has a
+// single source of truth across packages.
 func hashForAudit(value string) string {
-	if value == "" {
-		return "(none)"
-	}
-	sum := sha256.Sum256([]byte(value))
-	return hex.EncodeToString(sum[:])[:32]
+	return util.HashForLog(value, 32, "")
 }
 
 // AuditEvent is a redacted lifecycle record for one delegation-control
