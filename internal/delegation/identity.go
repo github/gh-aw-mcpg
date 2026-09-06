@@ -96,15 +96,20 @@ type Identity struct {
 	Revoked          bool      `json:"revoked"`
 }
 
-// idempotencyScopeKey returns the compound key CreateOrConfirm dedupes on:
-// (run, enclave entry, invocation id, caller-supplied idempotency key). The
-// ADR's quota/serialization section additionally scopes idempotency by
-// canonical repository, but that binding is enforced separately by
+// invocationScopeKey returns the compound key CreateOrConfirm dedupes on:
+// (run, enclave entry, invocation id). The caller-supplied idempotency key is
+// intentionally excluded from this key: it is retained on the Identity for
+// audit and replay-detection purposes only. Enforcing one identity binding
+// per invocation regardless of the idempotency key used to request it is
+// required so a caller cannot mint multiple concurrent identities for the
+// same invocation merely by varying the idempotency key. The ADR's
+// quota/serialization section additionally scopes idempotency by canonical
+// repository, but that binding is enforced separately by
 // Identity.bindingEquals, which compares the full request (including
 // Repository) against any identity already stored under this key and treats
 // a mismatch as terminal rather than silently keying on it.
-func idempotencyScopeKey(runID, enclaveEntryID, invocationID, idempotencyKey string) string {
-	return runID + "\x00" + enclaveEntryID + "\x00" + invocationID + "\x00" + idempotencyKey
+func invocationScopeKey(runID, enclaveEntryID, invocationID string) string {
+	return runID + "\x00" + enclaveEntryID + "\x00" + invocationID
 }
 
 // labelKey returns the (run, enclave entry) label pair used for bulk revoke
@@ -140,9 +145,9 @@ func (id *Identity) toResult() *IdentityResult {
 
 // bindingEquals reports whether a repeated create-or-confirm request binds to
 // the exact same run, backend, entry, invocation, repository, tool policy,
-// schema, and default-branch SHA as the stored identity. A confirm call does
-// not get a fresh expiry: the original identity's ExpiresAt (returned by
-// toResult) always stands. Per the ADR, any mismatch here is terminal: the
+// schema, default-branch SHA, and requested TTL as the stored identity. A confirm
+// call does not get a fresh expiry: the original identity's ExpiresAt (returned
+// by toResult) always stands. Per the ADR, any mismatch here is terminal: the
 // caller must revoke any partial identity and fail the request.
 func (id *Identity) bindingEquals(req CreateOrConfirmRequest) bool {
 	return id.binding() == bindingFromRequest(req)
