@@ -223,6 +223,7 @@ func (s *Store) createOrConfirmAt(req CreateOrConfirmRequest, now time.Time) (*I
 		ToolPolicy:               req.ToolPolicy,
 		SchemaHash:               req.SchemaHash,
 		AdmittedDefaultBranchSHA: req.AdmittedDefaultBranchSHA,
+		RequestedTTL:             req.RequestedTTL,
 		ExpiresAt:                identityExpiry(now, req.RequestedTTL, s.envelope.ExpiresAt, req.InvocationExpiresAt),
 		InvocationExpiresAt:      req.InvocationExpiresAt,
 		PolicyGeneration:         s.generation,

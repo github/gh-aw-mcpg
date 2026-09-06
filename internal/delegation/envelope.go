@@ -74,20 +74,20 @@ func (e *Envelope) Validate() error {
 	seen := make(map[string]struct{}, len(e.AllowedRepositories))
 	for _, repo := range e.AllowedRepositories {
 		if !IsCanonicalRepositorySelector(repo) {
-			return fmt.Errorf("envelope repository %q is not a canonical selector", repo)
+			return fmt.Errorf("envelope repository is not a canonical selector")
 		}
 		if _, dup := seen[repo]; dup {
-			return fmt.Errorf("envelope must not contain duplicate repository %q", repo)
+			return fmt.Errorf("envelope must not contain duplicate repository")
 		}
 		seen[repo] = struct{}{}
 	}
 	seenOwners := make(map[string]struct{}, len(e.AllowedOwners))
 	for _, owner := range e.AllowedOwners {
 		if !IsCanonicalOwner(owner) {
-			return fmt.Errorf("envelope owner %q is not a canonical selector", owner)
+			return fmt.Errorf("envelope owner is not a canonical selector")
 		}
 		if _, dup := seenOwners[owner]; dup {
-			return fmt.Errorf("envelope must not contain duplicate owner %q", owner)
+			return fmt.Errorf("envelope must not contain duplicate owner")
 		}
 		seenOwners[owner] = struct{}{}
 	}

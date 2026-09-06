@@ -32,13 +32,17 @@ func TestEnvelopeValidate(t *testing.T) {
 	t.Run("noncanonical repository rejected", func(t *testing.T) {
 		e := validEnvelope()
 		e.AllowedRepositories = []string{"GitHub/gh-aw"}
-		assert.Error(t, e.Validate())
+		err := e.Validate()
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), "GitHub/gh-aw", "validation error must not leak unredacted private repository selector")
 	})
 
 	t.Run("duplicate repository rejected", func(t *testing.T) {
 		e := validEnvelope()
 		e.AllowedRepositories = []string{"github/gh-aw", "github/gh-aw"}
-		assert.Error(t, e.Validate())
+		err := e.Validate()
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), "github/gh-aw", "validation error must not leak unredacted duplicate repository selector")
 	})
 
 	t.Run("unsupported tool policy rejected", func(t *testing.T) {
@@ -74,13 +78,17 @@ func TestEnvelopeValidate(t *testing.T) {
 	t.Run("noncanonical owner rejected", func(t *testing.T) {
 		e := validEnvelope()
 		e.AllowedOwners = []string{"GitHub"}
-		assert.Error(t, e.Validate())
+		err := e.Validate()
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), "GitHub", "validation error must not leak unredacted private owner selector")
 	})
 
 	t.Run("duplicate owner rejected", func(t *testing.T) {
 		e := validEnvelope()
 		e.AllowedOwners = []string{"github", "github"}
-		assert.Error(t, e.Validate())
+		err := e.Validate()
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), "github", "validation error must not leak unredacted duplicate owner selector")
 	})
 
 	t.Run("dynamic schema mode with a positive bound is valid", func(t *testing.T) {

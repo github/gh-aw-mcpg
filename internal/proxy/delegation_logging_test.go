@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -291,7 +292,54 @@ func TestDelegationControlLoggingRedactsPrivateSelectors(t *testing.T) {
 			"run_id":           redactionRunID,
 			"enclave_entry_id": redactionEntryID,
 		}).Code)
+
+		require.Equal(t, http.StatusOK, post("reconcile", map[string]string{}).Code)
 	})
 
 	assertNoDelegatedSecrets(t, logs, bearer, capabilityKey)
+}
+
+func TestDelegationControlReconcileValidationAndTransactionality(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer upstream.Close()
+
+	s, _ := newDelegationRedactionServer(t, upstream.URL)
+	handler := &proxyHandler{server: s}
+	capabilityKey := strings.Repeat("c", 32)
+
+	postRaw := func(body []byte) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, delegationControlPath+"reconcile", bytes.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+capabilityKey)
+		rec := httptest.NewRecorder()
+		handler.handleDelegationControl(rec, req)
+		return rec
+	}
+
+	t.Run("rejects unknown fields with 400", func(t *testing.T) {
+		rec := postRaw([]byte(`{"unknown_field": "value"}`))
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("rejects invalid json with 400", func(t *testing.T) {
+		rec := postRaw([]byte(`invalid json`))
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("restores recoveryIncomplete on save failure", func(t *testing.T) {
+		s.delegation.statePath = filepath.Join(t.TempDir(), "non-existent-dir", "state.json")
+		s.delegation.store.MarkReconciledAndSaveState(s.delegation.statePath) // force it to be incomplete first
+		// set statePath to invalid
+		rec := postRaw([]byte(`{}`))
+		assert.Equal(t, http.StatusInternalServerError, rec.Code)
+		assert.True(t, s.delegation.store.IsRecoveryIncomplete())
+	})
+
+	t.Run("succeeds on empty object and persists state", func(t *testing.T) {
+		s.delegation.statePath = filepath.Join(t.TempDir(), "valid-state.json")
+		rec := postRaw([]byte(`{}`))
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.False(t, s.delegation.store.IsRecoveryIncomplete())
+	})
 }

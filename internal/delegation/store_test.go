@@ -75,6 +75,23 @@ func TestCreateOrConfirm_MismatchIsTerminalAndRevokesPartialState(t *testing.T) 
 	assert.Error(t, err)
 }
 
+func TestCreateOrConfirm_DifferentRequestedTTLIsTerminalMismatchAndRevokes(t *testing.T) {
+	store, _ := newTestStore(t)
+	req := validRequest()
+	req.RequestedTTL = 2 * time.Minute
+
+	created, err := store.CreateOrConfirm(req)
+	require.NoError(t, err)
+
+	mismatched := req
+	mismatched.RequestedTTL = 3 * time.Minute
+
+	_, err = store.CreateOrConfirm(mismatched)
+	require.Error(t, err)
+
+	require.Error(t, store.Authorize(created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
+}
+
 func TestCreateOrConfirm_RejectsOutsideEnvelope(t *testing.T) {
 	store, _ := newTestStore(t)
 

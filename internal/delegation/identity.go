@@ -42,22 +42,23 @@ type CreateOrConfirmRequest struct {
 // Identity is one invocation-scoped delegated identity bound to a single
 // canonical repository under github-repository-read-v1.
 type Identity struct {
-	Handle                   string    `json:"handle"`
-	ExecutorBearer           string    `json:"executor_bearer"`
-	RunID                    string    `json:"run_id"`
-	EnclaveBackend           string    `json:"enclave_backend"`
-	EnclaveEntryID           string    `json:"enclave_entry_id"`
-	InvocationID             string    `json:"invocation_id"`
-	Repository               string    `json:"repository"`
-	ToolPolicy               string    `json:"tool_policy"`
-	SchemaHash               string    `json:"schema_hash"`
-	AdmittedDefaultBranchSHA string    `json:"admitted_default_branch_sha,omitempty"`
-	ExpiresAt                time.Time `json:"expires_at"`
-	InvocationExpiresAt      time.Time `json:"invocation_expires_at,omitempty"`
-	PolicyGeneration         uint64    `json:"policy_generation"`
-	IdempotencyKey           string    `json:"idempotency_key"`
-	CreatedAt                time.Time `json:"created_at"`
-	Revoked                  bool      `json:"revoked"`
+	Handle                   string        `json:"handle"`
+	ExecutorBearer           string        `json:"executor_bearer"`
+	RunID                    string        `json:"run_id"`
+	EnclaveBackend           string        `json:"enclave_backend"`
+	EnclaveEntryID           string        `json:"enclave_entry_id"`
+	InvocationID             string        `json:"invocation_id"`
+	Repository               string        `json:"repository"`
+	ToolPolicy               string        `json:"tool_policy"`
+	SchemaHash               string        `json:"schema_hash"`
+	AdmittedDefaultBranchSHA string        `json:"admitted_default_branch_sha,omitempty"`
+	RequestedTTL             time.Duration `json:"requested_ttl,omitempty"`
+	ExpiresAt                time.Time     `json:"expires_at"`
+	InvocationExpiresAt      time.Time     `json:"invocation_expires_at,omitempty"`
+	PolicyGeneration         uint64        `json:"policy_generation"`
+	IdempotencyKey           string        `json:"idempotency_key"`
+	CreatedAt                time.Time     `json:"created_at"`
+	Revoked                  bool          `json:"revoked"`
 }
 
 // invocationScopeKey returns the compound key CreateOrConfirm dedupes on:
@@ -109,9 +110,9 @@ func (id *Identity) toResult() *IdentityResult {
 
 // bindingEquals reports whether a repeated create-or-confirm request binds to
 // the exact same run, backend, entry, invocation, repository, tool policy,
-// schema, and default-branch SHA as the stored identity. A confirm call does
-// not get a fresh expiry: the original identity's ExpiresAt (returned by
-// toResult) always stands. Per the ADR, any mismatch here is terminal: the
+// schema, default-branch SHA, and requested TTL as the stored identity. A confirm
+// call does not get a fresh expiry: the original identity's ExpiresAt (returned
+// by toResult) always stands. Per the ADR, any mismatch here is terminal: the
 // caller must revoke any partial identity and fail the request.
 func (id *Identity) bindingEquals(req CreateOrConfirmRequest) bool {
 	return id.RunID == req.RunID &&
@@ -122,5 +123,6 @@ func (id *Identity) bindingEquals(req CreateOrConfirmRequest) bool {
 		id.ToolPolicy == req.ToolPolicy &&
 		id.SchemaHash == req.SchemaHash &&
 		id.AdmittedDefaultBranchSHA == req.AdmittedDefaultBranchSHA &&
+		id.RequestedTTL == req.RequestedTTL &&
 		id.InvocationExpiresAt.Equal(req.InvocationExpiresAt)
 }

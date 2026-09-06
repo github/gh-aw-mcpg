@@ -291,6 +291,73 @@ func TestLoadStore_FailsClosedOnDuplicateLiveAndTerminalInvocationKeys(t *testin
 	}
 }
 
+func TestLoadStore_FailsClosedWhenUniqueDynamicSchemaHashesExceedEnvelopeBound(t *testing.T) {
+	envelope := validEnvelope()
+	envelope.AllowedSchemaHashes = nil
+	envelope.MaxDynamicSchemaHashes = 1 // bound is 1
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "oversized-schema-state.json")
+
+	now := time.Now()
+	id1 := Identity{
+		Handle:              "dlg_1",
+		ExecutorBearer:      "dlgbearer_1",
+		RunID:               "run-123",
+		EnclaveBackend:      "awf-enclave",
+		EnclaveEntryID:      "entry-1",
+		InvocationID:        "inv-1",
+		Repository:          "github/gh-aw",
+		ToolPolicy:          ToolPolicyGitHubRepositoryReadV1,
+		SchemaHash:          "sha256:hash1",
+		ExpiresAt:           now.Add(time.Hour),
+		InvocationExpiresAt: now.Add(time.Hour),
+		PolicyGeneration:    1,
+		IdempotencyKey:      "idem-1",
+		CreatedAt:           now,
+	}
+	id2 := Identity{
+		Handle:              "dlg_2",
+		ExecutorBearer:      "dlgbearer_2",
+		RunID:               "run-123",
+		EnclaveBackend:      "awf-enclave",
+		EnclaveEntryID:      "entry-1",
+		InvocationID:        "inv-2",
+		Repository:          "github/gh-aw",
+		ToolPolicy:          ToolPolicyGitHubRepositoryReadV1,
+		SchemaHash:          "sha256:hash2",
+		ExpiresAt:           now.Add(time.Hour),
+		InvocationExpiresAt: now.Add(time.Hour),
+		PolicyGeneration:    1,
+		IdempotencyKey:      "idem-2",
+		CreatedAt:           now,
+	}
+
+	// 2 unique schema hashes across identities > bound of 1
+	body := fmt.Sprintf(`{"version":2,"generation":1,"recovery_incomplete":false,"identities":{"h1":%s,"h2":%s},"dynamic_schema_hashes":["sha256:hash1"]}`, marshalJSON(id1), marshalJSON(id2))
+	writeStateWithChecksum(t, path, []byte(body))
+
+	reloaded, err := LoadStore(path, envelope, 1)
+	require.NoError(t, err)
+	assert.True(t, reloaded.IsRecoveryIncomplete(), "oversized dynamic schema set must fail closed")
+	assert.Empty(t, reloaded.byHandle, "no identity may be indexed when recovery fails closed")
+}
+
+func TestMarkReconciledAndSaveState_RestoresRecoveryIncompleteOnSaveFailure(t *testing.T) {
+	envelope := validEnvelope()
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+
+	store.recoveryIncomplete = true
+	assert.True(t, store.IsRecoveryIncomplete())
+
+	// Save to an invalid path (directory doesn't exist)
+	invalidPath := filepath.Join(t.TempDir(), "non-existent-dir", "state.json")
+	err = store.MarkReconciledAndSaveState(invalidPath)
+	require.Error(t, err)
+	assert.True(t, store.IsRecoveryIncomplete(), "recoveryIncomplete must be restored to true if state persistence fails")
+}
+
 func marshalJSON(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)

@@ -37,6 +37,26 @@ type persistedState struct {
 // A trailing SHA-256 checksum lets LoadStore detect truncation or corruption
 // and fail closed instead of silently reconstructing partial state.
 //
+// MarkReconciledAndSaveState clears the recoveryIncomplete flag and persists
+// the updated state to path. If state persistence fails, recoveryIncomplete is
+// restored to true under synchronization.
+func (s *Store) MarkReconciledAndSaveState(path string) error {
+	s.persistMu.Lock()
+	defer s.persistMu.Unlock()
+
+	s.mu.Lock()
+	s.recoveryIncomplete = false
+	s.mu.Unlock()
+
+	if err := s.saveStateLocked(path); err != nil {
+		s.mu.Lock()
+		s.recoveryIncomplete = true
+		s.mu.Unlock()
+		return err
+	}
+	return nil
+}
+
 // SaveState serializes concurrent callers on s.persistMu so that whichever
 // snapshot is taken later (in lock-acquisition order) is always the one
 // published last: an older, already-superseded snapshot can never overwrite
@@ -44,7 +64,10 @@ type persistedState struct {
 func (s *Store) SaveState(path string) error {
 	s.persistMu.Lock()
 	defer s.persistMu.Unlock()
+	return s.saveStateLocked(path)
+}
 
+func (s *Store) saveStateLocked(path string) error {
 	s.mu.Lock()
 	generation := s.generation
 	recoveryIncomplete := s.recoveryIncomplete
@@ -207,7 +230,7 @@ func validatePersistedState(state persistedState, envelope *Envelope, generation
 	if state.Generation != generation {
 		return nil, fmt.Errorf("state generation %d does not match active generation %d", state.Generation, generation)
 	}
-	if err := validatePersistedSchemaHashes(state.DynamicSchemaHashes, envelope); err != nil {
+	if err := validatePersistedSchemaHashes(&state, envelope); err != nil {
 		return nil, err
 	}
 
@@ -248,20 +271,29 @@ func validatePersistedState(state persistedState, envelope *Envelope, generation
 // active envelope would never have admitted. Restoring an oversized or
 // static-envelope set would silently widen the runtime schema bound that
 // CreateOrConfirm enforces.
-func validatePersistedSchemaHashes(hashes []string, envelope *Envelope) error {
-	for _, hash := range hashes {
+func validatePersistedSchemaHashes(state *persistedState, envelope *Envelope) error {
+	seen := make(map[string]struct{})
+	for _, hash := range state.DynamicSchemaHashes {
 		if hash == "" {
 			return fmt.Errorf("empty dynamic schema hash")
 		}
+		seen[hash] = struct{}{}
 	}
-	if len(hashes) == 0 {
+	if len(envelope.AllowedSchemaHashes) == 0 {
+		for _, identity := range state.Identities {
+			if identity.SchemaHash != "" {
+				seen[identity.SchemaHash] = struct{}{}
+			}
+		}
+	}
+	if len(seen) == 0 {
 		return nil
 	}
 	if len(envelope.AllowedSchemaHashes) > 0 {
-		return fmt.Errorf("%d dynamic schema hashes persisted under a closed-set envelope", len(hashes))
+		return fmt.Errorf("%d dynamic schema hashes persisted under a closed-set envelope", len(seen))
 	}
-	if len(hashes) > envelope.MaxDynamicSchemaHashes {
-		return fmt.Errorf("persisted dynamic schema hashes %d exceed envelope bound %d", len(hashes), envelope.MaxDynamicSchemaHashes)
+	if len(seen) > envelope.MaxDynamicSchemaHashes {
+		return fmt.Errorf("persisted dynamic schema hashes %d exceed envelope bound %d", len(seen), envelope.MaxDynamicSchemaHashes)
 	}
 	return nil
 }

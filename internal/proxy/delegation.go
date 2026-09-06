@@ -122,12 +122,16 @@ func (h *proxyHandler) handleDelegationControl(w http.ResponseWriter, r *http.Re
 			"labelled_handles":    h.server.delegation.store.LabelHandles(request.RunID, request.EnclaveEntryID),
 		})
 	case delegationControlPath + "reconcile":
+		var request struct{}
+		if !decodeDelegationJSON(w, r, &request) {
+			return
+		}
 		// Reconcile explicitly clears the recovery-incomplete flag once
 		// AWF has inspected (and, via revoke/revoke-by-labels, revoked)
 		// any outstanding labelled state from a prior restart, letting new
 		// dynamic admissions resume.
-		h.server.delegation.store.MarkReconciled()
-		if !h.persistDelegationState(w) {
+		if err := h.server.delegation.store.MarkReconciledAndSaveState(h.server.delegation.statePath); err != nil {
+			httputil.WriteErrorResponse(w, http.StatusInternalServerError, "delegation_state_persist_failed", "delegation state persistence failed")
 			return
 		}
 		httputil.WriteJSONResponse(w, http.StatusOK, map[string]bool{"reconciled": true})
