@@ -212,7 +212,7 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 	}
 
 	// Start a DIFC pipeline span covering all phases for this request
-	ctx, difcSpan := tracing.StartDIFCPipelineSpan(ctx, h.GetTracer(), toolName, r.URL.Path)
+	ctx, difcSpan := tracing.StartDIFCPipelineSpan(ctx, h.GetTracer(), toolName, s.logSafePath(r.URL.Path))
 	defer difcSpan.End()
 
 	if !s.guardInitialized {
@@ -231,7 +231,7 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 		Capabilities:     s.Capabilities,
 		EnforcementMode:  s.Mode,
 		BackendCaller:    backend,
-		SensitiveLogging: s.enclave != nil || s.delegation != nil,
+		SensitiveLogging: s.sensitiveLogging(),
 	}
 	ctx, pre, err := guard.RunPipelinePrePhases(ctx, pipelineIn)
 	if err != nil {
@@ -262,7 +262,7 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 	var resp *http.Response
 	var respBody []byte
 
-	fwdCtx, fwdSpan := tracing.StartProxyForwardSpan(ctx, h.GetTracer(), toolName, r.URL.Path, h.server.upstreamHost())
+	fwdCtx, fwdSpan := tracing.StartProxyForwardSpan(ctx, h.GetTracer(), toolName, s.logSafePath(r.URL.Path), h.server.upstreamHost())
 	defer fwdSpan.End()
 
 	// Artifact ZIP downloads are streamed directly to the client after the authorization
@@ -363,7 +363,7 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 			if filtered.GetFilteredCount() > 0 {
 				logHandler.Printf("[DIFC] Filtered %d items", filtered.GetFilteredCount())
 				logger.LogInfo("proxy", "DIFC filtered %d/%d items for %s %s (tool=%s)",
-					filtered.GetFilteredCount(), filtered.TotalCount, r.Method, path, toolName)
+					filtered.GetFilteredCount(), filtered.TotalCount, r.Method, s.logSafePath(path), toolName)
 			}
 
 			// Strict mode: block entire response if any item filtered
@@ -429,7 +429,7 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 
 // passthrough forwards a request to the upstream GitHub API without DIFC filtering.
 func (h *proxyHandler) passthrough(w http.ResponseWriter, r *http.Request, path string) {
-	logHandler.Printf("passthrough %s %s", r.Method, path)
+	logHandler.Printf("passthrough %s %s", r.Method, h.server.logSafePath(path))
 
 	var body io.Reader
 	if r.Body != nil {
@@ -491,11 +491,7 @@ func (h *proxyHandler) forwardAndReadBody(
 	// Enclave and delegation modes admit only private, dynamically-discovered
 	// repository paths; never write the raw path to logs or error messages in
 	// those modes, only its non-reversible hash.
-	sensitive := h.server.enclave != nil || h.server.delegation != nil
-	pathForLog := path
-	if sensitive {
-		pathForLog = util.HashForLog(path, 16, "path:")
-	}
+	pathForLog := h.server.logSafePath(path)
 	logHandler.Printf("forwardAndReadBody: %s %s", method, pathForLog)
 	resp, err := h.server.forwardToGitHub(ctx, method, path, body, contentType, clientAuth)
 	if err != nil {
@@ -536,7 +532,7 @@ func (h *proxyHandler) streamArtifactResponse(
 	resp, err := h.server.forwardToGitHub(ctx, r.Method, path, nil, "", clientAuth)
 	if err != nil {
 		rejectProxyRequest(w, fwdSpan, http.StatusBadGateway, "bad_gateway", "upstream request failed",
-			fmt.Errorf("%s %s: %w", r.Method, path, err))
+			fmt.Errorf("%s %s: %w", r.Method, h.server.logSafePath(path), err))
 		return false
 	}
 	defer resp.Body.Close()

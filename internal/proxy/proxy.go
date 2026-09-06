@@ -23,6 +23,7 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/mcp"
+	"github.com/github/gh-aw-mcpg/internal/sanitize"
 	"github.com/github/gh-aw-mcpg/internal/tracing"
 	"github.com/github/gh-aw-mcpg/internal/util"
 )
@@ -132,13 +133,21 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		}
 	}
 
+	// Enclave and delegation profiles admit private repositories that are
+	// chosen at runtime by the controller, so the selector, its request paths,
+	// and the run/entry/invocation identifiers bound to it are all secrets.
+	// Enable process-wide redaction before anything else in the request path
+	// can log, so a missed call site cannot disclose them under DEBUG=*.
+	if cfg.Enclave != nil || delegation != nil {
+		sanitize.EnablePrivateSelectorRedaction()
+	}
+
 	apiURL := cfg.GitHubAPIURL
 	if apiURL == "" {
 		apiURL = DefaultGitHubAPIBase
 	}
 	apiURL = strings.TrimRight(apiURL, "/")
 	logProxy.Printf("Using upstream GitHub API URL: %s", apiURL)
-
 	// Initialize DIFC components (defaults to filter mode for the proxy).
 	// NewComponents returns any parse error so we can warn without parsing twice.
 	difcComponents, difcParseErr := difc.NewComponents(cfg.DIFCMode, difc.EnforcementFilter)
@@ -282,10 +291,32 @@ func (s *Server) Handler() http.Handler {
 		server:       s,
 		CachedTracer: tracing.CachedTracer{Tracer: tracing.Tracer()},
 	}
-	if s.enclave != nil {
+	// Delegation mode admits private repositories the same way enclave mode
+	// does, so the request path is invocation-scoped secret material and must
+	// not be recorded as a span attribute either.
+	if s.enclave != nil || s.delegation != nil {
 		return tracing.WrapHTTPHandlerWithoutPath(handler, "proxy.request")
 	}
 	return tracing.WrapHTTPHandler(handler, "proxy.request")
+}
+
+// sensitiveLogging reports whether this server admits private repositories
+// chosen at runtime (enclave or delegation mode). In those modes repository
+// selectors, request paths, and the run/entry/invocation identifiers bound to
+// them are secret and must only ever be logged as stable hashes.
+func (s *Server) sensitiveLogging() bool {
+	return s.enclave != nil || s.delegation != nil
+}
+
+// logSafePath renders an upstream API path for logs, error strings, and span
+// attributes. In enclave and delegation modes the path embeds a private
+// repository selector plus issue/PR/ref identifiers, so it is replaced with a
+// stable hash that still correlates across log lines.
+func (s *Server) logSafePath(path string) string {
+	if !s.sensitiveLogging() {
+		return path
+	}
+	return util.HashForLog(path, 16, "path:")
 }
 
 // restBackendCaller translates guard CallTool requests into GitHub REST API
@@ -305,7 +336,7 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 	// Enclave and delegation modes admit only private, dynamically-discovered
 	// repository paths; never write raw path/owner/repo selectors to logs in
 	// those modes, only their non-reversible hashes.
-	sensitive := r.server.enclave != nil || r.server.delegation != nil
+	sensitive := r.server.sensitiveLogging()
 
 	var (
 		apiPath                                 string
@@ -364,11 +395,7 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 		return nil, fmt.Errorf("unsupported tool: %s", toolName)
 	}
 
-	apiPathForLog := apiPath
-	if sensitive {
-		apiPathForLog = util.HashForLog(apiPath, 16, "path:")
-	}
-	logProxy.Printf("restBackendCaller: %s → GET %s", toolName, apiPathForLog)
+	logProxy.Printf("restBackendCaller: %s → GET %s", toolName, r.server.logSafePath(apiPath))
 
 	// Use the server's configured token for enrichment calls rather than the
 	// client's auth header. Enrichment needs org-level visibility (e.g. to get

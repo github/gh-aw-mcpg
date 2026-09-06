@@ -45,9 +45,10 @@ type Store struct {
 	dynamicSchemaHashes map[string]struct{}
 
 	// recoveryIncomplete is set when the controller could not fully
-	// reconstruct labelled live delegations after a restart. While set, new
-	// dynamic admissions are refused; confirms of already-reconstructed
-	// identities and revocations still succeed.
+	// reconstruct labelled live delegations after a restart. A failed
+	// recovery always yields a store with zero identities indexed, so while
+	// the flag is set every data-plane authorization is refused as well as
+	// every new dynamic admission. Only revocations still succeed.
 	recoveryIncomplete bool
 }
 
@@ -75,8 +76,9 @@ func NewStore(envelope *Envelope, generation uint64) (*Store, error) {
 }
 
 // IsRecoveryIncomplete reports whether restart reconstruction left this Store
-// unable to vouch for prior state. Callers must fail closed for new dynamic
-// admissions while this is true.
+// unable to vouch for prior state. When true the Store holds zero identities
+// and both new dynamic admissions and data-plane authorizations are refused
+// until MarkReconciled clears the flag.
 func (s *Store) IsRecoveryIncomplete() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -378,6 +380,13 @@ func (s *Store) authorize(executorBearer, repository, tool string, bindingMatche
 	now := time.Now()
 	s.cleanupExpiredLocked(now)
 
+	// A store whose recovery failed carries no identities, so no bearer can
+	// match below. Refusing up front makes that guarantee explicit and
+	// independent of the loader: if a future change ever reconstructs some
+	// state before detecting corruption, the data plane still fails closed.
+	if s.recoveryIncomplete {
+		return nil, fmt.Errorf("delegation state recovery is incomplete")
+	}
 	if !now.Before(s.envelope.ExpiresAt) {
 		return nil, fmt.Errorf("delegation envelope has expired")
 	}

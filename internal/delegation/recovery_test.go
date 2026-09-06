@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -417,4 +418,257 @@ func TestSaveState_ConcurrentCallsRemainConsistent(t *testing.T) {
 		_, err := reloaded.CreateOrConfirm(req)
 		assert.NoError(t, err, "identity for invocation %d must have survived concurrent persistence", i)
 	}
+}
+
+// persistedIdentity builds a live identity that validates against
+// validEnvelope() so tests only need to vary the fields under test.
+func persistedIdentity(handle, bearer, invocationID string, now time.Time) Identity {
+	return Identity{
+		Handle:              handle,
+		ExecutorBearer:      bearer,
+		RunID:               "run-123",
+		EnclaveBackend:      "awf-enclave",
+		EnclaveEntryID:      "entry-1",
+		InvocationID:        invocationID,
+		Repository:          "github/gh-aw",
+		ToolPolicy:          ToolPolicyGitHubRepositoryReadV1,
+		SchemaHash:          "sha256:abc",
+		ExpiresAt:           now.Add(time.Hour),
+		InvocationExpiresAt: now.Add(time.Hour),
+		PolicyGeneration:    1,
+		IdempotencyKey:      "idem-" + handle,
+		CreatedAt:           now,
+	}
+}
+
+// writePersistedIdentities writes a checksummed current-version state file
+// containing identities, keyed by idempotency key exactly as SaveState would
+// key them if the file had been produced before duplicate detection existed.
+func writePersistedIdentities(t *testing.T, path string, identities ...Identity) {
+	t.Helper()
+	entries := make([]string, 0, len(identities))
+	for i, id := range identities {
+		entries = append(entries, fmt.Sprintf(`%q:%s`, fmt.Sprintf("k%d", i), marshalJSON(id)))
+	}
+	body := fmt.Sprintf(`{"version":2,"generation":1,"recovery_incomplete":false,"identities":{%s}}`, strings.Join(entries, ","))
+	writeStateWithChecksum(t, path, []byte(body))
+}
+
+// assertFailedClosedRecovery asserts the complete fail-closed contract: the
+// store reports incomplete recovery, holds zero identities in every index, and
+// refuses both new admissions and data-plane authorization for every bearer
+// that appeared in the rejected state file.
+func assertFailedClosedRecovery(t *testing.T, store *Store, bearers ...string) {
+	t.Helper()
+	assert := assert.New(t)
+	require := require.New(t)
+
+	assert.True(store.IsRecoveryIncomplete(), "recovery must be reported incomplete")
+	assert.Zero(store.Status().LiveIdentityCount, "a failed recovery must restore zero live identities")
+	assert.Empty(store.byHandle, "no identity may be indexed when recovery fails closed")
+	assert.Empty(store.byBearer, "no bearer may be indexed when recovery fails closed")
+	assert.Empty(store.byInvocation, "no invocation tombstone may be indexed when recovery fails closed")
+	assert.Empty(store.byLabel, "no label index entry may survive a failed recovery")
+	assert.Empty(store.dynamicSchemaHashes, "no dynamic schema hash may be restored from a rejected state file")
+	assert.Empty(store.LabelHandles("run-123", "entry-1"), "no labelled handle may survive a failed recovery")
+
+	_, err := store.CreateOrConfirm(validRequest())
+	require.Error(err, "new dynamic admissions must be refused while recovery is incomplete")
+
+	for _, bearer := range bearers {
+		err := store.Authorize(bearer, "run-123", "awf-enclave", "github/gh-aw", "issue_read")
+		require.Errorf(err, "bearer %q from a failed recovery must not authorize", bearer)
+		_, err = store.AuthorizeExecutor(bearer, "github/gh-aw", "issue_read")
+		require.Errorf(err, "bearer %q from a failed recovery must not authorize an executor call", bearer)
+	}
+}
+
+// TestLoadStore_FailsClosedOnDuplicateInvocationOrdering drives both possible
+// orderings of a live/terminal duplicate pair explicitly. The persisted
+// identity map has randomized iteration order, so a loader that indexed as it
+// scanned produced a different store depending on which half it saw first:
+// live-then-terminal left an authorized orphan bearer behind, while
+// terminal-then-live did not. Recovery must fail closed identically in both
+// directions and for every liveness combination.
+func TestLoadStore_FailsClosedOnDuplicateInvocationOrdering(t *testing.T) {
+	now := time.Now()
+
+	live := persistedIdentity("dlg_live", "dlgbearer_live", "inv-1", now)
+
+	revoked := persistedIdentity("dlg_revoked", "dlgbearer_revoked", "inv-1", now)
+	revoked.Revoked = true
+
+	expired := persistedIdentity("dlg_expired", "dlgbearer_expired", "inv-1", now)
+	expired.ExpiresAt = now.Add(-time.Minute)
+
+	secondRevoked := persistedIdentity("dlg_revoked2", "dlgbearer_revoked2", "inv-1", now)
+	secondRevoked.Revoked = true
+
+	cases := []struct {
+		name       string
+		identities []Identity
+	}{
+		{"live before revoked", []Identity{live, revoked}},
+		{"revoked before live", []Identity{revoked, live}},
+		{"live before expired", []Identity{live, expired}},
+		{"expired before live", []Identity{expired, live}},
+		{"both terminal", []Identity{revoked, secondRevoked}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			envelope := validEnvelope()
+			path := filepath.Join(t.TempDir(), "duplicate-ordering-state.json")
+			writePersistedIdentities(t, path, tc.identities...)
+
+			reloaded, err := LoadStore(path, envelope, 1)
+			require.NoError(t, err)
+
+			bearers := make([]string, 0, len(tc.identities))
+			for _, id := range tc.identities {
+				bearers = append(bearers, id.ExecutorBearer)
+			}
+			assertFailedClosedRecovery(t, reloaded, bearers...)
+		})
+	}
+}
+
+// TestLoadStore_FailsClosedOnDuplicateHandleOrBearer covers the other two ways
+// a crafted or legacy state file can make the in-memory indexes diverge from
+// the file: two records sharing a handle collide in byHandle, and two sharing
+// an executor bearer collide in byBearer, in both cases silently discarding
+// one record while leaving the other authorized.
+func TestLoadStore_FailsClosedOnDuplicateHandleOrBearer(t *testing.T) {
+	now := time.Now()
+
+	t.Run("duplicate handle", func(t *testing.T) {
+		first := persistedIdentity("dlg_same", "dlgbearer_one", "inv-1", now)
+		second := persistedIdentity("dlg_same", "dlgbearer_two", "inv-2", now)
+
+		path := filepath.Join(t.TempDir(), "duplicate-handle-state.json")
+		writePersistedIdentities(t, path, first, second)
+
+		reloaded, err := LoadStore(path, validEnvelope(), 1)
+		require.NoError(t, err)
+		assertFailedClosedRecovery(t, reloaded, "dlgbearer_one", "dlgbearer_two")
+	})
+
+	t.Run("duplicate executor bearer", func(t *testing.T) {
+		first := persistedIdentity("dlg_one", "dlgbearer_same", "inv-1", now)
+		second := persistedIdentity("dlg_two", "dlgbearer_same", "inv-2", now)
+
+		path := filepath.Join(t.TempDir(), "duplicate-bearer-state.json")
+		writePersistedIdentities(t, path, first, second)
+
+		reloaded, err := LoadStore(path, validEnvelope(), 1)
+		require.NoError(t, err)
+		assertFailedClosedRecovery(t, reloaded, "dlgbearer_same")
+	})
+}
+
+// TestLoadStore_FailsClosedDiscardsAlreadyScannedIdentities pins the ordering
+// property directly: several perfectly valid identities precede the corrupt
+// one in handle order, so a loader that indexed as it scanned would leave them
+// live. None of their bearers may authorize.
+func TestLoadStore_FailsClosedDiscardsAlreadyScannedIdentities(t *testing.T) {
+	now := time.Now()
+	good1 := persistedIdentity("dlg_aaa", "dlgbearer_aaa", "inv-1", now)
+	good2 := persistedIdentity("dlg_bbb", "dlgbearer_bbb", "inv-2", now)
+	good3 := persistedIdentity("dlg_ccc", "dlgbearer_ccc", "inv-3", now)
+	// Invalid: bound to a repository the active envelope does not allow.
+	bad := persistedIdentity("dlg_zzz", "dlgbearer_zzz", "inv-4", now)
+	bad.Repository = "github/not-allowed"
+
+	path := filepath.Join(t.TempDir(), "partial-scan-state.json")
+	writePersistedIdentities(t, path, good1, good2, good3, bad)
+
+	reloaded, err := LoadStore(path, validEnvelope(), 1)
+	require.NoError(t, err)
+	assertFailedClosedRecovery(t, reloaded,
+		"dlgbearer_aaa", "dlgbearer_bbb", "dlgbearer_ccc", "dlgbearer_zzz")
+}
+
+// TestLoadStore_FailsClosedOnPersistedDynamicSchemaHashViolations rejects a
+// dynamic schema hash set the active envelope would never have admitted.
+// Restoring it would silently widen the runtime schema bound CreateOrConfirm
+// enforces, and would leave the in-memory bound diverged from the envelope.
+func TestLoadStore_FailsClosedOnPersistedDynamicSchemaHashViolations(t *testing.T) {
+	t.Run("set under a closed-set envelope", func(t *testing.T) {
+		envelope := validEnvelope() // AllowedSchemaHashes is non-empty
+		path := filepath.Join(t.TempDir(), "static-envelope-state.json")
+		body := `{"version":2,"generation":1,"recovery_incomplete":false,"identities":{},"dynamic_schema_hashes":["sha256:dynamic"]}`
+		writeStateWithChecksum(t, path, []byte(body))
+
+		reloaded, err := LoadStore(path, envelope, 1)
+		require.NoError(t, err)
+		assert.True(t, reloaded.IsRecoveryIncomplete(), "dynamic hashes under a closed-set envelope must fail closed")
+		assert.Empty(t, reloaded.dynamicSchemaHashes)
+	})
+
+	t.Run("set wider than the envelope bound", func(t *testing.T) {
+		envelope := validEnvelope()
+		envelope.AllowedSchemaHashes = nil
+		envelope.MaxDynamicSchemaHashes = 1
+		path := filepath.Join(t.TempDir(), "oversized-schema-state.json")
+		body := `{"version":2,"generation":1,"recovery_incomplete":false,"identities":{},"dynamic_schema_hashes":["sha256:one","sha256:two"]}`
+		writeStateWithChecksum(t, path, []byte(body))
+
+		reloaded, err := LoadStore(path, envelope, 1)
+		require.NoError(t, err)
+		assert.True(t, reloaded.IsRecoveryIncomplete(), "an oversized dynamic hash set must fail closed")
+		assert.Empty(t, reloaded.dynamicSchemaHashes)
+	})
+}
+
+// TestLoadStore_FailsClosedOnLegacyVersionRefusesEveryPersistedBearer extends
+// the legacy-version case to the full contract: a v1 file may have been
+// written by a build with different invariants, so none of its bearers may
+// authorize and nothing may be indexed.
+func TestLoadStore_FailsClosedOnLegacyVersionRefusesEveryPersistedBearer(t *testing.T) {
+	envelope := validEnvelope()
+	path := filepath.Join(t.TempDir(), "legacy-v1-full-state.json")
+
+	id := persistedIdentity("dlg_legacy", "dlgbearer_legacy", "inv-1", time.Now())
+	body := fmt.Sprintf(`{"version":1,"generation":1,"recovery_incomplete":false,"identities":{"k0":%s}}`, marshalJSON(id))
+	writeStateWithChecksum(t, path, []byte(body))
+
+	reloaded, err := LoadStore(path, envelope, 1)
+	require.NoError(t, err)
+	assertFailedClosedRecovery(t, reloaded, "dlgbearer_legacy")
+}
+
+// TestLoadStore_FailsClosedOnGenerationMismatchRefusesPersistedBearer covers a
+// state file written under a superseded policy generation.
+func TestLoadStore_FailsClosedOnGenerationMismatchRefusesPersistedBearer(t *testing.T) {
+	envelope := validEnvelope()
+	path := filepath.Join(t.TempDir(), "generation-mismatch-state.json")
+
+	id := persistedIdentity("dlg_stale", "dlgbearer_stale", "inv-1", time.Now())
+	body := fmt.Sprintf(`{"version":2,"generation":1,"recovery_incomplete":false,"identities":{"k0":%s}}`, marshalJSON(id))
+	writeStateWithChecksum(t, path, []byte(body))
+
+	reloaded, err := LoadStore(path, envelope, 2)
+	require.NoError(t, err)
+	assert.True(t, reloaded.IsRecoveryIncomplete())
+	assert.Zero(t, reloaded.Status().LiveIdentityCount)
+	_, err = reloaded.AuthorizeExecutor("dlgbearer_stale", "github/gh-aw", "issue_read")
+	require.Error(t, err, "a bearer from a superseded generation must not authorize")
+}
+
+// TestLoadStore_CorruptFileRefusesPreCrashBearer confirms the data-plane gate
+// covers a bearer that a caller still holds from before the restart, even
+// though the corrupt file means the store never learned about it.
+func TestLoadStore_CorruptFileRefusesPreCrashBearer(t *testing.T) {
+	envelope := validEnvelope()
+	store, err := NewStore(envelope, 1)
+	require.NoError(t, err)
+	created, err := store.CreateOrConfirm(validRequest())
+	require.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "corrupt-state.json")
+	require.NoError(t, os.WriteFile(path, []byte("not json\n"), 0o600))
+
+	reloaded, err := LoadStore(path, envelope, 1)
+	require.NoError(t, err)
+	assertFailedClosedRecovery(t, reloaded, created.ExecutorBearer)
 }

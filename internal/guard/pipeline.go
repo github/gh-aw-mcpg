@@ -101,7 +101,9 @@ func RunPipelinePrePhases(ctx context.Context, in PipelineInput) (context.Contex
 	// **Phase 0: Get or create agent labels**
 	agentLabels := in.AgentRegistry.GetOrCreate(in.AgentID)
 	logPipeline.Printf("[DIFC] Phase 0: agent=%s secrecy=%v integrity=%v",
-		util.HashIdentifierForLog(in.AgentID), agentLabels.GetSecrecyTags(), agentLabels.GetIntegrityTags())
+		util.HashIdentifierForLog(in.AgentID),
+		logSafeTags(agentLabels.GetSecrecyTags(), in.SensitiveLogging),
+		logSafeTags(agentLabels.GetIntegrityTags(), in.SensitiveLogging))
 
 	// Store tool args in context so LabelResponse (Phase 4) can pass them to the guard.
 	ctx = SetRequestStateInContext(ctx, map[string]interface{}{
@@ -120,7 +122,8 @@ func RunPipelinePrePhases(ctx context.Context, in PipelineInput) (context.Contex
 	}
 	logPipeline.Printf("[DIFC] Phase 1: resource=%s op=%s secrecy=%v integrity=%v",
 		resourceDescForLog, operation,
-		resource.Secrecy.Label.GetTags(), resource.Integrity.Label.GetTags())
+		logSafeTags(resource.Secrecy.Label.GetTags(), in.SensitiveLogging),
+		logSafeTags(resource.Integrity.Label.GetTags(), in.SensitiveLogging))
 
 	// **Phase 2: Coarse-grained access check**
 	coarseOutcome, evalResult := difc.EvaluateCoarseAccess(
@@ -192,4 +195,21 @@ func RunPipelinePhase6(pre *PipelinePreResult, labeledData difc.LabeledData, enf
 		logPipeline.Printf("[DIFC] Phase 6: accumulated labels from resource (agent=%s secrecy=%v integrity=%v)",
 			pre.AgentLabels.AgentID, pre.AgentLabels.GetSecrecyTags(), pre.AgentLabels.GetIntegrityTags())
 	}
+}
+
+// logSafeTags renders DIFC label tags for the debug log. Secrecy and integrity
+// tags embed the repository selector they protect (for example
+// "private:owner/private-repo"), so in enclave and delegation modes each tag is
+// replaced with a stable hash. The hash is stable across lines and processes,
+// so tag identity and cardinality remain diagnosable without disclosing the
+// selector.
+func logSafeTags(tags []difc.Tag, sensitive bool) []difc.Tag {
+	if !sensitive || len(tags) == 0 {
+		return tags
+	}
+	safe := make([]difc.Tag, len(tags))
+	for i, tag := range tags {
+		safe[i] = difc.Tag(util.HashForLog(string(tag), 16, "tag:"))
+	}
+	return safe
 }
