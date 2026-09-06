@@ -1,6 +1,6 @@
 {
-  "lr": "2026-09-05T12:47Z",
-  "run_id": "33966884673",
+  "lr": "2026-09-06T12:46Z",
+  "run_id": "34033989144",
   "monthly_issue": 12406,
   "monthly_month": "2026-09",
   "comments_made": {
@@ -14,7 +14,8 @@
     "12081": "2026-08-29",
     "12125": "2026-08-30",
     "12402": "2026-09-03",
-    "12520": "2026-09-05"
+    "12520": "2026-09-05",
+    "12575": "2026-09-06"
   },
   "fixes": {
     "10662": "2026-08-04",
@@ -37,16 +38,18 @@
     "12215_rust_guard_dedupe": "2026-08-31 (PR created: repo-assist/improve-rust-guard-dedupe-tool-names, closes #12215)",
     "12327_guard_coverage_gap": "2026-09-02 (PR created: repo-assist/fix-issue-12327-guard-coverage-gap, closes #12327, added mark_answer/unmark_answer to WRITE_OPERATIONS, resolve_thread to READ_WRITE_OPERATIONS in tools.rs, added DIFC match arms + tests in tool_rules.rs; cargo build/test 655/655 pass, clippy clean)",
     "12459_split_repo_id_dedupe": "2026-09-04 (PR created: repo-assist/fix-issue-12459-split-repo-id, closes #12459, pub(crate) split_repo_id + reuse in tool_rules.rs, cargo build/test 657/657 pass, clippy clean)",
-    "12520_guard_coverage_gap": "2026-09-05 (PR created: repo-assist/fix-issue-12520-guard-coverage-gap, closes #12520, added custom_properties_write to READ_WRITE_OPERATIONS, create_repository_ruleset to WRITE_OPERATIONS, DIFC match arms for find_duplicate/repository_ruleset_read/custom_properties_read/custom_properties_write/create_repository_ruleset in tool_rules.rs; cargo build/test 662/662 pass, clippy clean; commented on #12520 linking PR)"
+    "12520_guard_coverage_gap": "2026-09-05 (PR created: repo-assist/fix-issue-12520-guard-coverage-gap, closes #12520, added custom_properties_write to READ_WRITE_OPERATIONS, create_repository_ruleset to WRITE_OPERATIONS, DIFC match arms for find_duplicate/repository_ruleset_read/custom_properties_read/custom_properties_write/create_repository_ruleset in tool_rules.rs; cargo build/test 662/662 pass, clippy clean; commented on #12520 linking PR)",
+    "12575_hash_audit_dedupe": "2026-09-06 (PR created: repo-assist/fix-issue-12575-hash-audit-dedupe, closes #12575, added util.HashForLog(value,hexLen,prefix) shared helper, HashIdentifierForLog and delegation.hashForAudit both delegate to it; go build/vet/test pass)"
   },
-  "notes": "2026-09-05 12:47 run: Tasks 3+2 selected. Task 3: fixed guard coverage gap issue #12520 (very similar pattern to prior #12327/#12459 fixes - clean, well-specified, low-risk). Added missing tool classifications to tools.rs and DIFC label match arms to tool_rules.rs following existing patterns (apply_repo_visibility_secrecy + writer/private_writer integrity). Added 5 new unit tests. All 662 tests pass, clippy clean. Task 2: commented on #12520 linking the fix PR - this doubled as both fix (Task 3) and comment (Task 2) work on the same issue. Reviewed other recent issues (#12519, #12523, #12524, #12504) - all are recurring automated bot noise (GHCR tracker auth failure, log analyzer no-safe-outputs, GPL checker success, smoke test group) not warranting fresh comments this run since prior similar issues already exist in backlog (#12449 tracks the log-analyzer no-safe-outputs recurrence). Task 11: updated monthly issue #12406 - added new PR #12520 to suggested actions, added workflow-failure issues #12519, #12523 to backlog.",
+  "notes": "2026-09-06 12:46 run: Tasks 3+2 selected. Task 3: fixed duplicate-code issue #12575 (SHA-256 redaction helper duplicated between internal/util.HashIdentifierForLog and internal/delegation.hashForAudit) - low risk pure refactor, consolidated into util.HashForLog(value,hexLen,prefix). Build/vet/test all pass, no behavior change. Task 2: commented on #12575 linking the fix PR - doubled as fix+comment work on same issue. Reviewed #12574 (Identity/CreateOrConfirmRequest field mapping dup) as an alternative candidate but deferred - it's a higher-risk security-sensitive change (binding tuple equality logic) better suited for a future run with more careful review. Task 11: updated monthly issue #12406 - added PR #12575 and comment to suggested actions, added new workflow-failure issues #12541, #12572, #12578 to backlog list.",
   "cursor": {
-    "issues": 12520,
+    "issues": 12575,
     "labels": 12520
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
     "repo-assist/fix-issue-12459-split-repo-id",
-    "repo-assist/fix-issue-12520-guard-coverage-gap"
+    "repo-assist/fix-issue-12520-guard-coverage-gap",
+    "repo-assist/fix-issue-12575-hash-audit-dedupe"
   ]
 }
