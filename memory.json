@@ -1,6 +1,6 @@
 {
-  "lr": "2026-09-08T12:51Z",
-  "run_id": "34228230543",
+  "lr": "2026-09-09T12:51Z",
+  "run_id": "34353228645",
   "monthly_issue": 12406,
   "monthly_month": "2026-09",
   "comments_made": {
@@ -17,7 +17,8 @@
     "12520": "2026-09-05",
     "12575": "2026-09-06",
     "12630": "2026-09-07",
-    "12726": "2026-09-08 (no comment needed, fixed directly)"
+    "12726": "2026-09-08 (no comment needed, fixed directly)",
+    "12793": "2026-09-09"
   },
   "fixes": {
     "10662": "2026-08-04",
@@ -43,18 +44,18 @@
     "12520_guard_coverage_gap": "2026-09-05 (PR created: repo-assist/fix-issue-12520-guard-coverage-gap, closes #12520, added custom_properties_write to READ_WRITE_OPERATIONS, create_repository_ruleset to WRITE_OPERATIONS, DIFC match arms for find_duplicate/repository_ruleset_read/custom_properties_read/custom_properties_write/create_repository_ruleset in tool_rules.rs; cargo build/test 662/662 pass, clippy clean; commented on #12520 linking PR)",
     "12575_hash_audit_dedupe": "2026-09-06 (PR created: repo-assist/fix-issue-12575-hash-audit-dedupe, closes #12575, added util.HashForLog(value,hexLen,prefix) shared helper, HashIdentifierForLog and delegation.hashForAudit both delegate to it; go build/vet/test pass)",
     "12630_dedupe_random_hex": "2026-09-07 (PR created: repo-assist/eng-dedupe-delegation-token-20260907, closes #12630, generateOpaqueToken now delegates to util.RandomHex, removed dup crypto/rand+hex imports from store.go; go build/vet/test pass)",
-    "12726_rust_guard_tool_name_constants": "2026-09-08 (PR created: repo-assist/fix-issue-12726-rust-guard-tool-name-constants, closes #12726, added tool_names::GET_COMMIT and tool_names::SEARCH_REPOSITORIES constants, replaced production literal sites in backend.rs/helpers.rs/response_items.rs/response_paths.rs/tool_rules.rs; cargo build/test 666/666 pass, clippy clean)"
+    "12726_rust_guard_tool_name_constants": "2026-09-08 (PR created: repo-assist/fix-issue-12726-rust-guard-tool-name-constants, closes #12726, added tool_names::GET_COMMIT and tool_names::SEARCH_REPOSITORIES constants, replaced production literal sites in backend.rs/helpers.rs/response_items.rs/response_paths.rs/tool_rules.rs; cargo build/test 666/666 pass, clippy clean)",
+    "12793_rust_guard_search_code_constant": "2026-09-09 (PR created: repo-assist/fix-issue-12793-search-code-constant, closes #12793, added tool_names::SEARCH_CODE constant to labels/constants.rs, replaced literal at 7 sites in lib.rs/labels/mod.rs/labels/tool_rules.rs; cargo build/test 666/666 pass, clippy clean)",
+    "guard_policy_godocs": "2026-09-09 (PR created: repo-assist/improve-guard-policy-godocs, Task 5 coding improvement - added godoc comments to GuardPolicy/AllowOnlyPolicy custom JSON marshal/unmarshal methods in internal/config/guard_policy.go; go build/vet/test pass)"
   },
-  "notes": "2026-09-08 12:51 run: Tasks 3+8 selected. Task 3 (Fix): implemented #12726 (rust-guard tool-name literal centralization for get_commit and search_repositories) - well-scoped low-risk refactor issue, PR created. Task 8 (Performance): reviewed #12725 (go-sdk module review, no actionable perf item) and did not find a strong new performance-only candidate this run beyond issue fixes already tracked; deferred to a future run once open_ra_prs are reviewed by maintainer. Task 11: updated monthly issue #12406 with new PR, removed stale open_ra_prs no longer relevant if merged/closed (need maintainer verification next run).",
+  "notes": "2026-09-09 12:51 run: Tasks 3+5 selected. Task 3 (Fix): implemented #12793 (rust-guard tool-name literal centralization for search_code) - well-scoped low-risk refactor issue matching prior #12726 pattern, PR created, commented on issue. Task 5 (Coding Improvements): added missing godoc comments to GuardPolicy/AllowOnlyPolicy custom JSON marshal/unmarshal methods in internal/config/guard_policy.go (purely additive, matches AGENTS.md convention, no existing repo-assist PR covered this). Also reviewed #6513 duplicate-code parent issue - both sub-issues (#6514, #6516) already closed and current wasm_parse.go already has a shared parseDIFCTagsFromAny helper, so no action needed there; #12792 go-fan BurntSushi/toml review had no actionable improvement. Task 11: updated monthly issue #12406 - verified all previously tracked open_ra_prs (#12533, #12587, #12646, #12736) merged, all investigate-tagged issues (#12679, #12682, #12683, #12702, #12719, #12722, #12725) closed, stale smoke-test PRs (#12730, #12727, #12710) closed/merged; added two new PRs to suggested actions list.",
   "cursor": {
-    "issues": 12734,
+    "issues": 12799,
     "labels": 12520
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/fix-issue-12520-guard-coverage-gap",
-    "repo-assist/fix-issue-12575-hash-audit-dedupe",
-    "repo-assist/eng-dedupe-delegation-token-20260907",
-    "repo-assist/fix-issue-12726-rust-guard-tool-name-constants"
+    "repo-assist/fix-issue-12793-search-code-constant",
+    "repo-assist/improve-guard-policy-godocs"
   ]
 }
