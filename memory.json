@@ -1,6 +1,6 @@
 {
-  "lr": "2026-09-11T12:52Z",
-  "run_id": "34600821387",
+  "lr": "2026-09-12T12:46Z",
+  "run_id": "34694509235",
   "monthly_issue": 12406,
   "monthly_month": "2026-09",
   "comments_made": {
@@ -50,15 +50,18 @@
     "12793_rust_guard_search_code_constant": "2026-09-09 (PR created: repo-assist/fix-issue-12793-search-code-constant, closes #12793, added tool_names::SEARCH_CODE constant to labels/constants.rs, replaced literal at 7 sites in lib.rs/labels/mod.rs/labels/tool_rules.rs; cargo build/test 666/666 pass, clippy clean)",
     "guard_policy_godocs": "2026-09-09 (PR created: repo-assist/improve-guard-policy-godocs, Task 5 coding improvement - added godoc comments to GuardPolicy/AllowOnlyPolicy custom JSON marshal/unmarshal methods in internal/config/guard_policy.go; go build/vet/test pass)",
     "12864_list_search_issues_constants": "2026-09-10 (PR created: repo-assist/fix-issue-12864-list-search-issues-constants, closes #12864, added tool_names::LIST_ISSUES and tool_names::SEARCH_ISSUES constants to labels/constants.rs, replaced production literal sites in lib.rs/labels/response_paths.rs/labels/response_items.rs/labels/tool_rules.rs/labels/helpers.rs; cargo build/test 666/666 pass, clippy clean)",
-    "12952_rust_guard_dedup_governance_comment_node_id": "2026-09-11 (PR created: repo-assist/fix-issue-12952-rust-guard-dedup-governance-comment-node-id, closes #12952, added test-only GOVERNANCE_TOOLS const shared across 3 test functions in tool_rules.rs, added field_names::COMMENT_NODE_ID constant replacing 4 raw 'commentNodeID' literals in production .get() calls; cargo build/test 666/666 pass, clippy clean)"
+    "12952_rust_guard_dedup_governance_comment_node_id": "2026-09-11 (PR created: repo-assist/fix-issue-12952-rust-guard-dedup-governance-comment-node-id, closes #12952, added test-only GOVERNANCE_TOOLS const shared across 3 test functions in tool_rules.rs, added field_names::COMMENT_NODE_ID constant replacing 4 raw 'commentNodeID' literals in production .get() calls; cargo build/test 666/666 pass, clippy clean)",
+    "eng_bump_x_term_x_text_20260912": "2026-09-12 (PR created: repo-assist/eng-bump-x-term-text-20260912, bumps golang.org/x/term v0.45.0->v0.46.0 and golang.org/x/text v0.41.0->v0.42.0 (also transitively x/sync, x/sys); make build/test pass)",
+    "improve_rust_guard_secret_discussion_constants_20260912": "2026-09-12 (PR created: repo-assist/improve-rust-guard-dedupe-secret-discussion-constants, added tool_names::DISCUSSION_COMMENT_WRITE/FIND_DUPLICATE/SET_SECRET/DELETE_SECRET constants to labels/constants.rs, replaced literal sites in lib.rs/tools.rs/labels/tool_rules.rs; cargo build/test 666/666 pass, clippy clean)"
   },
-  "notes": "2026-09-11 12:52 run: Tasks 1+3 selected. Task 1 (labelling): labelled 3 unlabelled open items - #12894 (Smoke Copilot Issue Group), #12947 (Smoke AllowOnly Issue Group), #12956 (Smoke Test: Copilot result) all with automated+smoke-test, consistent with prior similar smoke-test parent/result issues. Task 3 (fix): implemented rust-guard issue #12952 (dedup GOVERNANCE_TOOLS test array across 3 test fns + field_names::COMMENT_NODE_ID constant for 4 production commentNodeID literals, same pattern as prior similar rust-guard dedup fixes); PR created, build/test/clippy all clean (666/666). Task 11: rewrote monthly issue #12406 body entirely (previous body had accumulated 3 stale duplicated sections from prior runs never being cleaned up - now single clean section). Verified #12864 and #12857 (previously in suggested actions) are both closed, removed from list. No open Repo Assist PRs to maintain (Task 6 weight was 0 this run).",
+  "notes": "2026-09-12 12:46 run: Tasks 5+4 selected. Task 4 (engineering): checked go module updates via `go list -m -u`, found only minor patch bumps available for direct deps (golang.org/x/term 0.45.0->0.46.0, golang.org/x/text 0.41.0->0.42.0); bumped both + go mod tidy, build/test pass, PR created. Task 5 (coding improvement): scanned rust-guard for duplicated string literals (established pattern from many prior fixes), found discussion_comment_write/find_duplicate/set_secret/delete_secret each duplicated 2-10x across lib.rs/tools.rs/labels/tool_rules.rs production code; added 4 new tool_names constants, replaced production (non-test) literal sites only; cargo build/test 666/666 pass, clippy clean, cargo fmt clean (reverted unrelated pre-existing fmt drift in backend.rs/mod.rs that fmt wanted to touch, kept diff minimal). Confirmed issue #12952 (previous run's fix) is closed and its Repo Assist PR #12960 merged; noted a near-duplicate open PR #12967 (by Copilot swe-agent, not Repo Assist) also closes #12952 and should be closed by maintainer as superseded. Task 11: updated monthly issue #12406 with new run history entry and refreshed suggested actions list (removed merged/closed prior items, added the two new PRs + the #12967 duplicate-PR note). No open issues found needing Task 1/2/3 attention this run since those tasks weren't selected.",
   "cursor": {
     "issues": 12864,
     "labels": 12956
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/fix-issue-12952-rust-guard-dedup-governance-comment-node-id"
+    "repo-assist/eng-bump-x-term-text-20260912",
+    "repo-assist/improve-rust-guard-dedupe-secret-discussion-constants"
   ]
 }
