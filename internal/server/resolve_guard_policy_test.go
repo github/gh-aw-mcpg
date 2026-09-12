@@ -17,93 +17,107 @@ func validWriteSinkPolicy() *config.GuardPolicy {
 	}
 }
 
-// ---- normalizeScopeKind tests ----
+// ---- NormalizeScopeKind tests ----
 
-func TestNormalizeScopeKind_NilInput(t *testing.T) {
-	result := config.NormalizeScopeKind(nil)
-	assert.Nil(t, result, "nil input should return nil")
-}
-
-func TestNormalizeScopeKind_EmptyMap(t *testing.T) {
-	result := config.NormalizeScopeKind(map[string]interface{}{})
-	require.NotNil(t, result)
-	assert.Empty(t, result, "empty map should return empty copy")
-}
-
-func TestNormalizeScopeKind_NoScopeKindField(t *testing.T) {
-	input := map[string]interface{}{
-		"other_field": "value",
-		"count":       42,
+func TestNormalizeScopeKind(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          map[string]interface{}
+		expectNil      bool
+		wantScopeKind  interface{}
+		hasScopeKind   bool
+		checkOtherKeys map[string]interface{}
+	}{
+		{
+			name:      "nil input returns nil",
+			input:     nil,
+			expectNil: true,
+		},
+		{
+			name:  "empty map returns empty copy",
+			input: map[string]interface{}{},
+		},
+		{
+			name: "no scope_kind field leaves other fields untouched",
+			input: map[string]interface{}{
+				"other_field": "value",
+				"count":       42,
+			},
+			hasScopeKind: false,
+			checkOtherKeys: map[string]interface{}{
+				"other_field": "value",
+				"count":       42,
+			},
+		},
+		{
+			name:          "scope_kind already lowercase is unchanged",
+			input:         map[string]interface{}{"scope_kind": "scoped"},
+			wantScopeKind: "scoped",
+			hasScopeKind:  true,
+		},
+		{
+			name:          "scope_kind uppercase is lowercased",
+			input:         map[string]interface{}{"scope_kind": "SCOPED"},
+			wantScopeKind: "scoped",
+			hasScopeKind:  true,
+		},
+		{
+			name:          "scope_kind with leading/trailing spaces is trimmed and lowercased",
+			input:         map[string]interface{}{"scope_kind": "  Public  "},
+			wantScopeKind: "public",
+			hasScopeKind:  true,
+		},
+		{
+			name:          "scope_kind uppercase with spaces is trimmed and lowercased",
+			input:         map[string]interface{}{"scope_kind": "  OWNER_SCOPED  "},
+			wantScopeKind: "owner_scoped",
+			hasScopeKind:  true,
+		},
+		{
+			name:          "non-string scope_kind is preserved unchanged",
+			input:         map[string]interface{}{"scope_kind": 123},
+			wantScopeKind: 123,
+			hasScopeKind:  true,
+		},
+		{
+			name: "other fields are preserved alongside a normalized scope_kind",
+			input: map[string]interface{}{
+				"scope_kind":    "REPO_SCOPED",
+				"scope_values":  []string{"github/repo"},
+				"min-integrity": "approved",
+			},
+			wantScopeKind: "repo_scoped",
+			hasScopeKind:  true,
+			checkOtherKeys: map[string]interface{}{
+				"scope_values":  []string{"github/repo"},
+				"min-integrity": "approved",
+			},
+		},
 	}
-	result := config.NormalizeScopeKind(input)
-	require.NotNil(t, result)
-	assert.Equal(t, "value", result["other_field"])
-	assert.Equal(t, 42, result["count"])
-	_, hasScopeKind := result["scope_kind"]
-	assert.False(t, hasScopeKind, "scope_kind should not be present when not in input")
-}
 
-func TestNormalizeScopeKind_ScopeKindAlreadyLowercase(t *testing.T) {
-	input := map[string]interface{}{
-		"scope_kind": "scoped",
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := config.NormalizeScopeKind(tt.input)
+			if tt.expectNil {
+				assert.Nil(t, result, "nil input should return nil")
+				return
+			}
+			require.NotNil(t, result)
+			if tt.hasScopeKind {
+				assert.Equal(t, tt.wantScopeKind, result["scope_kind"])
+			} else {
+				_, hasScopeKind := result["scope_kind"]
+				assert.False(t, hasScopeKind, "scope_kind should not be present when not in input")
+			}
+			for k, v := range tt.checkOtherKeys {
+				assert.Equal(t, v, result[k])
+			}
+		})
 	}
-	result := config.NormalizeScopeKind(input)
-	require.NotNil(t, result)
-	assert.Equal(t, "scoped", result["scope_kind"])
-}
-
-func TestNormalizeScopeKind_ScopeKindUppercase(t *testing.T) {
-	input := map[string]interface{}{
-		"scope_kind": "SCOPED",
-	}
-	result := config.NormalizeScopeKind(input)
-	require.NotNil(t, result)
-	assert.Equal(t, "scoped", result["scope_kind"])
-}
-
-func TestNormalizeScopeKind_ScopeKindWithLeadingTrailingSpaces(t *testing.T) {
-	input := map[string]interface{}{
-		"scope_kind": "  Public  ",
-	}
-	result := config.NormalizeScopeKind(input)
-	require.NotNil(t, result)
-	assert.Equal(t, "public", result["scope_kind"])
-}
-
-func TestNormalizeScopeKind_ScopeKindUppercaseWithSpaces(t *testing.T) {
-	input := map[string]interface{}{
-		"scope_kind": "  OWNER_SCOPED  ",
-	}
-	result := config.NormalizeScopeKind(input)
-	require.NotNil(t, result)
-	assert.Equal(t, "owner_scoped", result["scope_kind"])
-}
-
-func TestNormalizeScopeKind_ScopeKindNonString(t *testing.T) {
-	// When scope_kind is not a string, it should be preserved as-is (no normalization)
-	input := map[string]interface{}{
-		"scope_kind": 123,
-	}
-	result := config.NormalizeScopeKind(input)
-	require.NotNil(t, result)
-	assert.Equal(t, 123, result["scope_kind"], "non-string scope_kind should be preserved unchanged")
-}
-
-func TestNormalizeScopeKind_PreservesOtherFieldsWithScopeKind(t *testing.T) {
-	input := map[string]interface{}{
-		"scope_kind":    "REPO_SCOPED",
-		"scope_values":  []string{"github/repo"},
-		"min-integrity": "approved",
-	}
-	result := config.NormalizeScopeKind(input)
-	require.NotNil(t, result)
-	assert.Equal(t, "repo_scoped", result["scope_kind"])
-	assert.Equal(t, []string{"github/repo"}, result["scope_values"])
-	assert.Equal(t, "approved", result["min-integrity"])
 }
 
 func TestNormalizeScopeKind_DoesNotMutateInput(t *testing.T) {
-	// Verify normalizeScopeKind returns a new map and doesn't mutate the input
+	// Verify NormalizeScopeKind returns a new map and doesn't mutate the input.
 	input := map[string]interface{}{
 		"scope_kind": "UPPER",
 	}
@@ -114,392 +128,325 @@ func TestNormalizeScopeKind_DoesNotMutateInput(t *testing.T) {
 
 // ---- resolveGuardPolicy tests ----
 
-func TestResolveGuardPolicy_NilConfig(t *testing.T) {
-	us := &UnifiedServer{cfg: nil}
-
-	policy, source, err := us.resolveGuardPolicy("github")
-
-	require.NoError(t, err)
-	assert.Nil(t, policy, "nil config should return nil policy")
-	assert.Equal(t, legacyPolicySource, source)
-}
-
-func TestResolveGuardPolicy_GlobalPolicyOverride_ValidAllowOnly(t *testing.T) {
-	policy := validAllowOnlyPolicy()
-	cfg := &config.Config{
-		GuardPolicy:       policy,
-		GuardPolicySource: "",
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	result, source, err := us.resolveGuardPolicy("any-server")
-
-	require.NoError(t, err)
-	assert.Equal(t, policy, result)
-	assert.Equal(t, "override", source, "empty GuardPolicySource should default to 'override'")
-}
-
-func TestResolveGuardPolicy_GlobalPolicyOverride_CustomSource(t *testing.T) {
-	policy := validAllowOnlyPolicy()
-	cfg := &config.Config{
-		GuardPolicy:       policy,
-		GuardPolicySource: "cli",
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	result, source, err := us.resolveGuardPolicy("any-server")
-
-	require.NoError(t, err)
-	assert.Equal(t, policy, result)
-	assert.Equal(t, "cli", source)
-}
-
-func TestResolveGuardPolicy_GlobalPolicyOverride_EnvSource(t *testing.T) {
-	policy := validWriteSinkPolicy()
-	cfg := &config.Config{
-		GuardPolicy:       policy,
-		GuardPolicySource: "env",
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	result, source, err := us.resolveGuardPolicy("any-server")
-
-	require.NoError(t, err)
-	assert.Equal(t, policy, result)
-	assert.Equal(t, "env", source)
-}
-
-func TestResolveGuardPolicy_GlobalPolicyOverride_InvalidPolicy(t *testing.T) {
-	// A GuardPolicy with neither AllowOnly nor WriteSink is invalid
-	invalidPolicy := &config.GuardPolicy{}
-	cfg := &config.Config{
-		GuardPolicy: invalidPolicy,
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	result, source, err := us.resolveGuardPolicy("any-server")
-
-	require.Error(t, err, "invalid policy should return error")
-	assert.Nil(t, result)
-	assert.Empty(t, source)
-}
-
-func TestResolveGuardPolicy_ServerNotInConfig(t *testing.T) {
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"other-server": {Type: "http"},
+func TestResolveGuardPolicy(t *testing.T) {
+	tests := []struct {
+		name       string
+		cfg        *config.Config
+		serverID   string
+		wantPolicy *config.GuardPolicy
+		// wantPolicyCheck is used instead of wantPolicy when the returned policy
+		// must be inspected (e.g. it is parsed fresh rather than a pointer we hold).
+		wantPolicyCheck func(t *testing.T, policy *config.GuardPolicy)
+		wantSource      string
+		wantErr         bool
+	}{
+		{
+			name:       "nil config returns legacy",
+			cfg:        nil,
+			serverID:   "github",
+			wantPolicy: nil,
+			wantSource: legacyPolicySource,
 		},
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	policy, source, err := us.resolveGuardPolicy("nonexistent-server")
-
-	require.NoError(t, err)
-	assert.Nil(t, policy)
-	assert.Equal(t, legacyPolicySource, source)
-}
-
-func TestResolveGuardPolicy_NilServerConfig(t *testing.T) {
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"github": nil,
+		{
+			name: "global policy override with valid allow-only, empty source defaults to override",
+			cfg: &config.Config{
+				GuardPolicy:       validAllowOnlyPolicy(),
+				GuardPolicySource: "",
+			},
+			serverID:   "any-server",
+			wantSource: "override",
+			wantPolicyCheck: func(t *testing.T, policy *config.GuardPolicy) {
+				require.NotNil(t, policy)
+				require.NotNil(t, policy.AllowOnly)
+			},
 		},
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	policy, source, err := us.resolveGuardPolicy("github")
-
-	require.NoError(t, err)
-	assert.Nil(t, policy)
-	assert.Equal(t, legacyPolicySource, source)
-}
-
-func TestResolveGuardPolicy_ServerWithValidGuardPolicies(t *testing.T) {
-	// Already tested in guard_policy_parsing_test.go, but adding a write-sink variant
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"github": {
-				Type: "stdio",
-				GuardPolicies: map[string]interface{}{
-					"allow-only": map[string]interface{}{
-						"min-integrity": "approved",
-						"repos":         []interface{}{"github/gh-aw*"},
+		{
+			name: "global policy override with custom source",
+			cfg: &config.Config{
+				GuardPolicy:       validAllowOnlyPolicy(),
+				GuardPolicySource: "cli",
+			},
+			serverID:   "any-server",
+			wantSource: "cli",
+			wantPolicyCheck: func(t *testing.T, policy *config.GuardPolicy) {
+				require.NotNil(t, policy)
+				require.NotNil(t, policy.AllowOnly)
+			},
+		},
+		{
+			name: "global policy override with env source and write-sink policy",
+			cfg: &config.Config{
+				GuardPolicy:       validWriteSinkPolicy(),
+				GuardPolicySource: "env",
+			},
+			serverID:   "any-server",
+			wantSource: "env",
+			wantPolicyCheck: func(t *testing.T, policy *config.GuardPolicy) {
+				require.NotNil(t, policy)
+				require.NotNil(t, policy.WriteSink)
+			},
+		},
+		{
+			name: "global policy override with neither allow-only nor write-sink is invalid",
+			cfg: &config.Config{
+				GuardPolicy: &config.GuardPolicy{},
+			},
+			serverID: "any-server",
+			wantErr:  true,
+		},
+		{
+			name: "server not present in config returns legacy",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"other-server": {Type: "http"},
+				},
+			},
+			serverID:   "nonexistent-server",
+			wantSource: legacyPolicySource,
+		},
+		{
+			name: "nil server config returns legacy",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": nil,
+				},
+			},
+			serverID:   "github",
+			wantSource: legacyPolicySource,
+		},
+		{
+			name: "server with valid guard policies resolves from server config",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": {
+						Type: "stdio",
+						GuardPolicies: map[string]interface{}{
+							"allow-only": map[string]interface{}{
+								"min-integrity": "approved",
+								"repos":         []interface{}{"github/gh-aw*"},
+							},
+						},
 					},
 				},
 			},
+			serverID:   "github",
+			wantSource: "server",
+			wantPolicyCheck: func(t *testing.T, policy *config.GuardPolicy) {
+				require.NotNil(t, policy)
+				require.NotNil(t, policy.AllowOnly)
+				assert.Equal(t, "approved", policy.AllowOnly.MinIntegrity)
+			},
 		},
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	policy, source, err := us.resolveGuardPolicy("github")
-
-	require.NoError(t, err)
-	require.NotNil(t, policy)
-	assert.Equal(t, "server", source)
-	require.NotNil(t, policy.AllowOnly)
-	assert.Equal(t, "approved", policy.AllowOnly.MinIntegrity)
-}
-
-func TestResolveGuardPolicy_ServerWithInvalidGuardPolicies(t *testing.T) {
-	// GuardPolicies that ParseServerGuardPolicy rejects
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"github": {
-				Type: "stdio",
-				GuardPolicies: map[string]interface{}{
-					"allow-only": map[string]interface{}{
-						// missing min-integrity → invalid
-						"repos": "github/gh-aw*",
+		{
+			name: "server with invalid guard policies (missing min-integrity) errors",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": {
+						Type: "stdio",
+						GuardPolicies: map[string]interface{}{
+							"allow-only": map[string]interface{}{
+								"repos": "github/gh-aw*",
+							},
+						},
 					},
 				},
 			},
+			serverID: "github",
+			wantErr:  true,
+		},
+		{
+			name: "no guard policies and no guard field returns legacy",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": {Type: "http", Guard: ""},
+				},
+			},
+			serverID:   "github",
+			wantSource: legacyPolicySource,
+		},
+		{
+			name: "guard field set but guard not present in config returns legacy",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": {Type: "http", Guard: "my-wasm-guard"},
+				},
+				Guards: map[string]*config.GuardConfig{},
+			},
+			serverID:   "github",
+			wantSource: legacyPolicySource,
+		},
+		{
+			name: "guard field set but guard config is nil returns legacy",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": {Type: "http", Guard: "my-guard"},
+				},
+				Guards: map[string]*config.GuardConfig{
+					"my-guard": nil,
+				},
+			},
+			serverID:   "github",
+			wantSource: legacyPolicySource,
+		},
+		{
+			name: "guard config has no policy set returns legacy",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": {Type: "http", Guard: "my-guard"},
+				},
+				Guards: map[string]*config.GuardConfig{
+					"my-guard": {Type: "wasm", Path: "/path/to/guard.wasm", Policy: nil},
+				},
+			},
+			serverID:   "github",
+			wantSource: legacyPolicySource,
+		},
+		{
+			name: "guard config has valid allow-only policy",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": {Type: "http", Guard: "my-guard"},
+				},
+				Guards: map[string]*config.GuardConfig{
+					"my-guard": {Type: "wasm", Policy: validAllowOnlyPolicy()},
+				},
+			},
+			serverID:   "github",
+			wantSource: "config",
+			wantPolicyCheck: func(t *testing.T, policy *config.GuardPolicy) {
+				require.NotNil(t, policy)
+				require.NotNil(t, policy.AllowOnly)
+				assert.Equal(t, config.IntegrityNone, policy.AllowOnly.MinIntegrity)
+			},
+		},
+		{
+			name: "guard config has valid write-sink policy",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": {Type: "http", Guard: "sink-guard"},
+				},
+				Guards: map[string]*config.GuardConfig{
+					"sink-guard": {Type: "wasm", Policy: validWriteSinkPolicy()},
+				},
+			},
+			serverID:   "github",
+			wantSource: "config",
+			wantPolicyCheck: func(t *testing.T, policy *config.GuardPolicy) {
+				require.NotNil(t, policy)
+				require.NotNil(t, policy.WriteSink)
+				assert.Equal(t, []string{"private:myorg"}, policy.WriteSink.Accept)
+			},
+		},
+		{
+			name: "guard config has invalid policy (neither allow-only nor write-sink) errors",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": {Type: "http", Guard: "bad-guard"},
+				},
+				Guards: map[string]*config.GuardConfig{
+					"bad-guard": {Type: "wasm", Policy: &config.GuardPolicy{}},
+				},
+			},
+			serverID: "github",
+			wantErr:  true,
+		},
+		{
+			name: "empty servers map returns legacy",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{},
+			},
+			serverID:   "github",
+			wantSource: legacyPolicySource,
 		},
 	}
-	us := &UnifiedServer{cfg: cfg}
 
-	policy, source, err := us.resolveGuardPolicy("github")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			us := &UnifiedServer{cfg: tt.cfg}
 
-	require.Error(t, err, "missing min-integrity should cause an error")
-	assert.Nil(t, policy)
-	assert.Empty(t, source)
-}
+			policy, source, err := us.resolveGuardPolicy(tt.serverID)
 
-func TestResolveGuardPolicy_NoGuardPolicies_NoGuardField(t *testing.T) {
-	// No GuardPolicies, no Guard field → legacy
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"github": {
-				Type:  "http",
-				Guard: "",
-			},
-		},
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Nil(t, policy)
+				assert.Empty(t, source)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSource, source)
+			if tt.wantPolicyCheck != nil {
+				tt.wantPolicyCheck(t, policy)
+			} else if tt.wantPolicy != nil {
+				assert.Equal(t, tt.wantPolicy, policy)
+			} else {
+				assert.Nil(t, policy)
+			}
+		})
 	}
-	us := &UnifiedServer{cfg: cfg}
-
-	policy, source, err := us.resolveGuardPolicy("github")
-
-	require.NoError(t, err)
-	assert.Nil(t, policy)
-	assert.Equal(t, legacyPolicySource, source)
-}
-
-func TestResolveGuardPolicy_GuardFieldSet_GuardNotInConfig(t *testing.T) {
-	// Guard field set but the named guard doesn't exist in cfg.Guards
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"github": {
-				Type:  "http",
-				Guard: "my-wasm-guard",
-			},
-		},
-		Guards: map[string]*config.GuardConfig{},
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	policy, source, err := us.resolveGuardPolicy("github")
-
-	require.NoError(t, err)
-	assert.Nil(t, policy)
-	assert.Equal(t, legacyPolicySource, source)
-}
-
-func TestResolveGuardPolicy_GuardFieldSet_NilGuardConfig(t *testing.T) {
-	// Guard field set but cfg.Guards[name] is nil
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"github": {
-				Type:  "http",
-				Guard: "my-guard",
-			},
-		},
-		Guards: map[string]*config.GuardConfig{
-			"my-guard": nil,
-		},
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	policy, source, err := us.resolveGuardPolicy("github")
-
-	require.NoError(t, err)
-	assert.Nil(t, policy)
-	assert.Equal(t, legacyPolicySource, source)
-}
-
-func TestResolveGuardPolicy_GuardFieldSet_NilGuardPolicy(t *testing.T) {
-	// Guard exists in cfg.Guards but has no Policy set
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"github": {
-				Type:  "http",
-				Guard: "my-guard",
-			},
-		},
-		Guards: map[string]*config.GuardConfig{
-			"my-guard": {
-				Type:   "wasm",
-				Path:   "/path/to/guard.wasm",
-				Policy: nil,
-			},
-		},
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	policy, source, err := us.resolveGuardPolicy("github")
-
-	require.NoError(t, err)
-	assert.Nil(t, policy)
-	assert.Equal(t, legacyPolicySource, source)
-}
-
-func TestResolveGuardPolicy_GuardFieldSet_ValidGuardPolicy(t *testing.T) {
-	// Guard exists and has a valid AllowOnly policy
-	guardPolicy := validAllowOnlyPolicy()
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"github": {
-				Type:  "http",
-				Guard: "my-guard",
-			},
-		},
-		Guards: map[string]*config.GuardConfig{
-			"my-guard": {
-				Type:   "wasm",
-				Policy: guardPolicy,
-			},
-		},
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	policy, source, err := us.resolveGuardPolicy("github")
-
-	require.NoError(t, err)
-	require.NotNil(t, policy)
-	assert.Equal(t, "config", source)
-	require.NotNil(t, policy.AllowOnly)
-	assert.Equal(t, config.IntegrityNone, policy.AllowOnly.MinIntegrity)
-}
-
-func TestResolveGuardPolicy_GuardFieldSet_WriteSinkGuardPolicy(t *testing.T) {
-	// Guard exists and has a valid WriteSink policy
-	guardPolicy := validWriteSinkPolicy()
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"github": {
-				Type:  "http",
-				Guard: "sink-guard",
-			},
-		},
-		Guards: map[string]*config.GuardConfig{
-			"sink-guard": {
-				Type:   "wasm",
-				Policy: guardPolicy,
-			},
-		},
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	policy, source, err := us.resolveGuardPolicy("github")
-
-	require.NoError(t, err)
-	require.NotNil(t, policy)
-	assert.Equal(t, "config", source)
-	require.NotNil(t, policy.WriteSink)
-	assert.Equal(t, []string{"private:myorg"}, policy.WriteSink.Accept)
-}
-
-func TestResolveGuardPolicy_GuardFieldSet_InvalidGuardPolicy(t *testing.T) {
-	// Guard exists but has an invalid policy (neither AllowOnly nor WriteSink set)
-	invalidPolicy := &config.GuardPolicy{}
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"github": {
-				Type:  "http",
-				Guard: "bad-guard",
-			},
-		},
-		Guards: map[string]*config.GuardConfig{
-			"bad-guard": {
-				Type:   "wasm",
-				Policy: invalidPolicy,
-			},
-		},
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	policy, source, err := us.resolveGuardPolicy("github")
-
-	require.Error(t, err, "empty policy (no AllowOnly or WriteSink) should be invalid")
-	assert.Nil(t, policy)
-	assert.Empty(t, source)
-}
-
-func TestResolveGuardPolicy_EmptyServersMap(t *testing.T) {
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{},
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	policy, source, err := us.resolveGuardPolicy("github")
-
-	require.NoError(t, err)
-	assert.Nil(t, policy)
-	assert.Equal(t, legacyPolicySource, source)
 }
 
 // ---- resolveWriteSinkPolicy tests ----
 
-func TestResolveWriteSinkPolicy_NoPolicy(t *testing.T) {
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"github": {Type: "http"},
+func TestResolveWriteSinkPolicy(t *testing.T) {
+	tests := []struct {
+		name       string
+		cfg        *config.Config
+		serverID   string
+		wantAccept []string // nil means the resolved WriteSinkPolicy itself must be nil
+	}{
+		{
+			name: "no guard policy returns nil write-sink policy",
+			cfg: &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": {Type: "http"},
+				},
+			},
+			serverID: "github",
+		},
+		{
+			name: "write-sink policy is returned",
+			cfg: &config.Config{
+				GuardPolicy:       validWriteSinkPolicy(),
+				GuardPolicySource: "cli",
+			},
+			serverID:   "github",
+			wantAccept: []string{"private:myorg"},
+		},
+		{
+			name: "allow-only policy has no write-sink and returns nil",
+			cfg: &config.Config{
+				GuardPolicy:       validAllowOnlyPolicy(),
+				GuardPolicySource: "cli",
+			},
+			serverID: "github",
+		},
+		{
+			name: "error from resolveGuardPolicy results in nil write-sink policy",
+			cfg: &config.Config{
+				GuardPolicy: &config.GuardPolicy{},
+			},
+			serverID: "github",
+		},
+		{
+			name:     "nil config returns nil write-sink policy",
+			cfg:      nil,
+			serverID: "github",
 		},
 	}
-	us := &UnifiedServer{cfg: cfg}
 
-	result := us.resolveWriteSinkPolicy("github")
-	assert.Nil(t, result, "no guard policy should return nil write-sink policy")
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			us := &UnifiedServer{cfg: tt.cfg}
 
-func TestResolveWriteSinkPolicy_WriteSinkPolicy(t *testing.T) {
-	guardPolicy := validWriteSinkPolicy()
-	cfg := &config.Config{
-		GuardPolicy:       guardPolicy,
-		GuardPolicySource: "cli",
+			result := us.resolveWriteSinkPolicy(tt.serverID)
+
+			if tt.wantAccept == nil {
+				assert.Nil(t, result)
+				return
+			}
+			require.NotNil(t, result)
+			assert.Equal(t, tt.wantAccept, result.Accept)
+		})
 	}
-	us := &UnifiedServer{cfg: cfg}
-
-	result := us.resolveWriteSinkPolicy("github")
-	require.NotNil(t, result)
-	assert.Equal(t, []string{"private:myorg"}, result.Accept)
-}
-
-func TestResolveWriteSinkPolicy_AllowOnlyPolicyReturnsNilWriteSink(t *testing.T) {
-	guardPolicy := validAllowOnlyPolicy()
-	cfg := &config.Config{
-		GuardPolicy:       guardPolicy,
-		GuardPolicySource: "cli",
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	result := us.resolveWriteSinkPolicy("github")
-	assert.Nil(t, result, "allow-only policy has no write-sink")
-}
-
-func TestResolveWriteSinkPolicy_ErrorReturnsNil(t *testing.T) {
-	// Invalid global policy causes resolveGuardPolicy to return an error;
-	// resolveWriteSinkPolicy should return nil in that case.
-	invalidPolicy := &config.GuardPolicy{}
-	cfg := &config.Config{
-		GuardPolicy: invalidPolicy,
-	}
-	us := &UnifiedServer{cfg: cfg}
-
-	result := us.resolveWriteSinkPolicy("github")
-	assert.Nil(t, result, "error from resolveGuardPolicy should result in nil write-sink policy")
-}
-
-func TestResolveWriteSinkPolicy_NilConfig(t *testing.T) {
-	us := &UnifiedServer{cfg: nil}
-	result := us.resolveWriteSinkPolicy("github")
-	assert.Nil(t, result)
 }
