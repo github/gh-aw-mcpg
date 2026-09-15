@@ -66,6 +66,24 @@ func TestRedactedPayloadRenderings(t *testing.T) {
 	assert.NotContains(text, hex.EncodeToString(plain[:])[:16])
 }
 
+func TestKeyedDigestEmptyValue(t *testing.T) {
+	assert.Equal(t, "(none)", KeyedDigest(""), "empty values must not hash to a guessable token")
+}
+
+// TestEnablePayloadRedaction pins the process-wide startup hook used by the
+// enclave and delegation profiles: it must actually flip the flag that
+// ShouldRedactPayload / PayloadRedactionEnabled read.
+func TestEnablePayloadRedaction(t *testing.T) {
+	previous := PayloadRedactionEnabled()
+	t.Cleanup(func() { SetPayloadRedaction(previous) })
+
+	SetPayloadRedaction(false)
+	assert.False(t, PayloadRedactionEnabled())
+
+	EnablePayloadRedaction()
+	assert.True(t, PayloadRedactionEnabled(), "EnablePayloadRedaction must turn on process-wide redaction")
+}
+
 func TestRedactErrorForLog(t *testing.T) {
 	assert := assert.New(t)
 

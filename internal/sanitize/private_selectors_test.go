@@ -106,3 +106,36 @@ func TestSanitizeStringStillRedactsSecretsUnderRedactionMode(t *testing.T) {
 	assert.NotContains(t, sanitized, "ghp_0123456789abcdefghijklmnopqrstuvwxyz")
 	assert.NotContains(t, sanitized, "private-repo")
 }
+
+// TestEnablePrivateSelectorRedaction pins the process-wide startup hook used
+// by the enclave and delegation profiles: it must actually flip the flag that
+// PrivateSelectorRedactionEnabled / RedactPrivateSelectorsIfEnabled read.
+func TestEnablePrivateSelectorRedaction(t *testing.T) {
+	previous := PrivateSelectorRedactionEnabled()
+	t.Cleanup(func() { SetPrivateSelectorRedaction(previous) })
+
+	SetPrivateSelectorRedaction(false)
+	assert.False(t, PrivateSelectorRedactionEnabled())
+
+	EnablePrivateSelectorRedaction()
+	assert.True(t, PrivateSelectorRedactionEnabled(), "EnablePrivateSelectorRedaction must turn on process-wide redaction")
+}
+
+// TestRedactPrivateSelectorsIfEnabled proves the conditional wrapper matches
+// the process-wide mode: it must pass messages through untouched when the
+// mode is off, and redact them once the mode is enabled.
+func TestRedactPrivateSelectorsIfEnabled(t *testing.T) {
+	message := "forwardAndReadBody: GET /repos/octo-secret/private-repo/issues/7"
+
+	previous := PrivateSelectorRedactionEnabled()
+	t.Cleanup(func() { SetPrivateSelectorRedaction(previous) })
+
+	SetPrivateSelectorRedaction(false)
+	assert.Equal(t, message, RedactPrivateSelectorsIfEnabled(message),
+		"disabled mode must leave the message untouched")
+
+	SetPrivateSelectorRedaction(true)
+	redacted := RedactPrivateSelectorsIfEnabled(message)
+	assert.NotEqual(t, message, redacted, "enabled mode must redact the message")
+	assert.NotContains(t, redacted, "private-repo")
+}
