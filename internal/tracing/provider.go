@@ -161,6 +161,12 @@ func InitProvider(ctx context.Context, cfg *config.TracingConfig) (*Provider, er
 		opts := []otlptracehttp.Option{
 			otlptracehttp.WithEndpointURL(ep.URL),
 			otlptracehttp.WithTimeout(resolveExporterTimeout(cfg)),
+			// Retain the SDK's recommended retry policy while making it reviewable here.
+			otlptracehttp.WithRetry(otlptracehttp.RetryConfig{
+				InitialInterval: 5 * time.Second,
+				MaxInterval:     30 * time.Second,
+				MaxElapsedTime:  time.Minute,
+			}),
 		}
 		if exporterHeaders != nil {
 			opts = append(opts, otlptracehttp.WithHeaders(exporterHeaders))
