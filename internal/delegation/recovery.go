@@ -58,6 +58,7 @@ func (s *Store) MarkReconciledAndSaveState(path string) error {
 	s.persistMu.Lock()
 	defer s.persistMu.Unlock()
 
+	logDelegationRecovery.Print("MarkReconciledAndSaveState: persisting forced-reconciled snapshot before opening admission gate")
 	if err := s.saveStateLocked(path, true); err != nil {
 		return err
 	}
@@ -65,6 +66,7 @@ func (s *Store) MarkReconciledAndSaveState(path string) error {
 	s.mu.Lock()
 	s.recoveryIncomplete = false
 	s.mu.Unlock()
+	logDelegationRecovery.Print("MarkReconciledAndSaveState: admission gate opened, recoveryIncomplete cleared")
 	return nil
 }
 
@@ -227,6 +229,7 @@ func failedRecoveryStore(envelope *Envelope, generation uint64) (*Store, error) 
 // bytes. Any duplicate invocation key, handle, or executor bearer is therefore
 // treated as corruption.
 func validatePersistedState(state persistedState, envelope *Envelope, generation uint64) ([]Identity, error) {
+	logDelegationRecovery.Printf("validatePersistedState: version=%d generation=%d identities=%d", state.Version, state.Generation, len(state.Identities))
 	if state.Version != statePersistVersion {
 		return nil, fmt.Errorf("unsupported state version %d (want %d)", state.Version, statePersistVersion)
 	}
@@ -298,6 +301,7 @@ func validatePersistedSchemaHashes(state *persistedState, envelope *Envelope) er
 	if len(seen) > envelope.MaxDynamicSchemaHashes {
 		return fmt.Errorf("persisted dynamic schema hashes %d exceed envelope bound %d", len(seen), envelope.MaxDynamicSchemaHashes)
 	}
+	logDelegationRecovery.Printf("validatePersistedSchemaHashes: accepted %d dynamic schema hash(es) within bound %d", len(seen), envelope.MaxDynamicSchemaHashes)
 	return nil
 }
 
@@ -336,6 +340,7 @@ func parsePersistedState(raw []byte) (persistedState, bool) {
 	const checksumHexLen = 64
 	// Expect "<json>\n<64-hex-checksum>\n".
 	if len(raw) < checksumHexLen+2 || raw[len(raw)-1] != '\n' {
+		logDelegationRecovery.Printf("parsePersistedState: malformed state file, size=%d bytes", len(raw))
 		return persistedState{}, false
 	}
 	trimmed := raw[:len(raw)-1]
