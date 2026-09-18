@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/modelcontextprotocol/go-sdk v1.8.0-pre.2
+	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.46.0
 )
@@ -12,7 +12,7 @@ require (
 require (
 	github.com/itchyny/gojq v0.12.19
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
-	github.com/spf13/pflag v1.0.9
+	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
 	github.com/tetratelabs/wazero v1.12.0
 	go.opentelemetry.io/otel v1.46.0
