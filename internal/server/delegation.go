@@ -50,11 +50,14 @@ func (us *UnifiedServer) authorizeDelegatedToolCall(ctx context.Context, serverI
 	if !us.delegation.Store.HasLiveExecutorBearer(sessionID) {
 		return ctx, nil
 	}
+	logServerDelegation.Printf("authorizeDelegatedToolCall: evaluating delegated executor call: serverID=%s, tool=%s", serverID, toolName)
 	if serverID != "github" {
+		logServerDelegation.Printf("Delegated tool call denied: unsupported serverID=%s", serverID)
 		return ctx, fmt.Errorf("delegated identity is not authorized for server %q", serverID)
 	}
 	repository, ok := delegatedToolRepository(toolName, args)
 	if !ok {
+		logServerDelegation.Printf("Delegated tool call denied: tool=%s missing canonical owner/repo arguments", toolName)
 		return ctx, fmt.Errorf("delegated identity requires canonical owner/repo arguments for tool %q", toolName)
 	}
 	handle, err := us.delegation.Store.AuthorizeExecutor(sessionID, repository, toolName)
@@ -62,6 +65,7 @@ func (us *UnifiedServer) authorizeDelegatedToolCall(ctx context.Context, serverI
 		logServerDelegation.Printf("Delegated tool call denied: tool=%s repo_hash=%s", toolName, util.HashForLog(repository, 16, ""))
 		return ctx, err
 	}
+	logServerDelegation.Printf("Delegated tool call authorized: tool=%s repo_hash=%s", toolName, util.HashForLog(repository, 16, ""))
 	ctx = guard.SetAgentIDInContext(ctx, "delegation:"+handle)
 	// Delegation admits enclaves dynamically: keep the enclave provenance marker on the
 	// context even when the tool call reaches this path without session establishment.
