@@ -2,6 +2,7 @@ package syncutil_test
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/syncutil"
@@ -78,6 +79,57 @@ func TestRegistryGetOrCreate(t *testing.T) {
 	assert.False(createCalled)
 	assert.Equal(2, registry.GetOrCreate("new", func() int { return 2 }))
 	assert.Equal(2, registry.Len())
+}
+
+// TestRegistryGetOrCreateManyGoroutinesForcesDoubleCheck stress-tests
+// GetOrCreate with a burst of concurrent callers all missing the initial
+// read-locked check at once. This drives many goroutines into the write-lock
+// race, so at least one of them exercises the write-locked double-check branch
+// (finding the key already populated by the goroutine that won the race).
+func TestRegistryGetOrCreateManyGoroutinesForcesDoubleCheck(t *testing.T) {
+	assert := assert.New(t)
+
+	for attempt := 0; attempt < 20; attempt++ {
+		registry := syncutil.NewRegistry[string, int]()
+		var createCount int32
+		var wg sync.WaitGroup
+		start := make(chan struct{})
+		const goroutines = 64
+
+		wg.Add(goroutines)
+		for i := 0; i < goroutines; i++ {
+			go func() {
+				defer wg.Done()
+				<-start
+				registry.GetOrCreate("key", func() int {
+					atomic.AddInt32(&createCount, 1)
+					return 42
+				})
+			}()
+		}
+		close(start)
+		wg.Wait()
+
+		assert.Equal(int32(1), atomic.LoadInt32(&createCount), "create must be invoked exactly once across all racing goroutines")
+		v, ok := registry.Get("key")
+		require.True(t, ok)
+		assert.Equal(42, v)
+	}
+}
+
+func TestRegistryRangeStopsEarly(t *testing.T) {
+	registry := syncutil.NewRegistry[string, int]()
+	registry.Set("one", 1)
+	registry.Set("two", 2)
+	registry.Set("three", 3)
+
+	visited := 0
+	registry.Range(func(_ string, _ int) bool {
+		visited++
+		return false // stop after the first entry
+	})
+
+	assert.Equal(t, 1, visited, "Range must stop iterating once fn returns false")
 }
 
 func TestRegistryGetOrCreateConcurrent(t *testing.T) {
