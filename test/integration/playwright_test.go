@@ -29,6 +29,7 @@ func isDockerRegistryNetworkError(output string) bool {
 
 	return strings.Contains(output, "i/o timeout") ||
 		strings.Contains(output, "connection refused") ||
+		strings.Contains(output, "error reading from server: EOF") ||
 		strings.Contains(output, "request canceled while waiting for connection") ||
 		strings.Contains(output, "TLS handshake timeout")
 }

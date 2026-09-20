@@ -275,12 +275,14 @@ func TestDIFCModeFilterViaEnv(t *testing.T) {
 	binary := binaryPath(t)
 	port := getFreePort(t)
 	logDir := t.TempDir()
+	mockBackend := createMinimalMockMCPBackend(t)
+	defer mockBackend.Close()
 
 	config := fmt.Sprintf(`{
 		"mcpServers": {
 			"test": {
-				"type": "stdio",
-				"container": "test/echo:latest"
+				"type": "http",
+				"url": %q
 			}
 		},
 		"gateway": {
@@ -288,7 +290,7 @@ func TestDIFCModeFilterViaEnv(t *testing.T) {
 			"domain": "localhost",
 			"agentId": "test-key"
 		}
-	}`, port)
+	}`, mockBackend.URL+"/mcp", port)
 
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel2()
@@ -333,12 +335,14 @@ func TestDIFCModePropagateViaEnv(t *testing.T) {
 	binary := binaryPath(t)
 	port := getFreePort(t)
 	logDir := t.TempDir()
+	mockBackend := createMinimalMockMCPBackend(t)
+	defer mockBackend.Close()
 
 	config := fmt.Sprintf(`{
 		"mcpServers": {
 			"test": {
-				"type": "stdio",
-				"container": "test/echo:latest"
+				"type": "http",
+				"url": %q
 			}
 		},
 		"gateway": {
@@ -346,7 +350,7 @@ func TestDIFCModePropagateViaEnv(t *testing.T) {
 			"domain": "localhost",
 			"agentId": "test-key"
 		}
-	}`, port)
+	}`, mockBackend.URL+"/mcp", port)
 
 	ctx3, cancel3 := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel3()
