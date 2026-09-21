@@ -1,6 +1,6 @@
 {
-  "lr": "2026-09-20T12:47Z",
-  "run_id": "35511544440",
+  "lr": "2026-09-21T12:50Z",
+  "run_id": "35601627697",
   "monthly_issue": 12406,
   "monthly_month": "2026-09",
   "comments_made": {
@@ -24,7 +24,8 @@
     "12952": "2026-09-11",
     "13077": "2026-09-13",
     "13196": "2026-09-15",
-    "13261": "2026-09-16"
+    "13261": "2026-09-16",
+    "13567": "2026-09-21"
   },
   "fixes": {
     "10662": "2026-08-04",
@@ -64,15 +65,16 @@
     "improve_rename_enclave_match_route_20260918": "2026-09-18 (PR created: repo-assist/improve-rename-enclave-match-route, Task 5 coding improvement addressing naming-collision finding item 3 in #13382 - renamed enclavegithub.MatchRoute to MatchEnclaveRoute to disambiguate from unrelated proxy.MatchRoute; updated call sites in internal/proxy/delegation.go+enclave.go, renamed tests in policy_test.go, updated stale comment in delegated_request_test.go; pure rename no behavior change; go build/vet/test pass, make agent-finished clean; merged as #13417)",
     "13449_contributing_sdk_version": "2026-09-19 (PR created: repo-assist/fix-issue-13449-contributing-sdk-version, closes #13449, fixed stale go-sdk v1.8.0-pre.2 reference and rationale paragraph in CONTRIBUTING.md Dependencies section to match go.mod's actual stable v1.8.0 pin; make agent-finished clean; commented on #13449 linking PR)",
     "eng_cargo_lockfile_update_20260919": "2026-09-19 (PR created: repo-assist/eng-cargo-lockfile-update-20260919, Task 4 engineering investment - ran cargo update in guards/github-guard/rust-guard to refresh transitive deps (itoa, memchr, proc-macro2, quote, serde/serde_core/serde_derive, serde_json, syn 2->3 major bump but build-time-only via serde_derive, unicode-ident, zmij) within existing Cargo.toml semver ranges; cargo build/test 669/669/clippy all pass, make agent-finished clean)",
-    "perf_toolregistry_skip_sanitize_20260920": "2026-09-20 (PR created: repo-assist/perf-avoid-redundant-sanitize-toolregistry-20260920, Task 8 perf improvement - tool_registry.go ran full SanitizeString regex pass on every tool call args even when redactPayload discarded result; now only computed when needed; go build/vet/test pass, make agent-finished clean)"
+    "perf_toolregistry_skip_sanitize_20260920": "2026-09-20 (PR created: repo-assist/perf-avoid-redundant-sanitize-toolregistry-20260920, Task 8 perf improvement - tool_registry.go ran full SanitizeString regex pass on every tool call args even when redactPayload discarded result; now only computed when needed; go build/vet/test pass, make agent-finished clean)",
+    "13567_rust_guard_constants_memtake": "2026-09-21 (PR created: repo-assist/fix-issue-13567-rust-guard-constants-memtake, closes #13567, added tool_names::STAR_REPOSITORY/UNSTAR_REPOSITORY/CREATE_REPOSITORY/FORK_REPOSITORY constants replacing 10 literal sites in lib.rs/tool_rules.rs, replaced secrecy.clone() with std::mem::take(secrecy) in apply_governance_labels/apply_dispatch_repo_labels; cargo build/test 669/669 pass, clippy clean)"
   },
-  "notes": "2026-09-20 run: Tasks 2+8 selected. Task 8: found perf bug in internal/server/tool_registry.go where SanitizeString (10 regex patterns) ran unconditionally on every MCP tool call's args even when redactPayload=true discarded the result 2 lines later in favor of RedactedPayloadText; fixed to only run SanitizeString in the non-redacted branch; build/vet/test/agent-finished all pass; PR created. Task 2: reviewed new HTTP-400/infra failure issues (#13458,#13460,#13496,#13497,#13422,#13470,#13442,#13430,#13468,#13462) - all are gh-aw tooling/CI infra failures (docker-sbx egress proxy misconfig, copilot engine 400s, missing Docker Hub secrets, no network to install gh-aw CLI) not fixable via code changes in this repo; commented on #13483 (2026-09-19 Doc Reconciliation Report) noting it duplicates #13449's already-fixed finding (PR #13466 open). Verified prior open_ra_prs #13273/#13274/#13467 all closed by maintainer (not via safe-output merge tracking - closed_by lpcox directly, presumably superseded/rejected or manually merged outside PR tracking) - removed from open_ra_prs list. Task 11: updated monthly issue #12406.",
+  "notes": "2026-09-21 run: Tasks 3+2 selected. Task 3: fixed #13567 (rust-guard improver report) - added 4 tool_names constants (STAR/UNSTAR/CREATE/FORK_REPOSITORY) replacing 10 raw string literal sites across lib.rs+tool_rules.rs (prod match arms + tests), and replaced secrecy.clone() with std::mem::take(secrecy) in apply_governance_labels/apply_dispatch_repo_labels (avoids alloc on hot path, value immediately overwritten after). cargo build/test 669/669/clippy all pass. PR created, commented on issue linking PR. Task 2: reviewed all open issues - remaining ones are automated smoke-test/report/infra-failure issues (#13558 copilot 400, #13559 no-op tracker (not actionable), #13560 nightly schema updater 400, #13562/13565/13569-13573 smoke tests, #13563 log analyzer no safe outputs, #13564 integrity audit report - no action items requiring code fix, #13566 go-fan module review - no action needed, SDK already latest v1.8.0, #13567 fixed this run). Verified previous monthly-issue suggested-action PRs (#13505,13503,13485,13484,13480,13466-equiv/13519,13520,13515) all closed/merged - removed from suggested actions. Task 11: updated monthly issue #12406.",
   "cursor": {
     "issues": 13261,
     "labels": 13212
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/perf-avoid-redundant-sanitize-toolregistry-20260920"
+    "repo-assist/fix-issue-13567-rust-guard-constants-memtake"
   ]
 }
