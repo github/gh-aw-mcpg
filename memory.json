@@ -1,6 +1,6 @@
 {
-  "lr": "2026-09-21T12:50Z",
-  "run_id": "35601627697",
+  "lr": "2026-09-22T12:52Z",
+  "run_id": "35729558121",
   "monthly_issue": 12406,
   "monthly_month": "2026-09",
   "comments_made": {
@@ -66,15 +66,18 @@
     "13449_contributing_sdk_version": "2026-09-19 (PR created: repo-assist/fix-issue-13449-contributing-sdk-version, closes #13449, fixed stale go-sdk v1.8.0-pre.2 reference and rationale paragraph in CONTRIBUTING.md Dependencies section to match go.mod's actual stable v1.8.0 pin; make agent-finished clean; commented on #13449 linking PR)",
     "eng_cargo_lockfile_update_20260919": "2026-09-19 (PR created: repo-assist/eng-cargo-lockfile-update-20260919, Task 4 engineering investment - ran cargo update in guards/github-guard/rust-guard to refresh transitive deps (itoa, memchr, proc-macro2, quote, serde/serde_core/serde_derive, serde_json, syn 2->3 major bump but build-time-only via serde_derive, unicode-ident, zmij) within existing Cargo.toml semver ranges; cargo build/test 669/669/clippy all pass, make agent-finished clean)",
     "perf_toolregistry_skip_sanitize_20260920": "2026-09-20 (PR created: repo-assist/perf-avoid-redundant-sanitize-toolregistry-20260920, Task 8 perf improvement - tool_registry.go ran full SanitizeString regex pass on every tool call args even when redactPayload discarded result; now only computed when needed; go build/vet/test pass, make agent-finished clean)",
-    "13567_rust_guard_constants_memtake": "2026-09-21 (PR created: repo-assist/fix-issue-13567-rust-guard-constants-memtake, closes #13567, added tool_names::STAR_REPOSITORY/UNSTAR_REPOSITORY/CREATE_REPOSITORY/FORK_REPOSITORY constants replacing 10 literal sites in lib.rs/tool_rules.rs, replaced secrecy.clone() with std::mem::take(secrecy) in apply_governance_labels/apply_dispatch_repo_labels; cargo build/test 669/669 pass, clippy clean)"
+    "13567_rust_guard_constants_memtake": "2026-09-21 (PR created: repo-assist/fix-issue-13567-rust-guard-constants-memtake, closes #13567, added tool_names::STAR_REPOSITORY/UNSTAR_REPOSITORY/CREATE_REPOSITORY/FORK_REPOSITORY constants replacing 10 literal sites in lib.rs/tool_rules.rs, replaced secrecy.clone() with std::mem::take(secrecy) in apply_governance_labels/apply_dispatch_repo_labels; cargo build/test 669/669 pass, clippy clean)",
+    "13623_rust_guard_discussion_workflow_run_constants": "2026-09-22 (PR created, branch repo-assist/fix-issue-13623-discussion-workflow-run-constants, closes #13623, added tool_names::{GET_DISCUSSION,LIST_DISCUSSIONS,GET_DISCUSSION_COMMENTS,LIST_DISCUSSION_CATEGORIES,CREATE_DISCUSSION,EDIT_DISCUSSION,CANCEL_WORKFLOW_RUN,FORCE_CANCEL_WORKFLOW_RUN,RERUN_WORKFLOW_RUN,RERUN_FAILED_JOBS,RERUN_WORKFLOW_JOB} constants, replaced literal sites in tool_rules.rs/labels/mod.rs/tools.rs; cargo build/test 669/669 pass, clippy clean)",
+    "test9_syncparentdir_controlhandler_coverage_20260922": "2026-09-22 (PR created, branch repo-assist/improve-test-coverage-syncparentdir-controlhandler-20260922, Task 9 testing improvement - added TestSyncParentDir (internal/util/atomic_write_test.go) covering syncParentDir's os.Open success + not-exist error paths, and TestControlHandlerNilServerReturnsNotFound (internal/proxy/delegation_test.go) covering (*Server).ControlHandler nil-receiver guard; internal/util 94.6%->95.0%, internal/proxy 95.5%->95.6% (ControlHandler now 100%); make agent-finished clean)"
   },
-  "notes": "2026-09-21 run: Tasks 3+2 selected. Task 3: fixed #13567 (rust-guard improver report) - added 4 tool_names constants (STAR/UNSTAR/CREATE/FORK_REPOSITORY) replacing 10 raw string literal sites across lib.rs+tool_rules.rs (prod match arms + tests), and replaced secrecy.clone() with std::mem::take(secrecy) in apply_governance_labels/apply_dispatch_repo_labels (avoids alloc on hot path, value immediately overwritten after). cargo build/test 669/669/clippy all pass. PR created, commented on issue linking PR. Task 2: reviewed all open issues - remaining ones are automated smoke-test/report/infra-failure issues (#13558 copilot 400, #13559 no-op tracker (not actionable), #13560 nightly schema updater 400, #13562/13565/13569-13573 smoke tests, #13563 log analyzer no safe outputs, #13564 integrity audit report - no action items requiring code fix, #13566 go-fan module review - no action needed, SDK already latest v1.8.0, #13567 fixed this run). Verified previous monthly-issue suggested-action PRs (#13505,13503,13485,13484,13480,13466-equiv/13519,13520,13515) all closed/merged - removed from suggested actions. Task 11: updated monthly issue #12406.",
+  "notes": "2026-09-22 run: Tasks 9+3 selected. Task 3: fixed #13623 (rust-guard improver report, discussion + workflow-run cancel/rerun tool_names constants dedup) - mirrors prior pattern, 11 new constants, all call sites in tool_rules.rs/mod.rs/tools.rs updated, cargo build/test 669/669/clippy clean, PR created. Task 9: reviewed coverage gaps across internal/... packages (util 94.6%, proxy 95.4%, sanitize 96.2%, middleware 96.8%) - added 2 targeted tests: TestSyncParentDir (previously-untested os.Open branches in internal/util/atomic_write.go) and TestControlHandlerNilServerReturnsNotFound (previously-untested nil-receiver guard in internal/proxy delegation.go ControlHandler, security-relevant control-plane access gating). Both PRs opened as drafts. Reviewed new automated report issues #13620 (integrity-filtering-audit, no critical findings, architectural note only) and #13622 (go-fan wazero module review, already latest v1.12.0, no action needed) - no code fix required for either. Verified #13558/#13560/#13563 (recurring infra HTTP-400/no-safe-output issues) already closed by maintainer. Task 11: updated monthly issue #12406 with current suggested actions (3 non-Repo-Assist open draft test/log PRs #13601/13602/13603, 2 new Repo Assist PRs this run, 2 informational report reviews) and today's run history entry.",
   "cursor": {
-    "issues": 13261,
+    "issues": 13623,
     "labels": 13212
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/fix-issue-13567-rust-guard-constants-memtake"
+    "repo-assist/fix-issue-13623-discussion-workflow-run-constants",
+    "repo-assist/improve-test-coverage-syncparentdir-controlhandler-20260922"
   ]
 }
