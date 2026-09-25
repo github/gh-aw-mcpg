@@ -1,6 +1,6 @@
 {
-    "lr": "2026-09-24T12:53Z",
-    "run_id": "36001742694",
+    "lr": "2026-09-25T12:59Z",
+    "run_id": "36137335864",
     "monthly_issue": 12406,
     "monthly_month": "2026-09",
     "comments_made": {
@@ -71,15 +71,29 @@
         "test9_syncparentdir_controlhandler_coverage_20260922": "2026-09-22 (PR created, branch repo-assist/improve-test-coverage-syncparentdir-controlhandler-20260922, Task 9 testing improvement - added TestSyncParentDir (internal/util/atomic_write_test.go) covering syncParentDir's os.Open success + not-exist error paths, and TestControlHandlerNilServerReturnsNotFound (internal/proxy/delegation_test.go) covering (*Server).ControlHandler nil-receiver guard; internal/util 94.6%->95.0%, internal/proxy 95.5%->95.6% (ControlHandler now 100%); make agent-finished clean)",
         "test9_setuptlslistener_listenfailure_20260923": "2026-09-23 (PR created, branch repo-assist/improve-test-coverage-setuptlslistener-listenfailure-20260923, Task 9 testing improvement - Task 7 (stale PR nudges) and Task 2 (issue comments) both selected but had zero viable candidates: all 8 open PRs updated within the last day, all 26 open issues are automated bot-generated infra/report/smoke-test issues with nothing warranting human-facing comment. Pivoted to Task 5/9: added TestSetupTLSListener_ListenFailure covering the one uncovered net.Listen error branch in internal/cmd/startup.go setupTLSListener (96.0%->100.0%); make agent-finished clean)",
         "13782_rust_guard_let_else_refactor": "2026-09-24 (PR created, branch repo-assist/fix-issue-13782-let-else-refactor, closes #13782, rewrote 5 manual-match early-return sites (try_write_json_output/alloc/dealloc in lib.rs, split_repo_id destructures in labels/helpers.rs) using let-else per clippy::manual_let_else; cargo build/test 670/670 pass, clippy clean; commented on #13782 linking PR)",
-        "improve_wasm_guards_dir_envvar_godoc_20260924": "2026-09-24 (PR created, branch repo-assist/improve-wasm-guards-dir-envvar-godoc, Task 5 coding improvement - added missing godoc comment to exported WASMGuardsDirEnvVar constant in internal/guard/wasm_lifecycle.go; go build/vet/test pass)"
+        "improve_wasm_guards_dir_envvar_godoc_20260924": "2026-09-24 (PR created, branch repo-assist/improve-wasm-guards-dir-envvar-godoc, Task 5 coding improvement - added missing godoc comment to exported WASMGuardsDirEnvVar constant in internal/guard/wasm_lifecycle.go; go build/vet/test pass)",
+        "13844_rust_guard_redundant_closures_vec_refs": "2026-09-25 (PR created, branch repo-assist/fix-issue-13844-redundant-closures-vec-refs, closes #13844, replaced 10 redundant .and_then(|v| v.as_bool())/.and_then(|v| v.as_u64())/.map(|value| value.trim()) closures with Value::as_bool/Value::as_u64/str::trim method references in labels/helpers.rs+backend.rs+response_items.rs+response_paths.rs; changed cap_integrity/max_integrity to take &[String] instead of owned Vec<String>, updated ~20 call sites in helpers.rs/tool_rules.rs, removed 2 test-only .clone() workarounds; cargo build/test 670/670 pass, clippy -D warnings clean, fmt applied to touched files only; commented on #13844 linking PR)"
     },
-    "notes": "2026-09-24 run: Tasks 3+5 selected. Task 3: found #13782 (rust-guard let-else refactor, labelled refactor+good-first-issue-style), implemented all 5 suggested let-else conversions in lib.rs and labels/helpers.rs, PR opened + issue comment linking it. Task 5: explored via subagent for low-risk Go improvement, found WASMGuardsDirEnvVar missing godoc in internal/guard/wasm_lifecycle.go (unlike its documented neighbor ContainerGuardWasmPath), added one-line doc comment, PR opened. Reviewed remaining open issues: mostly automated bot-report/infra noise (no-op runs, GHCR tracker, schema updater, docker-sbx stress, smoke-test artifacts, integrity-audit clean report, go-fan gojq review with no action needed, release highlights). No stale non-RA PRs found (only 2 open: smoke-test PR and a gh-aw upgrade PR, both recently updated). Updated monthly activity issue #12406 reflecting current state.",
+    "notes": "2026-09-25 run: Tasks 3+1 selected. Task 1: labelled 3 unlabelled issues (#13822 Smoke Copilot group, #13839 Smoke AllowOnly group -> automated; #13851 Smoke Test: Copilot report -> automated+smoke-test matching sibling convention). Task 3: found #13844 (rust-guard-improver report, refactor label, low-risk closure/ownership cleanup), implemented both suggested changes (redundant closures -> method refs, cap_integrity/max_integrity Vec<String> -> &[String]), PR opened + issue comment linking it. cargo build/test 670/670, clippy -D warnings clean. Reviewed remaining open issues: mostly automated bot-report/infra/smoke-test noise (no-op runs, GHCR tracker, schema updater, docker-sbx stress, go-fan module review, integrity-audit clean report). Two non-RA open PRs (#13845 gh-aw upgrade, #13824 test-improver, #13823 log-enhancement) all updated within last day, no stale-PR nudges needed. Updated monthly activity issue #12406 reflecting current state.",
     "cursor": {
-        "issues": 13792,
-        "labels": 13792
+        "issues": 13853,
+        "labels": 13853
     },
     "checked_off_by_user": [],
     "open_ra_prs": [
-        "repo-assist/improve-test-coverage-setuptlslistener-listenfailure-20260923"
-    ]
+        "repo-assist/improve-test-coverage-setuptlslistener-listenfailure-20260923",
+        "repo-assist/fix-issue-13844-redundant-closures-vec-refs"
+    ],
+    "labels_applied": {
+        "13822": [
+            "automated"
+        ],
+        "13839": [
+            "automated"
+        ],
+        "13851": [
+            "automated",
+            "smoke-test"
+        ]
+    }
 }
