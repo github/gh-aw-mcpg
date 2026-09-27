@@ -1,6 +1,6 @@
 {
-  "lr": "2026-09-26T12:49Z",
-  "run_id": "36243003487",
+  "lr": "2026-09-27T12:50Z",
+  "run_id": "36320227694",
   "monthly_issue": 12406,
   "monthly_month": "2026-09",
   "comments_made": {
@@ -73,16 +73,18 @@
     "13782_rust_guard_let_else_refactor": "2026-09-24 (PR created, branch repo-assist/fix-issue-13782-let-else-refactor, closes #13782, rewrote 5 manual-match early-return sites (try_write_json_output/alloc/dealloc in lib.rs, split_repo_id destructures in labels/helpers.rs) using let-else per clippy::manual_let_else; cargo build/test 670/670 pass, clippy clean; commented on #13782 linking PR)",
     "improve_wasm_guards_dir_envvar_godoc_20260924": "2026-09-24 (PR created, branch repo-assist/improve-wasm-guards-dir-envvar-godoc, Task 5 coding improvement - added missing godoc comment to exported WASMGuardsDirEnvVar constant in internal/guard/wasm_lifecycle.go; go build/vet/test pass)",
     "13844_rust_guard_redundant_closures_vec_refs": "2026-09-25 (PR created, branch repo-assist/fix-issue-13844-redundant-closures-vec-refs, closes #13844, replaced 10 redundant .and_then(|v| v.as_bool())/.and_then(|v| v.as_u64())/.map(|value| value.trim()) closures with Value::as_bool/Value::as_u64/str::trim method references in labels/helpers.rs+backend.rs+response_items.rs+response_paths.rs; changed cap_integrity/max_integrity to take &[String] instead of owned Vec<String>, updated ~20 call sites in helpers.rs/tool_rules.rs, removed 2 test-only .clone() workarounds; cargo build/test 670/670 pass, clippy -D warnings clean, fmt applied to touched files only; commented on #13844 linking PR)",
-    "ensure_integrity_baseline_vec_refs_remaining": "2026-09-26 (PR created, branch repo-assist/improve-integrity-vec-refs-remaining-sites, Task 10 - continuation of #13855: closed out the 3 pedantic clippy sites (mod.rs:104 closure, helpers.rs ensure_integrity_baseline, tool_rules.rs resolve_author_integrity) that #13855 explicitly documented as out-of-scope; changed both functions to take &[String] instead of owned Vec<String>, updated 14 call sites across lib.rs/tool_rules.rs/helpers.rs; cargo build/test 670/670 pass, clippy -D warnings clean)"
+    "ensure_integrity_baseline_vec_refs_remaining": "2026-09-26 (PR created, branch repo-assist/improve-integrity-vec-refs-remaining-sites, Task 10 - continuation of #13855: closed out the 3 pedantic clippy sites (mod.rs:104 closure, helpers.rs ensure_integrity_baseline, tool_rules.rs resolve_author_integrity) that #13855 explicitly documented as out-of-scope; changed both functions to take &[String] instead of owned Vec<String>, updated 14 call sites across lib.rs/tool_rules.rs/helpers.rs; cargo build/test 670/670 pass, clippy -D warnings clean)",
+    "13966_13967_dedup_redact_helpers": "2026-09-27 (PR created, branch repo-assist/perf-skip-sanitize-http-request-body-20260927, Task 8 perf improvement - fixed logHTTPRequestBody in internal/server/http_helpers.go running full SanitizeString regex pass even when redact path discards result (same anti-pattern as perf_toolregistry_skip_sanitize_20260920); also closes #13966/#13967 duplicate-code sub-issues of #13965 by consolidating redactErrorIf/sdkErrorMessageForLog into sanitize.RedactErrorOrPlain/RedactMessageForLog and extracting sanitize.PayloadTextForLog for the repeated redact-or-sanitize payload branch; go build/vet/test pass, make agent-finished clean)"
   },
-  "notes": "2026-09-26 run: Tasks 10+2 selected. Task 2: reviewed all 17 open issues (oldest #6498 release-highlights, #6513 duplicate-code report already fully sub-issue-resolved+closed, #6522 old large-payload-test PASS report, plus all recent smoke-test/infra/aw-failure noise) - none warranted a substantive human-facing comment (no bugs/feature-requests/questions from real contributors), so pivoted to labelling 3 unlabelled issues matching sibling conventions (#13890 Smoke Copilot group, #13903 Smoke AllowOnly group -> automated; #13914 Smoke Test: Copilot report -> automated+smoke-test). Task 10: continued prior refactor work - found and fixed the 3 remaining pedantic clippy sites (redundant closure in mod.rs, 2x Vec<String> params in ensure_integrity_baseline/resolve_author_integrity) that PR #13855 had explicitly called out as intentionally deferred; opened follow-up PR, build/test/clippy all clean. Verified PR #13855 and #13709 both merged by maintainer. No stale non-RA PRs (#13906, #13891, #13887, #13886 all <1 day old). Updated monthly activity issue #12406.",
+  "notes": "2026-09-27 run: Tasks 8+2 selected. Task 2: reviewed all 20 open issues - all recent activity since last run (#13940, #13943, #13948, #13964, #13970-13982) is automated infra/smoke-test/no-op noise with nothing warranting a human-facing comment (consistent with prior runs' finding that the backlog has no real contributor issues). Pivoted to Task 8: found logHTTPRequestBody in http_helpers.go had the exact same redundant-SanitizeString-before-redaction-check anti-pattern fixed in tool_registry.go on 2026-09-20; while investigating found it was directly related to two open duplicate-code sub-issues (#13966, #13967, children of #13965 filed 2026-09-27) about the same redaction helpers - fixed all three in one PR. Updated monthly activity issue #12406.",
   "cursor": {
     "issues": 13918,
     "labels": 13918
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/improve-integrity-vec-refs-remaining-sites"
+    "repo-assist/improve-integrity-vec-refs-remaining-sites",
+    "repo-assist/perf-skip-sanitize-http-request-body-20260927"
   ],
   "labels_applied": {
     "13822": [
