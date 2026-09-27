@@ -1,6 +1,6 @@
 ---
 emoji: 🔒
-description: PR stress test proving mcpg enforces read-only GitHub access (MCP tool calls + proxied CLI) under the gVisor agent runtime
+description: PR stress test proving mcpg enforces read-only GitHub access (MCP tool calls + proxied CLI) under the Cloud Hypervisor agent runtime
 on:
   roles: all
   pull_request:
@@ -13,7 +13,7 @@ permissions:
   pull-requests: read
   actions: read
   copilot-requests: write
-name: "Read-Only Stress: gVisor runtime"
+name: "Read-Only Stress: Cloud Hypervisor runtime"
 model: claude-sonnet-5
 engine:
   id: copilot
@@ -49,7 +49,7 @@ tools:
 sandbox:
   agent:
     id: awf
-    runtime: gvisor
+    runtime: cloud-hypervisor
   mcp:
     container: "ghcr.io/github/gh-aw-mcpg"
     version: "latest"
@@ -64,20 +64,20 @@ safe-outputs:
   add-labels:
     allowed: [readonly-stress-pass-gvisor]
   messages:
-    footer: "> 🔒 *mcpg read-only stress (gVisor runtime) by [{workflow_name}]({run_url})*"
-    run-started: "🔒 [{workflow_name}]({run_url}) is stress-testing mcpg read-only enforcement under the gVisor runtime..."
+    footer: "> 🔒 *mcpg read-only stress (Cloud Hypervisor runtime) by [{workflow_name}]({run_url})*"
+    run-started: "🔒 [{workflow_name}]({run_url}) is stress-testing mcpg read-only enforcement under the Cloud Hypervisor runtime..."
     run-success: "🔒 [{workflow_name}]({run_url}) completed. Read-only enforcement validated. ✅"
     run-failure: "🔒 [{workflow_name}]({run_url}) reports {status}. Read-only enforcement may be broken. ⚠️"
 timeout-minutes: 15
 ---
 
-# mcpg Read-Only Stress Test — gVisor Runtime
+# mcpg Read-Only Stress Test — Cloud Hypervisor Runtime
 
-`RUNTIME_LABEL` = **gVisor (`runsc`) kernel-level isolation**.
+`RUNTIME_LABEL` = **Cloud Hypervisor microVM isolation**.
 
 This run exercises the gateway's read-only guarantee while the agent runs under
-the **gVisor** sandbox runtime (`sandbox.agent.runtime: gvisor`), which provides
-additional kernel-level isolation via `runsc`. Follow the shared test plan below,
-attempting reads (expect ALLOWED) and writes (expect BLOCKED) on both the MCP
-tool-call surface and the proxied CLI surface. Read-only must hold identically to
-the default runtime.
+the **Cloud Hypervisor** sandbox runtime
+(`sandbox.agent.runtime: cloud-hypervisor`). Follow the shared test plan below,
+attempting reads (expect ALLOWED) and writes (expect BLOCKED) on both the MCP tool-call
+surface and the proxied CLI surface. Read-only must hold identically to the default
+runtime.

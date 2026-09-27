@@ -76,7 +76,6 @@ safe-outputs:
     target: "*" 
 
 tools:
-  web-fetch:
   github:
     toolsets: [default, search, discussions, actions]
     allowed-repos: ["github/*"]
