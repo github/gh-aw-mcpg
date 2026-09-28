@@ -1,6 +1,6 @@
 {
-  "lr": "2026-09-27T12:50Z",
-  "run_id": "36320227694",
+  "lr": "2026-09-28T12:57Z",
+  "run_id": "36424956675",
   "monthly_issue": 12406,
   "monthly_month": "2026-09",
   "comments_made": {
@@ -25,7 +25,8 @@
     "13077": "2026-09-13",
     "13196": "2026-09-15",
     "13261": "2026-09-16",
-    "13567": "2026-09-21"
+    "13567": "2026-09-21",
+    "14053": "2026-09-28"
   },
   "fixes": {
     "10662": "2026-08-04",
@@ -74,17 +75,19 @@
     "improve_wasm_guards_dir_envvar_godoc_20260924": "2026-09-24 (PR created, branch repo-assist/improve-wasm-guards-dir-envvar-godoc, Task 5 coding improvement - added missing godoc comment to exported WASMGuardsDirEnvVar constant in internal/guard/wasm_lifecycle.go; go build/vet/test pass)",
     "13844_rust_guard_redundant_closures_vec_refs": "2026-09-25 (PR created, branch repo-assist/fix-issue-13844-redundant-closures-vec-refs, closes #13844, replaced 10 redundant .and_then(|v| v.as_bool())/.and_then(|v| v.as_u64())/.map(|value| value.trim()) closures with Value::as_bool/Value::as_u64/str::trim method references in labels/helpers.rs+backend.rs+response_items.rs+response_paths.rs; changed cap_integrity/max_integrity to take &[String] instead of owned Vec<String>, updated ~20 call sites in helpers.rs/tool_rules.rs, removed 2 test-only .clone() workarounds; cargo build/test 670/670 pass, clippy -D warnings clean, fmt applied to touched files only; commented on #13844 linking PR)",
     "ensure_integrity_baseline_vec_refs_remaining": "2026-09-26 (PR created, branch repo-assist/improve-integrity-vec-refs-remaining-sites, Task 10 - continuation of #13855: closed out the 3 pedantic clippy sites (mod.rs:104 closure, helpers.rs ensure_integrity_baseline, tool_rules.rs resolve_author_integrity) that #13855 explicitly documented as out-of-scope; changed both functions to take &[String] instead of owned Vec<String>, updated 14 call sites across lib.rs/tool_rules.rs/helpers.rs; cargo build/test 670/670 pass, clippy -D warnings clean)",
-    "13966_13967_dedup_redact_helpers": "2026-09-27 (PR created, branch repo-assist/perf-skip-sanitize-http-request-body-20260927, Task 8 perf improvement - fixed logHTTPRequestBody in internal/server/http_helpers.go running full SanitizeString regex pass even when redact path discards result (same anti-pattern as perf_toolregistry_skip_sanitize_20260920); also closes #13966/#13967 duplicate-code sub-issues of #13965 by consolidating redactErrorIf/sdkErrorMessageForLog into sanitize.RedactErrorOrPlain/RedactMessageForLog and extracting sanitize.PayloadTextForLog for the repeated redact-or-sanitize payload branch; go build/vet/test pass, make agent-finished clean)"
+    "13966_13967_dedup_redact_helpers": "2026-09-27 (PR created, branch repo-assist/perf-skip-sanitize-http-request-body-20260927, Task 8 perf improvement - fixed logHTTPRequestBody in internal/server/http_helpers.go running full SanitizeString regex pass even when redact path discards result (same anti-pattern as perf_toolregistry_skip_sanitize_20260920); also closes #13966/#13967 duplicate-code sub-issues of #13965 by consolidating redactErrorIf/sdkErrorMessageForLog into sanitize.RedactErrorOrPlain/RedactMessageForLog and extracting sanitize.PayloadTextForLog for the repeated redact-or-sanitize payload branch; go build/vet/test pass, make agent-finished clean)",
+    "14053_validateenv_host_network": "2026-09-28 (PR created, branch repo-assist/fix-issue-14053-validate-env-host-network, closes #14053, added sys.IsHostNetworkMode(containerID) mirroring run_containerized.sh's HostConfig.NetworkMode check from #7684, ValidateContainerizedEnvironmentForRuntime skips CheckPortMapping for host-networked containers; go build/vet/test pass, make agent-finished clean; commented on #14053 linking PR)",
+    "perf_difc_filtercollection_prealloc_20260928": "2026-09-28 (PR created, branch repo-assist/perf-prealloc-filtercollection-accessible-20260928, Task 8 perf improvement - pre-sized Accessible slice in Evaluator.FilterCollection to len(collection.Items) to avoid repeated append reallocations on the DIFC list-filtering hot path (list_issues/list_pull_requests/list_commits etc); added BenchmarkFilterCollection showing ~15% memory reduction (128209->108393 B/op) on 500-item all-accessible collection; make agent-finished clean)"
   },
-  "notes": "2026-09-27 run: Tasks 8+2 selected. Task 2: reviewed all 20 open issues - all recent activity since last run (#13940, #13943, #13948, #13964, #13970-13982) is automated infra/smoke-test/no-op noise with nothing warranting a human-facing comment (consistent with prior runs' finding that the backlog has no real contributor issues). Pivoted to Task 8: found logHTTPRequestBody in http_helpers.go had the exact same redundant-SanitizeString-before-redaction-check anti-pattern fixed in tool_registry.go on 2026-09-20; while investigating found it was directly related to two open duplicate-code sub-issues (#13966, #13967, children of #13965 filed 2026-09-27) about the same redaction helpers - fixed all three in one PR. Updated monthly activity issue #12406.",
+  "notes": "2026-09-28 run: Tasks 3+8 selected. Task 3: found genuine regression bug #14053 (--validate-env rejects host-networked containers, regression of #7647's bash-side fix which was never applied to the Go validator) - added sys.IsHostNetworkMode mirroring the existing bash logic, fixed ValidateContainerizedEnvironmentForRuntime, created PR + commented on issue. Task 8: found Evaluator.FilterCollection (internal/difc/evaluator.go) building Accessible via append to a zero-capacity slice on every list-tool DIFC filter pass - pre-sized to len(items), added benchmark showing ~15% memory reduction. Also reviewed #14050 (WASM guard shared-failure bug, well-documented with proposed fixes) as a good candidate for a future Task 3 fix but did not attempt this run since #14053 was already a strong, self-contained fix. Updated monthly activity issue #12406 with both new PRs and cleaned up suggested-actions list (removed 3 already-merged PR items: #13987/#13919/#13906).",
   "cursor": {
     "issues": 13918,
     "labels": 13918
   },
   "checked_off_by_user": [],
   "open_ra_prs": [
-    "repo-assist/improve-integrity-vec-refs-remaining-sites",
-    "repo-assist/perf-skip-sanitize-http-request-body-20260927"
+    "repo-assist/fix-issue-14053-validate-env-host-network",
+    "repo-assist/perf-prealloc-filtercollection-accessible-20260928"
   ],
   "labels_applied": {
     "13822": [
