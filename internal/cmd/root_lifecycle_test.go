@@ -25,14 +25,25 @@ func TestPostRun(t *testing.T) {
 	})
 
 	t.Run("closes initialized gateway loggers without warning", func(t *testing.T) {
-		logger.InitGatewayLoggers(t.TempDir())
+		logDir := t.TempDir()
+		logger.InitGatewayLoggers(logDir)
 
 		var buf bytes.Buffer
+		origLogWriter := log.Writer()
 		log.SetOutput(&buf)
-		t.Cleanup(func() { log.SetOutput(os.Stderr) })
+		t.Cleanup(func() { log.SetOutput(origLogWriter) })
 
+		const beforeClose = "before postRun"
+		const afterClose = "after postRun"
+		logger.LogInfo("test", beforeClose)
 		require.NotPanics(t, func() { postRun(&cobra.Command{}, []string{"arg"}) })
 		assert.NotContains(t, buf.String(), "Warning: error closing loggers")
+		logger.LogInfo("test", afterClose)
+
+		content, err := os.ReadFile(logDir + string(os.PathSeparator) + "mcp-gateway.log")
+		require.NoError(t, err)
+		assert.Contains(t, string(content), beforeClose)
+		assert.NotContains(t, string(content), afterClose)
 	})
 
 	t.Run("is idempotent when called repeatedly", func(t *testing.T) {
