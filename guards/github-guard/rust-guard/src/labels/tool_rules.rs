@@ -351,7 +351,9 @@ pub fn apply_tool_labels(
         | tool_names::SEARCH_PULL_REQUESTS
         | "search_pull_requests_ff_fields_param" => {
             let (s_owner, s_repo, s_repo_id) = resolve_search_scope(tool_args, &owner, &repo);
-            if !s_repo_id.is_empty() {
+            if s_repo_id.is_empty() {
+                integrity = vec![];
+            } else {
                 desc = format!("{tool_name}:{s_repo_id}");
                 secrecy =
                     apply_repo_visibility_secrecy(&s_owner, &s_repo, &s_repo_id, secrecy, ctx);
@@ -359,8 +361,6 @@ pub fn apply_tool_labels(
                 let search_repo_private = repo_private
                     .or_else(|| super::backend::is_repo_private(&s_owner, &s_repo));
                 integrity = private_writer_integrity(&s_repo_id, search_repo_private, ctx);
-            } else {
-                integrity = vec![];
             }
         }
 
@@ -573,15 +573,15 @@ pub fn apply_tool_labels(
             // Repo-scoped search reads. Resolve scope from query repo qualifier first,
             // then fall back to tool_args owner/repo.
             let (s_owner, s_repo, s_repo_id) = resolve_search_scope(tool_args, &owner, &repo);
-            if !s_repo_id.is_empty() {
+            if s_repo_id.is_empty() {
+                secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+                integrity = writer_integrity(repo_id, ctx);
+            } else {
                 desc = format!("{tool_name}:{s_repo_id}");
                 secrecy =
                     apply_repo_visibility_secrecy(&s_owner, &s_repo, &s_repo_id, secrecy, ctx);
                 integrity = writer_integrity(&s_repo_id, ctx);
                 baseline_scope = Cow::Owned(s_repo_id);
-            } else {
-                secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
-                integrity = writer_integrity(repo_id, ctx);
             }
         }
 

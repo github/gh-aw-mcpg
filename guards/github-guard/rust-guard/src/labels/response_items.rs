@@ -162,10 +162,10 @@ pub fn label_response_items(
                     let default_repo_private = repo_private_fallback(&arg_owner, &arg_repo);
                     // All tools in this match arm use shared repo secrecy except search_pull_requests,
                     // which uses per-item secrecy derived from each PR's repository.
-                    let secrecy = if !is_search_pr_variant(tool_name) {
-                        repo_visibility_secrecy(&arg_owner, &arg_repo, &arg_repo_full, ctx)
-                    } else {
+                    let secrecy = if is_search_pr_variant(tool_name) {
                         vec![]
+                    } else {
+                        repo_visibility_secrecy(&arg_owner, &arg_repo, &arg_repo_full, ctx)
                     };
                     let secrecy_shared: SharedLabels = secrecy.into();
 
@@ -257,10 +257,10 @@ pub fn label_response_items(
                 let default_repo_private = repo_private_fallback(&arg_owner, &arg_repo);
                 // All tools in this match arm use shared repo secrecy except search_issues,
                 // which uses per-item secrecy derived from each issue's repository.
-                let secrecy = if !is_search_issue_variant(tool_name) {
-                    repo_visibility_secrecy(&arg_owner, &arg_repo, &default_repo_full_name, ctx)
-                } else {
+                let secrecy = if is_search_issue_variant(tool_name) {
                     vec![]
+                } else {
+                    repo_visibility_secrecy(&arg_owner, &arg_repo, &default_repo_full_name, ctx)
                 };
                 let secrecy_shared: SharedLabels = secrecy.into();
 
