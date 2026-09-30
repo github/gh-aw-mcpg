@@ -805,18 +805,17 @@ pub(crate) fn has_maintainer_reaction_with_callback(
                 content
             ));
             return true;
-        } else {
-            crate::log_info(&format!(
-                "[integrity] {}: reactor @{} has integrity rank {}, below \
-                 endorser-min-integrity rank {} — ignoring {} {}",
-                repo_full_name,
-                login,
-                reactor_rank,
-                endorser_min_rank,
-                reaction_kind.as_str(),
-                content
-            ));
         }
+        crate::log_info(&format!(
+            "[integrity] {}: reactor @{} has integrity rank {}, below \
+             endorser-min-integrity rank {} — ignoring {} {}",
+            repo_full_name,
+            login,
+            reactor_rank,
+            endorser_min_rank,
+            reaction_kind.as_str(),
+            content
+        ));
     }
 
     false

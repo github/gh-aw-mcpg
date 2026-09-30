@@ -146,9 +146,8 @@ pub(crate) fn extract_mcp_response(response: &Value) -> Cow<'_, Value> {
                 if let Ok(parsed) = serde_json::from_str::<Value>(text) {
                     crate::log_debug("extract_mcp_response: parsed text content as JSON");
                     return Cow::Owned(parsed);
-                } else {
-                    crate::log_debug("extract_mcp_response: failed to parse text as JSON");
                 }
+                crate::log_debug("extract_mcp_response: failed to parse text as JSON");
             }
         }
     } else {
