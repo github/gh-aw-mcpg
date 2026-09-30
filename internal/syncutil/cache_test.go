@@ -72,24 +72,23 @@ func TestMapGetOrCreate_CreateCalledOnce(t *testing.T) {
 
 	var wg sync.WaitGroup
 	results := make([]int, numGoroutines)
+	errs := make([]error, numGoroutines)
 
 	wg.Add(numGoroutines)
 	for i := 0; i < numGoroutines; i++ {
 		go func(idx int) {
 			defer wg.Done()
-			v, err := syncutil.MapGetOrCreate(&mu, cache, "key", func() (int, error) {
+			results[idx], errs[idx] = syncutil.MapGetOrCreate(&mu, cache, "key", func() (int, error) {
 				createCount.Add(1)
 				return 42, nil
 			})
-			if err == nil {
-				results[idx] = v
-			}
 		}(i)
 	}
 	wg.Wait()
 
 	assert.Equal(t, int32(1), createCount.Load(), "create should be called exactly once")
 	for i, v := range results {
+		assert.NoError(t, errs[i], "goroutine %d returned an error", i)
 		assert.Equal(t, 42, v, "goroutine %d got unexpected value", i)
 	}
 	assert.Equal(t, 42, cache["key"])
