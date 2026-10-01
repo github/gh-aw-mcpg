@@ -411,6 +411,7 @@ CMD ["node", "mock-mcp-server.js"]
 	defer cancelBuild()
 
 	buildCmd := exec.CommandContext(buildCtx, "docker", "build", "-t", imageName, tmpDir)
+	buildCmd.WaitDelay = 5 * time.Second
 	buildOutput, err := buildCmd.CombinedOutput()
 	if err != nil {
 		outputStr := string(buildOutput)
