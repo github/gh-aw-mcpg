@@ -113,7 +113,6 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     "unpin_issue",             // gh issue unpin
     "update_codespace",        // gh codespace edit — PATCH /user/codespaces/{codespace_name}
     "update_codespace_port_visibility", // gh codespace ports visibility — session UpdatePortVisibility RPC
-    "update_issue_comment",             // PATCH /repos/.../issues/comments/{id}
     "update_project", // gh project close/edit/reopen — updates Projects v2 metadata/status
     "upload_release_asset", // gh release upload
 ];
@@ -160,6 +159,7 @@ pub const READ_WRITE_OPERATIONS: &[&str] = &[
     "update_gist",
     "update_issue_assignees", // PATCH — modifies issue assignees
     "update_issue_body",      // PATCH — modifies issue body
+    "update_issue_comment",   // PATCH /repos/.../issues/comments/{id}
     "update_issue_labels",    // PATCH — modifies issue labels
     "update_issue_milestone", // PATCH — modifies issue milestone
     "update_issue_state",     // PATCH — opens or closes an issue
@@ -553,7 +553,6 @@ mod tests {
             tool_names::DELETE_REPOSITORY,
             "link_project",
             "unlink_project",
-            "update_issue_comment",
             "delete_issue_comment",
             "create_release",
             "edit_release",
@@ -743,7 +742,6 @@ mod tests {
             "delete_release",
             tool_names::DELETE_REPOSITORY,
             "edit_release",
-            "update_issue_comment",
             "upload_release_asset",
         ] {
             assert!(
@@ -857,7 +855,6 @@ mod tests {
             "unlock_pull_request",
             "unmark_project_template",
             "update_codespace",
-            "update_issue_comment",
             "upload_release_asset",
         ] {
             assert!(
@@ -877,6 +874,15 @@ mod tests {
                 "{op} must still be classified as a write operation"
             );
         }
+    }
+
+    #[test]
+    fn test_update_issue_comment_is_upstream_read_write_operation() {
+        let op = "update_issue_comment";
+        assert!(READ_WRITE_OPERATIONS.binary_search(&op).is_ok());
+        assert!(CLI_WRITE_OPERATIONS.binary_search(&op).is_err());
+        assert!(is_read_write_operation(op));
+        assert!(!is_write_operation(op));
     }
 
     #[test]
