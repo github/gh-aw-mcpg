@@ -47,8 +47,10 @@ func TestUnifiedServer_ControlHandler(t *testing.T) {
 		cfg, _ := newUnifiedDelegationConfig(t)
 		h := (&UnifiedServer{delegation: cfg}).ControlHandler()
 
+		req := httptest.NewRequest(http.MethodGet, controlPath, nil)
+		req.Header.Set("Authorization", "control-capability-key-32-bytes!!")
 		w := httptest.NewRecorder()
-		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, controlPath, nil))
+		h.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusForbidden, w.Code)
 	})
 
