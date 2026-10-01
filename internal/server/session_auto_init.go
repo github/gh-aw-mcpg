@@ -61,6 +61,7 @@ func WrapWithSessionAutoInit(streamableHandler http.Handler) http.Handler {
 		// avoid allocating an unused stateful session for every stateless
 		// tools/call.
 		if r.Header.Get(mcpProtocolVersionHeader) >= statelessProtocolVersion {
+			logAutoInit.Printf("Skipping auto-init for stateless protocol version: %s", r.Header.Get(mcpProtocolVersionHeader))
 			streamableHandler.ServeHTTP(w, r)
 			return
 		}
@@ -68,6 +69,7 @@ func WrapWithSessionAutoInit(streamableHandler http.Handler) http.Handler {
 		// Peek at the request body to detect tools/call.
 		bodyBytes, err := readAndRestoreRequestBody(r)
 		if err != nil || len(bodyBytes) == 0 {
+			logAutoInit.Printf("Skipping auto-init: request body unreadable or empty (err=%v, bytes=%d)", err, len(bodyBytes))
 			streamableHandler.ServeHTTP(w, r)
 			return
 		}
@@ -76,6 +78,7 @@ func WrapWithSessionAutoInit(streamableHandler http.Handler) http.Handler {
 			Method string `json:"method"`
 		}
 		if err := json.Unmarshal(bodyBytes, &rpcReq); err != nil || rpcReq.Method != "tools/call" {
+			logAutoInit.Printf("Skipping auto-init: method=%q, parseErr=%v", rpcReq.Method, err)
 			streamableHandler.ServeHTTP(w, r)
 			return
 		}
@@ -129,6 +132,9 @@ func performSessionAutoInit(originalReq *http.Request, handler http.Handler) (st
 	handler.ServeHTTP(initRec, initReq)
 
 	sessionID := initRec.Header().Get("Mcp-Session-Id")
+	if initRec.Code != http.StatusOK {
+		logAutoInit.Printf("initialize returned non-OK status %d", initRec.Code)
+	}
 	if sessionID == "" {
 		return "", fmt.Errorf("initialize response missing Mcp-Session-Id (status=%d)", initRec.Code)
 	}
