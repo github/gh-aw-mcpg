@@ -10,7 +10,7 @@
 //! Use path-based labeling (`label_response_paths`) when possible for better
 //! performance with large result sets.
 
-use super::constants::{desc_prefix, field_names, scope_names, tool_names};
+use super::constants::{desc_prefix, field_names, scope_names, tool_names, UNKNOWN_LABEL_FALLBACK};
 use super::extract_mcp_response;
 use super::helpers::*;
 use crate::{LabeledItem, ResourceLabels, SharedLabels};
@@ -94,7 +94,8 @@ pub fn label_response_items(
                 let mut private_count = 0;
                 for (i, item) in items_to_process.iter().enumerate() {
                     let is_private = get_bool_or(item, field_names::PRIVATE, false);
-                    let full_name = get_str_or(item, field_names::FULL_NAME, "unknown");
+                    let full_name =
+                        get_str_or(item, field_names::FULL_NAME, UNKNOWN_LABEL_FALLBACK);
 
                     // Repository metadata has approved-level integrity (endorsed by maintainers)
                     let integrity = writer_integrity(full_name, ctx);
@@ -387,7 +388,7 @@ pub fn label_response_items(
             let gist_integrity_shared: SharedLabels = gist_integrity.into();
             for item in items_limited.iter().copied() {
                 let secrecy = gist_secrecy_for_item(item);
-                let id = get_str_or(item, "id", "unknown");
+                let id = get_str_or(item, field_names::ID, UNKNOWN_LABEL_FALLBACK);
 
                 // Gists have contributor-level integrity (user content)
                 labeled_items.push(LabeledItem {
@@ -411,7 +412,7 @@ pub fn label_response_items(
                 let notif_secrecy_shared: SharedLabels = notif_secrecy.into();
                 let notif_integrity_shared: SharedLabels = notif_integrity.into();
                 for item in items {
-                    let id = get_str_or(item, "id", "unknown");
+                    let id = get_str_or(item, field_names::ID, UNKNOWN_LABEL_FALLBACK);
                     labeled_items.push(LabeledItem {
                         data: item.clone(),
                         labels: ResourceLabels {
@@ -442,7 +443,7 @@ pub fn label_response_items(
             let secrecy_shared: SharedLabels = secrecy.into();
             let release_integrity_shared: SharedLabels = release_integrity.into();
             for item in items_limited.iter().copied() {
-                let tag = get_str_or(item, "tag_name", "unknown");
+                let tag = get_str_or(item, field_names::TAG_NAME, UNKNOWN_LABEL_FALLBACK);
 
                 // Releases have merged-level integrity (endorsed by maintainers)
                 labeled_items.push(LabeledItem {
@@ -522,7 +523,10 @@ mod tests {
         let items = extract_items_slice(&response, "pull_requests");
 
         assert_eq!(items.len(), 1);
-        assert_eq!(items[0].get("number").and_then(serde_json::Value::as_u64), Some(1));
+        assert_eq!(
+            items[0].get("number").and_then(serde_json::Value::as_u64),
+            Some(1)
+        );
     }
 
     #[test]
@@ -535,7 +539,10 @@ mod tests {
         let items = extract_items_slice(&response, "issues");
 
         assert_eq!(items.len(), 1);
-        assert_eq!(items[0].get("number").and_then(serde_json::Value::as_u64), Some(42));
+        assert_eq!(
+            items[0].get("number").and_then(serde_json::Value::as_u64),
+            Some(42)
+        );
     }
 
     #[test]

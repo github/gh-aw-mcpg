@@ -10,7 +10,8 @@ use serde_json::Value;
 
 use super::backend::GithubMcpCallback;
 use super::constants::{
-    field_names, label_constants, scope_names, tool_names, URL_FALLBACK_FIELDS,
+    field_names, label_constants, scope_names, tool_names, UNKNOWN_LABEL_FALLBACK,
+    URL_FALLBACK_FIELDS,
 };
 
 /// Ensures the endorsement gateway-mode warning is emitted at most once per process lifetime.
@@ -60,7 +61,7 @@ pub(crate) fn extract_resource_number(item: &Value, resource_type: &str, repo: &
     crate::log_warn(&format!(
         "{resource_type}:{repo} — missing or invalid 'number' field, using 'unknown'"
     ));
-    "unknown".to_string()
+    UNKNOWN_LABEL_FALLBACK.to_string()
 }
 
 /// Extract the `number` field from an item for logging (issue/PR number).
@@ -2147,9 +2148,9 @@ pub(crate) fn commit_integrity(
     ctx: &PolicyContext,
 ) -> Vec<String> {
     let sha = item
-        .get("sha")
+        .get(field_names::SHA)
         .and_then(|v| v.as_str())
-        .unwrap_or("unknown");
+        .unwrap_or(UNKNOWN_LABEL_FALLBACK);
     let short_sha = short_sha(sha);
 
     // Step 1: Check if author is in blocked_users — takes precedence over all other rules.
