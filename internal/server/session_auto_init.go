@@ -132,11 +132,13 @@ func performSessionAutoInit(originalReq *http.Request, handler http.Handler) (st
 	handler.ServeHTTP(initRec, initReq)
 
 	sessionID := initRec.Header().Get("Mcp-Session-Id")
+	if initRec.Code != http.StatusOK {
+		logAutoInit.Printf("initialize returned non-OK status %d", initRec.Code)
+	}
 	if sessionID == "" {
 		return "", fmt.Errorf("initialize response missing Mcp-Session-Id (status=%d)", initRec.Code)
 	}
 	if initRec.Code != http.StatusOK {
-		logAutoInit.Printf("initialize returned non-OK status %d", initRec.Code)
 		return "", fmt.Errorf("initialize returned unexpected status %d", initRec.Code)
 	}
 	logAutoInit.Printf("initialize OK, session=%s", util.FormatSessionIDForLog(sessionID))
