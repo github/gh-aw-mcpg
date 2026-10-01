@@ -65,16 +65,17 @@ func TestUnifiedServer_ControlHandler(t *testing.T) {
 }
 
 func TestUnifiedServer_LifecycleAccessors(t *testing.T) {
+	assert := assert.New(t)
 	us := &UnifiedServer{
 		payloadSizeThreshold: 1234,
 		enableDIFC:           true,
 		tools:                map[string]*ToolInfo{},
 	}
-	assert.Equal(t, 1234, us.GetPayloadSizeThreshold())
-	assert.True(t, us.IsDIFCEnabled())
-	assert.False(t, (&UnifiedServer{}).IsDIFCEnabled())
+	assert.Equal(1234, us.GetPayloadSizeThreshold())
+	assert.True(us.IsDIFCEnabled())
+	assert.False((&UnifiedServer{}).IsDIFCEnabled())
 
 	tool := &ToolInfo{Name: "test-tool"}
 	us.RegisterTestTool("srv___test-tool", tool)
-	assert.Same(t, tool, us.tools["srv___test-tool"])
+	assert.Same(tool, us.tools["srv___test-tool"])
 }
