@@ -88,7 +88,7 @@ func TestMapGetOrCreate_CreateCalledOnce(t *testing.T) {
 
 	assert.Equal(t, int32(1), createCount.Load(), "create should be called exactly once")
 	for i, v := range results {
-		assert.NoError(t, errs[i], "goroutine %d returned an error", i)
+		require.NoError(t, errs[i], "goroutine %d returned an error", i)
 		assert.Equal(t, 42, v, "goroutine %d got unexpected value", i)
 	}
 	assert.Equal(t, 42, cache["key"])
