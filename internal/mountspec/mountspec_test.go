@@ -18,6 +18,11 @@ func TestParse(t *testing.T) {
 		{name: "read-only", spec: "/srv/data:/data:ro"},
 		{name: "read-write", spec: "/srv/data:/data:rw", wantWritable: true},
 		{name: "omitted mode defaults to read-write", spec: "/srv/data:/data", wantWritable: true},
+		{name: "mode whitespace is trimmed", spec: "/srv/data:/data: ro "},
+		{name: "duplicate same modes rejected", spec: "/srv/data:/data:ro,ro", wantErr: true, errorKind: InvalidOptions},
+		{name: "single segment rejected", spec: "/srv/data", wantErr: true, errorKind: InvalidFormat},
+		{name: "empty spec rejected", spec: "", wantErr: true, errorKind: InvalidFormat},
+		{name: "empty mode rejected", spec: "/srv/data:/data:", wantErr: true, errorKind: InvalidOptions},
 		{name: "duplicate modes rejected", spec: "/srv/data:/data:ro,rw", wantErr: true, errorKind: InvalidOptions},
 		{name: "empty mode option rejected", spec: "/srv/data:/data:ro,,rw", wantErr: true, errorKind: InvalidOptions},
 		{name: "unsupported option rejected", spec: "/srv/data:/data:rslave", wantErr: true, errorKind: InvalidOptions},
@@ -103,6 +108,27 @@ func TestParseErrorMessages(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := &ParseError{Kind: tt.kind}
 			assert.Equal(t, tt.wantMsg, err.Error())
+		})
+	}
+}
+
+func TestParseWrappedErrorMessages(t *testing.T) {
+	tests := []struct {
+		name    string
+		spec    string
+		wantMsg string
+	}{
+		{name: "conflicting options", spec: "/a:/b:ro,rw", wantMsg: "conflicting mount options"},
+		{name: "empty option", spec: "/a:/b:ro,,", wantMsg: "empty mount option"},
+		{name: "unsupported option", spec: "/a:/b:z", wantMsg: "unsupported mount option"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse(tt.spec)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantMsg)
+			assert.Contains(t, err.Error(), "invalid mount options")
 		})
 	}
 }
