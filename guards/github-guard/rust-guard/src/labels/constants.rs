@@ -38,7 +38,8 @@ pub mod policy_integrity {
 mod tests {
     use super::{
         desc_prefix, field_names, policy_integrity, tool_names, ORG_FIELD_ALIASES,
-        SENSITIVE_PATH_PREFIXES, UI_GET_ACCESS_SENSITIVE_METHODS, UI_GET_GITHUB_APPROVED_METHODS,
+        SENSITIVE_PATH_PREFIXES, UNKNOWN_LABEL_FALLBACK, UI_GET_ACCESS_SENSITIVE_METHODS,
+        UI_GET_GITHUB_APPROVED_METHODS,
         UI_GET_REPO_SCOPED_METHODS, URL_FALLBACK_FIELDS,
     };
 
@@ -72,6 +73,10 @@ mod tests {
         assert_eq!(field_names::IS_ERROR, "isError");
         assert_eq!(field_names::COMMENT_NODE_ID, "commentNodeID");
         assert_eq!(field_names::PUBLIC, "public");
+        assert_eq!(field_names::ID, "id");
+        assert_eq!(field_names::TAG_NAME, "tag_name");
+        assert_eq!(field_names::TYPE, "type");
+        assert_eq!(UNKNOWN_LABEL_FALLBACK, "unknown");
     }
 
     #[test]
@@ -179,7 +184,13 @@ pub mod field_names {
     pub const LOGIN: &str = "login";
     pub const IS_ERROR: &str = "isError";
     pub const COMMENT_NODE_ID: &str = "commentNodeID";
+    pub const ID: &str = "id";
+    pub const TAG_NAME: &str = "tag_name";
+    pub const TYPE: &str = "type";
 }
+
+/// Fallback identifier used in labels when a response item lacks an expected field.
+pub const UNKNOWN_LABEL_FALLBACK: &str = "unknown";
 
 /// Canonical repo `visibility` field string values, used to avoid silent
 /// typos when matching against the visibility string returned by the API.

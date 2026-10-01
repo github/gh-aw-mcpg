@@ -7,7 +7,7 @@
 //! Returns JSON paths like `/items/0`, `/items/1` pointing to labeled objects
 //! in the response, rather than cloning the entire data.
 
-use super::constants::{desc_prefix, field_names, scope_names, tool_names};
+use super::constants::{desc_prefix, field_names, scope_names, tool_names, UNKNOWN_LABEL_FALLBACK};
 use super::extract_mcp_response;
 use super::helpers::*;
 use serde_json::Value;
@@ -129,7 +129,8 @@ pub fn label_response_paths(
 
                 for (i, item) in limited_items.iter().enumerate() {
                     let is_private = get_bool_or(item, field_names::PRIVATE, false);
-                    let full_name = get_str_or(item, field_names::FULL_NAME, "unknown");
+                    let full_name =
+                        get_str_or(item, field_names::FULL_NAME, UNKNOWN_LABEL_FALLBACK);
                     let integrity = writer_integrity(full_name, ctx);
 
                     let secrecy = if is_private {
@@ -358,7 +359,7 @@ pub fn label_response_paths(
                         &item_repo
                     };
 
-                    let commit_sha = get_str_or(item, "sha", "unknown");
+                    let commit_sha = get_str_or(item, field_names::SHA, UNKNOWN_LABEL_FALLBACK);
                     let short_sha = short_sha(commit_sha);
 
                     let integrity = commit_integrity(
@@ -471,7 +472,7 @@ pub fn label_response_paths(
                         &item_repo
                     };
 
-                    let tag = get_str_or(item, "tag_name", "unknown");
+                    let tag = get_str_or(item, field_names::TAG_NAME, UNKNOWN_LABEL_FALLBACK);
                     let integrity: crate::SharedLabels = if item_repo.is_empty() {
                         default_merged_shared.clone()
                     } else {
@@ -517,7 +518,7 @@ pub fn label_response_paths(
                 let empty_integrity: crate::SharedLabels = vec![].into();
 
                 for (i, item) in limited_items.iter().enumerate() {
-                    let id = get_str_or(item, "id", "unknown");
+                    let id = get_str_or(item, field_names::ID, UNKNOWN_LABEL_FALLBACK);
 
                     labeled_paths.push(crate::PathLabel {
                         path: format!("/{i}"),
@@ -555,7 +556,7 @@ pub fn label_response_paths(
 
                 for (i, item) in limited_items.iter().enumerate() {
                     let secrecy: crate::SharedLabels = gist_secrecy_for_item(item).into();
-                    let id = get_str_or(item, "id", "unknown");
+                    let id = get_str_or(item, field_names::ID, UNKNOWN_LABEL_FALLBACK);
 
                     labeled_paths.push(crate::PathLabel {
                         path: format!("/{i}"),
@@ -590,7 +591,7 @@ pub fn label_response_paths(
                 let mut labeled_paths = Vec::with_capacity(limited_items.len());
 
                 for (i, item) in limited_items.iter().enumerate() {
-                    let item_type = get_str_or(item, "type", "");
+                    let item_type = get_str_or(item, field_names::TYPE, "");
 
                     let (secrecy, integrity) = if matches!(item_type, "ISSUE" | "PULL_REQUEST") {
                         // Issues and PRs carry a `content` sub-object with
