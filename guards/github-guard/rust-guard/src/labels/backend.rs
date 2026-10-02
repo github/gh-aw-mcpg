@@ -89,11 +89,17 @@ fn collaborator_permission_cache() -> &'static Mutex<HashMap<String, Option<Stri
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn get_cached_collaborator_permission(key: &str) -> Option<Option<String>> {
+enum CachedPermission {
+    Miss,
+    Known(Option<String>),
+}
+
+fn get_cached_collaborator_permission(key: &str) -> CachedPermission {
     collaborator_permission_cache()
         .lock()
         .ok()
         .and_then(|cache| cache.get(key).cloned())
+        .map_or(CachedPermission::Miss, CachedPermission::Known)
 }
 
 fn set_cached_collaborator_permission(key: &str, permission: Option<String>) {
@@ -544,7 +550,7 @@ pub(crate) fn get_collaborator_permission_with_callback(
     );
 
     // Return cached permission if available.
-    if let Some(cached) = get_cached_collaborator_permission(&cache_key) {
+    if let CachedPermission::Known(cached) = get_cached_collaborator_permission(&cache_key) {
         crate::log_debug(&format!(
             "get_collaborator_permission: cache hit for {owner}/{repo} user {username} → permission={cached:?}"
         ));
@@ -713,26 +719,78 @@ mod tests {
         Ok(bytes.len())
     }
 
+    #[test]
+    fn test_cached_collaborator_permission_states() {
+        let key = "cache-states-owner/repo:user";
+        assert!(matches!(
+            get_cached_collaborator_permission(key),
+            CachedPermission::Miss
+        ));
+
+        set_cached_collaborator_permission(key, None);
+        assert!(matches!(
+            get_cached_collaborator_permission(key),
+            CachedPermission::Known(None)
+        ));
+
+        set_cached_collaborator_permission(key, Some("write".to_string()));
+        match get_cached_collaborator_permission(key) {
+            CachedPermission::Known(permission) => {
+                assert_eq!(permission.as_deref(), Some("write"));
+            }
+            CachedPermission::Miss => panic!("expected cached permission"),
+        }
+
+        collaborator_permission_cache().lock().unwrap().remove(key);
+    }
+
+    #[test]
+    fn test_get_collaborator_permission_cache_hits_skip_backend() {
+        fn unexpected_callback(_tool: &str, _args: &str, _buffer: &mut [u8]) -> Result<usize, i32> {
+            panic!("cache hit should not call the backend");
+        }
+
+        for permission in [Some("admin".to_string()), None] {
+            let key = "cache-hits-owner/repo:user";
+            set_cached_collaborator_permission(key, permission.clone());
+
+            let result = get_collaborator_permission_with_callback(
+                unexpected_callback,
+                "Cache-Hits-Owner",
+                "Repo",
+                "User",
+            );
+            match permission {
+                Some(permission) => {
+                    let result = result.expect("expected cached collaborator permission");
+                    assert_eq!(result.permission, Some(permission));
+                    assert_eq!(result.login.as_deref(), Some("User"));
+                }
+                None => assert!(result.is_none()),
+            }
+
+            collaborator_permission_cache().lock().unwrap().remove(key);
+        }
+    }
+
     fn direct_pr_callback(_tool: &str, _args: &str, buffer: &mut [u8]) -> Result<usize, i32> {
-        let payload = serde_json::json!({
-            "base": { "repo": { "full_name": "owner/repo" } },
-            "head": { "repo": { "full_name": "owner/repo" } }
-        })
-        .to_string();
-        let bytes = payload.as_bytes();
-        buffer[..bytes.len()].copy_from_slice(bytes);
-        Ok(bytes.len())
+        copy_payload(
+            serde_json::json!({
+                "base": { "repo": { "full_name": "owner/repo" } },
+                "head": { "repo": { "full_name": "owner/repo" } }
+            }),
+            buffer,
+        )
     }
 
     fn fork_pr_callback(_tool: &str, _args: &str, buffer: &mut [u8]) -> Result<usize, i32> {
-        let payload = serde_json::json!({
-            "base": { "repo": { "full_name": "owner/repo" } },
-            "head": { "repo": { "full_name": "contrib/repo" } }
-        })
-        .to_string();
-        let bytes = payload.as_bytes();
-        buffer[..bytes.len()].copy_from_slice(bytes);
-        Ok(bytes.len())
+        copy_payload(
+            serde_json::json!({
+                "base": { "repo": { "full_name": "owner/repo" } },
+                "head": { "repo": { "full_name": "contrib/repo" } }
+            }),
+            buffer,
+        )
     }
 
     fn wrapped_fork_pr_callback(_tool: &str, _args: &str, buffer: &mut [u8]) -> Result<usize, i32> {
@@ -741,13 +799,12 @@ mod tests {
             "head": { "repo": { "full_name": "fork/repo" } }
         })
         .to_string();
-        let payload = serde_json::json!({
-            "content": [{ "type": "text", "text": inner }]
-        })
-        .to_string();
-        let bytes = payload.as_bytes();
-        buffer[..bytes.len()].copy_from_slice(bytes);
-        Ok(bytes.len())
+        copy_payload(
+            serde_json::json!({
+                "content": [{ "type": "text", "text": inner }]
+            }),
+            buffer,
+        )
     }
 
     fn large_pull_request_callback(
@@ -764,18 +821,16 @@ mod tests {
             "base": { "repo": { "full_name": "owner/repo" } },
             "head": { "repo": { "full_name": "owner/repo" } },
             "body": "x".repeat(SMALL_BUFFER_SIZE + 1024),
-        })
-        .to_string();
-        let bytes = payload.as_bytes();
-        if bytes.len() > buffer.len() {
+        });
+        let payload_len = payload.to_string().len();
+        if payload_len > buffer.len() {
             if buffer.len() >= 4 {
-                let required = (bytes.len() as u32).to_le_bytes();
+                let required = (payload_len as u32).to_le_bytes();
                 buffer[..4].copy_from_slice(&required);
             }
             return Err(-2);
         }
-        buffer[..bytes.len()].copy_from_slice(bytes);
-        Ok(bytes.len())
+        copy_payload(payload, buffer)
     }
 
     fn merged_boolean_pull_request_callback(
@@ -804,16 +859,14 @@ mod tests {
         _args: &str,
         buffer: &mut [u8],
     ) -> Result<usize, i32> {
-        let payload = serde_json::json!({ "ok": true }).to_string();
-        let bytes = payload.as_bytes();
+        let payload = serde_json::json!({ "ok": true });
         let call = RETRY_WITH_REQUIRED_SIZE_CALL_COUNT.fetch_add(1, Ordering::SeqCst);
         if call == 0 {
-            let required = (bytes.len() as u32).to_le_bytes();
+            let required = (payload.to_string().len() as u32).to_le_bytes();
             buffer[..4].copy_from_slice(&required);
             return Err(-2);
         }
-        buffer[..bytes.len()].copy_from_slice(bytes);
-        Ok(bytes.len())
+        copy_payload(payload, buffer)
     }
 
     fn retry_with_too_large_required_size_callback(
