@@ -457,12 +457,14 @@ func (s *Server) upstreamHost() string {
 	}
 
 	// Handle scheme-less config values like "api.github.com" or "api.github.com/api/v3".
+	logProxy.Print("upstreamHost: githubAPIURL has no host, retrying parse as scheme-less value")
 	u, err = url.Parse("https://" + strings.TrimLeft(s.githubAPIURL, "/"))
 	if err == nil && u.Host != "" {
 		return u.Hostname()
 	}
 
 	host, _, _ := strings.Cut(strings.TrimLeft(s.githubAPIURL, "/"), "/")
+	logProxy.Printf("upstreamHost: falling back to raw host segment: %s", host)
 	return host
 }
 
@@ -483,6 +485,7 @@ func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body 
 			graphqlURL = s.githubAPIURL + "/graphql"
 		}
 		url = graphqlURL
+		logProxy.Printf("forwardToGitHub: rewrote GraphQL upstream URL: ghes=%v", strings.HasSuffix(s.githubAPIURL, "/api/v3"))
 		if hasQuery {
 			url += "?" + query
 		}
@@ -497,6 +500,7 @@ func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body 
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
+		logProxy.Printf("forwardToGitHub: failed to create upstream request: method=%s, err=%v", method, err)
 		return nil, fmt.Errorf("failed to create upstream request: %w", err)
 	}
 
@@ -514,6 +518,7 @@ func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body 
 		req.Header.Set("Content-Type", contentType)
 	}
 	if method == http.MethodGet && artifactZipDownloadPathPattern.MatchString(pathOnly) {
+		logProxy.Print("forwardToGitHub: artifact zip download, not following redirects")
 		return doWithoutFollowingRedirects(s.httpClient, req)
 	}
 	return s.httpClient.Do(req)
