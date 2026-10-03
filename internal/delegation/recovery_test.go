@@ -1061,3 +1061,18 @@ func TestParsePersistedState(t *testing.T) {
 		assert.False(t, ok)
 	})
 }
+
+func TestFailedRecoveryStore(t *testing.T) {
+	t.Run("returns empty store flagged incomplete", func(t *testing.T) {
+		store, err := failedRecoveryStore(validEnvelope(), 3)
+		require.NoError(t, err)
+		require.NotNil(t, store)
+		assert.True(t, store.IsRecoveryIncomplete())
+	})
+
+	t.Run("propagates NewStore error for invalid envelope", func(t *testing.T) {
+		store, err := failedRecoveryStore(&Envelope{}, 3)
+		require.Error(t, err)
+		assert.Nil(t, store)
+	})
+}
