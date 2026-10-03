@@ -500,7 +500,7 @@ func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body 
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
-		logProxy.Printf("forwardToGitHub: failed to create upstream request: method=%s, err=%v", method, err)
+		logProxy.Printf("forwardToGitHub: failed to create upstream request: method=%s, err=%s", method, sanitize.RedactErrorForLog(err))
 		return nil, fmt.Errorf("failed to create upstream request: %w", err)
 	}
 
