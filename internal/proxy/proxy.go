@@ -464,7 +464,7 @@ func (s *Server) upstreamHost() string {
 	}
 
 	host, _, _ := strings.Cut(strings.TrimLeft(s.githubAPIURL, "/"), "/")
-	logProxy.Printf("upstreamHost: falling back to raw host segment: %s", host)
+	logProxy.Print("upstreamHost: falling back to raw host segment")
 	return host
 }
 
