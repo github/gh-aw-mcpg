@@ -15,6 +15,11 @@ import (
 
 var testRootKeyHex = "193cca230240a5422776e11a38db821b9e6ba667ed851b6e2748423fe5283aa1"[:64]
 
+const (
+	errInvalidCapability = "invalid enclave capability"
+	errBadKey            = "enclave capability key must be exactly 64 lowercase hex characters"
+)
+
 func testPolicy(t *testing.T) *Policy {
 	t.Helper()
 	policy, err := ParsePolicy(validPolicyJSON())
@@ -65,18 +70,18 @@ func TestNewVerifier(t *testing.T) {
 
 	t.Run("wrong length key", func(t *testing.T) {
 		_, err := NewVerifier("abcd", policy)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errBadKey)
 	})
 
 	t.Run("uppercase key rejected", func(t *testing.T) {
 		_, err := NewVerifier(strings.ToUpper(testRootKeyHex), policy)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errBadKey)
 	})
 
 	t.Run("non-hex characters", func(t *testing.T) {
 		badKey := "zz" + testRootKeyHex[2:]
 		_, err := NewVerifier(badKey, policy)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errBadKey)
 	})
 
 	t.Run("invalid policy", func(t *testing.T) {
@@ -178,7 +183,7 @@ func TestVerifier_VerifyAuthorization_HeaderFormat(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := v.verifyAuthorizationAt(tt.header, now)
-			assert.Error(t, err)
+			assert.EqualError(t, err, errInvalidCapability)
 		})
 	}
 }
@@ -192,36 +197,36 @@ func TestVerifier_VerifyToken_StructuralErrors(t *testing.T) {
 
 	t.Run("empty token", func(t *testing.T) {
 		_, err := v.verifyTokenAt("", now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("too large token", func(t *testing.T) {
 		huge := strings.Repeat("a", maxCapabilityTokenBytes+1)
 		_, err := v.verifyTokenAt(huge, now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("wrong number of segments", func(t *testing.T) {
 		_, err := v.verifyTokenAt("a.b", now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("too many segments", func(t *testing.T) {
 		_, err := v.verifyTokenAt(validToken+".extra", now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("wrong prefix", func(t *testing.T) {
 		bad := strings.Replace(validToken, CapabilityPrefix, "wrong-prefix", 1)
 		_, err := v.verifyTokenAt(bad, now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("invalid base64 signature", func(t *testing.T) {
 		parts := strings.Split(validToken, ".")
 		bad := parts[0] + "." + parts[1] + ".not-valid-base64!!"
 		_, err := v.verifyTokenAt(bad, now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("signature wrong length", func(t *testing.T) {
@@ -229,14 +234,14 @@ func TestVerifier_VerifyToken_StructuralErrors(t *testing.T) {
 		shortSig := base64.RawURLEncoding.EncodeToString([]byte("short"))
 		bad := parts[0] + "." + parts[1] + "." + shortSig
 		_, err := v.verifyTokenAt(bad, now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("signature mismatch", func(t *testing.T) {
 		otherKey := []byte("0123456789012345678901234567890a")[:32]
 		bad := mintToken(t, otherKey, validClaims(policy, now))
 		_, err := v.verifyTokenAt(bad, now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("invalid base64 payload", func(t *testing.T) {
@@ -249,20 +254,20 @@ func TestVerifier_VerifyToken_StructuralErrors(t *testing.T) {
 		sig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 		bad := signingInput + "." + sig
 		_, err := v.verifyTokenAt(bad, now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("payload not valid json", func(t *testing.T) {
 		bad := mintTokenFromPayload(v.key, []byte("not json"))
 		_, err := v.verifyTokenAt(bad, now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("payload has unknown field", func(t *testing.T) {
 		raw := `{"v":1,"aud":"gh-aw-enclave-github","run":"run-123","inv":"inv-1","repo":"github/gh-aw","profile":"issues-read-v1","ops":["issues.get"],"nbf":1,"exp":9999999999,"extra":true}`
 		bad := mintTokenFromPayload(v.key, []byte(raw))
 		_, err := v.verifyTokenAt(bad, now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("payload has trailing json value", func(t *testing.T) {
@@ -272,7 +277,7 @@ func TestVerifier_VerifyToken_StructuralErrors(t *testing.T) {
 		trailing := append(payload, []byte(`{}`)...)
 		bad := mintTokenFromPayload(v.key, trailing)
 		_, err = v.verifyTokenAt(bad, now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 
 	t.Run("payload has trailing malformed data", func(t *testing.T) {
@@ -282,7 +287,7 @@ func TestVerifier_VerifyToken_StructuralErrors(t *testing.T) {
 		trailing := append(payload, []byte(`not-json`)...)
 		bad := mintTokenFromPayload(v.key, trailing)
 		_, err = v.verifyTokenAt(bad, now)
-		assert.Error(t, err)
+		assert.EqualError(t, err, errInvalidCapability)
 	})
 }
 
@@ -339,7 +344,7 @@ func TestVerifier_ValidateClaims(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := v.verifyTokenAt(tt.token, now)
-			assert.Error(t, err)
+			assert.EqualError(t, err, errInvalidCapability)
 		})
 	}
 }
