@@ -53,11 +53,21 @@ func TestUnifiedServerRun_ServesClientUntilClientCloses(t *testing.T) {
 
 func TestUnifiedServerRun_ReturnsWhenServerContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	us := newLifecycleTestServer(t, ctx)
 
-	serverTransport, _ := sdk.NewInMemoryTransports()
+	serverTransport, clientTransport := sdk.NewInMemoryTransports()
 	errCh := make(chan error, 1)
 	go func() { errCh <- us.Run(serverTransport) }()
+
+	clientCtx, cancelClient := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelClient()
+	client := sdk.NewClient(&sdk.Implementation{Name: "lifecycle-client", Version: "1.0"}, nil)
+	session, err := client.Connect(clientCtx, clientTransport, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Close() })
+	_, err = session.ListTools(clientCtx, nil)
+	require.NoError(t, err)
 
 	cancel()
 	_ = waitForRun(t, errCh)
