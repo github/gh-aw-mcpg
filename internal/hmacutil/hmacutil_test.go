@@ -57,8 +57,9 @@ func TestVerifyTable(t *testing.T) {
 }
 
 func TestSignDeterministic(t *testing.T) {
-	assert.Equal(t, Sign([]byte("k"), "m"), Sign([]byte("k"), "m"))
-	assert.NotEqual(t, Sign([]byte("k"), "m"), Sign([]byte("k"), "n"))
+	signature := Sign([]byte("k"), "m")
+	assert.Equal(t, signature, Sign([]byte("k"), "m"))
+	assert.NotEqual(t, signature, Sign([]byte("k"), "n"))
 }
 
 func TestSignAndVerifyDebugLogging(t *testing.T) {
