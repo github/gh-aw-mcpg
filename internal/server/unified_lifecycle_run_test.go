@@ -6,7 +6,6 @@ import (
 	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,7 +61,7 @@ func TestUnifiedServerRun(t *testing.T) {
 
 		select {
 		case runErr := <-done:
-			assert.NoError(t, runErr)
+			require.NoError(t, runErr)
 		case <-time.After(5 * time.Second):
 			t.Fatal("Run did not return after client disconnect")
 		}
