@@ -33,7 +33,7 @@ func TestVerifyTable(t *testing.T) {
 	key := []byte("k")
 	valid := Sign(key, "msg")
 	flipped := append([]byte(nil), valid...)
-	flipped[0] ^= 0xff
+	flipped[0] ^= 0x01
 
 	tests := []struct {
 		name string
