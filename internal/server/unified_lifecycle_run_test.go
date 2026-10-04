@@ -36,7 +36,8 @@ func TestUnifiedServerRun(t *testing.T) {
 
 		cancel()
 		select {
-		case <-done:
+case runErr := <-done:
+			require.ErrorIs(t, runErr, context.Canceled)
 		case <-time.After(5 * time.Second):
 			t.Fatal("Run did not return after context cancellation")
 		}
