@@ -106,6 +106,7 @@ func NewWriteSinkGuardWithVisibility(accept []string, sinkVisibility string) *Wr
 
 // NewSessionGuard returns an independent write-sink guard for one session.
 func (g *WriteSinkGuard) NewSessionGuard(_ context.Context) (Guard, error) {
+	logWriteSink.Printf("NewSessionGuard: cloning write-sink guard with %d accept tags, sink-visibility=%s", len(g.acceptTags), g.effectiveVisibility())
 	accept := make([]string, len(g.acceptTags))
 	for i, tag := range g.acceptTags {
 		accept[i] = string(tag)
@@ -180,14 +181,17 @@ func (g *WriteSinkGuard) auditURLsInBody(toolName string, args interface{}) {
 	}
 	domains := urlutil.ExtractURLDomainsFromValue(args)
 	if len(domains) == 0 {
+		logWriteSink.Printf("auditURLsInBody: no URL domains found: tool=%s", toolName)
 		return
 	}
+	logWriteSink.Printf("auditURLsInBody: tool=%s, domainCount=%d", toolName, len(domains))
 	logger.LogDebug("write-sink", "URL domains in write body: tool=%s domains=%v", toolName, domains)
 	logger.LogObservedURLDomains("write-sink", domains)
 }
 
 // LabelResponse returns nil; the write-sink does not perform fine-grained
 // response labeling since all operations are writes (responses are confirmations).
-func (g *WriteSinkGuard) LabelResponse(_ context.Context, _ string, _ interface{}, _ BackendCaller, _ *difc.Capabilities) (difc.LabeledData, error) {
+func (g *WriteSinkGuard) LabelResponse(_ context.Context, toolName string, _ interface{}, _ BackendCaller, _ *difc.Capabilities) (difc.LabeledData, error) {
+	logWriteSink.Printf("LabelResponse: tool=%s, skipping response labeling (write-sink)", toolName)
 	return nil, nil
 }
