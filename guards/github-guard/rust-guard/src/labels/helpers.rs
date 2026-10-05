@@ -3061,7 +3061,10 @@ mod tests {
 
     fn ctx_with_endorsement_reactions(reactions: Vec<&str>) -> PolicyContext {
         PolicyContext {
-            endorsement_reactions: reactions.into_iter().map(std::string::ToString::to_string).collect(),
+            endorsement_reactions: reactions
+                .into_iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
             ..Default::default()
         }
     }

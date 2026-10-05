@@ -108,7 +108,7 @@ pub fn label_response_items(
                     data: item.clone(),
                     labels: ResourceLabels {
                         description: format!("security-alert:{repo_full}#{number}"),
-                        secrecy: policy_private_scope_label(&owner, &repo, &repo_full, ctx).into(),
+                        secrecy: policy_private_scope_label(owner, repo, &repo_full, ctx).into(),
                         integrity: reader_integrity(&repo_full, ctx).into(),
                     },
                 });
