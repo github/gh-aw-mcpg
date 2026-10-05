@@ -78,6 +78,43 @@ pub fn label_response_items(
     let actual_response = extract_mcp_response(response);
 
     match tool_name {
+        // === Security alerts - always private and reader-level ===
+        tool_names::LIST_SECRET_SCANNING_ALERTS
+        | tool_names::GET_SECRET_SCANNING_ALERT
+        | tool_names::LIST_CODE_SCANNING_ALERTS
+        | tool_names::GET_CODE_SCANNING_ALERT
+        | tool_names::LIST_DEPENDABOT_ALERTS
+        | tool_names::GET_DEPENDABOT_ALERT => {
+            let (arg_owner, arg_repo, arg_repo_full) =
+                extract_repo_scope_with_query_fallback(tool_args);
+            let items = extract_items_slice(&actual_response, "alerts");
+            let items_to_process = limit_items_with_log(items, tool_name);
+
+            for item in items_to_process {
+                let item_repo = extract_repo_from_item(item);
+                let repo_full = if arg_repo_full.is_empty() {
+                    item_repo
+                } else {
+                    arg_repo_full.clone()
+                };
+                let (owner, repo) = if arg_owner.is_empty() || arg_repo.is_empty() {
+                    split_repo_id(&repo_full).unwrap_or(("", ""))
+                } else {
+                    (arg_owner.as_str(), arg_repo.as_str())
+                };
+                let number = extract_resource_number(item, "alert", &repo_full);
+
+                labeled_items.push(LabeledItem {
+                    data: item.clone(),
+                    labels: ResourceLabels {
+                        description: format!("security-alert:{repo_full}#{number}"),
+                        secrecy: policy_private_scope_label(&owner, &repo, &repo_full, ctx).into(),
+                        integrity: reader_integrity(&repo_full, ctx).into(),
+                    },
+                });
+            }
+        }
+
         // === Repository Search - label private repos with approved-level integrity ===
         tool_names::SEARCH_REPOSITORIES => {
             // Response has items array with repositories

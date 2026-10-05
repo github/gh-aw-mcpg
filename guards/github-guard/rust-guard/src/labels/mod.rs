@@ -2515,8 +2515,8 @@ mod tests {
         );
         assert_eq!(
             integrity,
-            writer_integrity("github/copilot", &ctx),
-            "list_secret_scanning_alerts must have approved integrity (automated detection)"
+            reader_integrity("github/copilot", &ctx),
+            "list_secret_scanning_alerts must have reader integrity"
         );
     }
 
@@ -2544,7 +2544,62 @@ mod tests {
             vec!["private:github/copilot".to_string()],
             "get_secret_scanning_alert must always have private scope"
         );
-        assert_eq!(integrity, writer_integrity("github/copilot", &ctx));
+        assert_eq!(integrity, reader_integrity("github/copilot", &ctx));
+    }
+
+    #[test]
+    fn test_security_alert_response_records_keep_private_reader_labels() {
+        let ctx = default_ctx();
+        let args = json!({"owner": "github", "repo": "copilot"});
+        let repo_id = "github/copilot";
+        let alert = json!({
+            "number": 42,
+            "html_url": "https://github.com/github/copilot/security/code-scanning/42"
+        });
+
+        for tool in [
+            tool_names::LIST_CODE_SCANNING_ALERTS,
+            tool_names::GET_CODE_SCANNING_ALERT,
+            tool_names::LIST_DEPENDABOT_ALERTS,
+            tool_names::GET_DEPENDABOT_ALERT,
+            tool_names::LIST_SECRET_SCANNING_ALERTS,
+            tool_names::GET_SECRET_SCANNING_ALERT,
+        ] {
+            let items = label_response_items(tool, &args, &alert, &ctx);
+            assert_eq!(items.len(), 1, "{tool} should label its returned alert");
+            assert_eq!(
+                items[0].labels.secrecy,
+                vec!["private:github/copilot".to_string()]
+            );
+            assert_eq!(
+                items[0].labels.integrity,
+                reader_integrity(repo_id, &ctx),
+                "{tool} should label alerts with reader integrity"
+            );
+            assert_eq!(
+                items[0].labels.description,
+                "security-alert:github/copilot#42"
+            );
+        }
+
+        for tool in [
+            tool_names::LIST_CODE_SCANNING_ALERTS,
+            tool_names::LIST_DEPENDABOT_ALERTS,
+            tool_names::LIST_SECRET_SCANNING_ALERTS,
+        ] {
+            let paths = label_response_paths(tool, &args, &json!([alert.clone()]), &ctx)
+                .expect("alert lists should produce path labels");
+            assert_eq!(paths.labeled_paths.len(), 1);
+            assert_eq!(paths.labeled_paths[0].path, "/0");
+            assert_eq!(
+                paths.labeled_paths[0].labels.secrecy,
+                vec!["private:github/copilot".to_string()]
+            );
+            assert_eq!(
+                paths.labeled_paths[0].labels.integrity,
+                reader_integrity(repo_id, &ctx)
+            );
+        }
     }
 
     // -------------------------------------------------------------------------

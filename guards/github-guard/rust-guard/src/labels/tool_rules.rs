@@ -6,11 +6,12 @@
 use serde_json::Value;
 
 use super::constants::{
-    desc_prefix, field_names, scope_names, tool_names, CODE_SCANNING_DEPENDABOT_ALERT_TOOLS,
-    ORG_FIELD_ALIASES, SECRET_SCANNING_ALERT_TOOLS, SENSITIVE_FILE_KEYWORDS,
+    desc_prefix, field_names, scope_names, tool_names, ORG_FIELD_ALIASES, SENSITIVE_FILE_KEYWORDS,
     SENSITIVE_FILE_PATTERNS, SENSITIVE_PATH_PREFIXES, UI_GET_ACCESS_SENSITIVE_METHODS,
     UI_GET_GITHUB_APPROVED_METHODS, UI_GET_REPO_SCOPED_METHODS,
 };
+#[cfg(test)]
+use super::constants::{CODE_SCANNING_DEPENDABOT_ALERT_TOOLS, SECRET_SCANNING_ALERT_TOOLS};
 use super::helpers::{
     author_association_floor_from_str, elevate_via_collaborator_permission,
     ensure_integrity_baseline, extract_number_as_string, extract_repo_info_from_search_query,
@@ -480,13 +481,16 @@ pub fn apply_tool_labels(
         }
 
         // === Security-sensitive data: always private regardless of repo visibility ===
-        // Covers: secret scanning alerts (may contain actual secret values), code scanning
-        // and Dependabot alerts (security findings). All are private:repo + writer integrity.
-        t if SECRET_SCANNING_ALERT_TOOLS.contains(&t)
-            || CODE_SCANNING_DEPENDABOT_ALERT_TOOLS.contains(&t) =>
-        {
+        // These alerts expose repository security findings. Keep them below writer-level data
+        // because the returned findings are observations, not evidence of repository writes.
+        tool_names::LIST_SECRET_SCANNING_ALERTS
+        | tool_names::GET_SECRET_SCANNING_ALERT
+        | tool_names::LIST_CODE_SCANNING_ALERTS
+        | tool_names::GET_CODE_SCANNING_ALERT
+        | tool_names::LIST_DEPENDABOT_ALERTS
+        | tool_names::GET_DEPENDABOT_ALERT => {
             secrecy = policy_private_scope_label(&owner, &repo, repo_id, ctx);
-            integrity = writer_integrity(repo_id, ctx);
+            integrity = reader_integrity(repo_id, ctx);
         }
 
         // === UI metadata dispatch (repo/org-scoped, method-dependent) ===
@@ -1981,7 +1985,7 @@ mod tests {
         let args = serde_json::json!({"owner": "octocat", "repo": "hello-world"});
         let repo_id = "octocat/hello-world";
         let expected_secrecy = private_label("octocat", "hello-world", repo_id, &ctx);
-        let expected_integrity = writer_integrity(repo_id, &ctx);
+        let expected_integrity = reader_integrity(repo_id, &ctx);
 
         for tool in SECRET_SCANNING_ALERT_TOOLS.iter().copied() {
             let (secrecy, integrity, _) =
@@ -1992,7 +1996,7 @@ mod tests {
             );
             assert_eq!(
                 integrity, expected_integrity,
-                "{tool}: expected writer-level integrity",
+                "{tool}: expected reader-level integrity",
             );
         }
     }
@@ -2003,7 +2007,7 @@ mod tests {
         let args = serde_json::json!({"owner": "octocat", "repo": "hello-world"});
         let repo_id = "octocat/hello-world";
         let expected_secrecy = private_label("octocat", "hello-world", repo_id, &ctx);
-        let expected_integrity = writer_integrity(repo_id, &ctx);
+        let expected_integrity = reader_integrity(repo_id, &ctx);
 
         for tool in CODE_SCANNING_DEPENDABOT_ALERT_TOOLS.iter().copied() {
             let (secrecy, integrity, _) =
@@ -2014,7 +2018,7 @@ mod tests {
             );
             assert_eq!(
                 integrity, expected_integrity,
-                "{tool}: expected writer-level integrity",
+                "{tool}: expected reader-level integrity",
             );
         }
     }
