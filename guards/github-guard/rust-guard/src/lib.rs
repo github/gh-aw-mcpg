@@ -1396,15 +1396,19 @@ mod tests {
     fn infer_scope_for_baseline_uses_search_alias_query_repo() {
         let tool_args = json!({"query": "repo:github/gh-aw-mcpg alias"});
         assert_eq!(
-            infer_scope_for_baseline("search_code_ff_fields_param", &tool_args, ""),
+            infer_scope_for_baseline(tool_names::SEARCH_CODE_FF_FIELDS_PARAM, &tool_args, ""),
             "github/gh-aw-mcpg"
         );
         assert_eq!(
-            infer_scope_for_baseline("search_issues_ff_fields_param", &tool_args, ""),
+            infer_scope_for_baseline(tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM, &tool_args, ""),
             "github/gh-aw-mcpg"
         );
         assert_eq!(
-            infer_scope_for_baseline("search_pull_requests_ff_fields_param", &tool_args, ""),
+            infer_scope_for_baseline(
+                tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM,
+                &tool_args,
+                "",
+            ),
             "github/gh-aw-mcpg"
         );
     }

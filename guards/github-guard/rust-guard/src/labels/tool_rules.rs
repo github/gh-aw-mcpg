@@ -6,11 +6,12 @@
 use serde_json::Value;
 
 use super::constants::{
-    desc_prefix, field_names, scope_names, tool_names, CODE_SCANNING_DEPENDABOT_ALERT_TOOLS,
-    ORG_FIELD_ALIASES, SECRET_SCANNING_ALERT_TOOLS, SENSITIVE_FILE_KEYWORDS,
+    desc_prefix, field_names, scope_names, tool_names, ORG_FIELD_ALIASES, SENSITIVE_FILE_KEYWORDS,
     SENSITIVE_FILE_PATTERNS, SENSITIVE_PATH_PREFIXES, UI_GET_ACCESS_SENSITIVE_METHODS,
     UI_GET_GITHUB_APPROVED_METHODS, UI_GET_REPO_SCOPED_METHODS,
 };
+#[cfg(test)]
+use super::constants::{CODE_SCANNING_DEPENDABOT_ALERT_TOOLS, SECRET_SCANNING_ALERT_TOOLS};
 use super::helpers::{
     author_association_floor_from_str, elevate_via_collaborator_permission,
     ensure_integrity_baseline, extract_number_as_string, extract_repo_info_from_search_query,
@@ -448,7 +449,9 @@ pub fn apply_tool_labels(
         }
 
         // === Commits ===
-        tool_names::GET_COMMIT | tool_names::LIST_COMMITS | tool_names::LIST_COMMITS_FF_FIELDS_PARAM => {
+        tool_names::GET_COMMIT
+        | tool_names::LIST_COMMITS
+        | tool_names::LIST_COMMITS_FF_FIELDS_PARAM => {
             // I(commit) = merged on default branch, approved in private repos, else contributor floor
             // S(commit) = S(repo)
             if !owner.is_empty() && !repo.is_empty() {
@@ -480,13 +483,16 @@ pub fn apply_tool_labels(
         }
 
         // === Security-sensitive data: always private regardless of repo visibility ===
-        // Covers: secret scanning alerts (may contain actual secret values), code scanning
-        // and Dependabot alerts (security findings). All are private:repo + writer integrity.
-        t if SECRET_SCANNING_ALERT_TOOLS.contains(&t)
-            || CODE_SCANNING_DEPENDABOT_ALERT_TOOLS.contains(&t) =>
-        {
+        // These alerts expose repository security findings. Keep them below writer-level data
+        // because the returned findings are observations, not evidence of repository writes.
+        tool_names::LIST_SECRET_SCANNING_ALERTS
+        | tool_names::GET_SECRET_SCANNING_ALERT
+        | tool_names::LIST_CODE_SCANNING_ALERTS
+        | tool_names::GET_CODE_SCANNING_ALERT
+        | tool_names::LIST_DEPENDABOT_ALERTS
+        | tool_names::GET_DEPENDABOT_ALERT => {
             secrecy = policy_private_scope_label(&owner, &repo, repo_id, ctx);
-            integrity = writer_integrity(repo_id, ctx);
+            integrity = reader_integrity(repo_id, ctx);
         }
 
         // === UI metadata dispatch (repo/org-scoped, method-dependent) ===
@@ -554,7 +560,9 @@ pub fn apply_tool_labels(
         }
 
         // === Content Access ===
-        tool_names::GET_FILE_CONTENTS | "get_file_blame" | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
+        tool_names::GET_FILE_CONTENTS
+        | "get_file_blame"
+        | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
             // File secrecy based on path patterns
             if let Some(path) = tool_args.get("path").and_then(|v| v.as_str()) {
@@ -569,7 +577,9 @@ pub fn apply_tool_labels(
         }
 
         // === Code / Commit Search ===
-        tool_names::SEARCH_CODE | tool_names::SEARCH_CODE_FF_FIELDS_PARAM | "search_commits" => {
+        tool_names::SEARCH_CODE
+        | tool_names::SEARCH_CODE_FF_FIELDS_PARAM
+        | "search_commits" => {
             // Repo-scoped search reads. Resolve scope from query repo qualifier first,
             // then fall back to tool_args owner/repo.
             let (s_owner, s_repo, s_repo_id) = resolve_search_scope(tool_args, &owner, &repo);
@@ -1650,40 +1660,52 @@ mod tests {
         };
 
         let repo_args = serde_json::json!({ "owner": "github", "repo": "copilot" });
-        assert_same_labels("list_commits", "list_commits_ff_fields_param", &repo_args);
-        assert_same_labels("list_issues", "list_issues_ff_fields_param", &repo_args);
         assert_same_labels(
-            "list_pull_requests",
-            "list_pull_requests_ff_fields_param",
+            tool_names::LIST_COMMITS,
+            tool_names::LIST_COMMITS_FF_FIELDS_PARAM,
             &repo_args,
         );
-        assert_same_labels("list_releases", "list_releases_ff_fields_param", &repo_args);
+        assert_same_labels(
+            tool_names::LIST_ISSUES,
+            tool_names::LIST_ISSUES_FF_FIELDS_PARAM,
+            &repo_args,
+        );
+        assert_same_labels(
+            tool_names::LIST_PULL_REQUESTS,
+            tool_names::LIST_PULL_REQUESTS_FF_FIELDS_PARAM,
+            &repo_args,
+        );
+        assert_same_labels(
+            tool_names::LIST_RELEASES,
+            tool_names::LIST_RELEASES_FF_FIELDS_PARAM,
+            &repo_args,
+        );
 
         let file_args = serde_json::json!({ "owner": "github", "repo": "copilot", "path": "README.md", "ref": "main" });
         assert_same_labels(
-            "get_file_contents",
-            "get_file_contents_ff_fields_param",
+            tool_names::GET_FILE_CONTENTS,
+            tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM,
             &file_args,
         );
 
         let search_code_args = serde_json::json!({ "query": "repo:github/copilot auth" });
         assert_same_labels(
             tool_names::SEARCH_CODE,
-            "search_code_ff_fields_param",
+            tool_names::SEARCH_CODE_FF_FIELDS_PARAM,
             &search_code_args,
         );
 
         let search_issues_args = serde_json::json!({ "query": "repo:github/copilot is:issue bug" });
         assert_same_labels(
-            "search_issues",
-            "search_issues_ff_fields_param",
+            tool_names::SEARCH_ISSUES,
+            tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM,
             &search_issues_args,
         );
 
         let search_pr_args = serde_json::json!({ "query": "repo:github/copilot is:pr fix" });
         assert_same_labels(
             tool_names::SEARCH_PULL_REQUESTS,
-            "search_pull_requests_ff_fields_param",
+            tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM,
             &search_pr_args,
         );
     }
@@ -1981,7 +2003,7 @@ mod tests {
         let args = serde_json::json!({"owner": "octocat", "repo": "hello-world"});
         let repo_id = "octocat/hello-world";
         let expected_secrecy = private_label("octocat", "hello-world", repo_id, &ctx);
-        let expected_integrity = writer_integrity(repo_id, &ctx);
+        let expected_integrity = reader_integrity(repo_id, &ctx);
 
         for tool in SECRET_SCANNING_ALERT_TOOLS.iter().copied() {
             let (secrecy, integrity, _) =
@@ -1992,7 +2014,7 @@ mod tests {
             );
             assert_eq!(
                 integrity, expected_integrity,
-                "{tool}: expected writer-level integrity",
+                "{tool}: expected reader-level integrity",
             );
         }
     }
@@ -2003,7 +2025,7 @@ mod tests {
         let args = serde_json::json!({"owner": "octocat", "repo": "hello-world"});
         let repo_id = "octocat/hello-world";
         let expected_secrecy = private_label("octocat", "hello-world", repo_id, &ctx);
-        let expected_integrity = writer_integrity(repo_id, &ctx);
+        let expected_integrity = reader_integrity(repo_id, &ctx);
 
         for tool in CODE_SCANNING_DEPENDABOT_ALERT_TOOLS.iter().copied() {
             let (secrecy, integrity, _) =
@@ -2014,7 +2036,7 @@ mod tests {
             );
             assert_eq!(
                 integrity, expected_integrity,
-                "{tool}: expected writer-level integrity",
+                "{tool}: expected reader-level integrity",
             );
         }
     }

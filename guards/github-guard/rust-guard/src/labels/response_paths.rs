@@ -101,6 +101,44 @@ pub fn label_response_paths(
     let actual_response = extract_mcp_response(response);
 
     match tool_name {
+        // === Security alert lists - always private and reader-level ===
+        tool_names::LIST_SECRET_SCANNING_ALERTS
+        | tool_names::LIST_CODE_SCANNING_ALERTS
+        | tool_names::LIST_DEPENDABOT_ALERTS => {
+            let (items, items_path) = extract_items_array(&actual_response);
+            if let Some(items) = items {
+                let (owner, repo, repo_full) = extract_repo_scope_with_query_fallback(tool_args);
+                let secrecy = policy_private_scope_label(&owner, &repo, &repo_full, ctx);
+                let integrity = reader_integrity(&repo_full, ctx);
+                let items_to_process = limit_items_with_log(items, tool_name);
+                let labeled_paths = items_to_process
+                    .iter()
+                    .enumerate()
+                    .map(|(index, item)| {
+                        let number = extract_resource_number(item, "alert", &repo_full);
+                        crate::PathLabel {
+                            path: make_item_path(items_path, index),
+                            labels: crate::ResourceLabels {
+                                description: format!("security-alert:{repo_full}#{number}"),
+                                secrecy: secrecy.clone().into(),
+                                integrity: integrity.clone().into(),
+                            },
+                        }
+                    })
+                    .collect();
+
+                return Some(PathLabelResult {
+                    labeled_paths,
+                    default_labels: Some(crate::ResourceLabels {
+                        description: "security-alert".to_string(),
+                        secrecy: secrecy.into(),
+                        integrity: integrity.into(),
+                    }),
+                    items_path: (!items_path.is_empty()).then_some(items_path),
+                });
+            }
+        }
+
         // === Repository Search - label by private/public ===
         tool_names::SEARCH_REPOSITORIES => {
             let (items_opt, items_key) =
@@ -1337,7 +1375,7 @@ mod tests {
         });
         assert_alias_path_labels_match(
             "list_issues",
-            "list_issues_ff_fields_param",
+            tool_names::LIST_ISSUES_FF_FIELDS_PARAM,
             &repo_args,
             &issues_response,
         );
@@ -1352,7 +1390,7 @@ mod tests {
         });
         assert_alias_path_labels_match(
             "search_issues",
-            "search_issues_ff_fields_param",
+            tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM,
             &search_issues_args,
             &search_issues_response,
         );
@@ -1364,7 +1402,7 @@ mod tests {
         }]);
         assert_alias_path_labels_match(
             "list_pull_requests",
-            "list_pull_requests_ff_fields_param",
+            tool_names::LIST_PULL_REQUESTS_FF_FIELDS_PARAM,
             &repo_args,
             &pr_response,
         );
@@ -1379,7 +1417,7 @@ mod tests {
         });
         assert_alias_path_labels_match(
             tool_names::SEARCH_PULL_REQUESTS,
-            "search_pull_requests_ff_fields_param",
+            tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM,
             &search_pr_args,
             &search_pr_response,
         );
@@ -1390,7 +1428,7 @@ mod tests {
         }]);
         assert_alias_path_labels_match(
             "list_commits",
-            "list_commits_ff_fields_param",
+            tool_names::LIST_COMMITS_FF_FIELDS_PARAM,
             &repo_args,
             &commits_response,
         );
@@ -1399,7 +1437,7 @@ mod tests {
         let files_response = json!([{"name": "README.md"}]);
         assert_alias_path_labels_match(
             "get_file_contents",
-            "get_file_contents_ff_fields_param",
+            tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM,
             &file_args,
             &files_response,
         );
@@ -1407,7 +1445,7 @@ mod tests {
         let releases_response = json!([{"tag_name": "v1.0.0"}]);
         assert_alias_path_labels_match(
             "list_releases",
-            "list_releases_ff_fields_param",
+            tool_names::LIST_RELEASES_FF_FIELDS_PARAM,
             &repo_args,
             &releases_response,
         );

@@ -107,37 +107,37 @@ mod tests {
             tool_names::SEARCH_CODE_FF_FIELDS_PARAM,
             "search_code_ff_fields_param"
         );
+        assert_eq!(tool_names::LIST_ISSUES, "list_issues");
+        assert_eq!(
+            tool_names::LIST_ISSUES_FF_FIELDS_PARAM,
+            "list_issues_ff_fields_param"
+        );
+        assert_eq!(tool_names::SEARCH_ISSUES, "search_issues");
         assert_eq!(
             tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM,
             "search_issues_ff_fields_param"
         );
         assert_eq!(
-            tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM,
-            "search_pull_requests_ff_fields_param"
-        );
-        assert_eq!(
-            tool_names::LIST_ISSUES_FF_FIELDS_PARAM,
-            "list_issues_ff_fields_param"
-        );
-        assert_eq!(
             tool_names::LIST_PULL_REQUESTS_FF_FIELDS_PARAM,
             "list_pull_requests_ff_fields_param"
+        );
+        assert_eq!(tool_names::SEARCH_PULL_REQUESTS, "search_pull_requests");
+        assert_eq!(
+            tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM,
+            "search_pull_requests_ff_fields_param"
         );
         assert_eq!(
             tool_names::LIST_COMMITS_FF_FIELDS_PARAM,
             "list_commits_ff_fields_param"
         );
         assert_eq!(
-            tool_names::LIST_RELEASES_FF_FIELDS_PARAM,
-            "list_releases_ff_fields_param"
-        );
-        assert_eq!(
             tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM,
             "get_file_contents_ff_fields_param"
         );
-        assert_eq!(tool_names::LIST_ISSUES, "list_issues");
-        assert_eq!(tool_names::SEARCH_ISSUES, "search_issues");
-        assert_eq!(tool_names::SEARCH_PULL_REQUESTS, "search_pull_requests");
+        assert_eq!(
+            tool_names::LIST_RELEASES_FF_FIELDS_PARAM,
+            "list_releases_ff_fields_param"
+        );
         assert_eq!(
             tool_names::REPOSITORY_RULESET_READ,
             "repository_ruleset_read"
@@ -291,23 +291,23 @@ pub mod tool_names {
     pub const ISSUE_READ: &str = "issue_read";
     pub const GET_ISSUE: &str = "get_issue";
     pub const LIST_PULL_REQUESTS: &str = "list_pull_requests";
+    pub const LIST_PULL_REQUESTS_FF_FIELDS_PARAM: &str = "list_pull_requests_ff_fields_param";
     pub const GET_FILE_CONTENTS: &str = "get_file_contents";
+    pub const GET_FILE_CONTENTS_FF_FIELDS_PARAM: &str = "get_file_contents_ff_fields_param";
     pub const GET_COMMIT: &str = "get_commit";
     pub const LIST_COMMITS: &str = "list_commits";
+    pub const LIST_COMMITS_FF_FIELDS_PARAM: &str = "list_commits_ff_fields_param";
     pub const LIST_RELEASES: &str = "list_releases";
+    pub const LIST_RELEASES_FF_FIELDS_PARAM: &str = "list_releases_ff_fields_param";
     pub const SEARCH_REPOSITORIES: &str = "search_repositories";
     pub const SEARCH_CODE: &str = "search_code";
     pub const SEARCH_CODE_FF_FIELDS_PARAM: &str = "search_code_ff_fields_param";
-    pub const SEARCH_ISSUES_FF_FIELDS_PARAM: &str = "search_issues_ff_fields_param";
-    pub const SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM: &str = "search_pull_requests_ff_fields_param";
-    pub const LIST_ISSUES_FF_FIELDS_PARAM: &str = "list_issues_ff_fields_param";
-    pub const LIST_PULL_REQUESTS_FF_FIELDS_PARAM: &str = "list_pull_requests_ff_fields_param";
-    pub const LIST_COMMITS_FF_FIELDS_PARAM: &str = "list_commits_ff_fields_param";
-    pub const LIST_RELEASES_FF_FIELDS_PARAM: &str = "list_releases_ff_fields_param";
-    pub const GET_FILE_CONTENTS_FF_FIELDS_PARAM: &str = "get_file_contents_ff_fields_param";
     pub const LIST_ISSUES: &str = "list_issues";
+    pub const LIST_ISSUES_FF_FIELDS_PARAM: &str = "list_issues_ff_fields_param";
     pub const SEARCH_ISSUES: &str = "search_issues";
+    pub const SEARCH_ISSUES_FF_FIELDS_PARAM: &str = "search_issues_ff_fields_param";
     pub const SEARCH_PULL_REQUESTS: &str = "search_pull_requests";
+    pub const SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM: &str = "search_pull_requests_ff_fields_param";
     pub const REPOSITORY_RULESET_READ: &str = "repository_ruleset_read";
     pub const CUSTOM_PROPERTIES_READ: &str = "custom_properties_read";
     pub const CUSTOM_PROPERTIES_WRITE: &str = "custom_properties_write";
@@ -349,6 +349,12 @@ pub mod tool_names {
     pub const RERUN_WORKFLOW_RUN: &str = "rerun_workflow_run";
     pub const RERUN_FAILED_JOBS: &str = "rerun_failed_jobs";
     pub const RERUN_WORKFLOW_JOB: &str = "rerun_workflow_job";
+    pub const GET_CODE_SCANNING_ALERT: &str = "get_code_scanning_alert";
+    pub const LIST_CODE_SCANNING_ALERTS: &str = "list_code_scanning_alerts";
+    pub const GET_DEPENDABOT_ALERT: &str = "get_dependabot_alert";
+    pub const LIST_DEPENDABOT_ALERTS: &str = "list_dependabot_alerts";
+    pub const GET_SECRET_SCANNING_ALERT: &str = "get_secret_scanning_alert";
+    pub const LIST_SECRET_SCANNING_ALERTS: &str = "list_secret_scanning_alerts";
 }
 
 /// UI metadata methods that are scoped to a specific repository.
@@ -360,16 +366,20 @@ pub const UI_GET_GITHUB_APPROVED_METHODS: &[&str] = &["issue_types", "issue_fiel
 /// UI metadata methods that expose access-sensitive membership/reviewer data.
 pub const UI_GET_ACCESS_SENSITIVE_METHODS: &[&str] = &["assignees", "reviewers"];
 
-/// Secret-scanning alert tools that are always private:repo + writer integrity
-/// regardless of repository visibility (may expose secret values).
-pub const SECRET_SCANNING_ALERT_TOOLS: &[&str] =
-    &["list_secret_scanning_alerts", "get_secret_scanning_alert"];
+/// Secret-scanning alert tools that are always private:repo regardless of
+/// repository visibility (may expose secret values).
+#[cfg(test)]
+pub const SECRET_SCANNING_ALERT_TOOLS: &[&str] = &[
+    tool_names::LIST_SECRET_SCANNING_ALERTS,
+    tool_names::GET_SECRET_SCANNING_ALERT,
+];
 
-/// Code-scanning and Dependabot alert tools that are always private:repo +
-/// writer integrity regardless of repository visibility (security findings).
+/// Code-scanning and Dependabot alert tools that are always private:repo
+/// regardless of repository visibility (security findings).
+#[cfg(test)]
 pub const CODE_SCANNING_DEPENDABOT_ALERT_TOOLS: &[&str] = &[
-    "list_code_scanning_alerts",
-    "get_code_scanning_alert",
-    "list_dependabot_alerts",
-    "get_dependabot_alert",
+    tool_names::LIST_CODE_SCANNING_ALERTS,
+    tool_names::GET_CODE_SCANNING_ALERT,
+    tool_names::LIST_DEPENDABOT_ALERTS,
+    tool_names::GET_DEPENDABOT_ALERT,
 ];
