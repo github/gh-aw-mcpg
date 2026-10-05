@@ -310,6 +310,12 @@ pub mod tool_names {
     pub const RERUN_WORKFLOW_RUN: &str = "rerun_workflow_run";
     pub const RERUN_FAILED_JOBS: &str = "rerun_failed_jobs";
     pub const RERUN_WORKFLOW_JOB: &str = "rerun_workflow_job";
+    pub const GET_CODE_SCANNING_ALERT: &str = "get_code_scanning_alert";
+    pub const LIST_CODE_SCANNING_ALERTS: &str = "list_code_scanning_alerts";
+    pub const GET_DEPENDABOT_ALERT: &str = "get_dependabot_alert";
+    pub const LIST_DEPENDABOT_ALERTS: &str = "list_dependabot_alerts";
+    pub const GET_SECRET_SCANNING_ALERT: &str = "get_secret_scanning_alert";
+    pub const LIST_SECRET_SCANNING_ALERTS: &str = "list_secret_scanning_alerts";
 }
 
 /// UI metadata methods that are scoped to a specific repository.
@@ -321,16 +327,20 @@ pub const UI_GET_GITHUB_APPROVED_METHODS: &[&str] = &["issue_types", "issue_fiel
 /// UI metadata methods that expose access-sensitive membership/reviewer data.
 pub const UI_GET_ACCESS_SENSITIVE_METHODS: &[&str] = &["assignees", "reviewers"];
 
-/// Secret-scanning alert tools that are always private:repo + writer integrity
-/// regardless of repository visibility (may expose secret values).
-pub const SECRET_SCANNING_ALERT_TOOLS: &[&str] =
-    &["list_secret_scanning_alerts", "get_secret_scanning_alert"];
+/// Secret-scanning alert tools that are always private:repo regardless of
+/// repository visibility (may expose secret values).
+#[cfg(test)]
+pub const SECRET_SCANNING_ALERT_TOOLS: &[&str] = &[
+    tool_names::LIST_SECRET_SCANNING_ALERTS,
+    tool_names::GET_SECRET_SCANNING_ALERT,
+];
 
-/// Code-scanning and Dependabot alert tools that are always private:repo +
-/// writer integrity regardless of repository visibility (security findings).
+/// Code-scanning and Dependabot alert tools that are always private:repo
+/// regardless of repository visibility (security findings).
+#[cfg(test)]
 pub const CODE_SCANNING_DEPENDABOT_ALERT_TOOLS: &[&str] = &[
-    "list_code_scanning_alerts",
-    "get_code_scanning_alert",
-    "list_dependabot_alerts",
-    "get_dependabot_alert",
+    tool_names::LIST_CODE_SCANNING_ALERTS,
+    tool_names::GET_CODE_SCANNING_ALERT,
+    tool_names::LIST_DEPENDABOT_ALERTS,
+    tool_names::GET_DEPENDABOT_ALERT,
 ];

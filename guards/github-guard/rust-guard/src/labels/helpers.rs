@@ -1373,6 +1373,9 @@ pub(crate) fn extract_items_array(response: &Value) -> (Option<&Vec<Value>>, &'s
     if let Some(arr) = response.get("pull_requests").and_then(|v| v.as_array()) {
         return (Some(arr), "/pull_requests");
     }
+    if let Some(arr) = response.get("alerts").and_then(|v| v.as_array()) {
+        return (Some(arr), "/alerts");
+    }
 
     // GraphQL format: data.repository.<resource>.nodes or data.search.nodes
     if let Some((arr, pointer)) = find_graphql_nodes_with_path(response) {

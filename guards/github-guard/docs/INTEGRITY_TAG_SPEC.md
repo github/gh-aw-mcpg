@@ -133,7 +133,7 @@ Resource labels are coarse pre-check labels by tool call.
 | `list_discussions`, `get_discussion`, `get_discussion_comments` | max(author_association floor, approved) | author_association floor (user content) |
 | `list_gists`, `get_gist` | unapproved:user | unapproved:user |
 | `list_notifications`, `get_notification_details` | none | none |
-| `list_secret_scanning_alerts`, `get_secret_scanning_alert`, `list_code_scanning_alerts`, `get_code_scanning_alert`, `list_dependabot_alerts`, `get_dependabot_alert` | approved | approved |
+| `list_secret_scanning_alerts`, `get_secret_scanning_alert`, `list_code_scanning_alerts`, `get_code_scanning_alert`, `list_dependabot_alerts`, `get_dependabot_alert` | reader (none + unapproved) | reader (none + unapproved) |
 | `list_issue_types`, `list_issue_fields`, `search_users`, `search_orgs`, `get_me`, `get_teams`, `get_team_members`, `list_starred_repositories` (GitHub-global/user metadata) | approved:github | approved:github |
 | `list_global_security_advisories`, `get_global_security_advisory` (public CVE data) | approved:github | approved:github |
 | `list_repository_security_advisories`, `list_org_repository_security_advisories` | approved | approved |
@@ -161,7 +161,7 @@ Response labels are fine-grained per item and are authoritative when available.
 | Label metadata (`get_label`, `list_label`) | approved | approved |
 | GitHub Actions workflow/artifact metadata (`actions_get`, `actions_list`) | approved | approved |
 | Job logs (`get_job_logs`) | approved | approved |
-| Security alert item | approved | approved |
+| Security alert item | reader (none + unapproved) | reader (none + unapproved) |
 | Global security advisory (`list_global_security_advisories`, `get_global_security_advisory`) | approved:github | approved:github |
 | Repo/org security advisory (`list_repository_security_advisories`, `list_org_repository_security_advisories`) | approved | approved |
 | Discussion item (`list_discussions`, `get_discussion`, `get_discussion_comments`) | max(author_association floor, approved) | author_association floor (user content) |
