@@ -136,9 +136,9 @@ pub fn label_response_items(
 
         // === Pull Requests - label by merged state ===
         tool_names::LIST_PULL_REQUESTS
-        | "list_pull_requests_ff_fields_param"
+        | tool_names::LIST_PULL_REQUESTS_FF_FIELDS_PARAM
         | tool_names::SEARCH_PULL_REQUESTS
-        | "search_pull_requests_ff_fields_param"
+        | tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM
         | tool_names::PULL_REQUEST_READ
         | tool_names::GET_PULL_REQUEST => {
             // For pull_request_read sub-methods that return non-PR objects (e.g.
@@ -230,9 +230,9 @@ pub fn label_response_items(
 
         // === Issues - label by author status ===
         tool_names::LIST_ISSUES
-        | "list_issues_ff_fields_param"
+        | tool_names::LIST_ISSUES_FF_FIELDS_PARAM
         | tool_names::SEARCH_ISSUES
-        | "search_issues_ff_fields_param"
+        | tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM
         | tool_names::GET_ISSUE
         | tool_names::ISSUE_READ => {
             // For issue_read sub-methods that return non-issue objects (e.g.
@@ -300,7 +300,7 @@ pub fn label_response_items(
         }
 
         // === File Contents - repo-scoped secrecy ===
-        tool_names::GET_FILE_CONTENTS | "get_file_contents_ff_fields_param" => {
+        tool_names::GET_FILE_CONTENTS | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
             let all_items = collect_items_simple(&actual_response);
 
             let items_limited =
@@ -329,7 +329,9 @@ pub fn label_response_items(
         }
 
         // === Commits - label by branch (default branch = merged) ===
-        tool_names::LIST_COMMITS | "list_commits_ff_fields_param" | tool_names::GET_COMMIT => {
+        tool_names::LIST_COMMITS
+        | tool_names::LIST_COMMITS_FF_FIELDS_PARAM
+        | tool_names::GET_COMMIT => {
             let all_items = collect_items_simple(&actual_response);
 
             // Limit items to prevent WASM memory exhaustion
@@ -427,7 +429,7 @@ pub fn label_response_items(
 
         // === Releases - merged-level integrity (endorsed) ===
         tool_names::LIST_RELEASES
-        | "list_releases_ff_fields_param"
+        | tool_names::LIST_RELEASES_FF_FIELDS_PARAM
         | "get_latest_release"
         | "get_release_by_tag" => {
             let all_items = collect_items_simple(&actual_response);

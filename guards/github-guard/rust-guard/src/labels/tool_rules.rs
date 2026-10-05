@@ -289,7 +289,7 @@ pub fn apply_tool_labels(
         | tool_names::ISSUE_READ
         | tool_names::LIST_ISSUES
         | "list_issues_ff_remote_mcp_issue_fields"
-        | "list_issues_ff_fields_param" => {
+        | tool_names::LIST_ISSUES_FF_FIELDS_PARAM => {
             // Issues are user-submitted, low integrity
             // I(issue) = contributor if author is contributor, else untrusted (empty)
             // S(issue) = S(repo) - inherits from repository visibility
@@ -347,9 +347,9 @@ pub fn apply_tool_labels(
 
         // Search issues / pull requests: extract repo scope from query or tool_args when available
         tool_names::SEARCH_ISSUES
-        | "search_issues_ff_fields_param"
+        | tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM
         | tool_names::SEARCH_PULL_REQUESTS
-        | "search_pull_requests_ff_fields_param" => {
+        | tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM => {
             let (s_owner, s_repo, s_repo_id) = resolve_search_scope(tool_args, &owner, &repo);
             if s_repo_id.is_empty() {
                 integrity = vec![];
@@ -368,7 +368,7 @@ pub fn apply_tool_labels(
         tool_names::GET_PULL_REQUEST
         | tool_names::PULL_REQUEST_READ
         | tool_names::LIST_PULL_REQUESTS
-        | "list_pull_requests_ff_fields_param" => {
+        | tool_names::LIST_PULL_REQUESTS_FF_FIELDS_PARAM => {
             // I(PR) = merged if merged; otherwise approved/unapproved/contributor floor by evidence
             // S(PR) = S(repo)
             //
@@ -448,7 +448,7 @@ pub fn apply_tool_labels(
         }
 
         // === Commits ===
-        tool_names::GET_COMMIT | tool_names::LIST_COMMITS | "list_commits_ff_fields_param" => {
+        tool_names::GET_COMMIT | tool_names::LIST_COMMITS | tool_names::LIST_COMMITS_FF_FIELDS_PARAM => {
             // I(commit) = merged on default branch, approved in private repos, else contributor floor
             // S(commit) = S(repo)
             if !owner.is_empty() && !repo.is_empty() {
@@ -535,7 +535,7 @@ pub fn apply_tool_labels(
         | tool_names::LIST_DISCUSSIONS
         | "list_label"
         | tool_names::LIST_RELEASES
-        | "list_releases_ff_fields_param"
+        | tool_names::LIST_RELEASES_FF_FIELDS_PARAM
         | "get_latest_release"
         | "get_release_by_tag"
         | "list_tags" => {
@@ -554,7 +554,7 @@ pub fn apply_tool_labels(
         }
 
         // === Content Access ===
-        tool_names::GET_FILE_CONTENTS | "get_file_blame" | "get_file_contents_ff_fields_param" => {
+        tool_names::GET_FILE_CONTENTS | "get_file_blame" | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
             // File secrecy based on path patterns
             if let Some(path) = tool_args.get("path").and_then(|v| v.as_str()) {
@@ -569,7 +569,7 @@ pub fn apply_tool_labels(
         }
 
         // === Code / Commit Search ===
-        tool_names::SEARCH_CODE | "search_code_ff_fields_param" | "search_commits" => {
+        tool_names::SEARCH_CODE | tool_names::SEARCH_CODE_FF_FIELDS_PARAM | "search_commits" => {
             // Repo-scoped search reads. Resolve scope from query repo qualifier first,
             // then fall back to tool_args owner/repo.
             let (s_owner, s_repo, s_repo_id) = resolve_search_scope(tool_args, &owner, &repo);

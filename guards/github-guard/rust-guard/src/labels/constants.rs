@@ -38,9 +38,8 @@ pub mod policy_integrity {
 mod tests {
     use super::{
         desc_prefix, field_names, policy_integrity, tool_names, ORG_FIELD_ALIASES,
-        SENSITIVE_PATH_PREFIXES, UNKNOWN_LABEL_FALLBACK, UI_GET_ACCESS_SENSITIVE_METHODS,
-        UI_GET_GITHUB_APPROVED_METHODS,
-        UI_GET_REPO_SCOPED_METHODS, URL_FALLBACK_FIELDS,
+        SENSITIVE_PATH_PREFIXES, UI_GET_ACCESS_SENSITIVE_METHODS, UI_GET_GITHUB_APPROVED_METHODS,
+        UI_GET_REPO_SCOPED_METHODS, UNKNOWN_LABEL_FALLBACK, URL_FALLBACK_FIELDS,
     };
 
     /// Ensures ORDER_LOW_TO_HIGH_PIPED stays in sync with ORDER_HIGH_TO_LOW.
@@ -104,6 +103,38 @@ mod tests {
         assert_eq!(tool_names::GET_COMMIT, "get_commit");
         assert_eq!(tool_names::SEARCH_REPOSITORIES, "search_repositories");
         assert_eq!(tool_names::SEARCH_CODE, "search_code");
+        assert_eq!(
+            tool_names::SEARCH_CODE_FF_FIELDS_PARAM,
+            "search_code_ff_fields_param"
+        );
+        assert_eq!(
+            tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM,
+            "search_issues_ff_fields_param"
+        );
+        assert_eq!(
+            tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM,
+            "search_pull_requests_ff_fields_param"
+        );
+        assert_eq!(
+            tool_names::LIST_ISSUES_FF_FIELDS_PARAM,
+            "list_issues_ff_fields_param"
+        );
+        assert_eq!(
+            tool_names::LIST_PULL_REQUESTS_FF_FIELDS_PARAM,
+            "list_pull_requests_ff_fields_param"
+        );
+        assert_eq!(
+            tool_names::LIST_COMMITS_FF_FIELDS_PARAM,
+            "list_commits_ff_fields_param"
+        );
+        assert_eq!(
+            tool_names::LIST_RELEASES_FF_FIELDS_PARAM,
+            "list_releases_ff_fields_param"
+        );
+        assert_eq!(
+            tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM,
+            "get_file_contents_ff_fields_param"
+        );
         assert_eq!(tool_names::LIST_ISSUES, "list_issues");
         assert_eq!(tool_names::SEARCH_ISSUES, "search_issues");
         assert_eq!(tool_names::SEARCH_PULL_REQUESTS, "search_pull_requests");
@@ -266,6 +297,14 @@ pub mod tool_names {
     pub const LIST_RELEASES: &str = "list_releases";
     pub const SEARCH_REPOSITORIES: &str = "search_repositories";
     pub const SEARCH_CODE: &str = "search_code";
+    pub const SEARCH_CODE_FF_FIELDS_PARAM: &str = "search_code_ff_fields_param";
+    pub const SEARCH_ISSUES_FF_FIELDS_PARAM: &str = "search_issues_ff_fields_param";
+    pub const SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM: &str = "search_pull_requests_ff_fields_param";
+    pub const LIST_ISSUES_FF_FIELDS_PARAM: &str = "list_issues_ff_fields_param";
+    pub const LIST_PULL_REQUESTS_FF_FIELDS_PARAM: &str = "list_pull_requests_ff_fields_param";
+    pub const LIST_COMMITS_FF_FIELDS_PARAM: &str = "list_commits_ff_fields_param";
+    pub const LIST_RELEASES_FF_FIELDS_PARAM: &str = "list_releases_ff_fields_param";
+    pub const GET_FILE_CONTENTS_FF_FIELDS_PARAM: &str = "get_file_contents_ff_fields_param";
     pub const LIST_ISSUES: &str = "list_issues";
     pub const SEARCH_ISSUES: &str = "search_issues";
     pub const SEARCH_PULL_REQUESTS: &str = "search_pull_requests";

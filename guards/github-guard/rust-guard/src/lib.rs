@@ -516,11 +516,11 @@ fn infer_scope_for_baseline<'a>(
                 .unwrap_or_else(|| Cow::Borrowed(repo_id))
         }
         tool_names::SEARCH_CODE
-        | "search_code_ff_fields_param"
+        | tool_names::SEARCH_CODE_FF_FIELDS_PARAM
         | tool_names::SEARCH_ISSUES
-        | "search_issues_ff_fields_param"
+        | tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM
         | tool_names::SEARCH_PULL_REQUESTS
-        | "search_pull_requests_ff_fields_param"
+        | tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM
         | "search_commits" => {
             if !repo_id.is_empty() {
                 return Cow::Borrowed(repo_id);
@@ -925,9 +925,7 @@ pub extern "C" fn label_agent(
     let output_json = match serde_json::to_string(&output) {
         Ok(s) => s,
         Err(e) => {
-            log_error(&format!(
-                "    FAILED to serialize label_agent output: {e}"
-            ));
+            log_error(&format!("    FAILED to serialize label_agent output: {e}"));
             return -1;
         }
     };
@@ -1109,9 +1107,7 @@ pub extern "C" fn label_response(
 pub extern "C" fn alloc(size: u32) -> u32 {
     log_debug(&format!(">>> alloc({size})"));
     let Ok(layout) = Layout::from_size_align(size as usize, 8) else {
-        log_error(&format!(
-            "    alloc FAILED: invalid layout for size {size}"
-        ));
+        log_error(&format!("    alloc FAILED: invalid layout for size {size}"));
         return 0;
     };
     let ptr = unsafe { std_alloc(layout) as u32 };
@@ -1385,8 +1381,7 @@ mod tests {
     #[test]
     fn infer_scope_for_baseline_uses_search_pull_requests_query_repo() {
         let tool_args = json!({"query": "repo:github/gh-aw-mcpg is:pr is:open"});
-        let inferred =
-            infer_scope_for_baseline(tool_names::SEARCH_PULL_REQUESTS, &tool_args, "");
+        let inferred = infer_scope_for_baseline(tool_names::SEARCH_PULL_REQUESTS, &tool_args, "");
         assert_eq!(inferred, "github/gh-aw-mcpg");
     }
 
