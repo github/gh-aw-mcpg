@@ -329,6 +329,7 @@ pub const UI_GET_ACCESS_SENSITIVE_METHODS: &[&str] = &["assignees", "reviewers"]
 
 /// Secret-scanning alert tools that are always private:repo regardless of
 /// repository visibility (may expose secret values).
+#[cfg(test)]
 pub const SECRET_SCANNING_ALERT_TOOLS: &[&str] = &[
     tool_names::LIST_SECRET_SCANNING_ALERTS,
     tool_names::GET_SECRET_SCANNING_ALERT,
@@ -336,6 +337,7 @@ pub const SECRET_SCANNING_ALERT_TOOLS: &[&str] = &[
 
 /// Code-scanning and Dependabot alert tools that are always private:repo
 /// regardless of repository visibility (security findings).
+#[cfg(test)]
 pub const CODE_SCANNING_DEPENDABOT_ALERT_TOOLS: &[&str] = &[
     tool_names::LIST_CODE_SCANNING_ALERTS,
     tool_names::GET_CODE_SCANNING_ALERT,

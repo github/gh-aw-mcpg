@@ -2587,10 +2587,32 @@ mod tests {
             tool_names::LIST_DEPENDABOT_ALERTS,
             tool_names::LIST_SECRET_SCANNING_ALERTS,
         ] {
-            let paths = label_response_paths(tool, &args, &json!([alert.clone()]), &ctx)
+            let response = if tool == tool_names::LIST_DEPENDABOT_ALERTS {
+                json!({
+                    "alerts": [alert.clone()],
+                    "pageInfo": {
+                        "hasNextPage": true,
+                        "endCursor": "cursor"
+                    }
+                })
+            } else {
+                json!([alert.clone()])
+            };
+            let paths = label_response_paths(tool, &args, &response, &ctx)
                 .expect("alert lists should produce path labels");
             assert_eq!(paths.labeled_paths.len(), 1);
-            assert_eq!(paths.labeled_paths[0].path, "/0");
+            assert_eq!(
+                paths.labeled_paths[0].path,
+                if tool == tool_names::LIST_DEPENDABOT_ALERTS {
+                    "/alerts/0"
+                } else {
+                    "/0"
+                }
+            );
+            if tool == tool_names::LIST_DEPENDABOT_ALERTS {
+                assert_eq!(paths.items_path, Some("/alerts"));
+                assert_eq!(response["pageInfo"]["endCursor"], "cursor");
+            }
             assert_eq!(
                 paths.labeled_paths[0].labels.secrecy,
                 vec!["private:github/copilot".to_string()]
