@@ -1494,7 +1494,7 @@ pub(crate) fn is_mcp_text_wrapper(response: &Value) -> bool {
 pub(crate) fn is_search_pr_variant(tool_name: &str) -> bool {
     matches!(
         tool_name,
-        tool_names::SEARCH_PULL_REQUESTS | "search_pull_requests_ff_fields_param"
+        tool_names::SEARCH_PULL_REQUESTS | tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM
     )
 }
 
@@ -1504,7 +1504,7 @@ pub(crate) fn is_search_pr_variant(tool_name: &str) -> bool {
 pub(crate) fn is_search_issue_variant(tool_name: &str) -> bool {
     matches!(
         tool_name,
-        tool_names::SEARCH_ISSUES | "search_issues_ff_fields_param"
+        tool_names::SEARCH_ISSUES | tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM
     )
 }
 

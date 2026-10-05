@@ -204,9 +204,9 @@ pub fn label_response_paths(
 
         // === Pull Requests - label by merged state ===
         tool_names::LIST_PULL_REQUESTS
-        | "list_pull_requests_ff_fields_param"
+        | tool_names::LIST_PULL_REQUESTS_FF_FIELDS_PARAM
         | tool_names::SEARCH_PULL_REQUESTS
-        | "search_pull_requests_ff_fields_param"
+        | tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM
         | tool_names::PULL_REQUEST_READ
         | tool_names::GET_PULL_REQUEST => {
             // Skip per-item labeling for pull_request_read sub-methods that return
@@ -286,9 +286,9 @@ pub fn label_response_paths(
 
         // === Issues - label by author contributor status ===
         tool_names::LIST_ISSUES
-        | "list_issues_ff_fields_param"
+        | tool_names::LIST_ISSUES_FF_FIELDS_PARAM
         | tool_names::SEARCH_ISSUES
-        | "search_issues_ff_fields_param"
+        | tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM
         | tool_names::ISSUE_READ
         | tool_names::GET_ISSUE => {
             // Skip per-item labeling for issue_read sub-methods (get_comments,
@@ -365,7 +365,7 @@ pub fn label_response_paths(
         }
 
         // === Commits - label by branch ===
-        tool_names::LIST_COMMITS | "list_commits_ff_fields_param" => {
+        tool_names::LIST_COMMITS | tool_names::LIST_COMMITS_FF_FIELDS_PARAM => {
             let items = actual_response.as_array();
 
             if let Some(items) = items {
@@ -443,7 +443,7 @@ pub fn label_response_paths(
         }
 
         // === File Contents - repo-scoped secrecy ===
-        tool_names::GET_FILE_CONTENTS | "get_file_contents_ff_fields_param" => {
+        tool_names::GET_FILE_CONTENTS | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
             let (arg_owner, arg_repo, arg_repo_full) = extract_repo_info(tool_args);
             let secrecy = repo_visibility_secrecy(&arg_owner, &arg_repo, &arg_repo_full, ctx);
             let branch_ref = tool_args.get("ref").and_then(|v| v.as_str()).unwrap_or("");
@@ -484,7 +484,7 @@ pub fn label_response_paths(
         }
 
         // === Releases - merged-level integrity ===
-        tool_names::LIST_RELEASES | "list_releases_ff_fields_param" => {
+        tool_names::LIST_RELEASES | tool_names::LIST_RELEASES_FF_FIELDS_PARAM => {
             let items = actual_response.as_array();
 
             if let Some(items) = items {
@@ -1375,7 +1375,7 @@ mod tests {
         });
         assert_alias_path_labels_match(
             "list_issues",
-            "list_issues_ff_fields_param",
+            tool_names::LIST_ISSUES_FF_FIELDS_PARAM,
             &repo_args,
             &issues_response,
         );
@@ -1390,7 +1390,7 @@ mod tests {
         });
         assert_alias_path_labels_match(
             "search_issues",
-            "search_issues_ff_fields_param",
+            tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM,
             &search_issues_args,
             &search_issues_response,
         );
@@ -1402,7 +1402,7 @@ mod tests {
         }]);
         assert_alias_path_labels_match(
             "list_pull_requests",
-            "list_pull_requests_ff_fields_param",
+            tool_names::LIST_PULL_REQUESTS_FF_FIELDS_PARAM,
             &repo_args,
             &pr_response,
         );
@@ -1417,7 +1417,7 @@ mod tests {
         });
         assert_alias_path_labels_match(
             tool_names::SEARCH_PULL_REQUESTS,
-            "search_pull_requests_ff_fields_param",
+            tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM,
             &search_pr_args,
             &search_pr_response,
         );
@@ -1428,7 +1428,7 @@ mod tests {
         }]);
         assert_alias_path_labels_match(
             "list_commits",
-            "list_commits_ff_fields_param",
+            tool_names::LIST_COMMITS_FF_FIELDS_PARAM,
             &repo_args,
             &commits_response,
         );
@@ -1437,7 +1437,7 @@ mod tests {
         let files_response = json!([{"name": "README.md"}]);
         assert_alias_path_labels_match(
             "get_file_contents",
-            "get_file_contents_ff_fields_param",
+            tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM,
             &file_args,
             &files_response,
         );
@@ -1445,7 +1445,7 @@ mod tests {
         let releases_response = json!([{"tag_name": "v1.0.0"}]);
         assert_alias_path_labels_match(
             "list_releases",
-            "list_releases_ff_fields_param",
+            tool_names::LIST_RELEASES_FF_FIELDS_PARAM,
             &repo_args,
             &releases_response,
         );
