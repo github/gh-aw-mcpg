@@ -104,9 +104,41 @@ mod tests {
         assert_eq!(tool_names::GET_COMMIT, "get_commit");
         assert_eq!(tool_names::SEARCH_REPOSITORIES, "search_repositories");
         assert_eq!(tool_names::SEARCH_CODE, "search_code");
+        assert_eq!(
+            tool_names::SEARCH_CODE_FF_FIELDS_PARAM,
+            "search_code_ff_fields_param"
+        );
         assert_eq!(tool_names::LIST_ISSUES, "list_issues");
+        assert_eq!(
+            tool_names::LIST_ISSUES_FF_FIELDS_PARAM,
+            "list_issues_ff_fields_param"
+        );
         assert_eq!(tool_names::SEARCH_ISSUES, "search_issues");
+        assert_eq!(
+            tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM,
+            "search_issues_ff_fields_param"
+        );
+        assert_eq!(
+            tool_names::LIST_PULL_REQUESTS_FF_FIELDS_PARAM,
+            "list_pull_requests_ff_fields_param"
+        );
         assert_eq!(tool_names::SEARCH_PULL_REQUESTS, "search_pull_requests");
+        assert_eq!(
+            tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM,
+            "search_pull_requests_ff_fields_param"
+        );
+        assert_eq!(
+            tool_names::LIST_COMMITS_FF_FIELDS_PARAM,
+            "list_commits_ff_fields_param"
+        );
+        assert_eq!(
+            tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM,
+            "get_file_contents_ff_fields_param"
+        );
+        assert_eq!(
+            tool_names::LIST_RELEASES_FF_FIELDS_PARAM,
+            "list_releases_ff_fields_param"
+        );
         assert_eq!(
             tool_names::REPOSITORY_RULESET_READ,
             "repository_ruleset_read"
@@ -260,15 +292,23 @@ pub mod tool_names {
     pub const ISSUE_READ: &str = "issue_read";
     pub const GET_ISSUE: &str = "get_issue";
     pub const LIST_PULL_REQUESTS: &str = "list_pull_requests";
+    pub const LIST_PULL_REQUESTS_FF_FIELDS_PARAM: &str = "list_pull_requests_ff_fields_param";
     pub const GET_FILE_CONTENTS: &str = "get_file_contents";
+    pub const GET_FILE_CONTENTS_FF_FIELDS_PARAM: &str = "get_file_contents_ff_fields_param";
     pub const GET_COMMIT: &str = "get_commit";
     pub const LIST_COMMITS: &str = "list_commits";
+    pub const LIST_COMMITS_FF_FIELDS_PARAM: &str = "list_commits_ff_fields_param";
     pub const LIST_RELEASES: &str = "list_releases";
+    pub const LIST_RELEASES_FF_FIELDS_PARAM: &str = "list_releases_ff_fields_param";
     pub const SEARCH_REPOSITORIES: &str = "search_repositories";
     pub const SEARCH_CODE: &str = "search_code";
+    pub const SEARCH_CODE_FF_FIELDS_PARAM: &str = "search_code_ff_fields_param";
     pub const LIST_ISSUES: &str = "list_issues";
+    pub const LIST_ISSUES_FF_FIELDS_PARAM: &str = "list_issues_ff_fields_param";
     pub const SEARCH_ISSUES: &str = "search_issues";
+    pub const SEARCH_ISSUES_FF_FIELDS_PARAM: &str = "search_issues_ff_fields_param";
     pub const SEARCH_PULL_REQUESTS: &str = "search_pull_requests";
+    pub const SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM: &str = "search_pull_requests_ff_fields_param";
     pub const REPOSITORY_RULESET_READ: &str = "repository_ruleset_read";
     pub const CUSTOM_PROPERTIES_READ: &str = "custom_properties_read";
     pub const CUSTOM_PROPERTIES_WRITE: &str = "custom_properties_write";
