@@ -426,10 +426,8 @@ func TestIsHostNetworkMode_WithDockerShim(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dir := t.TempDir()
-			script := "#!/bin/sh\necho '" + tt.output + "'\n"
-			require.NoError(t, os.WriteFile(filepath.Join(dir, "docker"), []byte(script), 0o755))
-			t.Setenv("PATH", dir)
+dir := mockDockerBinary(t, tt.output+"\n", 0)
+			prependPath(t, dir)
 
 			hostNetwork, err := IsHostNetworkMode("abc123def4567890")
 			require.NoError(t, err)
