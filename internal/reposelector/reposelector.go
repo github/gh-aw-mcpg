@@ -18,8 +18,10 @@
 // the traversal-like names "." and ".." and any name containing "..".
 //
 // None of these functions trim, case fold, Unicode-normalize, or URL-decode
-// their input: callers must reject any selector for which they return false
-// rather than attempt to normalize it.
+// their input. Static allow-only policy ingestion may trim and ASCII-lowercase
+// scopes before validation and matching. Other callers, especially those
+// validating dynamic or delegated selectors, must reject invalid input rather
+// than normalize it.
 package reposelector
 
 import (
