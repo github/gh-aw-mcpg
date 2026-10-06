@@ -76,6 +76,7 @@ func convertMapToCallToolResult(m map[string]any) (*sdk.CallToolResult, error) {
 		for i, item := range v {
 			ci, ok := item.(map[string]any)
 			if !ok {
+				logToolResult.Printf("Malformed content item: index=%d, type=%T", i, item)
 				return nil, fmt.Errorf("content item %d: expected map, got %T", i, item)
 			}
 			items = append(items, ci)
@@ -84,6 +85,7 @@ func convertMapToCallToolResult(m map[string]any) (*sdk.CallToolResult, error) {
 		items = v
 	default:
 		// content field exists but is not a recognizable slice type — wrap the whole map as text.
+		logToolResult.Printf("Unrecognized content field type %T, wrapping raw response as text", contentVal)
 		return marshalValueToTextContentResult(m)
 	}
 
@@ -92,6 +94,7 @@ func convertMapToCallToolResult(m map[string]any) (*sdk.CallToolResult, error) {
 	for _, ci := range items {
 		c, err := convertContentItem(ci)
 		if err != nil {
+			logToolResult.Print("Failed to convert content item")
 			return nil, err
 		}
 		if c != nil {
@@ -154,6 +157,7 @@ func convertContentItem(ci map[string]any) (sdk.Content, error) {
 func decodeContentData(ci map[string]any) ([]byte, error) {
 	raw, exists := ci["data"]
 	if !exists || raw == nil {
+		logToolResult.Print("Content item has no data field")
 		return nil, fmt.Errorf("missing required 'data' field")
 	}
 	switch v := raw.(type) {
@@ -162,6 +166,7 @@ func decodeContentData(ci map[string]any) ([]byte, error) {
 	case string:
 		return base64.StdEncoding.DecodeString(v)
 	default:
+		logToolResult.Printf("Unsupported content data type: %T", raw)
 		return nil, fmt.Errorf("unsupported data type %T", raw)
 	}
 }
