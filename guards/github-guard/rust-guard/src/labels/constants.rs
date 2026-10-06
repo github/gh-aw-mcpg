@@ -138,6 +138,13 @@ mod tests {
             tool_names::LIST_RELEASES_FF_FIELDS_PARAM,
             "list_releases_ff_fields_param"
         );
+        assert_eq!(tool_names::GET_LATEST_RELEASE, "get_latest_release");
+        assert_eq!(tool_names::GET_RELEASE_BY_TAG, "get_release_by_tag");
+        assert_eq!(tool_names::LIST_NOTIFICATIONS, "list_notifications");
+        assert_eq!(
+            tool_names::GET_NOTIFICATION_DETAILS,
+            "get_notification_details"
+        );
         assert_eq!(
             tool_names::REPOSITORY_RULESET_READ,
             "repository_ruleset_read"
@@ -299,6 +306,10 @@ pub mod tool_names {
     pub const LIST_COMMITS_FF_FIELDS_PARAM: &str = "list_commits_ff_fields_param";
     pub const LIST_RELEASES: &str = "list_releases";
     pub const LIST_RELEASES_FF_FIELDS_PARAM: &str = "list_releases_ff_fields_param";
+    pub const GET_LATEST_RELEASE: &str = "get_latest_release";
+    pub const GET_RELEASE_BY_TAG: &str = "get_release_by_tag";
+    pub const LIST_NOTIFICATIONS: &str = "list_notifications";
+    pub const GET_NOTIFICATION_DETAILS: &str = "get_notification_details";
     pub const SEARCH_REPOSITORIES: &str = "search_repositories";
     pub const SEARCH_CODE: &str = "search_code";
     pub const SEARCH_CODE_FF_FIELDS_PARAM: &str = "search_code_ff_fields_param";

@@ -442,7 +442,7 @@ pub fn label_response_items(
         }
 
         // === Notifications - all are private ===
-        "list_notifications" | "get_notification_details" => {
+        tool_names::LIST_NOTIFICATIONS | tool_names::GET_NOTIFICATION_DETAILS => {
             let items = actual_response.as_array();
 
             if let Some(items) = items {
@@ -467,8 +467,8 @@ pub fn label_response_items(
         // === Releases - merged-level integrity (endorsed) ===
         tool_names::LIST_RELEASES
         | tool_names::LIST_RELEASES_FF_FIELDS_PARAM
-        | "get_latest_release"
-        | "get_release_by_tag" => {
+        | tool_names::GET_LATEST_RELEASE
+        | tool_names::GET_RELEASE_BY_TAG => {
             let all_items = collect_items_simple(&actual_response);
 
             // Limit items to prevent WASM memory exhaustion

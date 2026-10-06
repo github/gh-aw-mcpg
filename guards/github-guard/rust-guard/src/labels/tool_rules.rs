@@ -542,8 +542,8 @@ pub fn apply_tool_labels(
         | "list_label"
         | tool_names::LIST_RELEASES
         | tool_names::LIST_RELEASES_FF_FIELDS_PARAM
-        | "get_latest_release"
-        | "get_release_by_tag"
+        | tool_names::GET_LATEST_RELEASE
+        | tool_names::GET_RELEASE_BY_TAG
         | "list_tags" => {
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
             integrity = writer_integrity(repo_id, ctx);
@@ -652,7 +652,7 @@ pub fn apply_tool_labels(
         }
 
         // === Notifications (user-scoped, private) ===
-        "list_notifications" | "get_notification_details" => {
+        tool_names::LIST_NOTIFICATIONS | tool_names::GET_NOTIFICATION_DETAILS => {
             // Notifications are private to the authenticated user.
             // S = private:user
             // I = none (notifications reference external content of unknown trust)
