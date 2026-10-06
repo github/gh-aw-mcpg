@@ -409,3 +409,29 @@ func TestCheckLogDirMounted(t *testing.T) {
 		})
 	}
 }
+
+func TestIsHostNetworkMode_WithDockerShim(t *testing.T) {
+	tests := []struct {
+		name     string
+		output   string
+		expected bool
+	}{
+		{name: "host network", output: "host", expected: true},
+		{name: "host network with trailing whitespace", output: "host  ", expected: true},
+		{name: "bridge network", output: "bridge", expected: false},
+		{name: "default network", output: "default", expected: false},
+		{name: "custom network", output: "my-network", expected: false},
+		{name: "empty output", output: "", expected: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := mockDockerBinary(t, tt.output+"\n", 0)
+			prependPath(t, dir)
+
+			hostNetwork, err := IsHostNetworkMode("abc123def4567890")
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, hostNetwork)
+		})
+	}
+}
