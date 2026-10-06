@@ -20,6 +20,7 @@ var logEnvFile = logger.ForFile()
 func LoadEnvFile(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
+		logEnvFile.Printf("Failed to open env file: path=%s, err=%v", path, err)
 		return err
 	}
 	defer file.Close()
@@ -27,6 +28,7 @@ func LoadEnvFile(path string) error {
 	logEnvFile.Printf("Loading environment from %s...", path)
 	scanner := bufio.NewScanner(file)
 	loadedVars := 0
+	skippedLines := 0
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 
@@ -38,6 +40,7 @@ func LoadEnvFile(path string) error {
 		// Parse KEY=VALUE
 		key, value, ok := strings.Cut(line, "=")
 		if !ok {
+			skippedLines++
 			continue
 		}
 
@@ -48,6 +51,7 @@ func LoadEnvFile(path string) error {
 		value = os.ExpandEnv(value)
 
 		if err := os.Setenv(key, value); err != nil {
+			logEnvFile.Printf("Failed to set env var: name=%s, err=%v", key, err)
 			return fmt.Errorf("failed to set %s: %w", key, err)
 		}
 
@@ -56,7 +60,11 @@ func LoadEnvFile(path string) error {
 		loadedVars++
 	}
 
-	logEnvFile.Printf("Loaded %d environment variables from %s", loadedVars, path)
+	logEnvFile.Printf("Loaded %d environment variables from %s (skipped %d lines without '=')", loadedVars, path, skippedLines)
 
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		logEnvFile.Printf("Error reading env file: path=%s, err=%v", path, err)
+		return err
+	}
+	return nil
 }
