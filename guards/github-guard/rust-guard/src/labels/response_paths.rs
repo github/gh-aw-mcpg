@@ -545,11 +545,11 @@ pub fn label_response_paths(
         }
 
         // === Notifications - private ===
-        "list_notifications" => {
+        tool_names::LIST_NOTIFICATIONS => {
             let items = actual_response.as_array();
 
             if let Some(items) = items {
-                let limited_items = limit_items_with_log(items, "list_notifications");
+                let limited_items = limit_items_with_log(items, tool_names::LIST_NOTIFICATIONS);
                 let mut labeled_paths = Vec::with_capacity(limited_items.len());
                 // Hoist loop-invariant labels: Arc::clone is free.
                 let notif_secrecy: crate::SharedLabels = private_user_label().into();
