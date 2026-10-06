@@ -243,6 +243,29 @@ func TestNormalizeGuardPolicy_ScopeArray(t *testing.T) {
 	assert.Len(t, normalized.ScopeValues, 2)
 }
 
+func TestNormalizeGuardPolicy_ScopeArrayMixedCase(t *testing.T) {
+	p := &GuardPolicy{
+		AllowOnly: &AllowOnlyPolicy{
+			Repos:        []interface{}{"Owner/DeskForge"},
+			MinIntegrity: "none",
+		},
+	}
+	normalized, err := NormalizeGuardPolicy(p)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"owner/deskforge"}, normalized.ScopeValues)
+}
+
+func TestNormalizeGuardPolicy_ScopeArrayCaseInsensitiveDuplicates(t *testing.T) {
+	p := &GuardPolicy{
+		AllowOnly: &AllowOnlyPolicy{
+			Repos:        []interface{}{"Owner/Repo", "owner/repo"},
+			MinIntegrity: "none",
+		},
+	}
+	_, err := NormalizeGuardPolicy(p)
+	require.ErrorContains(t, err, "duplicates")
+}
+
 func TestNormalizeGuardPolicy_ScopeStringArray(t *testing.T) {
 	p := &GuardPolicy{
 		AllowOnly: &AllowOnlyPolicy{

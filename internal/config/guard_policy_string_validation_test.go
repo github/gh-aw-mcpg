@@ -279,8 +279,13 @@ func TestIsValidAllowOnlyReposValue(t *testing.T) {
 			want:  false,
 		},
 		{
-			name:  "invalid scope with uppercase",
-			repos: []interface{}{"Owner/repo"},
+			name:  "mixed-case scope",
+			repos: []interface{}{"Owner/DeskForge"},
+			want:  true,
+		},
+		{
+			name:  "non-ASCII scope",
+			repos: []interface{}{"Kwner/repo"},
 			want:  false,
 		},
 		{
