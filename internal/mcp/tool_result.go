@@ -94,7 +94,7 @@ func convertMapToCallToolResult(m map[string]any) (*sdk.CallToolResult, error) {
 	for _, ci := range items {
 		c, err := convertContentItem(ci)
 		if err != nil {
-			logToolResult.Printf("Failed to convert content item: %v", err)
+			logToolResult.Print("Failed to convert content item")
 			return nil, err
 		}
 		if c != nil {
