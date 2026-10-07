@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -186,6 +189,37 @@ func TestShutdownTracingProviderWithTimeout(t *testing.T) {
 			warnCalled = true
 		})
 		assert.False(t, warnCalled, "SDK provider with no pending spans should shut down without error")
+	})
+
+	t.Run("warns when shutdown times out flushing to a hanging collector", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("waits for the 5s shutdown timeout")
+		}
+		t.Cleanup(func() { otel.SetTracerProvider(noop.NewTracerProvider()) })
+
+		release := make(chan struct{})
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case <-release:
+			case <-r.Context().Done():
+			}
+		}))
+		t.Cleanup(srv.Close)
+		t.Cleanup(func() { close(release) })
+
+		provider, err := tracing.InitProvider(context.Background(), &config.TracingConfig{Endpoint: srv.URL})
+		require.NoError(t, err)
+		require.True(t, provider.IsEnabled())
+
+		_, span := provider.Tracer().Start(context.Background(), "pending-span")
+		span.End()
+
+		var warnings []string
+		shutdownTracingProviderWithTimeout(provider, func(format string, args ...any) {
+			warnings = append(warnings, fmt.Sprintf(format, args...))
+		})
+		require.Len(t, warnings, 1, "timed-out flush should surface exactly one warning")
+		assert.Contains(t, warnings[0], "tracing provider shutdown error")
 	})
 }
 
