@@ -60,11 +60,11 @@ func LoadEnvFile(path string) error {
 		loadedVars++
 	}
 
-	logEnvFile.Printf("Loaded %d environment variables from %s (skipped %d lines without '=')", loadedVars, path, skippedLines)
-
 	if err := scanner.Err(); err != nil {
 		logEnvFile.Printf("Error reading env file: path=%s, err=%v", path, err)
 		return err
 	}
+
+	logEnvFile.Printf("Loaded %d environment variables from %s (skipped %d lines without '=')", loadedVars, path, skippedLines)
 	return nil
 }
