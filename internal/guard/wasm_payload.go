@@ -118,6 +118,11 @@ func buildStrictLabelAgentPayload(policy interface{}) (map[string]interface{}, e
 	if !config.IsValidAllowOnlyReposValue(reposRaw) {
 		return nil, fmt.Errorf("invalid repos value: expected all, public, or non-empty array of scoped strings")
 	}
+	normalizedRepos, err := config.NormalizeAllowOnlyReposValue(reposRaw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid repos value: %w", err)
+	}
+	allowOnly["repos"] = normalizedRepos
 
 	integrityStr, _ := integrityRaw.(string) // non-string values normalize to "" and are rejected by the validator
 	if _, err := config.ValidateAndNormalizeIntegrityField(integrityFieldName, integrityStr, false); err != nil {

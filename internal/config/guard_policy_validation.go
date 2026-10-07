@@ -417,6 +417,43 @@ func IsValidAllowOnlyReposValue(repos interface{}) bool {
 	}
 }
 
+// NormalizeAllowOnlyReposValue validates and canonicalizes a static allow-only
+// repos value for use in policy payloads.
+func NormalizeAllowOnlyReposValue(repos interface{}) (interface{}, error) {
+	switch value := repos.(type) {
+	case string:
+		normalized := util.NormalizeStringCI(value)
+		if normalized != "all" && normalized != "public" {
+			return nil, fmt.Errorf("allow-only.repos string must be 'all' or 'public'")
+		}
+		return normalized, nil
+	case []interface{}:
+		return normalizeAndValidateScopeArray(value)
+	case []string:
+		return normalizeAndValidateScopeArray(util.StringsToAny(value))
+	default:
+		return nil, fmt.Errorf("allow-only.repos must be 'all', 'public', or an array of scoped strings")
+	}
+}
+
+// NormalizeStaticAllowOnlyPolicy returns a shallow copy of policy with static
+// repository scopes canonicalized for consistent source-label generation.
+func NormalizeStaticAllowOnlyPolicy(policy *GuardPolicy) (*GuardPolicy, error) {
+	if policy == nil || policy.AllowOnly == nil {
+		return policy, nil
+	}
+	repos, err := NormalizeAllowOnlyReposValue(policy.AllowOnly.Repos)
+	if err != nil {
+		return nil, err
+	}
+
+	normalized := *policy
+	allowOnly := *policy.AllowOnly
+	allowOnly.Repos = repos
+	normalized.AllowOnly = &allowOnly
+	return &normalized, nil
+}
+
 // normalizeToolCallLimits validates and normalizes a tool-call-limits map.
 func normalizeToolCallLimits(input map[string]int) (map[string]int, error) {
 	if len(input) == 0 {

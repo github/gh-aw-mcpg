@@ -244,15 +244,11 @@ func (s *Server) initGuardPolicy(ctx context.Context, policyJSON string, trusted
 		return fmt.Errorf("policy validation failed: write-sink policies are not supported for guard initialization; expected top-level allow-only/allowonly policy")
 	}
 
-	// Normalize legacy top-level policy keys before building the payload so
-	// trusted user injection works for both canonical and legacy input forms.
-	if policyMap, ok := policy.(map[string]interface{}); ok {
-		if _, hasCanonical := policyMap["allow-only"]; !hasCanonical {
-			if legacy, hasLegacy := policyMap["allowonly"]; hasLegacy {
-				policyMap["allow-only"] = legacy
-			}
-		}
+	parsedPolicy, err = config.NormalizeStaticAllowOnlyPolicy(parsedPolicy)
+	if err != nil {
+		return fmt.Errorf("policy normalization failed: %w", err)
 	}
+	policy = parsedPolicy
 
 	logProxy.Printf("Calling LabelAgent to initialize agent labels from guard")
 	backend := &restBackendCaller{server: s}

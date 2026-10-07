@@ -129,6 +129,22 @@ func TestValidateWriteSinkPolicy_CaseInsensitiveDuplicates(t *testing.T) {
 	require.ErrorContains(t, err, "duplicates")
 }
 
+func TestNormalizeStaticAllowOnlyPolicy(t *testing.T) {
+	policy := &GuardPolicy{
+		AllowOnly: &AllowOnlyPolicy{
+			Repos:        []interface{}{"BashRusakh/DeskForge"},
+			MinIntegrity: IntegrityNone,
+		},
+	}
+
+	normalized, err := NormalizeStaticAllowOnlyPolicy(policy)
+	require.NoError(t, err)
+	require.NotSame(t, policy, normalized)
+	require.NotSame(t, policy.AllowOnly, normalized.AllowOnly)
+	assert.Equal(t, []string{"bashrusakh/deskforge"}, normalized.AllowOnly.Repos)
+	assert.Equal(t, []interface{}{"BashRusakh/DeskForge"}, policy.AllowOnly.Repos)
+}
+
 func TestValidateWriteSinkPolicy_SinkVisibility(t *testing.T) {
 	tests := []struct {
 		name       string
