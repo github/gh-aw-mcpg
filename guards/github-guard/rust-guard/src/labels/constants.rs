@@ -37,7 +37,7 @@ pub mod policy_integrity {
 #[cfg(test)]
 mod tests {
     use super::{
-        desc_prefix, field_names, policy_integrity, tool_names, ORG_FIELD_ALIASES,
+        desc_default, desc_prefix, field_names, policy_integrity, tool_names, ORG_FIELD_ALIASES,
         SENSITIVE_PATH_PREFIXES, UI_GET_ACCESS_SENSITIVE_METHODS, UI_GET_GITHUB_APPROVED_METHODS,
         UI_GET_REPO_SCOPED_METHODS, UNKNOWN_LABEL_FALLBACK, URL_FALLBACK_FIELDS,
     };
@@ -76,6 +76,18 @@ mod tests {
         assert_eq!(field_names::TAG_NAME, "tag_name");
         assert_eq!(field_names::TYPE, "type");
         assert_eq!(UNKNOWN_LABEL_FALLBACK, "unknown");
+    }
+
+    #[test]
+    fn default_descriptions_match_canonical_values() {
+        assert_eq!(desc_default::REPOSITORY, "repository");
+        assert_eq!(desc_default::PULL_REQUEST, "pull_request");
+        assert_eq!(desc_default::ISSUE, "issue");
+        assert_eq!(desc_default::COMMIT, "commit");
+        assert_eq!(desc_default::FILE_CONTENTS, "file_contents");
+        assert_eq!(desc_default::RELEASE, "release");
+        assert_eq!(desc_default::NOTIFICATION, "notification");
+        assert_eq!(desc_default::GIST, "gist");
     }
 
     #[test]
@@ -248,6 +260,18 @@ pub mod desc_prefix {
     pub const RELEASE: &str = "release:";
     pub const GIST: &str = "gist:";
     pub const NOTIFICATION: &str = "notification:";
+}
+
+/// Canonical default descriptions used in `ResourceLabels::description`.
+pub mod desc_default {
+    pub const REPOSITORY: &str = "repository";
+    pub const PULL_REQUEST: &str = "pull_request";
+    pub const ISSUE: &str = "issue";
+    pub const COMMIT: &str = "commit";
+    pub const FILE_CONTENTS: &str = "file_contents";
+    pub const RELEASE: &str = "release";
+    pub const NOTIFICATION: &str = "notification";
+    pub const GIST: &str = "gist";
 }
 
 /// Sensitive file patterns for detecting secret-containing files
