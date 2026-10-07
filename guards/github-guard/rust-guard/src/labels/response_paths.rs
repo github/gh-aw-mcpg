@@ -7,7 +7,9 @@
 //! Returns JSON paths like `/items/0`, `/items/1` pointing to labeled objects
 //! in the response, rather than cloning the entire data.
 
-use super::constants::{desc_prefix, field_names, scope_names, tool_names, UNKNOWN_LABEL_FALLBACK};
+use super::constants::{
+    desc_default, desc_prefix, field_names, scope_names, tool_names, UNKNOWN_LABEL_FALLBACK,
+};
 use super::extract_mcp_response;
 use super::helpers::*;
 use serde_json::Value;
@@ -190,7 +192,7 @@ pub fn label_response_paths(
                 return Some(PathLabelResult {
                     labeled_paths,
                     default_labels: Some(crate::ResourceLabels {
-                        description: "repository".to_string(),
+                        description: desc_default::REPOSITORY.to_string(),
                         secrecy: vec![].into(),
                         integrity: none_integrity("", ctx).into(),
                     }),
@@ -269,7 +271,7 @@ pub fn label_response_paths(
                 return Some(PathLabelResult {
                     labeled_paths,
                     default_labels: Some(crate::ResourceLabels {
-                        description: "pull_request".to_string(),
+                        description: desc_default::PULL_REQUEST.to_string(),
                         secrecy: repo_item_ctx.default_secrecy_shared.clone(),
                         integrity: if repo_item_ctx.default_repo_private {
                             writer_integrity(&repo_item_ctx.default_repo, ctx)
@@ -349,7 +351,7 @@ pub fn label_response_paths(
                 return Some(PathLabelResult {
                     labeled_paths,
                     default_labels: Some(crate::ResourceLabels {
-                        description: "issue".to_string(),
+                        description: desc_default::ISSUE.to_string(),
                         secrecy: repo_item_ctx.default_secrecy_shared.clone(),
                         integrity: if repo_item_ctx.default_repo_private {
                             writer_integrity(&repo_item_ctx.default_repo, ctx)
@@ -426,7 +428,7 @@ pub fn label_response_paths(
                 return Some(PathLabelResult {
                     labeled_paths,
                     default_labels: Some(crate::ResourceLabels {
-                        description: "commit".to_string(),
+                        description: desc_default::COMMIT.to_string(),
                         secrecy: default_secrecy,
                         integrity: if is_default_branch {
                             merged_integrity(&default_repo, ctx)
@@ -474,7 +476,7 @@ pub fn label_response_paths(
                 return Some(PathLabelResult {
                     labeled_paths,
                     default_labels: Some(crate::ResourceLabels {
-                        description: "file_contents".to_string(),
+                        description: desc_default::FILE_CONTENTS.to_string(),
                         secrecy: secrecy_shared,
                         integrity: file_integrity_shared,
                     }),
@@ -535,7 +537,7 @@ pub fn label_response_paths(
                 return Some(PathLabelResult {
                     labeled_paths,
                     default_labels: Some(crate::ResourceLabels {
-                        description: "release".to_string(),
+                        description: desc_default::RELEASE.to_string(),
                         secrecy: default_secrecy_shared,
                         integrity: default_merged_shared,
                     }),
@@ -571,7 +573,7 @@ pub fn label_response_paths(
                 return Some(PathLabelResult {
                     labeled_paths,
                     default_labels: Some(crate::ResourceLabels {
-                        description: "notification".to_string(),
+                        description: desc_default::NOTIFICATION.to_string(),
                         secrecy: notif_secrecy,
                         integrity: empty_integrity,
                     }),
@@ -609,7 +611,7 @@ pub fn label_response_paths(
                 return Some(PathLabelResult {
                     labeled_paths,
                     default_labels: Some(crate::ResourceLabels {
-                        description: "gist".to_string(),
+                        description: desc_default::GIST.to_string(),
                         secrecy: public_gist_secrecy,
                         integrity: gist_integrity,
                     }),
