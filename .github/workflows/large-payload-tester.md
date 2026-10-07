@@ -132,7 +132,7 @@ steps:
 post-steps:
   - name: Upload Test Results
     if: always()
-    uses: actions/upload-artifact@v7.0.1
+    uses: actions/upload-artifact@v7.0.2
     with:
       name: mcp-stress-test-results
       path: |
