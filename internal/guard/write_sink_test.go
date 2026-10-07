@@ -226,6 +226,31 @@ func TestWriteSinkAcceptRules_ExactRepo(t *testing.T) {
 	assert.True(t, result.IsAllowed(), "exact repo: accept matches agent secrecy; got: %s", result.Reason)
 }
 
+func TestWriteSinkAcceptRules_MixedCaseExactRepo(t *testing.T) {
+	g := NewWriteSinkGuard([]string{" private:BashRusakh/DeskForge "})
+	resource, operation, err := g.LabelResource(context.Background(), "create_issue", nil, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, []difc.Tag{"private:bashrusakh/deskforge"}, resource.Secrecy.Label.GetTags())
+
+	evaluator := difc.NewEvaluatorWithMode(difc.EnforcementStrict)
+	for _, tt := range []struct {
+		tag     difc.Tag
+		allowed bool
+	}{
+		{"private:bashrusakh/deskforge", true},
+		{"private:bashrusakh/deskforge-other", false},
+		{"private:other/deskforge", false},
+		{"private:bashrusakh", false},
+		{"private:bashrusakh/*", false},
+		{"public:bashrusakh/deskforge", false},
+	} {
+		t.Run(string(tt.tag), func(t *testing.T) {
+			result := evaluator.Evaluate(difc.NewSecrecyLabel(tt.tag), difc.NewIntegrityLabel(), resource, operation)
+			assert.Equal(t, tt.allowed, result.IsAllowed(), result.Reason)
+		})
+	}
+}
+
 // TestWriteSinkAcceptRules_OwnerWildcard tests: repos=["org/*"] → accept=["private:org"]
 // The owner wildcard produces a bare owner secrecy tag (no "/*" suffix).
 func TestWriteSinkAcceptRules_OwnerWildcard(t *testing.T) {

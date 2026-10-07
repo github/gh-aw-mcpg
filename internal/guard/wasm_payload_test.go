@@ -7,6 +7,40 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBuildStrictLabelAgentPayload_NormalizesStaticRepoScopes(t *testing.T) {
+	tests := []struct {
+		name  string
+		repos []interface{}
+		want  []string
+	}{
+		{
+			name:  "exact repository",
+			repos: []interface{}{"BashRusakh/DeskForge"},
+			want:  []string{"bashrusakh/deskforge"},
+		},
+		{
+			name:  "owner and repository wildcards",
+			repos: []interface{}{"MyOrg/*", "MyOrg/Desk*"},
+			want:  []string{"myorg/*", "myorg/desk*"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			payload, err := buildStrictLabelAgentPayload(map[string]interface{}{
+				"allow-only": map[string]interface{}{
+					"repos":         tt.repos,
+					"min-integrity": "none",
+				},
+			})
+			require.NoError(t, err)
+			allowOnly, ok := payload["allow-only"].(map[string]interface{})
+			require.True(t, ok)
+			assert.Equal(t, tt.want, allowOnly["repos"])
+		})
+	}
+}
+
 func TestCheckBoolFailure(t *testing.T) {
 	tests := []struct {
 		name       string

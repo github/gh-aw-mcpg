@@ -56,7 +56,7 @@ func ValidateWriteSinkPolicy(ws *WriteSinkPolicy) error {
 		return nil
 	}
 	if err := util.ValidateUnique(ws.Accept, func(entry string) error {
-		entry = strings.TrimSpace(entry)
+		entry = NormalizeWriteSinkAcceptEntry(entry)
 		if err := NonEmptyString(entry, "accept", "write-sink.accept"); err != nil {
 			return err
 		}
@@ -67,12 +67,23 @@ func ValidateWriteSinkPolicy(ws *WriteSinkPolicy) error {
 			return fmt.Errorf("write-sink.accept entry %q is invalid: %w", entry, err)
 		}
 		return nil
-	}, strings.TrimSpace, func(string) error {
+	}, NormalizeWriteSinkAcceptEntry, func(string) error {
 		return fmt.Errorf("write-sink.accept must not contain duplicates")
 	}); err != nil {
 		return err
 	}
 	return nil
+}
+
+// NormalizeWriteSinkAcceptEntry trims a static write-sink accept entry and
+// ASCII-lowercases its repository scope, leaving any visibility prefix unchanged.
+// It does not validate the entry or normalize dynamic or delegated selectors.
+func NormalizeWriteSinkAcceptEntry(entry string) string {
+	entry = strings.TrimSpace(entry)
+	if visibility, scope, ok := strings.Cut(entry, ":"); ok {
+		return visibility + ":" + lowercaseASCII(scope)
+	}
+	return lowercaseASCII(entry)
 }
 
 // validateAcceptEntry validates a single accept entry.
@@ -404,6 +415,43 @@ func IsValidAllowOnlyReposValue(repos interface{}) bool {
 	default:
 		return false
 	}
+}
+
+// NormalizeAllowOnlyReposValue validates and canonicalizes a static allow-only
+// repos value for use in policy payloads.
+func NormalizeAllowOnlyReposValue(repos interface{}) (interface{}, error) {
+	switch value := repos.(type) {
+	case string:
+		normalized := util.NormalizeStringCI(value)
+		if normalized != "all" && normalized != "public" {
+			return nil, fmt.Errorf("allow-only.repos string must be 'all' or 'public'")
+		}
+		return normalized, nil
+	case []interface{}:
+		return normalizeAndValidateScopeArray(value)
+	case []string:
+		return normalizeAndValidateScopeArray(util.StringsToAny(value))
+	default:
+		return nil, fmt.Errorf("allow-only.repos must be 'all', 'public', or an array of scoped strings")
+	}
+}
+
+// NormalizeStaticAllowOnlyPolicy returns a shallow copy of policy with static
+// repository scopes canonicalized for consistent source-label generation.
+func NormalizeStaticAllowOnlyPolicy(policy *GuardPolicy) (*GuardPolicy, error) {
+	if policy == nil || policy.AllowOnly == nil {
+		return policy, nil
+	}
+	repos, err := NormalizeAllowOnlyReposValue(policy.AllowOnly.Repos)
+	if err != nil {
+		return nil, err
+	}
+
+	normalized := *policy
+	allowOnly := *policy.AllowOnly
+	allowOnly.Repos = repos
+	normalized.AllowOnly = &allowOnly
+	return &normalized, nil
 }
 
 // normalizeToolCallLimits validates and normalizes a tool-call-limits map.

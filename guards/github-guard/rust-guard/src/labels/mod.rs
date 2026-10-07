@@ -318,26 +318,41 @@ mod tests {
         let ctx = PolicyContext {
             scopes: vec![PolicyScopeEntry {
                 scope_kind: ScopeKind::RepoPrefix,
-                scope_owner: Some("lpcox".to_string()),
-                scope_repo: Some("github-".to_string()),
-                scope_label: "lpcox/github-*".to_string(),
+                scope_owner: Some("myorg".to_string()),
+                scope_repo: Some("desk".to_string()),
+                scope_label: "myorg/desk*".to_string(),
             }],
             ..Default::default()
         };
 
         assert_eq!(
             super::helpers::policy_private_scope_label(
-                "lpcox",
-                "github-guard",
-                "lpcox/github-guard",
+                "MyOrg",
+                "DeskForge",
+                "MyOrg/DeskForge",
                 &ctx
             ),
-            vec!["private:lpcox/github-*".to_string()]
+            vec!["private:myorg/desk*".to_string()]
         );
 
         assert_eq!(
-            super::helpers::policy_private_scope_label("lpcox", "website", "lpcox/website", &ctx),
-            vec!["private:lpcox/website".to_string()]
+            super::helpers::policy_private_scope_label(
+                "OtherOrg",
+                "DeskForge",
+                "OtherOrg/DeskForge",
+                &ctx
+            ),
+            vec!["private:OtherOrg/DeskForge".to_string()]
+        );
+
+        assert_eq!(
+            super::helpers::policy_private_scope_label(
+                "MyOrg",
+                "Workspace",
+                "MyOrg/Workspace",
+                &ctx
+            ),
+            vec!["private:MyOrg/Workspace".to_string()]
         );
     }
 

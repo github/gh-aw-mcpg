@@ -402,6 +402,13 @@ secrecy and integrity labels. The write-sink guard solves this by classifying al
 operations as writes and accepting writes from agents whose secrecy labels match the
 configured `accept` patterns.
 
+Static `allow-only.repos` and `write-sink.accept` owner/repository scopes are
+trimmed and ASCII-lowercased for validation and policy use, keeping source secrecy
+labels aligned with accepted write-sink tags. For example,
+`private:bashrusakh/DeskForge` matches `private:bashrusakh/deskforge` without
+broadening the exact repository boundary. Visibility prefixes must remain
+lowercase; dynamic and delegated selectors remain strict.
+
 #### sink-visibility (CRITICAL for security)
 
 The `sink-visibility` field declares the visibility of the output channel's target

@@ -410,6 +410,10 @@ func (us *UnifiedServer) ensureGuardInitialized(
 		logger.LogInfoToServer(serverID, "difc", "Guard policy not configured; using legacy session labels")
 		return defaultMode, nil
 	}
+	policy, err = config.NormalizeStaticAllowOnlyPolicy(policy)
+	if err != nil {
+		return defaultMode, fmt.Errorf("failed to normalize static allow-only policy: %w", err)
+	}
 
 	policyJSON, err := json.Marshal(policy)
 	if err != nil {

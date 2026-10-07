@@ -308,7 +308,9 @@ fn repo_matches_scope(
             !scoped_owner.is_empty()
                 && !scoped_repo.is_empty()
                 && owner.eq_ignore_ascii_case(scoped_owner)
-                && repo.starts_with(scoped_repo)
+                && repo
+                    .get(..scoped_repo.len())
+                    .is_some_and(|prefix| prefix.eq_ignore_ascii_case(scoped_repo))
         }
     }
 }
