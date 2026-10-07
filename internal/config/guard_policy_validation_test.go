@@ -122,6 +122,13 @@ func TestValidateWriteSinkPolicy_TrimmedDuplicateEntries(t *testing.T) {
 	assert.Contains(t, err.Error(), "duplicates")
 }
 
+func TestValidateWriteSinkPolicy_CaseInsensitiveDuplicates(t *testing.T) {
+	err := ValidateWriteSinkPolicy(&WriteSinkPolicy{
+		Accept: []string{"private:BashRusakh/DeskForge", " private:bashrusakh/deskforge "},
+	})
+	require.ErrorContains(t, err, "duplicates")
+}
+
 func TestValidateWriteSinkPolicy_SinkVisibility(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -164,6 +171,19 @@ func TestValidateWriteSinkPolicy_ValidAcceptFormats(t *testing.T) {
 		{"visibility:owner/repo", []string{"private:github/my-repo"}, false},
 		{"visibility:owner", []string{"public:myorg"}, false},
 		{"bare owner", []string{"myorg"}, false},
+		{"mixed-case exact repo", []string{"private:bashrusakh/DeskForge"}, false},
+		{"mixed-case owner and repo", []string{"internal:BashRusakh/DeskForge"}, false},
+		{"mixed-case bare repo", []string{" BashRusakh/DeskForge "}, false},
+		{"mixed-case owner wildcard", []string{"private:MyOrg/*"}, false},
+		{"mixed-case prefix wildcard", []string{"private:MyOrg/Desk*"}, false},
+		{"mixed-case bare owner", []string{"private:MyOrg"}, false},
+		{"uppercase visibility remains invalid", []string{"PRIVATE:MyOrg/DeskForge"}, true},
+		{"Unicode owner", []string{"private:BaſhRusakh/DeskForge"}, true},
+		{"Unicode repo", []string{"private:bashrusakh/DesKForge"}, true},
+		{"encoded separator", []string{"private:BashRusakh%2FDeskForge"}, true},
+		{"traversal", []string{"private:BashRusakh/Desk..Forge"}, true},
+		{"embedded whitespace", []string{"private:Bash Rusakh/DeskForge"}, true},
+		{"embedded wildcard", []string{"private:BashRusakh/Desk*Forge"}, true},
 		{"invalid visibility prefix", []string{"badvis:github/repo"}, true},
 		{"invalid scope", []string{"github/repo/extra"}, true},
 	}

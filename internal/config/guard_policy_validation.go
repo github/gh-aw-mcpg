@@ -56,7 +56,7 @@ func ValidateWriteSinkPolicy(ws *WriteSinkPolicy) error {
 		return nil
 	}
 	if err := util.ValidateUnique(ws.Accept, func(entry string) error {
-		entry = strings.TrimSpace(entry)
+		entry = NormalizeWriteSinkAcceptEntry(entry)
 		if err := NonEmptyString(entry, "accept", "write-sink.accept"); err != nil {
 			return err
 		}
@@ -67,12 +67,23 @@ func ValidateWriteSinkPolicy(ws *WriteSinkPolicy) error {
 			return fmt.Errorf("write-sink.accept entry %q is invalid: %w", entry, err)
 		}
 		return nil
-	}, strings.TrimSpace, func(string) error {
+	}, NormalizeWriteSinkAcceptEntry, func(string) error {
 		return fmt.Errorf("write-sink.accept must not contain duplicates")
 	}); err != nil {
 		return err
 	}
 	return nil
+}
+
+// NormalizeWriteSinkAcceptEntry trims a static write-sink accept entry and
+// ASCII-lowercases its repository scope, leaving any visibility prefix unchanged.
+// It does not validate the entry or normalize dynamic or delegated selectors.
+func NormalizeWriteSinkAcceptEntry(entry string) string {
+	entry = strings.TrimSpace(entry)
+	if visibility, scope, ok := strings.Cut(entry, ":"); ok {
+		return visibility + ":" + lowercaseASCII(scope)
+	}
+	return lowercaseASCII(entry)
 }
 
 // validateAcceptEntry validates a single accept entry.

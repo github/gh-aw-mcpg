@@ -428,6 +428,85 @@ func TestStrictDIFCRejectsNoopSafeOutputsAtStartup(t *testing.T) {
 	require.ErrorContains(err, "safe-outputs server \"safeoutputs\" requires a write-sink guard policy")
 }
 
+func TestWriteSinkGuard_MixedCaseStaticPolicies(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		visibility string
+		secrecy    []string
+		allowed    bool
+	}{
+		{"public read and public sink", "public", nil, true},
+		{"private read and public sink", "public", []string{"private:bashrusakh/deskforge"}, false},
+		{"matching private sink", "private", []string{"private:bashrusakh/deskforge"}, true},
+		{"neighbor repository rejected", "private", []string{"private:bashrusakh/deskforge-other"}, false},
+		{"other owner rejected", "private", []string{"private:other/deskforge"}, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			githubBackend := newMCPBackend(t, []map[string]interface{}{
+				{"name": "list_issues", "inputSchema": map[string]interface{}{"type": "object"}},
+			})
+			defer githubBackend.Close()
+			safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{
+				{"name": "create_issue", "inputSchema": map[string]interface{}{"type": "object"}},
+			})
+			defer safeoutputsBackend.Close()
+
+			guard.RegisterGuardType("mixed-case-write-sink-test-type", func() (guard.Guard, error) {
+				return &writeSinkTestGuard{secrecy: tt.secrecy}, nil
+			})
+			cfg := &config.Config{
+				DIFCMode: "strict",
+				Servers: map[string]*config.ServerConfig{
+					"github": {
+						Type: "http", URL: githubBackend.URL, Guard: "github-guard",
+						GuardPolicies: map[string]interface{}{
+							"allow-only": map[string]interface{}{
+								"repos": []interface{}{"bashrusakh/DeskForge"}, "min-integrity": "none",
+							},
+						},
+					},
+					"safeoutputs": {
+						Type: "http", URL: safeoutputsBackend.URL,
+						GuardPolicies: map[string]interface{}{
+							"write-sink": map[string]interface{}{
+								"accept": []interface{}{"private:bashrusakh/DeskForge"}, "sink-visibility": tt.visibility,
+							},
+						},
+					},
+				},
+				Guards: map[string]*config.GuardConfig{
+					"github-guard": {Type: "mixed-case-write-sink-test-type"},
+				},
+			}
+
+			us, err := NewUnified(context.Background(), cfg)
+			require.NoError(t, err)
+			assert.Equal(t, "write-sink", us.guardRegistry.Get("safeoutputs").Name())
+			policy, _, err := us.resolveGuardPolicy("github")
+			require.NoError(t, err)
+			normalized, err := config.NormalizeGuardPolicy(policy)
+			require.NoError(t, err)
+			assert.Equal(t, []string{"bashrusakh/deskforge"}, normalized.ScopeValues)
+
+			ctx := context.WithValue(context.Background(), SessionIDContextKey, "mixed-case-session")
+			ctx = guard.SetAgentIDInContext(ctx, "mixed-case-session")
+			result, _, err := us.callBackendTool(ctx, "github", "list_issues", map[string]interface{}{})
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.False(t, result.IsError)
+
+			result, _, err = us.callBackendTool(ctx, "safeoutputs", "create_issue", map[string]interface{}{})
+			if tt.allowed {
+				require.NoError(t, err)
+				require.NotNil(t, result)
+				assert.False(t, result.IsError)
+			} else {
+				require.Error(t, err)
+			}
+		})
+	}
+}
+
 // TestWriteSinkPolicy_ResolvedForWriteSinkServer verifies that
 // resolveWriteSinkPolicy correctly finds a write-sink policy from server config.
 func TestWriteSinkPolicy_ResolvedForWriteSinkServer(t *testing.T) {
