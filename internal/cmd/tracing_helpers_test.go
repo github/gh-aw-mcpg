@@ -207,6 +207,7 @@ func TestShutdownTracingProviderWithTimeout(t *testing.T) {
 		t.Cleanup(srv.Close)
 		t.Cleanup(func() { close(release) })
 
+t.Setenv("GH_AW_OTLP_ENDPOINTS", "")
 		provider, err := tracing.InitProvider(context.Background(), &config.TracingConfig{Endpoint: srv.URL})
 		require.NoError(t, err)
 		require.True(t, provider.IsEnabled())
