@@ -60,9 +60,11 @@ func Parse(spec string) (Spec, error) {
 		return Spec{}, &ParseError{Kind: InvalidFormat}
 	}
 	if parts[0] == "" {
+		log.Print("Rejecting mount spec: source is empty")
 		return Spec{}, &ParseError{Kind: EmptySource}
 	}
 	if parts[1] == "" {
+		log.Print("Rejecting mount spec: destination is empty")
 		return Spec{}, &ParseError{Kind: EmptyDestination}
 	}
 	if !filepath.IsAbs(parts[0]) {
@@ -85,16 +87,20 @@ func Parse(spec string) (Spec, error) {
 		switch option = strings.TrimSpace(option); option {
 		case "ro", "rw":
 			if modeSet {
+				log.Print("Rejecting mount spec: conflicting mode options")
 				return Spec{}, fmt.Errorf("%w: conflicting mount options", &ParseError{Kind: InvalidOptions})
 			}
 			modeSet = true
 			mount.Writable = option == "rw"
 		case "":
+			log.Print("Rejecting mount spec: empty mode option")
 			return Spec{}, fmt.Errorf("%w: empty mount option", &ParseError{Kind: InvalidOptions})
 		default:
+			log.Printf("Rejecting mount spec: unsupported mode option %q", option)
 			return Spec{}, fmt.Errorf("%w: unsupported mount option", &ParseError{Kind: InvalidOptions})
 		}
 	}
+	log.Printf("Parsed mount spec: writable=%v", mount.Writable)
 	return mount, nil
 }
 
@@ -107,6 +113,7 @@ func ParseRequiredMode(spec string) (Spec, error) {
 		return Spec{}, &ParseError{Kind: InvalidFormat}
 	}
 	if parts[2] != "ro" && parts[2] != "rw" {
+		log.Print("Rejecting mount spec: explicit mode must be ro or rw")
 		return Spec{}, &ParseError{Kind: InvalidOptions}
 	}
 	return Parse(spec)
