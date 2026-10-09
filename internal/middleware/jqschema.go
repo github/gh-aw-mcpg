@@ -202,15 +202,18 @@ func runJqCode(
 	iter := code.RunWithContext(ctx, jsonData)
 	v, ok := iter.Next()
 	if !ok {
+		logMiddleware.Printf("runJqCode: %s returned no results", errPrefix)
 		return nil, fmt.Errorf("%s returned no results", errPrefix)
 	}
 
 	if err, ok := v.(error); ok {
 		if ctx.Err() != nil {
+			logMiddleware.Printf("runJqCode: %s aborted by context: ctxErr=%v", executionPrefix, ctx.Err())
 			return nil, fmt.Errorf("%s execution failed: %w", executionPrefix, errors.Join(err, ctx.Err()))
 		}
 		var haltErr *gojq.HaltError
 		if errors.As(err, &haltErr) {
+			logMiddleware.Printf("runJqCode: %s halted: exitCode=%d, hasValue=%v", errPrefix, haltErr.ExitCode(), haltErr.Value() != nil)
 			if haltErr.Value() == nil {
 				return nil, fmt.Errorf("%s halted cleanly with no output", errPrefix)
 			}
@@ -229,6 +232,7 @@ func runJqCode(
 
 	if opts.CheckMultipleResults {
 		if extra, ok := iter.Next(); ok {
+			logMiddleware.Printf("runJqCode: %s returned multiple results: firstType=%T, extraType=%T", errPrefix, v, extra)
 			return nil, fmt.Errorf("%s returned multiple results — use array form ([.a, .b]) to combine outputs into a single value; first=%T extra=%T", errPrefix, v, extra)
 		}
 	}
