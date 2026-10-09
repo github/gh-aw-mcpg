@@ -962,7 +962,7 @@ pub fn apply_tool_labels(
         }
 
         // === Deploy key management (SSH key with optional write access) ===
-        "add_deploy_key" | "delete_deploy_key" => {
+        tool_names::ADD_DEPLOY_KEY | tool_names::DELETE_DEPLOY_KEY => {
             // Manages SSH deploy keys — `add_deploy_key` may grant persistent write access.
             // S = at least private; scope is policy-dependent (may be unscoped, owner-scoped, or repo-scoped)
             // I = writer (requires admin access)
@@ -1045,7 +1045,7 @@ pub fn apply_tool_labels(
         }
 
         // === Gist deletion (pre-emptive) ===
-        "delete_gist" => {
+        tool_names::DELETE_GIST => {
             // Gist deletion is a write on user-scoped content.
             // Conservatively treat gists as private/user-scoped, consistent with
             // other gist operations that may target secret gists.
@@ -1066,10 +1066,10 @@ pub fn apply_tool_labels(
         // Codespaces expose repository content, dev-environment metadata, and user/org-billed
         // compute state. Treat conservatively as private user-scoped writes.
         // S = private:user; I = writer(user)
-        "create_codespace"
-        | "update_codespace"
-        | "delete_codespace"
-        | "stop_codespace"
+        tool_names::CREATE_CODESPACE
+        | tool_names::UPDATE_CODESPACE
+        | tool_names::DELETE_CODESPACE
+        | tool_names::STOP_CODESPACE
         | "rebuild_codespace"
         | "update_codespace_port_visibility" => {
             secrecy = private_user_label();

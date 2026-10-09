@@ -65,6 +65,7 @@ func resolveDelegationProxyConfig() (*delegation.RuntimeConfig, string, error) {
 	generationRaw := os.Getenv("MCP_GATEWAY_DELEGATION_GENERATION")
 	controlListenAddr := os.Getenv(delegation.EnvControlListenAddr)
 	if envelopeJSON == "" && capabilityKey == "" && statePath == "" && generationRaw == "" && controlListenAddr == "" {
+		logProxyCmd.Print("Delegation proxy config: no delegation environment configured, delegation disabled")
 		return nil, "", nil
 	}
 	if envelopeJSON == "" || capabilityKey == "" || statePath == "" || generationRaw == "" || controlListenAddr == "" {
@@ -89,10 +90,12 @@ func resolveDelegationProxyConfig() (*delegation.RuntimeConfig, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	logProxyCmd.Printf("Loading delegation store: statePath=%s, generation=%d, controlListen=%s", statePath, generation, controlListenAddr)
 	store, err := delegation.LoadStore(statePath, envelope, generation)
 	if err != nil {
 		return nil, "", err
 	}
+	logProxyCmd.Print("Delegation proxy config resolved successfully")
 	return &delegation.RuntimeConfig{Store: store, Capability: capability, StatePath: statePath, ControlListenAddr: controlListenAddr}, statePath, nil
 }
 
@@ -202,8 +205,10 @@ func resolveEnclaveProxyConfig(
 ) (*proxy.EnclaveConfig, string, bool, error) {
 	enabled := policyRaw != "" || capabilityKey != ""
 	if !enabled {
+		logProxyCmd.Print("Enclave proxy config: no policy or capability key set, enclave mode disabled")
 		return nil, "", false, nil
 	}
+	logProxyCmd.Printf("Resolving enclave proxy config: explicitGuardPolicy=%v, trustedBots=%d, trustedUsers=%d", explicitGuardPolicy != "", len(trustedBots), len(trustedUsers))
 	if policyRaw == "" || capabilityKey == "" {
 		return nil, "", true, fmt.Errorf(
 			"%s and %s must be configured together",
@@ -235,6 +240,7 @@ func resolveEnclaveProxyConfig(
 	if err != nil {
 		return nil, "", true, err
 	}
+	logProxyCmd.Print("Enclave proxy config resolved successfully")
 	return &proxy.EnclaveConfig{Policy: policy, Verifier: verifier}, guardPolicy, true, nil
 }
 
