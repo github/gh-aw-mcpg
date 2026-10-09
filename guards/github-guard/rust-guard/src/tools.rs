@@ -46,8 +46,8 @@ pub const WRITE_OPERATIONS: &[&str] = &[
 pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     // Keep sorted for binary_search correctness.
     tool_names::ADD_DEPLOY_KEY, // gh repo deploy-key add — POST /repos/.../keys
-    "add_gpg_key",              // gh gpg-key add — adds a user GPG signing key
-    "add_ssh_key",              // gh ssh-key add — adds a user SSH auth/signing key
+    tool_names::ADD_GPG_KEY,    // gh gpg-key add — adds a user GPG signing key
+    tool_names::ADD_SSH_KEY,    // gh ssh-key add — adds a user SSH auth/signing key
     "archive_project_item",     // gh project item-archive — archives a Projects v2 item
     tool_names::ARCHIVE_REPOSITORY, // gh repo archive — blocked: repo settings change unsupported
     tool_names::CANCEL_WORKFLOW_RUN, // gh run cancel — cancels an in-progress workflow run
@@ -66,7 +66,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     tool_names::DELETE_CODESPACE, // gh codespace delete — DELETE /user/codespaces/{name} or /orgs/{org}/members/{user}/codespaces/{name}
     tool_names::DELETE_DEPLOY_KEY, // gh repo deploy-key delete — DELETE /repos/.../keys/{id}
     tool_names::DELETE_GIST,      // gh gist delete
-    "delete_gpg_key",             // gh gpg-key delete — removes a user GPG signing key
+    tool_names::DELETE_GPG_KEY,   // gh gpg-key delete — removes a user GPG signing key
     "delete_issue",               // gh issue delete — deletes an issue via GraphQL deleteIssue
     "delete_issue_comment",       // DELETE /repos/.../issues/comments/{id}
     "delete_project",             // gh project delete — deletes a Projects v2 project
@@ -75,14 +75,14 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     "delete_release_asset",       // gh release delete-asset — deletes a release asset
     "delete_repository_autolink", // gh repo autolink delete — DELETE /repos/.../autolinks/{id}
     tool_names::DELETE_SECRET,    // gh secret delete — deletes org/repo/env/user codespaces secrets
-    "delete_ssh_key",             // gh ssh-key delete — removes a user SSH auth/signing key
+    tool_names::DELETE_SSH_KEY,   // gh ssh-key delete — removes a user SSH auth/signing key
     tool_names::DELETE_VARIABLE, // gh variable delete — deletes org/repo/environment Actions variables
     "delete_workflow_run",       // gh run delete — deletes a workflow run record
-    "disable_workflow",          // gh workflow disable
+    tool_names::DISABLE_WORKFLOW, // gh workflow disable
     tool_names::EDIT_DISCUSSION, // gh discussion edit   — edits title/body/labels of a discussion
     "edit_release",              // PATCH /repos/.../releases/{id}
     "edit_repository",           // gh repo edit — can change visibility, security settings
-    "enable_workflow",           // gh workflow enable
+    tool_names::ENABLE_WORKFLOW, // gh workflow enable
     tool_names::FORCE_CANCEL_WORKFLOW_RUN, // gh run cancel --force — force-cancels a workflow run
     "link_project", // gh project link — links a Projects v2 board to a repository or team
     "lock_issue",   // gh issue lock
@@ -102,7 +102,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     tool_names::SET_SECRET, // gh secret set
     tool_names::SET_VARIABLE, // gh variable set
     tool_names::STOP_CODESPACE, // gh codespace stop — POST /user|/orgs/.../codespaces/.../stop
-    "sync_fork",    // gh repo sync
+    tool_names::SYNC_FORK, // gh repo sync
     "transfer_issue", // gh issue transfer
     "unarchive_project_item", // gh project item-archive --undo — unarchives a Projects v2 item
     tool_names::UNARCHIVE_REPOSITORY, // gh repo unarchive — blocked: symmetric to archive_repository
@@ -176,7 +176,7 @@ pub const READ_WRITE_OPERATIONS: &[&str] = &[
 /// Synthetic read-write operations reachable through GitHub CLI but not current upstream MCP tools.
 pub const CLI_READ_WRITE_OPERATIONS: &[&str] = &[
     // Keep sorted for binary_search correctness.
-    "create_agent_task", // gh agent-task create — creates a Copilot coding-agent job; blocked as unsupported
+    tool_names::CREATE_AGENT_TASK, // gh agent-task create — creates a Copilot coding-agent job; blocked as unsupported
     "update_project_draft_issue", // gh project item-edit --title/--body — GraphQL updateProjectV2DraftIssue
 ];
 
@@ -232,7 +232,7 @@ pub(crate) fn is_unlock_operation(tool_name: &str) -> bool {
 /// Entries here should also be classified by `is_write_operation` or `is_read_write_operation`.
 pub const BLOCKED_TOOLS: &[&str] = &[
     tool_names::ARCHIVE_REPOSITORY,   // repo settings change; unsupported
-    "create_agent_task",              // unsupported agent-task creation
+    tool_names::CREATE_AGENT_TASK,    // unsupported agent-task creation
     tool_names::RENAME_REPOSITORY,    // breaks clone URLs and integrations
     tool_names::TRANSFER_REPOSITORY,  // irreversible ownership transfer
     tool_names::UNARCHIVE_REPOSITORY, // symmetric to archive_repository
@@ -464,10 +464,10 @@ mod tests {
             "revert_pull_request",
             "add_deploy_key",
             "delete_deploy_key",
-            "add_gpg_key",
-            "add_ssh_key",
-            "delete_gpg_key",
-            "delete_ssh_key",
+            tool_names::ADD_GPG_KEY,
+            tool_names::ADD_SSH_KEY,
+            tool_names::DELETE_GPG_KEY,
+            tool_names::DELETE_SSH_KEY,
             "delete_release_asset",
             "delete_workflow_run",
             "stop_codespace",
@@ -499,15 +499,15 @@ mod tests {
     #[test]
     fn test_create_agent_task_is_read_write_and_blocked() {
         assert!(
-            is_read_write_operation("create_agent_task"),
+            is_read_write_operation(tool_names::CREATE_AGENT_TASK),
             "create_agent_task must be classified as a read-write operation"
         );
         assert!(
-            is_blocked_tool("create_agent_task"),
+            is_blocked_tool(tool_names::CREATE_AGENT_TASK),
             "create_agent_task must be unconditionally blocked (unsupported agent operation)"
         );
         assert!(
-            !is_write_operation("create_agent_task"),
+            !is_write_operation(tool_names::CREATE_AGENT_TASK),
             "create_agent_task should not be in WRITE_OPERATIONS (it is in READ_WRITE_OPERATIONS)"
         );
     }
@@ -817,8 +817,8 @@ mod tests {
     fn test_cli_only_operations_are_not_in_upstream_mcp_buckets() {
         for op in &[
             "add_deploy_key",
-            "add_gpg_key",
-            "add_ssh_key",
+            tool_names::ADD_GPG_KEY,
+            tool_names::ADD_SSH_KEY,
             "archive_project_item",
             "close_issue",
             "close_pull_request",
@@ -831,14 +831,14 @@ mod tests {
             "create_repository_autolink",
             "delete_codespace",
             "delete_deploy_key",
-            "delete_gpg_key",
+            tool_names::DELETE_GPG_KEY,
             "delete_issue",
             "delete_issue_comment",
             "delete_project_field",
             "delete_release",
             "delete_release_asset",
             "delete_repository_autolink",
-            "delete_ssh_key",
+            tool_names::DELETE_SSH_KEY,
             "delete_workflow_run",
             tool_names::EDIT_DISCUSSION,
             "edit_release",
