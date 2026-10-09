@@ -54,11 +54,11 @@ pub use helpers::project_github_label;
 
 #[cfg(test)]
 pub(crate) use helpers::{
-    commit_integrity, extract_graphql_single_object, extract_items_array,
-    extract_number_as_string, extract_repo_from_item, has_approval_label, has_demotion_label,
-    has_promotion_label, has_refusal_label, is_blocked_user, is_graphql_wrapper, issue_integrity,
-    limit_items_with_log, merged_integrity, none_integrity, pr_integrity, private_scope_label,
-    private_user_label, secret_label,
+    commit_integrity, extract_graphql_single_object, extract_items_array, extract_number_as_string,
+    extract_repo_from_item, has_approval_label, has_demotion_label, has_promotion_label,
+    has_refusal_label, is_blocked_user, is_graphql_wrapper, issue_integrity, limit_items_with_log,
+    merged_integrity, none_integrity, pr_integrity, private_scope_label, private_user_label,
+    secret_label,
 };
 
 // Re-export response labeling functions (wrappers that pass PolicyContext)
@@ -1773,21 +1773,30 @@ mod tests {
 
     fn ctx_with_blocked_users(blocked: Vec<&str>) -> PolicyContext {
         PolicyContext {
-            blocked_users: blocked.into_iter().map(std::string::ToString::to_string).collect(),
+            blocked_users: blocked
+                .into_iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
             ..Default::default()
         }
     }
 
     fn ctx_with_approval_labels(labels: Vec<&str>) -> PolicyContext {
         PolicyContext {
-            approval_labels: labels.into_iter().map(std::string::ToString::to_string).collect(),
+            approval_labels: labels
+                .into_iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
             ..Default::default()
         }
     }
 
     fn ctx_with_refusal_labels(labels: Vec<&str>) -> PolicyContext {
         PolicyContext {
-            refusal_labels: labels.into_iter().map(std::string::ToString::to_string).collect(),
+            refusal_labels: labels
+                .into_iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
             ..Default::default()
         }
     }
@@ -5470,7 +5479,10 @@ mod tests {
                 &ctx,
             );
 
-            assert!(secrecy.is_empty(), "{op}: public repo should produce empty secrecy");
+            assert!(
+                secrecy.is_empty(),
+                "{op}: public repo should produce empty secrecy"
+            );
             assert_eq!(
                 integrity,
                 writer_integrity(repo_id, &ctx),
@@ -6165,11 +6177,7 @@ mod tests {
 
         // Pre-populate the repo visibility cache so apply_repo_visibility_secrecy receives
         // Some(true) (private) without needing a live backend.
-        fn private_repo_callback(
-            tool: &str,
-            _args: &str,
-            buffer: &mut [u8],
-        ) -> Result<usize, i32> {
+        fn private_repo_callback(tool: &str, _args: &str, buffer: &mut [u8]) -> Result<usize, i32> {
             if tool != "search_repositories" {
                 return Err(-1);
             }
@@ -6187,7 +6195,7 @@ mod tests {
         let tool_args = json!({ "owner": owner, "repo": repo });
 
         let (secrecy, _integrity, _desc) = apply_tool_labels(
-            "create_agent_task",
+            tool_names::CREATE_AGENT_TASK,
             &tool_args,
             repo_id,
             vec![],
@@ -6198,8 +6206,7 @@ mod tests {
 
         let expected = super::helpers::policy_private_scope_label(owner, repo, repo_id, &ctx);
         assert_eq!(
-            secrecy,
-            expected,
+            secrecy, expected,
             "create_agent_task with a private repo must carry the private repo secrecy label"
         );
     }
@@ -6712,14 +6719,20 @@ mod tests {
 
     fn ctx_with_endorsement_reactions(reactions: Vec<&str>) -> PolicyContext {
         PolicyContext {
-            endorsement_reactions: reactions.into_iter().map(std::string::ToString::to_string).collect(),
+            endorsement_reactions: reactions
+                .into_iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
             ..Default::default()
         }
     }
 
     fn ctx_with_disapproval_reactions(reactions: Vec<&str>, demote_to: &str) -> PolicyContext {
         PolicyContext {
-            disapproval_reactions: reactions.into_iter().map(std::string::ToString::to_string).collect(),
+            disapproval_reactions: reactions
+                .into_iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
             disapproval_integrity: demote_to.to_string(),
             ..Default::default()
         }
