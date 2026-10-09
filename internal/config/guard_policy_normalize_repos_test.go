@@ -26,7 +26,7 @@ func TestNormalizeAllowOnlyReposValue(t *testing.T) {
 		{"non-string element", []interface{}{1}, nil, "must be strings"},
 		{"all in array", []interface{}{"all"}, nil, "cannot be combined"},
 		{"invalid scope", []interface{}{"not-a-scope"}, nil, "is invalid"},
-		{"blank scope", []interface{}{"  "}, nil, ""},
+		{"blank scope", []interface{}{"  "}, nil, "repos is required"},
 		{"duplicates", []interface{}{"a/b", "A/B"}, nil, "duplicates"},
 		{"nil", nil, nil, "must be 'all', 'public', or an array"},
 		{"int", 5, nil, "must be 'all', 'public', or an array"},
@@ -35,7 +35,7 @@ func TestNormalizeAllowOnlyReposValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := NormalizeAllowOnlyReposValue(tt.input)
-			if tt.wantErr != "" || tt.name == "blank scope" {
+			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
 				assert.Nil(t, got)
