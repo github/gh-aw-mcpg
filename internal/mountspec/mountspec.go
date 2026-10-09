@@ -96,7 +96,7 @@ func Parse(spec string) (Spec, error) {
 			log.Print("Rejecting mount spec: empty mode option")
 			return Spec{}, fmt.Errorf("%w: empty mount option", &ParseError{Kind: InvalidOptions})
 		default:
-			log.Printf("Rejecting mount spec: unsupported mode option %q", option)
+			log.Print("Rejecting mount spec: unsupported mode option")
 			return Spec{}, fmt.Errorf("%w: unsupported mount option", &ParseError{Kind: InvalidOptions})
 		}
 	}
