@@ -153,6 +153,13 @@ mod tests {
         assert_eq!(tool_names::GET_LATEST_RELEASE, "get_latest_release");
         assert_eq!(tool_names::GET_RELEASE_BY_TAG, "get_release_by_tag");
         assert_eq!(tool_names::LIST_NOTIFICATIONS, "list_notifications");
+        assert_eq!(tool_names::CREATE_CODESPACE, "create_codespace");
+        assert_eq!(tool_names::UPDATE_CODESPACE, "update_codespace");
+        assert_eq!(tool_names::DELETE_CODESPACE, "delete_codespace");
+        assert_eq!(tool_names::STOP_CODESPACE, "stop_codespace");
+        assert_eq!(tool_names::DELETE_GIST, "delete_gist");
+        assert_eq!(tool_names::ADD_DEPLOY_KEY, "add_deploy_key");
+        assert_eq!(tool_names::DELETE_DEPLOY_KEY, "delete_deploy_key");
         assert_eq!(
             tool_names::GET_NOTIFICATION_DETAILS,
             "get_notification_details"
@@ -372,6 +379,13 @@ pub mod tool_names {
     pub const UNSTAR_REPOSITORY: &str = "unstar_repository";
     pub const CREATE_REPOSITORY: &str = "create_repository";
     pub const DELETE_REPOSITORY: &str = "delete_repository";
+    pub const CREATE_CODESPACE: &str = "create_codespace";
+    pub const UPDATE_CODESPACE: &str = "update_codespace";
+    pub const DELETE_CODESPACE: &str = "delete_codespace";
+    pub const STOP_CODESPACE: &str = "stop_codespace";
+    pub const DELETE_GIST: &str = "delete_gist";
+    pub const ADD_DEPLOY_KEY: &str = "add_deploy_key";
+    pub const DELETE_DEPLOY_KEY: &str = "delete_deploy_key";
     pub const FORK_REPOSITORY: &str = "fork_repository";
     pub const GET_DISCUSSION: &str = "get_discussion";
     pub const LIST_DISCUSSIONS: &str = "list_discussions";

@@ -45,17 +45,17 @@ pub const WRITE_OPERATIONS: &[&str] = &[
 /// Synthetic write operations reachable through GitHub CLI but not current upstream MCP tools.
 pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     // Keep sorted for binary_search correctness.
-    "add_deploy_key",                // gh repo deploy-key add — POST /repos/.../keys
-    "add_gpg_key",                   // gh gpg-key add — adds a user GPG signing key
-    "add_ssh_key",                   // gh ssh-key add — adds a user SSH auth/signing key
-    "archive_project_item",          // gh project item-archive — archives a Projects v2 item
-    tool_names::ARCHIVE_REPOSITORY,  // gh repo archive — blocked: repo settings change unsupported
+    tool_names::ADD_DEPLOY_KEY, // gh repo deploy-key add — POST /repos/.../keys
+    "add_gpg_key",              // gh gpg-key add — adds a user GPG signing key
+    "add_ssh_key",              // gh ssh-key add — adds a user SSH auth/signing key
+    "archive_project_item",     // gh project item-archive — archives a Projects v2 item
+    tool_names::ARCHIVE_REPOSITORY, // gh repo archive — blocked: repo settings change unsupported
     tool_names::CANCEL_WORKFLOW_RUN, // gh run cancel — cancels an in-progress workflow run
-    "close_issue",                   // gh issue close
-    "close_pull_request",            // gh pr close
-    "copy_project",                  // gh project copy — creates a new Projects v2 board
-    "create_codespace",              // gh codespace create — POST /user/codespaces
-    tool_names::CREATE_DISCUSSION,   // gh discussion create — creates a discussion in a repository
+    "close_issue",              // gh issue close
+    "close_pull_request",       // gh pr close
+    "copy_project",             // gh project copy — creates a new Projects v2 board
+    tool_names::CREATE_CODESPACE, // gh codespace create — POST /user/codespaces
+    tool_names::CREATE_DISCUSSION, // gh discussion create — creates a discussion in a repository
     "create_linked_branch", // gh issue develop — creates a linked branch via GraphQL createLinkedBranch
     "create_project",       // gh project create — GraphQL createProjectV2
     "create_project_draft_item", // gh project item-create — adds a draft issue via GraphQL addProjectV2DraftIssue
@@ -63,19 +63,19 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     "create_release",            // POST /repos/.../releases
     "create_repository_autolink", // gh repo autolink create — POST /repos/.../autolinks
     "delete_actions_cache",      // gh cache delete — DELETE /repos/.../actions/caches/{id|?key=...}
-    "delete_codespace", // gh codespace delete — DELETE /user/codespaces/{name} or /orgs/{org}/members/{user}/codespaces/{name}
-    "delete_deploy_key", // gh repo deploy-key delete — DELETE /repos/.../keys/{id}
-    "delete_gist",      // gh gist delete
-    "delete_gpg_key",   // gh gpg-key delete — removes a user GPG signing key
-    "delete_issue",     // gh issue delete — deletes an issue via GraphQL deleteIssue
-    "delete_issue_comment", // DELETE /repos/.../issues/comments/{id}
-    "delete_project",   // gh project delete — deletes a Projects v2 project
-    "delete_project_field", // gh project field-delete — deletes a Projects v2 field
-    "delete_release",   // DELETE /repos/.../releases/{id}
-    "delete_release_asset", // gh release delete-asset — deletes a release asset
+    tool_names::DELETE_CODESPACE, // gh codespace delete — DELETE /user/codespaces/{name} or /orgs/{org}/members/{user}/codespaces/{name}
+    tool_names::DELETE_DEPLOY_KEY, // gh repo deploy-key delete — DELETE /repos/.../keys/{id}
+    tool_names::DELETE_GIST,      // gh gist delete
+    "delete_gpg_key",             // gh gpg-key delete — removes a user GPG signing key
+    "delete_issue",               // gh issue delete — deletes an issue via GraphQL deleteIssue
+    "delete_issue_comment",       // DELETE /repos/.../issues/comments/{id}
+    "delete_project",             // gh project delete — deletes a Projects v2 project
+    "delete_project_field",       // gh project field-delete — deletes a Projects v2 field
+    "delete_release",             // DELETE /repos/.../releases/{id}
+    "delete_release_asset",       // gh release delete-asset — deletes a release asset
     "delete_repository_autolink", // gh repo autolink delete — DELETE /repos/.../autolinks/{id}
-    tool_names::DELETE_SECRET, // gh secret delete — deletes org/repo/env/user codespaces secrets
-    "delete_ssh_key",   // gh ssh-key delete — removes a user SSH auth/signing key
+    tool_names::DELETE_SECRET,    // gh secret delete — deletes org/repo/env/user codespaces secrets
+    "delete_ssh_key",             // gh ssh-key delete — removes a user SSH auth/signing key
     tool_names::DELETE_VARIABLE, // gh variable delete — deletes org/repo/environment Actions variables
     "delete_workflow_run",       // gh run delete — deletes a workflow run record
     "disable_workflow",          // gh workflow disable
@@ -101,7 +101,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     "revert_pull_request", // gh pr revert — creates revert branch + PR
     tool_names::SET_SECRET, // gh secret set
     tool_names::SET_VARIABLE, // gh variable set
-    "stop_codespace", // gh codespace stop — POST /user|/orgs/.../codespaces/.../stop
+    tool_names::STOP_CODESPACE, // gh codespace stop — POST /user|/orgs/.../codespaces/.../stop
     "sync_fork",    // gh repo sync
     "transfer_issue", // gh issue transfer
     "unarchive_project_item", // gh project item-archive --undo — unarchives a Projects v2 item
@@ -111,7 +111,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     "unlock_pull_request",            // gh pr unlock
     "unmark_project_template", // gh project mark-template --undo — GraphQL unmarkProjectV2AsTemplate
     "unpin_issue",             // gh issue unpin
-    "update_codespace",        // gh codespace edit — PATCH /user/codespaces/{codespace_name}
+    tool_names::UPDATE_CODESPACE, // gh codespace edit — PATCH /user/codespaces/{codespace_name}
     "update_codespace_port_visibility", // gh codespace ports visibility — session UpdatePortVisibility RPC
     "update_project", // gh project close/edit/reopen — updates Projects v2 metadata/status
     "upload_release_asset", // gh release upload
