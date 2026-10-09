@@ -908,7 +908,7 @@ pub fn apply_tool_labels(
         }
 
         // === Repo-scoped workflow/fork writes ===
-        "disable_workflow" | "enable_workflow" | "sync_fork" => {
+        tool_names::DISABLE_WORKFLOW | tool_names::ENABLE_WORKFLOW | tool_names::SYNC_FORK => {
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
             integrity = writer_integrity(repo_id, ctx);
         }
@@ -953,7 +953,7 @@ pub fn apply_tool_labels(
         }
 
         // === Copilot coding-agent task (blocked: unsupported agent operation) ===
-        "create_agent_task" => {
+        tool_names::CREATE_AGENT_TASK => {
             // Creates a Copilot coding-agent job that modifies repo branches and opens a PR.
             // Blocked via is_blocked_tool(); secrecy applied so the resource is correctly
             // classified before the integrity override in label_resource.
@@ -979,7 +979,10 @@ pub fn apply_tool_labels(
         // Managing auth/signing keys is a high-risk account-level write operation.
         // S = private:user (user-account-scoped sensitive data)
         // I = writer(user) (requires authenticated account write access)
-        "add_gpg_key" | "add_ssh_key" | "delete_gpg_key" | "delete_ssh_key" => {
+        tool_names::ADD_GPG_KEY
+        | tool_names::ADD_SSH_KEY
+        | tool_names::DELETE_GPG_KEY
+        | tool_names::DELETE_SSH_KEY => {
             secrecy = private_user_label();
             baseline_scope = Cow::Borrowed(scope_names::USER);
             integrity = writer_integrity(scope_names::USER, ctx);
@@ -2611,10 +2614,10 @@ mod tests {
         let expected_integrity = writer_integrity(scope_names::USER, &ctx);
 
         for tool in &[
-            "add_gpg_key",
-            "add_ssh_key",
-            "delete_gpg_key",
-            "delete_ssh_key",
+            tool_names::ADD_GPG_KEY,
+            tool_names::ADD_SSH_KEY,
+            tool_names::DELETE_GPG_KEY,
+            tool_names::DELETE_SSH_KEY,
         ] {
             let (secrecy, integrity, _) =
                 super::apply_tool_labels(tool, &args, "", vec![], vec![], String::new(), &ctx);
@@ -2699,7 +2702,11 @@ mod tests {
         let args = serde_json::json!({ "owner": "github", "repo": "copilot" });
         let repo_id = "github/copilot";
 
-        for op in &["disable_workflow", "enable_workflow", "sync_fork"] {
+        for op in &[
+            tool_names::DISABLE_WORKFLOW,
+            tool_names::ENABLE_WORKFLOW,
+            tool_names::SYNC_FORK,
+        ] {
             let (secrecy, integrity, _desc) =
                 super::apply_tool_labels(op, &args, repo_id, vec![], vec![], String::new(), &ctx);
             assert_eq!(

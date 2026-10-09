@@ -153,6 +153,13 @@ mod tests {
         assert_eq!(tool_names::GET_LATEST_RELEASE, "get_latest_release");
         assert_eq!(tool_names::GET_RELEASE_BY_TAG, "get_release_by_tag");
         assert_eq!(tool_names::LIST_NOTIFICATIONS, "list_notifications");
+        assert_eq!(tool_names::CREATE_CODESPACE, "create_codespace");
+        assert_eq!(tool_names::UPDATE_CODESPACE, "update_codespace");
+        assert_eq!(tool_names::DELETE_CODESPACE, "delete_codespace");
+        assert_eq!(tool_names::STOP_CODESPACE, "stop_codespace");
+        assert_eq!(tool_names::DELETE_GIST, "delete_gist");
+        assert_eq!(tool_names::ADD_DEPLOY_KEY, "add_deploy_key");
+        assert_eq!(tool_names::DELETE_DEPLOY_KEY, "delete_deploy_key");
         assert_eq!(
             tool_names::GET_NOTIFICATION_DETAILS,
             "get_notification_details"
@@ -189,6 +196,14 @@ mod tests {
         assert_eq!(tool_names::UNARCHIVE_REPOSITORY, "unarchive_repository");
         assert_eq!(tool_names::RENAME_REPOSITORY, "rename_repository");
         assert_eq!(tool_names::TRANSFER_REPOSITORY, "transfer_repository");
+        assert_eq!(tool_names::ADD_GPG_KEY, "add_gpg_key");
+        assert_eq!(tool_names::ADD_SSH_KEY, "add_ssh_key");
+        assert_eq!(tool_names::DELETE_GPG_KEY, "delete_gpg_key");
+        assert_eq!(tool_names::DELETE_SSH_KEY, "delete_ssh_key");
+        assert_eq!(tool_names::DISABLE_WORKFLOW, "disable_workflow");
+        assert_eq!(tool_names::ENABLE_WORKFLOW, "enable_workflow");
+        assert_eq!(tool_names::SYNC_FORK, "sync_fork");
+        assert_eq!(tool_names::CREATE_AGENT_TASK, "create_agent_task");
         assert_eq!(
             UI_GET_REPO_SCOPED_METHODS,
             &["labels", "milestones", "branches"]
@@ -404,6 +419,14 @@ pub mod tool_names {
     pub const LIST_DEPENDABOT_ALERTS: &str = "list_dependabot_alerts";
     pub const GET_SECRET_SCANNING_ALERT: &str = "get_secret_scanning_alert";
     pub const LIST_SECRET_SCANNING_ALERTS: &str = "list_secret_scanning_alerts";
+    pub const ADD_GPG_KEY: &str = "add_gpg_key";
+    pub const ADD_SSH_KEY: &str = "add_ssh_key";
+    pub const DELETE_GPG_KEY: &str = "delete_gpg_key";
+    pub const DELETE_SSH_KEY: &str = "delete_ssh_key";
+    pub const DISABLE_WORKFLOW: &str = "disable_workflow";
+    pub const ENABLE_WORKFLOW: &str = "enable_workflow";
+    pub const SYNC_FORK: &str = "sync_fork";
+    pub const CREATE_AGENT_TASK: &str = "create_agent_task";
 }
 
 /// UI metadata methods that are scoped to a specific repository.
