@@ -450,9 +450,10 @@ fn infer_scope_for_baseline<'a>(
         tool_names::CREATE_REPOSITORY | tool_names::FORK_REPOSITORY => {
             Cow::Borrowed(scope_names::GITHUB)
         }
-        "create_codespace" | "update_codespace" | "delete_codespace" | "stop_codespace" => {
-            Cow::Borrowed(scope_names::USER)
-        }
+        tool_names::CREATE_CODESPACE
+        | tool_names::UPDATE_CODESPACE
+        | tool_names::DELETE_CODESPACE
+        | tool_names::STOP_CODESPACE => Cow::Borrowed(scope_names::USER),
         tool_names::SET_SECRET
         | tool_names::DELETE_SECRET
         | tool_names::SET_VARIABLE

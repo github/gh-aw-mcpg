@@ -176,6 +176,13 @@ mod tests {
         assert_eq!(tool_names::DELETE_VARIABLE, "delete_variable");
         assert_eq!(tool_names::LIST_GISTS, "list_gists");
         assert_eq!(tool_names::GET_GIST, "get_gist");
+        assert_eq!(tool_names::DELETE_GIST, "delete_gist");
+        assert_eq!(tool_names::CREATE_CODESPACE, "create_codespace");
+        assert_eq!(tool_names::UPDATE_CODESPACE, "update_codespace");
+        assert_eq!(tool_names::DELETE_CODESPACE, "delete_codespace");
+        assert_eq!(tool_names::STOP_CODESPACE, "stop_codespace");
+        assert_eq!(tool_names::ADD_DEPLOY_KEY, "add_deploy_key");
+        assert_eq!(tool_names::DELETE_DEPLOY_KEY, "delete_deploy_key");
         assert_eq!(tool_names::LIST_PROJECT_ITEMS, "list_project_items");
         assert_eq!(tool_names::PROJECTS_LIST, "projects_list");
         assert_eq!(tool_names::ARCHIVE_REPOSITORY, "archive_repository");
@@ -361,6 +368,13 @@ pub mod tool_names {
         "remove_pull_request_review_comment_reaction";
     pub const LIST_GISTS: &str = "list_gists";
     pub const GET_GIST: &str = "get_gist";
+    pub const DELETE_GIST: &str = "delete_gist";
+    pub const CREATE_CODESPACE: &str = "create_codespace";
+    pub const UPDATE_CODESPACE: &str = "update_codespace";
+    pub const DELETE_CODESPACE: &str = "delete_codespace";
+    pub const STOP_CODESPACE: &str = "stop_codespace";
+    pub const ADD_DEPLOY_KEY: &str = "add_deploy_key";
+    pub const DELETE_DEPLOY_KEY: &str = "delete_deploy_key";
     pub const LIST_PROJECT_ITEMS: &str = "list_project_items";
     pub const PROJECTS_LIST: &str = "projects_list";
     pub const ARCHIVE_REPOSITORY: &str = "archive_repository";
