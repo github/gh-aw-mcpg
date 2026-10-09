@@ -6187,7 +6187,7 @@ mod tests {
         let tool_args = json!({ "owner": owner, "repo": repo });
 
         let (secrecy, _integrity, _desc) = apply_tool_labels(
-            "create_agent_task",
+            constants::tool_names::CREATE_AGENT_TASK,
             &tool_args,
             repo_id,
             vec![],
