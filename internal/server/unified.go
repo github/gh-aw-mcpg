@@ -151,8 +151,10 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 	logUnified.Printf("Creating new unified server: sequentialLaunch=%v, servers=%d", cfg.SequentialLaunch, len(cfg.Servers))
 	if cfg.Delegation != nil {
 		if err := cfg.Delegation.Validate(); err != nil {
+			logUnified.Printf("Delegation config validation failed: %v", err)
 			return nil, err
 		}
+		logUnified.Print("Delegation configured: enabling private selector redaction")
 		sanitize.EnablePrivateSelectorRedaction()
 	}
 
@@ -211,8 +213,10 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 	us.validateSinkVisibilityExemptServers()
 
 	// Register guards for all backends
+	logUnified.Printf("Registering guards for %d backend server(s)", len(l.ServerIDs()))
 	for _, serverID := range l.ServerIDs() {
 		if err := us.registerGuard(serverID); err != nil {
+			logUnified.Printf("Guard registration failed: serverID=%s, err=%v", serverID, err)
 			return nil, fmt.Errorf("failed to register guard for server %q: %w", serverID, err)
 		}
 	}
@@ -225,6 +229,7 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 		logUnified.Printf("Auto-enabled DIFC: non-noop guard, global policy, per-server guard policies, or per-agent allow-only policies detected")
 	}
 	if err := us.validateSafeOutputsGuards(); err != nil {
+		logUnified.Printf("Safe-outputs guard validation failed: %v", err)
 		_ = us.Close()
 		return nil, err
 	}
@@ -238,6 +243,7 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 
 	// Register aggregated tools from all backends
 	if err := us.registerAllTools(); err != nil {
+		logUnified.Printf("Tool registration failed, closing server: %v", err)
 		_ = us.Close()
 		return nil, fmt.Errorf("failed to register tools: %w", err)
 	}
