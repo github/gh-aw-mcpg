@@ -59,7 +59,7 @@ func TestIsEnclaveSession_DelegatedExecutor(t *testing.T) {
 	assert.False(us.isEnclaveSession(created.ExecutorBearer), "revoked executor bearer is no longer enclave-scoped")
 }
 
-func TestIsEnclaveSession_DelegatedExecutorWithEnclavePolicyRevoked(t *testing.T) {
+func TestIsEnclaveSession_RevokedDelegatedExecutorFallsBackToEnclavePolicy(t *testing.T) {
 	delegationConfig, createReq := newUnifiedDelegationConfig(t)
 	created, err := delegationConfig.Store.CreateOrConfirm(createReq)
 	require.NoError(t, err)
