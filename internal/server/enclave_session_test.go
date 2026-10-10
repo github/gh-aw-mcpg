@@ -34,6 +34,46 @@ func TestIsEnclaveSession_AgentPolicyFlag(t *testing.T) {
 	assert.False(us.isEnclaveSession("unknown-agent"))
 }
 
+func TestIsEnclaveSession_NilReceiver(t *testing.T) {
+	var us *UnifiedServer
+	assert.False(t, us.isEnclaveSession("any-session"))
+}
+
+func TestIsEnclaveSession_DelegatedExecutor(t *testing.T) {
+	delegationConfig, createReq := newUnifiedDelegationConfig(t)
+	created, err := delegationConfig.Store.CreateOrConfirm(createReq)
+	require.NoError(t, err)
+
+	// cfg carries no agent policies, so enclave status can only come from the delegation store.
+	us := &UnifiedServer{
+		cfg:        &config.Config{Gateway: &config.GatewayConfig{}},
+		delegation: delegationConfig,
+	}
+
+	assert.True(t, us.isEnclaveSession(created.ExecutorBearer), "live executor bearer is enclave-scoped")
+	assert.False(t, us.isEnclaveSession("not-a-bearer"), "unknown session falls through to agent policy")
+
+	require.NoError(t, delegationConfig.Store.Revoke(created.Handle))
+	assert.False(t, us.isEnclaveSession(created.ExecutorBearer), "revoked executor bearer is no longer enclave-scoped")
+}
+
+func TestIsEnclaveSession_DelegatedExecutorWithEnclavePolicyRevoked(t *testing.T) {
+	delegationConfig, createReq := newUnifiedDelegationConfig(t)
+	created, err := delegationConfig.Store.CreateOrConfirm(createReq)
+	require.NoError(t, err)
+	require.NoError(t, delegationConfig.Store.Revoke(created.Handle))
+
+	us := &UnifiedServer{
+		cfg: &config.Config{Gateway: &config.GatewayConfig{
+			AgentPolicies: map[string]*config.AgentPolicy{
+				created.ExecutorBearer: {Servers: []string{"github"}, Enclave: true},
+			},
+		}},
+		delegation: delegationConfig,
+	}
+	assert.True(t, us.isEnclaveSession(created.ExecutorBearer), "agent policy still marks session as enclave")
+}
+
 func TestSetupSessionCallback_MarksEnclaveProvenance(t *testing.T) {
 	assert := assert.New(t)
 
