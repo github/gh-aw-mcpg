@@ -158,6 +158,7 @@ mod tests {
         assert_eq!(tool_names::DELETE_CODESPACE, "delete_codespace");
         assert_eq!(tool_names::STOP_CODESPACE, "stop_codespace");
         assert_eq!(tool_names::DELETE_GIST, "delete_gist");
+        assert_eq!(tool_names::RENAME_GIST, "rename_gist");
         assert_eq!(tool_names::ADD_DEPLOY_KEY, "add_deploy_key");
         assert_eq!(tool_names::DELETE_DEPLOY_KEY, "delete_deploy_key");
         assert_eq!(
@@ -384,6 +385,7 @@ pub mod tool_names {
     pub const LIST_GISTS: &str = "list_gists";
     pub const GET_GIST: &str = "get_gist";
     pub const DELETE_GIST: &str = "delete_gist";
+    pub const RENAME_GIST: &str = "rename_gist";
     pub const CREATE_CODESPACE: &str = "create_codespace";
     pub const UPDATE_CODESPACE: &str = "update_codespace";
     pub const DELETE_CODESPACE: &str = "delete_codespace";

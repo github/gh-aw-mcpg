@@ -1044,8 +1044,8 @@ pub fn apply_tool_labels(
             integrity = writer_integrity(scope_names::USER, ctx);
         }
 
-        // === Gist deletion (pre-emptive) ===
-        tool_names::DELETE_GIST => {
+        // === Gist deletion/rename (pre-emptive) ===
+        tool_names::DELETE_GIST | tool_names::RENAME_GIST => {
             // Gist deletion is a write on user-scoped content.
             // Conservatively treat gists as private/user-scoped, consistent with
             // other gist operations that may target secret gists.
@@ -2322,6 +2322,24 @@ mod tests {
             writer_integrity(scope_names::USER, &ctx),
             "delete_gist: destructive operation must require writer-level user integrity",
         );
+    }
+
+    #[test]
+    fn apply_tool_labels_rename_gist_is_user_private_with_writer_integrity() {
+        let ctx = default_ctx();
+        let args = serde_json::json!({});
+
+        let (secrecy, integrity, _) = super::apply_tool_labels(
+            "rename_gist",
+            &args,
+            "",
+            vec![],
+            vec![],
+            String::new(),
+            &ctx,
+        );
+        assert_eq!(secrecy, private_user_label());
+        assert_eq!(integrity, writer_integrity(scope_names::USER, &ctx));
     }
 
     // === check_file_secrecy: segment-starts-with branch coverage ===
