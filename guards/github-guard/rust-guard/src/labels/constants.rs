@@ -158,6 +158,7 @@ mod tests {
         assert_eq!(tool_names::DELETE_CODESPACE, "delete_codespace");
         assert_eq!(tool_names::STOP_CODESPACE, "stop_codespace");
         assert_eq!(tool_names::DELETE_GIST, "delete_gist");
+        assert_eq!(tool_names::RENAME_GIST, "rename_gist");
         assert_eq!(tool_names::ADD_DEPLOY_KEY, "add_deploy_key");
         assert_eq!(tool_names::DELETE_DEPLOY_KEY, "delete_deploy_key");
         assert_eq!(
