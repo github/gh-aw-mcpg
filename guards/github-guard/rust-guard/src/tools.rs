@@ -92,6 +92,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     "mark_pull_request_as_ready_for_review", // gh pr ready (mark ready for review)
     "pin_issue",    // gh issue pin
     "rebuild_codespace", // gh codespace rebuild — Codespaces session RebuildContainer RPC
+    tool_names::RENAME_GIST, // gh gist rename — POST /gists/{gist_id} (renames a gist file)
     tool_names::RENAME_REPOSITORY, // gh repo rename — blocked: breaks clone URLs and integrations
     "reopen_issue", // gh issue reopen
     "reopen_pull_request", // gh pr reopen
@@ -561,6 +562,7 @@ mod tests {
             "update_project",
             "upload_release_asset",
             "delete_gist",
+            "rename_gist",
         ] {
             assert!(
                 is_write_operation(op),
