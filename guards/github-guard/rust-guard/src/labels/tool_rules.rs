@@ -1044,9 +1044,9 @@ pub fn apply_tool_labels(
             integrity = writer_integrity(scope_names::USER, ctx);
         }
 
-        // === Gist deletion (pre-emptive) ===
-        tool_names::DELETE_GIST => {
-            // Gist deletion is a write on user-scoped content.
+        // === Gist writes (pre-emptive) ===
+        tool_names::DELETE_GIST | tool_names::RENAME_GIST => {
+            // Gist writes target user-scoped content.
             // Conservatively treat gists as private/user-scoped, consistent with
             // other gist operations that may target secret gists.
             // S = private_user; I = writer(user)
@@ -2299,29 +2299,31 @@ mod tests {
     }
 
     #[test]
-    fn apply_tool_labels_delete_gist_is_user_private_with_writer_integrity() {
+    fn apply_tool_labels_gist_writes_are_user_private_with_writer_integrity() {
         let ctx = default_ctx();
         let args = serde_json::json!({});
 
-        let (secrecy, integrity, _) = super::apply_tool_labels(
-            "delete_gist",
-            &args,
-            "",
-            vec![],
-            vec![],
-            String::new(),
-            &ctx,
-        );
-        assert_eq!(
-            secrecy,
-            private_user_label(),
-            "delete_gist: must be user-private (secrecy = private:user)",
-        );
-        assert_eq!(
-            integrity,
-            writer_integrity(scope_names::USER, &ctx),
-            "delete_gist: destructive operation must require writer-level user integrity",
-        );
+        for tool in &[tool_names::DELETE_GIST, tool_names::RENAME_GIST] {
+            let (secrecy, integrity, _) = super::apply_tool_labels(
+                tool,
+                &args,
+                "",
+                vec![],
+                vec![],
+                String::new(),
+                &ctx,
+            );
+            assert_eq!(
+                secrecy,
+                private_user_label(),
+                "{tool}: must be user-private (secrecy = private:user)",
+            );
+            assert_eq!(
+                integrity,
+                writer_integrity(scope_names::USER, &ctx),
+                "{tool}: must require writer-level user integrity",
+            );
+        }
     }
 
     // === check_file_secrecy: segment-starts-with branch coverage ===
