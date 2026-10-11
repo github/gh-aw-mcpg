@@ -569,6 +569,8 @@ func copyResponseHeaders(w http.ResponseWriter, r *http.Request, resp *http.Resp
 	}
 
 	clientBase := clientAPIURL(r)
+	logHandler.Printf("copyResponseHeaders: status=%d, linkHeaders=%d, hasLocation=%t",
+		resp.StatusCode, len(resp.Header.Values("Link")), resp.Header.Get("Location") != "")
 	if location := resp.Header.Get("Location"); location != "" {
 		w.Header().Set("Location", rewriteUpstreamAPIURL(location, upstreamAPIURL, clientBase))
 	}
@@ -595,19 +597,27 @@ func clientAPIURL(r *http.Request) string {
 func rewriteUpstreamAPIURL(value, upstreamAPIURL, clientAPIURL string) string {
 	upstream, err := url.Parse(strings.TrimRight(upstreamAPIURL, "/"))
 	if err != nil {
+		logHandler.Printf("rewriteUpstreamAPIURL: invalid upstream API URL, leaving value unchanged: %v", err)
 		return value
 	}
 	client, err := url.Parse(clientAPIURL)
 	if err != nil {
+		logHandler.Printf("rewriteUpstreamAPIURL: invalid client API URL, leaving value unchanged: %v", err)
 		return value
 	}
 	target, err := url.Parse(value)
-	if err != nil || !strings.EqualFold(target.Scheme, upstream.Scheme) || !strings.EqualFold(target.Host, upstream.Host) {
+	if err != nil {
+		logHandler.Printf("rewriteUpstreamAPIURL: unparsable value, leaving unchanged: %v", err)
+		return value
+	}
+	if !strings.EqualFold(target.Scheme, upstream.Scheme) || !strings.EqualFold(target.Host, upstream.Host) {
+		logHandler.Print("rewriteUpstreamAPIURL: value targets a different origin, leaving unchanged")
 		return value
 	}
 
 	upstreamPath := strings.TrimRight(upstream.Path, "/")
 	if target.Path != upstreamPath && !strings.HasPrefix(target.Path, upstreamPath+"/") {
+		logHandler.Print("rewriteUpstreamAPIURL: value is outside upstream API base path, leaving unchanged")
 		return value
 	}
 	escapedUpstreamPath := strings.TrimRight(upstream.EscapedPath(), "/")
@@ -616,6 +626,7 @@ func rewriteUpstreamAPIURL(value, upstreamAPIURL, clientAPIURL string) string {
 	target.Host = client.Host
 	target.Path = client.Path + strings.TrimPrefix(target.Path, upstreamPath)
 	target.RawPath = client.EscapedPath() + escapedSuffix
+	logHandler.Printf("rewriteUpstreamAPIURL: rewrote upstream API URL to client base: clientHost=%s", client.Host)
 	return target.String()
 }
 
