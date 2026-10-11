@@ -850,6 +850,7 @@ mod tests {
             "mark_project_template",
             "reopen_issue",
             "reopen_pull_request",
+            tool_names::RENAME_GIST,
             "revert_pull_request",
             "stop_codespace",
             "unarchive_project_item",

@@ -185,6 +185,7 @@ mod tests {
         assert_eq!(tool_names::LIST_GISTS, "list_gists");
         assert_eq!(tool_names::GET_GIST, "get_gist");
         assert_eq!(tool_names::DELETE_GIST, "delete_gist");
+        assert_eq!(tool_names::RENAME_GIST, "rename_gist");
         assert_eq!(tool_names::CREATE_CODESPACE, "create_codespace");
         assert_eq!(tool_names::UPDATE_CODESPACE, "update_codespace");
         assert_eq!(tool_names::DELETE_CODESPACE, "delete_codespace");
