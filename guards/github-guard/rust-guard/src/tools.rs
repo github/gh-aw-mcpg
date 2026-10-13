@@ -121,7 +121,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
 /// Synthetic non-MCP write operations owned by the guard/runtime.
 pub const SYNTHETIC_WRITE_OPERATIONS: &[&str] = &[
     // Keep sorted for binary_search correctness.
-    "enable_toolset", // Dynamically enables additional toolsets, expanding agent capabilities
+    tool_names::ENABLE_TOOLSET, // Dynamically enables additional toolsets, expanding agent capabilities
     tool_names::TRANSFER_REPOSITORY, // defensively blocked; no current `gh` command performs repo transfer
 ];
 

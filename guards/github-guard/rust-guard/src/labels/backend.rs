@@ -719,6 +719,12 @@ mod tests {
         Ok(bytes.len())
     }
 
+    fn clear_cached_collaborator_permission(key: &str) {
+        if let Ok(mut cache) = collaborator_permission_cache().lock() {
+            cache.remove(key);
+        }
+    }
+
     #[test]
     fn test_cached_collaborator_permission_states() {
         let key = "cache-states-owner/repo:user";
@@ -741,7 +747,7 @@ mod tests {
             CachedPermission::Miss => panic!("expected cached permission"),
         }
 
-        collaborator_permission_cache().lock().unwrap().remove(key);
+        clear_cached_collaborator_permission(key);
     }
 
     #[test]
@@ -769,7 +775,7 @@ mod tests {
                 None => assert!(result.is_none()),
             }
 
-            collaborator_permission_cache().lock().unwrap().remove(key);
+            clear_cached_collaborator_permission(key);
         }
     }
 

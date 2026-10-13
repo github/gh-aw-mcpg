@@ -304,7 +304,7 @@ pub fn apply_tool_labels(
                 apply_issue_read_enrichment(&owner, &repo, repo_id, tool_args, desc, integrity, enrich, ctx);
         }
 
-        "issue_dependency_read" | "issue_dependency_read_ff_issue_dependencies" => {
+        tool_names::ISSUE_DEPENDENCY_READ | "issue_dependency_read_ff_issue_dependencies" => {
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
             integrity = private_writer_integrity(repo_id, repo_private, ctx);
             (desc, integrity) =
@@ -550,7 +550,7 @@ pub fn apply_tool_labels(
         }
 
         // === Repository collaborators (repo-scoped, access-sensitive) ===
-        "list_repository_collaborators" => {
+        tool_names::LIST_REPOSITORY_COLLABORATORS => {
             // Lists users with access to the repository; reveals who holds write/admin rights.
             // S = private policy scope — collaborator/permission information is access-controlled
             // even for public repositories.
@@ -603,13 +603,13 @@ pub fn apply_tool_labels(
         }
 
         // === Issue Types ===
-        "list_issue_types" => {
+        tool_names::LIST_ISSUE_TYPES => {
             // Org-level issue types
             // S = inherits from org
             // I = approved:github (GitHub-global approved integrity via project_github_label)
             integrity = project_github_label(ctx);
         }
-        "list_issue_fields" => {
+        tool_names::LIST_ISSUE_FIELDS => {
             // Org-level custom issue field definitions (field names/types/allowed values)
             // S = inherits from org
             // I = approved:github (GitHub-global approved integrity via project_github_label)
@@ -617,7 +617,7 @@ pub fn apply_tool_labels(
         }
 
         // === User Search ===
-        "search_users" => {
+        tool_names::SEARCH_USERS => {
             // Public user profiles
             // S = public (empty)
             // I = project:github - GitHub's data
@@ -628,7 +628,7 @@ pub fn apply_tool_labels(
 
         // === GitHub Projects (org-scoped) ===
         // Canonical names (projects_list, projects_get) plus deprecated aliases
-        "list_projects" | "get_project" | "list_project_fields" | tool_names::LIST_PROJECT_ITEMS
+        tool_names::LIST_PROJECTS | "get_project" | "list_project_fields" | tool_names::LIST_PROJECT_ITEMS
         | tool_names::PROJECTS_LIST | "projects_get" => {
             // Projects are org-scoped; creating/managing projects requires org membership.
             // I = approved:<owner> — equivalent to MEMBER author_association
@@ -703,7 +703,7 @@ pub fn apply_tool_labels(
         }
 
         // === Security Advisories (repository/org-scoped) ===
-        "list_repository_security_advisories" | "list_org_repository_security_advisories" => {
+        tool_names::LIST_REPOSITORY_SECURITY_ADVISORIES | "list_org_repository_security_advisories" => {
             // Repository/org security advisories may include draft advisories
             // with non-public vulnerability details.
             // S = private:repo — may contain embargoed vulnerability info
@@ -1025,7 +1025,7 @@ pub fn apply_tool_labels(
         }
 
         // === Dynamic toolset enablement (capability expansion) ===
-        "enable_toolset" => {
+        tool_names::ENABLE_TOOLSET => {
             // Enabling a toolset expands the agent's runtime capability set.
             // Requires writer-level integrity to prevent low-trust agents from
             // self-escalating by enabling additional tool groups.
@@ -1590,7 +1590,7 @@ mod tests {
             &ctx,
         );
         let issue_dependency_read_labels = super::apply_tool_labels(
-            "issue_dependency_read",
+            tool_names::ISSUE_DEPENDENCY_READ,
             &tool_args,
             repo_id,
             vec![],
@@ -1810,7 +1810,7 @@ mod tests {
         let repo_id = "github/copilot";
 
         let issue_dependency_read_labels = super::apply_tool_labels(
-            "issue_dependency_read",
+            tool_names::ISSUE_DEPENDENCY_READ,
             &tool_args,
             repo_id,
             vec![],
@@ -1922,7 +1922,7 @@ mod tests {
         let ctx = default_ctx();
         let args = serde_json::json!({"owner": "octocat", "repo": "hello-world"});
         let (secrecy, integrity, _) = super::apply_tool_labels(
-            "list_repository_collaborators",
+            tool_names::LIST_REPOSITORY_COLLABORATORS,
             &args,
             "octocat/hello-world",
             vec![],
@@ -2282,7 +2282,7 @@ mod tests {
         let expected_integrity = writer_integrity(repo_id, &ctx);
 
         for tool in &[
-            "list_repository_security_advisories",
+            tool_names::LIST_REPOSITORY_SECURITY_ADVISORIES,
             "list_org_repository_security_advisories",
         ] {
             let (secrecy, integrity, _) =
@@ -2304,15 +2304,8 @@ mod tests {
         let args = serde_json::json!({});
 
         for tool in &[tool_names::DELETE_GIST, tool_names::RENAME_GIST] {
-            let (secrecy, integrity, _) = super::apply_tool_labels(
-                tool,
-                &args,
-                "",
-                vec![],
-                vec![],
-                String::new(),
-                &ctx,
-            );
+            let (secrecy, integrity, _) =
+                super::apply_tool_labels(tool, &args, "", vec![], vec![], String::new(), &ctx);
             assert_eq!(
                 secrecy,
                 private_user_label(),
@@ -2507,7 +2500,7 @@ mod tests {
         let repo_id = "octocat/hello-world";
         let expected_secrecy: Vec<String> = vec![];
 
-        let standalone_methods = ["list_issue_types", "list_issue_fields"];
+        let standalone_methods = [tool_names::LIST_ISSUE_TYPES, tool_names::LIST_ISSUE_FIELDS];
         assert_eq!(
             UI_GET_GITHUB_APPROVED_METHODS.len(),
             standalone_methods.len(),
@@ -2894,7 +2887,7 @@ mod tests {
 
         // With owner present: integrity = writer(owner), secrecy = empty
         for op in &[
-            "list_projects",
+            tool_names::LIST_PROJECTS,
             "get_project",
             "projects_list",
             "projects_get",
@@ -2922,7 +2915,7 @@ mod tests {
         // baseline_scope (repo_id). Verify secrecy is empty and no error occurs.
         let args_no_owner = serde_json::json!({});
         let (secrecy, integrity, _) = super::apply_tool_labels(
-            "list_projects",
+            tool_names::LIST_PROJECTS,
             &args_no_owner,
             "",
             vec![],
@@ -3097,7 +3090,7 @@ mod tests {
         // Seed a non-empty secrecy label to verify the match arm actively clears it.
         let inherited_secrecy = vec!["private:some/repo".to_string()];
         let (secrecy, integrity, _desc) = super::apply_tool_labels(
-            "enable_toolset",
+            tool_names::ENABLE_TOOLSET,
             &args,
             "",
             inherited_secrecy,
