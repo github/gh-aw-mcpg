@@ -69,8 +69,10 @@ func (hm *HealthMonitor) run() {
 	for {
 		select {
 		case <-hm.stopCh:
+			logHealth.Print("Health monitor goroutine exiting: stop requested")
 			return
 		case <-hm.launcher.ctx.Done():
+			logHealth.Print("Health monitor goroutine exiting: launcher context cancelled")
 			return
 		case <-ticker.C:
 			hm.checkAll()
@@ -109,12 +111,14 @@ func (hm *HealthMonitor) handleErrorState(serverID string, state ServerState) {
 	logger.LogWarn("backend", "Health check: server %q in error state (%s), attempting restart (%d/%d)",
 		serverID, state.LastError, failures+1, maxConsecutiveRestartFailures)
 
+	logHealth.Printf("Attempting restart of serverID=%s: previousFailures=%d", serverID, failures)
 	// Clear error state and cached connection so GetOrLaunch can retry.
 	hm.launcher.clearServerForRestart(serverID)
 
 	_, err := GetOrLaunch(hm.launcher, serverID)
 	if err != nil {
 		failures = hm.consecutiveFailures.Increment(serverID)
+		logHealth.Printf("Restart failed for serverID=%s: consecutiveFailures=%d, err=%v", serverID, failures, err)
 		logger.LogError("backend", "Health check: restart failed for server %q: %v (attempt %d/%d)",
 			serverID, err, failures, maxConsecutiveRestartFailures)
 		if failures >= maxConsecutiveRestartFailures {
