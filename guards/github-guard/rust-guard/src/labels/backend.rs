@@ -741,7 +741,14 @@ mod tests {
             CachedPermission::Miss => panic!("expected cached permission"),
         }
 
-        collaborator_permission_cache().lock().unwrap().remove(key);
+        clear_cached_collaborator_permission(key);
+    }
+
+    // Tolerates a poisoned mutex so one panicking test doesn't cascade into others.
+    fn clear_cached_collaborator_permission(key: &str) {
+        if let Ok(mut cache) = collaborator_permission_cache().lock() {
+            cache.remove(key);
+        }
     }
 
     #[test]
@@ -769,7 +776,7 @@ mod tests {
                 None => assert!(result.is_none()),
             }
 
-            collaborator_permission_cache().lock().unwrap().remove(key);
+            clear_cached_collaborator_permission(key);
         }
     }
 
