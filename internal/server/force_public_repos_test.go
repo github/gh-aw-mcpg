@@ -649,5 +649,3 @@ func TestOverrideToPublicScope_GlobalPolicy_PreservesIntegrity(t *testing.T) {
 	assert.Equal(t, "public", cfg.GuardPolicy.AllowOnly.Repos)
 	assert.Equal(t, config.IntegrityApproved, cfg.GuardPolicy.AllowOnly.MinIntegrity)
 }
-
-}
