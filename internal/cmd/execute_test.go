@@ -23,11 +23,18 @@ func TestExecute(t *testing.T) {
 	}
 
 	t.Run("success path returns without exiting", func(t *testing.T) {
+		rootCmd.InitDefaultVersionFlag()
+		versionFlag := rootCmd.Flags().Lookup("version")
+		require.NotNil(t, versionFlag)
+		origVersionValue := versionFlag.Value.String()
+		origVersionChanged := versionFlag.Changed
 		origVersion := rootCmd.Version
 		t.Cleanup(func() {
 			rootCmd.SetArgs(nil)
 			rootCmd.SetOut(nil)
 			rootCmd.Version = origVersion
+			require.NoError(t, versionFlag.Value.Set(origVersionValue))
+			versionFlag.Changed = origVersionChanged
 		})
 
 		var out bytes.Buffer
