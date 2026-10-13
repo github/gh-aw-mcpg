@@ -526,7 +526,7 @@ pub fn apply_tool_labels(
 
         // === Actions reads, code quality findings, and other repo-scoped resources ===
         // S = inherits from repo visibility; I = writer
-        "actions_list"
+        tool_names::ACTIONS_LIST
         | tool_names::ACTIONS_GET
         | tool_names::GET_DISCUSSION
         | tool_names::GET_DISCUSSION_COMMENTS
@@ -797,18 +797,18 @@ pub fn apply_tool_labels(
         | "submit_pending_pull_request_review"
         | "unresolve_review_thread"
         // Repo content/structure
-        | "create_or_update_file"
-        | "push_files"
-        | "delete_file"
-        | "create_branch"
+        | tool_names::CREATE_OR_UPDATE_FILE
+        | tool_names::PUSH_FILES
+        | tool_names::DELETE_FILE
+        | tool_names::CREATE_BRANCH
         | "create_linked_branch"  // gh issue develop — GraphQL createLinkedBranch
         | "update_pull_request_branch"
         // Labels, Actions, workflow management ("run_workflow" and "delete_workflow_run_logs" are deprecated aliases for "actions_run_trigger")
-        | "label_write"
-        | "actions_run_trigger"
-        | "run_workflow"
+        | tool_names::LABEL_WRITE
+        | tool_names::ACTIONS_RUN_TRIGGER
+        | tool_names::RUN_WORKFLOW
         | "delete_workflow_run_logs"
-        | "delete_workflow_run"
+        | tool_names::DELETE_WORKFLOW_RUN
         | tool_names::CANCEL_WORKFLOW_RUN
         | tool_names::FORCE_CANCEL_WORKFLOW_RUN
         | tool_names::RERUN_WORKFLOW_RUN
@@ -823,11 +823,11 @@ pub fn apply_tool_labels(
         | "delete_repository_autolink" // gh repo autolink delete — DELETE /repos/.../autolinks/{id}
         | "revert_pull_request"
         // Pre-emptive: issue deletion, issue comments, repository deletion, releases
-        | "delete_issue"
+        | tool_names::DELETE_ISSUE
         | "update_issue_comment"
         | "delete_issue_comment"
         | tool_names::DELETE_REPOSITORY
-        | "create_release"
+        | tool_names::CREATE_RELEASE
         | "edit_release"
         | "delete_release"
         | "delete_release_asset"
@@ -1864,7 +1864,7 @@ mod tests {
         let repo_id = "github/copilot";
 
         for op in &[
-            "create_release",
+            tool_names::CREATE_RELEASE,
             "edit_release",
             "delete_release",
             "delete_release_asset",
@@ -1898,7 +1898,7 @@ mod tests {
         let repo_id = "github/copilot";
 
         let (secrecy, integrity, _desc) = super::apply_tool_labels(
-            "delete_workflow_run",
+            tool_names::DELETE_WORKFLOW_RUN,
             &tool_args,
             repo_id,
             vec![],
