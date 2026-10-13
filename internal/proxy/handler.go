@@ -597,7 +597,7 @@ func clientAPIURL(r *http.Request) string {
 func rewriteUpstreamAPIURL(value, upstreamAPIURL, clientAPIURL string) string {
 	upstream, err := url.Parse(strings.TrimRight(upstreamAPIURL, "/"))
 	if err != nil {
-		logHandler.Printf("rewriteUpstreamAPIURL: invalid upstream API URL, leaving value unchanged: %v", err)
+		logHandler.Print("rewriteUpstreamAPIURL: invalid upstream API URL, leaving value unchanged")
 		return value
 	}
 	client, err := url.Parse(clientAPIURL)
