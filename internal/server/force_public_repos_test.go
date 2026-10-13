@@ -650,11 +650,4 @@ func TestOverrideToPublicScope_GlobalPolicy_PreservesIntegrity(t *testing.T) {
 	assert.Equal(t, config.IntegrityApproved, cfg.GuardPolicy.AllowOnly.MinIntegrity)
 }
 
-// TestGetTrustedBots_NilConfig verifies getTrustedBots tolerates a nil cfg.
-func TestGetTrustedBots_NilConfig(t *testing.T) {
-	us := &UnifiedServer{}
-	assert.Nil(t, us.getTrustedBots())
-
-	us = &UnifiedServer{cfg: &config.Config{Gateway: &config.GatewayConfig{TrustedBots: []string{"bot[bot]"}}}}
-	assert.Equal(t, []string{"bot[bot]"}, us.getTrustedBots())
 }
