@@ -731,12 +731,16 @@ mod tests {
 
     #[test]
     fn test_release_issue_comment_and_repository_write_tools_are_write_operations() {
-        assert!(
-            WRITE_OPERATIONS
-                .binary_search(&tool_names::DELETE_REPOSITORY)
-                .is_ok(),
-            "delete_repository must be explicitly listed in WRITE_OPERATIONS"
-        );
+        for op in &[
+            tool_names::CREATE_REPOSITORY,
+            tool_names::DELETE_REPOSITORY,
+            tool_names::FORK_REPOSITORY,
+        ] {
+            assert!(
+                WRITE_OPERATIONS.binary_search(op).is_ok(),
+                "{op} must be explicitly listed in WRITE_OPERATIONS"
+            );
+        }
         for op in &[
             "create_release",
             "delete_issue",
