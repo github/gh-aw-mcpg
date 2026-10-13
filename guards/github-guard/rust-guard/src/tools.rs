@@ -8,7 +8,7 @@ use crate::labels::constants::tool_names;
 /// Upstream github-mcp-server write operations that modify data.
 pub const WRITE_OPERATIONS: &[&str] = &[
     // Keep sorted for binary_search correctness.
-    "actions_run_trigger",
+    tool_names::ACTIONS_RUN_TRIGGER,
     "add_comment_to_pending_review",
     "add_issue_comment",
     "add_issue_comment_reaction", // POST /repos/.../issues/comments/{id}/reactions
@@ -17,23 +17,23 @@ pub const WRITE_OPERATIONS: &[&str] = &[
     "add_reply_to_pull_request_comment",
     "assign_copilot_to_issue",
     "assign_copilot_to_issue_with_intent",
-    "create_branch",
+    tool_names::CREATE_BRANCH,
     "create_gist",
     "create_issue",
-    "create_or_update_file",
+    tool_names::CREATE_OR_UPDATE_FILE,
     "create_pull_request",
     "create_pull_request_with_copilot",
     tool_names::CREATE_REPOSITORY,
     "create_repository_ruleset", // creates a repository ruleset
-    "delete_file",
+    tool_names::DELETE_FILE,
     tool_names::DELETE_REPOSITORY,
     tool_names::DISCUSSION_COMMENT_WRITE, // creates or edits GitHub Discussion comments
     "dismiss_notification",
     tool_names::FORK_REPOSITORY,
-    "label_write",
+    tool_names::LABEL_WRITE,
     "mark_all_notifications_read",
     "projects_write",
-    "push_files",
+    tool_names::PUSH_FILES,
     tool_names::REMOVE_ISSUE_COMMENT_REACTION, // DELETE /repos/.../issues/comments/{id}/reactions/{reaction_id}
     tool_names::REMOVE_ISSUE_REACTION, // DELETE /repos/.../issues/{number}/reactions/{reaction_id}
     tool_names::REMOVE_PULL_REQUEST_REVIEW_COMMENT_REACTION, // DELETE /repos/.../pulls/comments/{id}/reactions/{reaction_id}
@@ -60,14 +60,14 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     "create_project",       // gh project create — GraphQL createProjectV2
     "create_project_draft_item", // gh project item-create — adds a draft issue via GraphQL addProjectV2DraftIssue
     "create_project_field",      // gh project field-create — creates a Projects v2 field
-    "create_release",            // POST /repos/.../releases
+    tool_names::CREATE_RELEASE,  // POST /repos/.../releases
     "create_repository_autolink", // gh repo autolink create — POST /repos/.../autolinks
     "delete_actions_cache",      // gh cache delete — DELETE /repos/.../actions/caches/{id|?key=...}
     tool_names::DELETE_CODESPACE, // gh codespace delete — DELETE /user/codespaces/{name} or /orgs/{org}/members/{user}/codespaces/{name}
     tool_names::DELETE_DEPLOY_KEY, // gh repo deploy-key delete — DELETE /repos/.../keys/{id}
     tool_names::DELETE_GIST,      // gh gist delete
     tool_names::DELETE_GPG_KEY,   // gh gpg-key delete — removes a user GPG signing key
-    "delete_issue",               // gh issue delete — deletes an issue via GraphQL deleteIssue
+    tool_names::DELETE_ISSUE,     // gh issue delete — deletes an issue via GraphQL deleteIssue
     "delete_issue_comment",       // DELETE /repos/.../issues/comments/{id}
     "delete_project",             // gh project delete — deletes a Projects v2 project
     "delete_project_field",       // gh project field-delete — deletes a Projects v2 field
@@ -77,7 +77,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     tool_names::DELETE_SECRET,    // gh secret delete — deletes org/repo/env/user codespaces secrets
     tool_names::DELETE_SSH_KEY,   // gh ssh-key delete — removes a user SSH auth/signing key
     tool_names::DELETE_VARIABLE, // gh variable delete — deletes org/repo/environment Actions variables
-    "delete_workflow_run",       // gh run delete — deletes a workflow run record
+    tool_names::DELETE_WORKFLOW_RUN, // gh run delete — deletes a workflow run record
     tool_names::DISABLE_WORKFLOW, // gh workflow disable
     tool_names::EDIT_DISCUSSION, // gh discussion edit   — edits title/body/labels of a discussion
     "edit_release",              // PATCH /repos/.../releases/{id}
@@ -131,7 +131,7 @@ pub const DEPRECATED_WRITE_ALIASES: &[&str] = &[
     "add_project_item", // deprecated alias for projects_write (addProjectV2ItemById)
     "delete_project_item", // deprecated alias for projects_write (deleteProjectV2Item)
     "delete_workflow_run_logs", // deprecated alias for actions_run_trigger (DELETE run logs)
-    "run_workflow",     // deprecated alias for actions_run_trigger (POST workflow dispatch)
+    tool_names::RUN_WORKFLOW, // deprecated alias for actions_run_trigger (POST workflow dispatch)
 ];
 
 /// Upstream github-mcp-server read-write operations that both read and modify data.
@@ -444,7 +444,7 @@ mod tests {
     #[test]
     fn test_workflow_run_cancel_rerun_are_write_operations() {
         for op in &[
-            "delete_workflow_run",
+            tool_names::DELETE_WORKFLOW_RUN,
             tool_names::CANCEL_WORKFLOW_RUN,
             tool_names::FORCE_CANCEL_WORKFLOW_RUN,
             tool_names::RERUN_WORKFLOW_RUN,
@@ -470,7 +470,7 @@ mod tests {
             tool_names::DELETE_GPG_KEY,
             tool_names::DELETE_SSH_KEY,
             "delete_release_asset",
-            "delete_workflow_run",
+            tool_names::DELETE_WORKFLOW_RUN,
             "stop_codespace",
             "rebuild_codespace",
             "update_codespace_port_visibility",
@@ -516,7 +516,7 @@ mod tests {
     #[test]
     fn test_deprecated_alias_write_operations() {
         for op in &[
-            "run_workflow",
+            tool_names::RUN_WORKFLOW,
             "delete_workflow_run_logs",
             "add_project_item",
             "delete_project_item",
@@ -549,13 +549,13 @@ mod tests {
     fn test_preemptive_cli_write_operations() {
         for op in &[
             "copy_project",
-            "delete_issue",
+            tool_names::DELETE_ISSUE,
             "delete_project",
             tool_names::DELETE_REPOSITORY,
             "link_project",
             "unlink_project",
             "delete_issue_comment",
-            "create_release",
+            tool_names::CREATE_RELEASE,
             "edit_release",
             "delete_release",
             "delete_release_asset",
@@ -742,8 +742,8 @@ mod tests {
             );
         }
         for op in &[
-            "create_release",
-            "delete_issue",
+            tool_names::CREATE_RELEASE,
+            tool_names::DELETE_ISSUE,
             "delete_issue_comment",
             "delete_release",
             tool_names::DELETE_REPOSITORY,
@@ -833,19 +833,19 @@ mod tests {
             "create_linked_branch",
             "create_project_draft_item",
             "create_project_field",
-            "create_release",
+            tool_names::CREATE_RELEASE,
             "create_repository_autolink",
             "delete_codespace",
             "delete_deploy_key",
             tool_names::DELETE_GPG_KEY,
-            "delete_issue",
+            tool_names::DELETE_ISSUE,
             "delete_issue_comment",
             "delete_project_field",
             "delete_release",
             "delete_release_asset",
             "delete_repository_autolink",
             tool_names::DELETE_SSH_KEY,
-            "delete_workflow_run",
+            tool_names::DELETE_WORKFLOW_RUN,
             tool_names::EDIT_DISCUSSION,
             "edit_release",
             "edit_repository",
@@ -928,7 +928,7 @@ mod tests {
 
     #[test]
     fn test_is_delete_operation() {
-        assert!(is_delete_operation("delete_file"));
+        assert!(is_delete_operation(tool_names::DELETE_FILE));
         assert!(is_delete_operation("delete_branch"));
         assert!(is_delete_operation("delete_release"));
         assert!(!is_delete_operation("create_repository"));

@@ -2696,7 +2696,7 @@ mod tests {
         let initial_secrecy = vec!["existing:scope".to_string()];
 
         let (secrecy, integrity, _desc) = apply_tool_labels(
-            "actions_list",
+            tool_names::ACTIONS_LIST,
             &tool_args,
             "github/copilot",
             initial_secrecy.clone(),
@@ -2735,7 +2735,7 @@ mod tests {
             "repo": "copilot"
         });
         let (secrecy, integrity, _desc) = apply_tool_labels(
-            "actions_list",
+            tool_names::ACTIONS_LIST,
             &tool_args,
             "github/copilot",
             vec!["private:github/copilot".to_string()],
@@ -2779,7 +2779,7 @@ mod tests {
         let tool_args = json!({"owner": "other", "repo": "repo"});
 
         let (secrecy, _, _) = apply_tool_labels(
-            "actions_list",
+            tool_names::ACTIONS_LIST,
             &tool_args,
             "other/repo",
             inherited.clone(),
@@ -5772,7 +5772,7 @@ mod tests {
         });
 
         let (_secrecy, integrity, _desc) = apply_tool_labels(
-            "create_or_update_file",
+            tool_names::CREATE_OR_UPDATE_FILE,
             &tool_args,
             repo_id,
             vec![],
@@ -5799,7 +5799,7 @@ mod tests {
         });
 
         let (_secrecy, integrity, _desc) = apply_tool_labels(
-            "push_files",
+            tool_names::PUSH_FILES,
             &tool_args,
             repo_id,
             vec![],
@@ -5827,7 +5827,7 @@ mod tests {
         });
 
         let (_secrecy, integrity, _desc) = apply_tool_labels(
-            "create_branch",
+            tool_names::CREATE_BRANCH,
             &tool_args,
             repo_id,
             vec![],
@@ -5916,7 +5916,10 @@ mod tests {
         });
         let repo_id = "github/copilot";
 
-        for op in &["delete_issue", constants::tool_names::DELETE_REPOSITORY] {
+        for op in &[
+            tool_names::DELETE_ISSUE,
+            constants::tool_names::DELETE_REPOSITORY,
+        ] {
             let (secrecy, integrity, _desc) =
                 apply_tool_labels(op, &tool_args, repo_id, vec![], vec![], String::new(), &ctx);
 
@@ -5944,7 +5947,7 @@ mod tests {
         });
 
         let (_secrecy, integrity, _desc) = apply_tool_labels(
-            "label_write",
+            tool_names::LABEL_WRITE,
             &tool_args,
             repo_id,
             vec![],
@@ -5971,7 +5974,7 @@ mod tests {
         });
 
         let (_secrecy, integrity, _desc) = apply_tool_labels(
-            "actions_run_trigger",
+            tool_names::ACTIONS_RUN_TRIGGER,
             &tool_args,
             repo_id,
             vec![],

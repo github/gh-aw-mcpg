@@ -111,8 +111,19 @@ mod tests {
     #[test]
     fn dispatch_constants_match_canonical_values() {
         assert_eq!(tool_names::ACTIONS_GET, "actions_get");
+        assert_eq!(tool_names::ACTIONS_LIST, "actions_list");
+        assert_eq!(tool_names::ACTIONS_RUN_TRIGGER, "actions_run_trigger");
         assert_eq!(tool_names::UI_GET, "ui_get");
+        assert_eq!(tool_names::CREATE_BRANCH, "create_branch");
+        assert_eq!(tool_names::CREATE_OR_UPDATE_FILE, "create_or_update_file");
+        assert_eq!(tool_names::CREATE_RELEASE, "create_release");
+        assert_eq!(tool_names::DELETE_FILE, "delete_file");
+        assert_eq!(tool_names::DELETE_ISSUE, "delete_issue");
+        assert_eq!(tool_names::DELETE_WORKFLOW_RUN, "delete_workflow_run");
         assert_eq!(tool_names::GET_COMMIT, "get_commit");
+        assert_eq!(tool_names::LABEL_WRITE, "label_write");
+        assert_eq!(tool_names::PUSH_FILES, "push_files");
+        assert_eq!(tool_names::RUN_WORKFLOW, "run_workflow");
         assert_eq!(tool_names::SEARCH_REPOSITORIES, "search_repositories");
         assert_eq!(tool_names::SEARCH_CODE, "search_code");
         assert_eq!(
@@ -386,7 +397,18 @@ pub mod tool_names {
     pub const CUSTOM_PROPERTIES_WRITE: &str = "custom_properties_write";
     pub const CREATE_REPOSITORY_RULESET: &str = "create_repository_ruleset";
     pub const ACTIONS_GET: &str = "actions_get";
+    pub const ACTIONS_LIST: &str = "actions_list";
+    pub const ACTIONS_RUN_TRIGGER: &str = "actions_run_trigger";
     pub const UI_GET: &str = "ui_get";
+    pub const CREATE_BRANCH: &str = "create_branch";
+    pub const CREATE_OR_UPDATE_FILE: &str = "create_or_update_file";
+    pub const CREATE_RELEASE: &str = "create_release";
+    pub const DELETE_FILE: &str = "delete_file";
+    pub const DELETE_ISSUE: &str = "delete_issue";
+    pub const DELETE_WORKFLOW_RUN: &str = "delete_workflow_run";
+    pub const LABEL_WRITE: &str = "label_write";
+    pub const PUSH_FILES: &str = "push_files";
+    pub const RUN_WORKFLOW: &str = "run_workflow";
     pub const DISCUSSION_COMMENT_WRITE: &str = "discussion_comment_write";
     pub const FIND_DUPLICATE: &str = "find_duplicate";
     pub const SET_SECRET: &str = "set_secret";
