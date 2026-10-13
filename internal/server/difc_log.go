@@ -94,6 +94,7 @@ func buildFilteredItemLogEntry(serverID, toolName string, detail difc.FilteredIt
 }
 
 func logCoarseDIFCDenial(ctx context.Context, serverID, toolName string, denied *guard.PipelineAccessDenied) {
+	logDifcLog.Printf("Logging coarse DIFC denial: serverID=%s, toolName=%s", serverID, toolName)
 	entry := logger.FilteredItemLogEntry{
 		ServerID:            serverID,
 		ToolName:            toolName,
@@ -106,6 +107,7 @@ func logCoarseDIFCDenial(ctx context.Context, serverID, toolName string, denied 
 		AgentLabelsComplete: true,
 	}
 	if sanitize.ShouldRedactPayload(mcp.IsEnclaveSession(ctx)) {
+		logDifcLog.Printf("Redacting coarse DIFC denial entry for enclave session: serverID=%s", serverID)
 		entry = entry.RedactForEnclave()
 	}
 	b, err := json.Marshal(entry)
@@ -172,6 +174,7 @@ func buildDIFCFilteredNotice(filtered *difc.FilteredCollectionLabeledData) strin
 	}
 	n := filtered.GetFilteredCount()
 	if n == 0 {
+		logDifcLog.Print("No filtered items, skipping DIFC filtered notice")
 		return ""
 	}
 
@@ -209,6 +212,7 @@ func buildDIFCFilteredNotice(filtered *difc.FilteredCollectionLabeledData) strin
 		}
 	}
 
+	logDifcLog.Printf("Using count-only notice format: filteredCount=%d", n)
 	return fmt.Sprintf(
 		"[Filtered] %d item(s) in this response were removed by %s and are not shown.",
 		n, policyLabel,
