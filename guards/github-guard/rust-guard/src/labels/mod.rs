@@ -849,7 +849,7 @@ mod tests {
         });
 
         let (_types_secrecy, types_integrity, _types_desc) = apply_tool_labels(
-            "list_issue_types",
+            tool_names::LIST_ISSUE_TYPES,
             &tool_args,
             "github",
             vec![],
@@ -859,7 +859,7 @@ mod tests {
         );
 
         let (_fields_secrecy, fields_integrity, _fields_desc) = apply_tool_labels(
-            "list_issue_fields",
+            tool_names::LIST_ISSUE_FIELDS,
             &tool_args,
             "github",
             vec![],
@@ -1522,7 +1522,7 @@ mod tests {
         let tool_args = json!({ "owner": "github" });
 
         let (_secrecy, integrity, _desc) = apply_tool_labels(
-            "list_projects",
+            tool_names::LIST_PROJECTS,
             &tool_args,
             "",
             vec![],
@@ -1544,7 +1544,7 @@ mod tests {
         let tool_args = json!({ "owner": "github" });
 
         let (_secrecy, integrity, _desc) = apply_tool_labels(
-            "list_projects",
+            tool_names::LIST_PROJECTS,
             &tool_args,
             "",
             vec![],
@@ -3387,7 +3387,7 @@ mod tests {
         let tool_args = json!({ "owner": "github", "repo": "copilot" });
 
         let (secrecy, integrity, _desc) = apply_tool_labels(
-            "list_repository_security_advisories",
+            tool_names::LIST_REPOSITORY_SECURITY_ADVISORIES,
             &tool_args,
             "github/copilot",
             vec![],
@@ -6113,7 +6113,7 @@ mod tests {
         let tool_args = json!({ "query": "octocat" });
 
         let (secrecy, integrity, _desc) = apply_tool_labels(
-            "search_users",
+            tool_names::SEARCH_USERS,
             &tool_args,
             "",
             vec![],
@@ -6142,7 +6142,7 @@ mod tests {
         // overridden to GITHUB so the integrity is always project:github regardless of
         // the calling repo context.
         let (secrecy, integrity, _desc) = apply_tool_labels(
-            "search_users",
+            tool_names::SEARCH_USERS,
             &tool_args,
             "github/copilot",
             vec![],
@@ -6217,7 +6217,7 @@ mod tests {
         let tool_args = json!({ "toolset": "advanced" });
 
         let (secrecy, integrity, _desc) = apply_tool_labels(
-            "enable_toolset",
+            tool_names::ENABLE_TOOLSET,
             &tool_args,
             "",
             vec![],

@@ -719,6 +719,13 @@ mod tests {
         Ok(bytes.len())
     }
 
+    // Tolerates a poisoned mutex so one panicking test doesn't cascade into others.
+    fn clear_cached_collaborator_permission(key: &str) {
+        if let Ok(mut cache) = collaborator_permission_cache().lock() {
+            cache.remove(key);
+        }
+    }
+
     #[test]
     fn test_cached_collaborator_permission_states() {
         let key = "cache-states-owner/repo:user";
@@ -742,13 +749,6 @@ mod tests {
         }
 
         clear_cached_collaborator_permission(key);
-    }
-
-    // Tolerates a poisoned mutex so one panicking test doesn't cascade into others.
-    fn clear_cached_collaborator_permission(key: &str) {
-        if let Ok(mut cache) = collaborator_permission_cache().lock() {
-            cache.remove(key);
-        }
     }
 
     #[test]

@@ -206,6 +206,20 @@ mod tests {
         assert_eq!(tool_names::ENABLE_WORKFLOW, "enable_workflow");
         assert_eq!(tool_names::SYNC_FORK, "sync_fork");
         assert_eq!(tool_names::CREATE_AGENT_TASK, "create_agent_task");
+        assert_eq!(tool_names::LIST_PROJECTS, "list_projects");
+        assert_eq!(tool_names::ENABLE_TOOLSET, "enable_toolset");
+        assert_eq!(tool_names::ISSUE_DEPENDENCY_READ, "issue_dependency_read");
+        assert_eq!(tool_names::LIST_ISSUE_TYPES, "list_issue_types");
+        assert_eq!(tool_names::LIST_ISSUE_FIELDS, "list_issue_fields");
+        assert_eq!(
+            tool_names::LIST_REPOSITORY_SECURITY_ADVISORIES,
+            "list_repository_security_advisories"
+        );
+        assert_eq!(
+            tool_names::LIST_REPOSITORY_COLLABORATORS,
+            "list_repository_collaborators"
+        );
+        assert_eq!(tool_names::SEARCH_USERS, "search_users");
         assert_eq!(
             UI_GET_REPO_SCOPED_METHODS,
             &["labels", "milestones", "branches"]
@@ -430,6 +444,14 @@ pub mod tool_names {
     pub const ENABLE_WORKFLOW: &str = "enable_workflow";
     pub const SYNC_FORK: &str = "sync_fork";
     pub const CREATE_AGENT_TASK: &str = "create_agent_task";
+    pub const LIST_PROJECTS: &str = "list_projects";
+    pub const ENABLE_TOOLSET: &str = "enable_toolset";
+    pub const ISSUE_DEPENDENCY_READ: &str = "issue_dependency_read";
+    pub const LIST_ISSUE_TYPES: &str = "list_issue_types";
+    pub const LIST_ISSUE_FIELDS: &str = "list_issue_fields";
+    pub const LIST_REPOSITORY_SECURITY_ADVISORIES: &str = "list_repository_security_advisories";
+    pub const LIST_REPOSITORY_COLLABORATORS: &str = "list_repository_collaborators";
+    pub const SEARCH_USERS: &str = "search_users";
 }
 
 /// UI metadata methods that are scoped to a specific repository.
