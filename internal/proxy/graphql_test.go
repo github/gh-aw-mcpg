@@ -129,6 +129,34 @@ func TestMatchGraphQL_Patterns(t *testing.T) {
 	}
 }
 
+func TestMatchGraphQL_HistoryUsesConservativeRef(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{
+			name:  "feature branch history",
+			query: `{ repository(owner:"o", name:"r") { ref(qualifiedName:"refs/heads/feature") { target { ... on Commit { history(first:10) { nodes { oid } } } } } } }`,
+		},
+		{
+			name:  "SHA-selected history",
+			query: `{ repository(owner:"o", name:"r") { object(expression:"abc1234") { ... on Commit { history(first:10) { nodes { oid } } } } } }`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := json.Marshal(GraphQLRequest{Query: tt.query})
+			require.NoError(t, err)
+
+			match := MatchGraphQL(body)
+			require.NotNil(t, match)
+			assert.Equal(t, "list_commits", match.ToolName)
+			assert.Equal(t, "graphql-history", match.Args["sha"])
+		})
+	}
+}
+
 // TestMatchGraphQL_OwnerRepoFromVariables verifies owner/repo extracted from variables.
 func TestMatchGraphQL_OwnerRepoFromVariables(t *testing.T) {
 	body, err := json.Marshal(GraphQLRequest{

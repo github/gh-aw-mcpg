@@ -379,17 +379,7 @@ pub fn label_response_items(
             let (arg_owner, arg_repo, repo_full_name) = extract_repo_info(tool_args);
             let arg_branch = tool_args.get("sha").and_then(|v| v.as_str()).unwrap_or("");
             let secrecy = repo_visibility_secrecy(&arg_owner, &arg_repo, &repo_full_name, ctx);
-            let repo_private = if !arg_owner.is_empty() && !arg_repo.is_empty() {
-                repo_private_or_secure_default(super::backend::is_repo_private(
-                    &arg_owner, &arg_repo,
-                ))
-            } else {
-                false
-            };
-
-            // For get_commit, SHA object identifiers are treated as commit-context
-            // requests, which should preserve merged-floor consistency with
-            // list_commits-derived SHAs.
+            let repo_private = repo_visibility_private_for_repo_id(&repo_full_name);
             let is_default_branch = is_default_branch_commit_context(tool_name, arg_branch);
             let secrecy_shared: SharedLabels = secrecy.into();
 
@@ -397,8 +387,13 @@ pub fn label_response_items(
                 let sha = item.get("sha").and_then(|v| v.as_str()).unwrap_or("");
                 let short_sha = short_sha(sha);
 
-                let integrity =
-                    commit_integrity(item, &repo_full_name, repo_private, is_default_branch, ctx);
+                let integrity = commit_integrity_with_visibility(
+                    item,
+                    &repo_full_name,
+                    repo_private,
+                    is_default_branch,
+                    ctx,
+                );
 
                 labeled_items.push(LabeledItem {
                     data: item.clone(),

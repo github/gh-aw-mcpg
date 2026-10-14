@@ -123,6 +123,10 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 	if repo != "" {
 		args["repo"] = repo
 	}
+	if toolName == "list_commits" {
+		// GraphQL history can target arbitrary refs or object expressions.
+		args["sha"] = "graphql-history"
+	}
 
 	// For search queries, extract the "query" argument (contains repo:owner/name)
 	// so the guard can determine the repo scope.

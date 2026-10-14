@@ -898,7 +898,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_commit_sha_uses_commit_context_integrity() {
+    fn test_get_commit_sha_does_not_assume_default_branch_integrity() {
         let ctx = default_ctx();
         let tool_args = json!({
             "owner": "lpcox",
@@ -916,11 +916,11 @@ mod tests {
             &ctx,
         );
 
-        assert_eq!(integrity, merged_integrity("lpcox/github-guard", &ctx));
+        assert!(!integrity.contains(&"merged:lpcox/github-guard".to_string()));
     }
 
     #[test]
-    fn test_get_commit_response_sha_preserves_merged_floor() {
+    fn test_get_commit_response_sha_does_not_receive_merged_integrity() {
         let ctx = default_ctx();
         let tool_args = json!({
             "owner": "lpcox",
@@ -937,7 +937,7 @@ mod tests {
 
         let labeled = label_response_items("get_commit", &tool_args, &response, &ctx);
         assert_eq!(labeled.len(), 1);
-        assert!(labeled[0]
+        assert!(!labeled[0]
             .labels
             .integrity
             .contains(&"merged:lpcox/github-guard".to_string()));
@@ -945,9 +945,13 @@ mod tests {
 
     #[test]
     fn test_default_branch_commit_context_helper() {
-        assert!(super::helpers::is_default_branch_commit_context(
+        assert!(!super::helpers::is_default_branch_commit_context(
             "get_commit",
             "a590b228c2e258907f503759c31c75bbfcd78a36"
+        ));
+        assert!(!super::helpers::is_default_branch_commit_context(
+            "get_commit",
+            "main"
         ));
         assert!(!super::helpers::is_default_branch_commit_context(
             "list_commits",

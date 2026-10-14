@@ -362,7 +362,11 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 			return nil, fmt.Errorf("search_repositories: missing query")
 		}
 		if r.server.enclave != nil {
-			repoQuery, ok := strings.CutPrefix(query, "repo:")
+			queryParts := strings.Fields(query)
+			if len(queryParts) == 0 || len(queryParts) > 2 || (len(queryParts) == 2 && queryParts[1] != "fork:true") {
+				return nil, fmt.Errorf("search_repositories: enclave lookup must use an exact repository")
+			}
+			repoQuery, ok := strings.CutPrefix(queryParts[0], "repo:")
 			repo, valid := enclavegithub.NormalizeRepository(repoQuery)
 			if !ok || !valid {
 				return nil, fmt.Errorf("search_repositories: enclave lookup must use an exact repository")
