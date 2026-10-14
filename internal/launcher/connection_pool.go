@@ -73,6 +73,7 @@ type PoolConfig struct {
 
 // NewSessionConnectionPool creates a new connection pool with default config
 func NewSessionConnectionPool(ctx context.Context) *SessionConnectionPool {
+	logPool.Print("Creating session connection pool with default config")
 	return NewSessionConnectionPoolWithConfig(ctx, PoolConfig{
 		IdleTimeout:     DefaultIdleTimeout,
 		CleanupInterval: DefaultCleanupInterval,
@@ -286,7 +287,9 @@ func (p *SessionConnectionPool) Delete(backendID, sessionID string) {
 		metadata.State = ConnectionStateClosed
 		delete(p.connections, key)
 		logPool.Printf("Deleted connection from pool: backend=%s, session=%s", backendID, util.FormatSessionIDForLog(sessionID))
+		return
 	}
+	logPool.Printf("Delete skipped, connection not found: backend=%s, session=%s", backendID, util.FormatSessionIDForLog(sessionID))
 }
 
 // Size returns the number of connections in the pool
@@ -316,7 +319,9 @@ func (p *SessionConnectionPool) RecordError(backendID, sessionID string) {
 		metadata.ErrorCount++
 		logPool.Printf("Recorded error for connection: backend=%s, session=%s, errors=%d",
 			backendID, util.FormatSessionIDForLog(sessionID), metadata.ErrorCount)
+		return
 	}
+	logPool.Printf("RecordError skipped, connection not found: backend=%s, session=%s", backendID, util.FormatSessionIDForLog(sessionID))
 }
 
 // List returns all connection keys in the pool (for monitoring/debugging)
