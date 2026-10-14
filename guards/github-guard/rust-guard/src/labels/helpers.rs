@@ -2126,6 +2126,7 @@ pub(crate) fn issue_integrity(
 ///
 /// Note: approval-labels promotion does not apply to commits because GitHub
 /// commits do not carry issue/PR-style labels.
+#[cfg(test)]
 pub(crate) fn commit_integrity(
     item: &Value,
     repo_full_name: &str,
