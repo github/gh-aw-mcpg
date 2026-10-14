@@ -273,15 +273,13 @@ pub fn label_response_items(
         | tool_names::GET_ISSUE
         | tool_names::ISSUE_READ => {
             // For issue_read sub-methods that return non-issue objects (e.g.
-            // get_comments, get_sub_issues, get_labels), skip per-item labeling.
+            // get_sub_issues, get_labels), skip per-item labeling.
             // Resource-level labels from tool_rules provide correct issue-scoped integrity.
             let method = tool_args
                 .get(field_names::METHOD)
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            if is_non_get_read_sub_method(tool_name, tool_names::ISSUE_READ, method)
-                && method != "get_comments"
-            {
+            if skip_issue_read_per_item_labeling(tool_name, method) {
                 // Fall through — use resource-level labels from tool_rules
             } else {
                 let items = extract_items_slice(&actual_response, "issues");

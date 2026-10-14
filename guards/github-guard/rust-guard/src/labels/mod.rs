@@ -4000,7 +4000,7 @@ mod tests {
             "owner": "github",
             "repo": "gh-aw-mcpg",
             "issue_number": 2278,
-            "method": "get_comments"
+            "method": constants::method_values::GET_COMMENTS
         });
         let response = json!([
             {

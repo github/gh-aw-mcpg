@@ -293,15 +293,13 @@ pub fn label_response_paths(
         | tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM
         | tool_names::ISSUE_READ
         | tool_names::GET_ISSUE => {
-            // Skip per-item labeling for issue_read sub-methods (get_comments,
-            // get_sub_issues, get_labels). Resource-level labels from tool_rules apply.
+            // Skip per-item labeling for issue_read sub-methods (get_sub_issues,
+            // get_labels). Resource-level labels from tool_rules apply.
             let method = tool_args
                 .get(field_names::METHOD)
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            if is_non_get_read_sub_method(tool_name, tool_names::ISSUE_READ, method)
-                && method != "get_comments"
-            {
+            if skip_issue_read_per_item_labeling(tool_name, method) {
                 // Fall through — use resource-level labels
             } else if let Some(repo_item_ctx) = resolve_repo_item_context(
                 tool_name,

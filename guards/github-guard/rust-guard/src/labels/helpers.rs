@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use super::backend::GithubMcpCallback;
 use super::constants::{
-    field_names, label_constants, scope_names, tool_names, UNKNOWN_LABEL_FALLBACK,
+    field_names, label_constants, method_values, scope_names, tool_names, UNKNOWN_LABEL_FALLBACK,
     URL_FALLBACK_FIELDS,
 };
 
@@ -1177,7 +1177,15 @@ pub(crate) fn is_non_get_read_sub_method(
     read_tool_name: &str,
     method: &str,
 ) -> bool {
-    tool_name == read_tool_name && !method.is_empty() && method != "get"
+    tool_name == read_tool_name && !method.is_empty() && method != method_values::GET
+}
+
+/// `issue_read` sub-methods whose responses are not issue objects, so per-item
+/// labeling is skipped (`get_comments` is handled by the item path).
+#[inline]
+pub(crate) fn skip_issue_read_per_item_labeling(tool_name: &str, method: &str) -> bool {
+    is_non_get_read_sub_method(tool_name, tool_names::ISSUE_READ, method)
+        && method != method_values::GET_COMMENTS
 }
 
 /// Extract a string field from a JSON value
@@ -4682,7 +4690,26 @@ mod tests {
 
 #[cfg(test)]
 mod is_non_get_read_sub_method_tests {
-    use super::is_non_get_read_sub_method;
+    use super::{
+        is_non_get_read_sub_method, method_values, skip_issue_read_per_item_labeling, tool_names,
+    };
+
+    #[test]
+    fn issue_read_per_item_labeling_skip_condition() {
+        for (tool_name, method, expected) in [
+            (tool_names::ISSUE_READ, method_values::GET, false),
+            (tool_names::ISSUE_READ, method_values::GET_COMMENTS, false),
+            (tool_names::ISSUE_READ, "get_labels", true),
+            (tool_names::ISSUE_READ, "", false),
+            (tool_names::LIST_ISSUES, "get_labels", false),
+        ] {
+            assert_eq!(
+                skip_issue_read_per_item_labeling(tool_name, method),
+                expected,
+                "tool={tool_name}, method={method}"
+            );
+        }
+    }
 
     #[test]
     fn matches_non_get_sub_methods() {
@@ -4703,7 +4730,7 @@ mod is_non_get_read_sub_method_tests {
         assert!(!is_non_get_read_sub_method(
             "pull_request_read",
             "pull_request_read",
-            "get"
+            method_values::GET
         ));
         assert!(!is_non_get_read_sub_method(
             "pull_request_read",
@@ -4717,12 +4744,12 @@ mod is_non_get_read_sub_method_tests {
         assert!(!is_non_get_read_sub_method(
             "issue_read",
             "pull_request_read",
-            "get_comments"
+            method_values::GET_COMMENTS
         ));
         assert!(!is_non_get_read_sub_method(
             "list_issues",
             "issue_read",
-            "get_comments"
+            method_values::GET_COMMENTS
         ));
     }
 }

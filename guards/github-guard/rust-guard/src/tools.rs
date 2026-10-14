@@ -51,7 +51,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     "archive_project_item",     // gh project item-archive — archives a Projects v2 item
     tool_names::ARCHIVE_REPOSITORY, // gh repo archive — blocked: repo settings change unsupported
     tool_names::CANCEL_WORKFLOW_RUN, // gh run cancel — cancels an in-progress workflow run
-    "close_issue",              // gh issue close
+    tool_names::CLOSE_ISSUE,    // gh issue close
     "close_pull_request",       // gh pr close
     "copy_project",             // gh project copy — creates a new Projects v2 board
     tool_names::CREATE_CODESPACE, // gh codespace create — POST /user/codespaces
@@ -85,7 +85,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     tool_names::ENABLE_WORKFLOW, // gh workflow enable
     tool_names::FORCE_CANCEL_WORKFLOW_RUN, // gh run cancel --force — force-cancels a workflow run
     "link_project", // gh project link — links a Projects v2 board to a repository or team
-    "lock_issue",   // gh issue lock
+    tool_names::LOCK_ISSUE, // gh issue lock
     "lock_pull_request", // gh pr lock
     "mark_project_template", // gh project mark-template — GraphQL markProjectV2AsTemplate
     "mark_pull_request_as_draft", // gh pr ready --undo (convert back to draft)
@@ -94,7 +94,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     "rebuild_codespace", // gh codespace rebuild — Codespaces session RebuildContainer RPC
     tool_names::RENAME_GIST, // gh gist rename — POST /gists/{gist_id} (renames a gist file)
     tool_names::RENAME_REPOSITORY, // gh repo rename — blocked: breaks clone URLs and integrations
-    "reopen_issue", // gh issue reopen
+    tool_names::REOPEN_ISSUE, // gh issue reopen
     "reopen_pull_request", // gh pr reopen
     tool_names::RERUN_FAILED_JOBS, // gh run rerun --failed — reruns only failed jobs
     tool_names::RERUN_WORKFLOW_JOB, // gh run rerun --job — reruns a specific job
@@ -104,14 +104,14 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     tool_names::SET_VARIABLE, // gh variable set
     tool_names::STOP_CODESPACE, // gh codespace stop — POST /user|/orgs/.../codespaces/.../stop
     tool_names::SYNC_FORK, // gh repo sync
-    "transfer_issue", // gh issue transfer
+    tool_names::TRANSFER_ISSUE, // gh issue transfer
     "unarchive_project_item", // gh project item-archive --undo — unarchives a Projects v2 item
     tool_names::UNARCHIVE_REPOSITORY, // gh repo unarchive — blocked: symmetric to archive_repository
     "unlink_project",                 // gh project unlink — unlinks a Projects v2 board
-    "unlock_issue",                   // gh issue unlock
-    "unlock_pull_request",            // gh pr unlock
+    tool_names::UNLOCK_ISSUE,         // gh issue unlock
+    tool_names::UNLOCK_PULL_REQUEST,  // gh pr unlock
     "unmark_project_template", // gh project mark-template --undo — GraphQL unmarkProjectV2AsTemplate
-    "unpin_issue",             // gh issue unpin
+    tool_names::UNPIN_ISSUE,   // gh issue unpin
     tool_names::UPDATE_CODESPACE, // gh codespace edit — PATCH /user/codespaces/{codespace_name}
     "update_codespace_port_visibility", // gh codespace ports visibility — session UpdatePortVisibility RPC
     "update_project", // gh project close/edit/reopen — updates Projects v2 metadata/status
@@ -158,14 +158,14 @@ pub const READ_WRITE_OPERATIONS: &[&str] = &[
     "submit_pending_pull_request_review", // POST /repos/.../pulls/{number}/reviews/{id}/events
     "unresolve_review_thread",            // PUT  /graphql — unresolveReviewThread
     "update_gist",
-    "update_issue_assignees", // PATCH — modifies issue assignees
-    "update_issue_body",      // PATCH — modifies issue body
-    "update_issue_comment",   // PATCH /repos/.../issues/comments/{id}
-    "update_issue_labels",    // PATCH — modifies issue labels
-    "update_issue_milestone", // PATCH — modifies issue milestone
-    "update_issue_state",     // PATCH — opens or closes an issue
-    "update_issue_title",     // PATCH — modifies issue title
-    "update_issue_type",      // PATCH — modifies issue type
+    tool_names::UPDATE_ISSUE_ASSIGNEES, // PATCH — modifies issue assignees
+    tool_names::UPDATE_ISSUE_BODY,      // PATCH — modifies issue body
+    tool_names::UPDATE_ISSUE_COMMENT,   // PATCH /repos/.../issues/comments/{id}
+    tool_names::UPDATE_ISSUE_LABELS,    // PATCH — modifies issue labels
+    tool_names::UPDATE_ISSUE_MILESTONE, // PATCH — modifies issue milestone
+    tool_names::UPDATE_ISSUE_STATE,     // PATCH — opens or closes an issue
+    tool_names::UPDATE_ISSUE_TITLE,     // PATCH — modifies issue title
+    tool_names::UPDATE_ISSUE_TYPE,      // PATCH — modifies issue type
     "update_pull_request",
     "update_pull_request_body", // PATCH — modifies PR body
     "update_pull_request_branch",
