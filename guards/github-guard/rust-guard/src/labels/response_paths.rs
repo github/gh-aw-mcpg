@@ -33,6 +33,19 @@ fn default_repo_for_items(arg_repo_full: String, items: &[Value]) -> String {
         .unwrap_or_default()
 }
 
+fn commit_repo_visibility(
+    repo_for_labels: &str,
+    default_repo: &str,
+    default_repo_private: Option<bool>,
+    lookup: impl FnOnce(&str) -> Option<bool>,
+) -> Option<bool> {
+    if repo_for_labels.eq_ignore_ascii_case(default_repo) {
+        default_repo_private
+    } else {
+        lookup(repo_for_labels)
+    }
+}
+
 struct RepoItemsContext<'a> {
     limited_items: &'a [Value],
     items_path: &'static str,
@@ -394,7 +407,12 @@ pub fn label_response_paths(
 
                     let commit_sha = get_str_or(item, field_names::SHA, UNKNOWN_LABEL_FALLBACK);
                     let short_sha = short_sha(commit_sha);
-                    let item_repo_private = repo_visibility_private_for_repo_id(repo_for_labels);
+                    let item_repo_private = commit_repo_visibility(
+                        repo_for_labels,
+                        &default_repo,
+                        default_repo_private,
+                        repo_visibility_private_for_repo_id,
+                    );
 
                     let integrity = commit_integrity_with_visibility(
                         item,
@@ -980,6 +998,37 @@ mod tests {
     // security-relevant decision. A regression here (e.g. treating all commits as
     // default-branch) would over-elevate integrity labels. Both tests are self-contained
     // and require no backend mocking.
+
+    #[test]
+    fn list_commits_reuses_unknown_default_repo_visibility() {
+        assert_eq!(
+            commit_repo_visibility("octocat/hello-world", "octocat/hello-world", None, |_| {
+                panic!("same-repository visibility should not trigger another lookup")
+            }),
+            None
+        );
+        assert_eq!(
+            commit_repo_visibility(
+                "OCTOCAT/HELLO-WORLD",
+                "octocat/hello-world",
+                Some(true),
+                |_| panic!("same-repository visibility should reuse the cached result")
+            ),
+            Some(true)
+        );
+        assert_eq!(
+            commit_repo_visibility(
+                "octocat/other-repo",
+                "octocat/hello-world",
+                None,
+                |repo_id| {
+                    assert_eq!(repo_id, "octocat/other-repo");
+                    Some(false)
+                }
+            ),
+            Some(false)
+        );
+    }
 
     #[test]
     fn list_commits_default_branch_gets_merged_integrity() {

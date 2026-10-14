@@ -745,6 +745,34 @@ func TestRestBackendCaller_SearchRepositories_EnclaveMode(t *testing.T) {
 		assert.Contains(t, text, "myorg/myrepo")
 	})
 
+	t.Run("guard fork visibility query succeeds", func(t *testing.T) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/repos/octocat/hello-world", func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"full_name": "octocat/Hello-World",
+				"private":   false,
+			})
+		})
+		mockServer := httptest.NewServer(mux)
+		defer mockServer.Close()
+
+		proxyServer := &Server{
+			githubAPIURL: mockServer.URL,
+			githubToken:  "test-token",
+			httpClient:   http.DefaultClient,
+			enclave:      newEnclaveState(nil, nil),
+		}
+		caller := &restBackendCaller{server: proxyServer}
+
+		result, err := caller.CallTool(context.Background(), "search_repositories", map[string]interface{}{
+			"query": "repo:octocat/Hello-World fork:true",
+		})
+		require.NoError(t, err)
+		assert.Contains(t, extractContentText(t, result), "octocat/Hello-World")
+	})
+
 	t.Run("query without repo: prefix is rejected", func(t *testing.T) {
 		proxyServer := &Server{
 			githubAPIURL: "http://unused",
@@ -755,6 +783,21 @@ func TestRestBackendCaller_SearchRepositories_EnclaveMode(t *testing.T) {
 
 		_, err := caller.CallTool(context.Background(), "search_repositories", map[string]interface{}{
 			"query": "language:go",
+		})
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "must use an exact repository")
+	})
+
+	t.Run("unexpected qualifier is rejected", func(t *testing.T) {
+		proxyServer := &Server{
+			githubAPIURL: "http://unused",
+			httpClient:   http.DefaultClient,
+			enclave:      newEnclaveState(nil, nil),
+		}
+		caller := &restBackendCaller{server: proxyServer}
+
+		_, err := caller.CallTool(context.Background(), "search_repositories", map[string]interface{}{
+			"query": "repo:myorg/myrepo fork:false",
 		})
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "must use an exact repository")
