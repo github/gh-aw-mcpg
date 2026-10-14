@@ -377,14 +377,7 @@ pub fn label_response_paths(
                 let default_repo = default_repo_for_items(arg_repo_full, items);
                 let default_secrecy: crate::SharedLabels =
                     repo_visibility_secrecy(&arg_owner, &arg_repo, &default_repo, ctx).into();
-                let repo_private = if !arg_owner.is_empty() && !arg_repo.is_empty() {
-                    repo_private_or_secure_default(super::backend::is_repo_private(
-                        &arg_owner, &arg_repo,
-                    ))
-                } else {
-                    false
-                };
-
+                let default_repo_private = repo_visibility_private_for_repo_id(&default_repo);
                 // Commits on default branch (main/master) get merged-level integrity
                 let is_default_branch = is_default_branch_ref(sha);
                 let limited_items = limit_items_with_log(items, tool_names::LIST_COMMITS);
@@ -401,11 +394,12 @@ pub fn label_response_paths(
 
                     let commit_sha = get_str_or(item, field_names::SHA, UNKNOWN_LABEL_FALLBACK);
                     let short_sha = short_sha(commit_sha);
+                    let item_repo_private = repo_visibility_private_for_repo_id(repo_for_labels);
 
-                    let integrity = commit_integrity(
+                    let integrity = commit_integrity_with_visibility(
                         item,
                         repo_for_labels,
-                        repo_private,
+                        item_repo_private,
                         is_default_branch,
                         ctx,
                     );
@@ -432,7 +426,7 @@ pub fn label_response_paths(
                         secrecy: default_secrecy,
                         integrity: if is_default_branch {
                             merged_integrity(&default_repo, ctx)
-                        } else if repo_private {
+                        } else if default_repo_private == Some(true) {
                             writer_integrity(&default_repo, ctx)
                         } else {
                             vec![]

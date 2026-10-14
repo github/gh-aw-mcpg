@@ -1106,18 +1106,6 @@ pub(crate) fn repo_private_fallback(owner: &str, repo: &str) -> bool {
     super::backend::is_repo_private(owner, repo).unwrap_or(false)
 }
 
-/// Resolves a previously-attempted repo-private lookup for security-sensitive
-/// integrity decisions, failing secure (treated as private) on unknown
-/// visibility in production.
-///
-/// Callers must handle missing owner/repo scope separately when that should
-/// remain fail-open instead of being treated as an unknown-visibility lookup.
-/// In test builds, unknown visibility resolves to `false` for deterministic
-/// fixtures.
-pub(crate) fn repo_private_or_secure_default(repo_private: Option<bool>) -> bool {
-    repo_private.unwrap_or(!cfg!(test))
-}
-
 // ============================================================================
 // JSON Field Extraction Helpers
 // ============================================================================
@@ -1869,20 +1857,13 @@ pub(crate) fn is_default_branch_ref(branch_ref: &str) -> bool {
             .any(|n| branch_ref.eq_ignore_ascii_case(n))
 }
 
-fn looks_like_commit_sha(reference: &str) -> bool {
-    let length = reference.len();
-    if !(7..=40).contains(&length) {
+pub(crate) fn is_default_branch_commit_context(tool_name: &str, sha_or_ref: &str) -> bool {
+    // A single commit response provides no proof of default-branch reachability.
+    if tool_name == tool_names::GET_COMMIT {
         return false;
     }
-    reference.chars().all(|value| value.is_ascii_hexdigit())
-}
 
-pub(crate) fn is_default_branch_commit_context(tool_name: &str, sha_or_ref: &str) -> bool {
-    if is_default_branch_ref(sha_or_ref) {
-        return true;
-    }
-
-    tool_name == tool_names::GET_COMMIT && looks_like_commit_sha(sha_or_ref)
+    is_default_branch_ref(sha_or_ref)
 }
 
 /// Apply the standard post-integrity adjustment pipeline to a content item after
@@ -2152,6 +2133,25 @@ pub(crate) fn commit_integrity(
     is_default_branch: bool,
     ctx: &PolicyContext,
 ) -> Vec<String> {
+    commit_integrity_with_visibility(
+        item,
+        repo_full_name,
+        Some(repo_private),
+        is_default_branch,
+        ctx,
+    )
+}
+
+/// Computes commit integrity while preserving unknown repository visibility.
+/// Unknown visibility must not be interpreted as either public or private for
+/// integrity promotions.
+pub(crate) fn commit_integrity_with_visibility(
+    item: &Value,
+    repo_full_name: &str,
+    repo_private: Option<bool>,
+    is_default_branch: bool,
+    ctx: &PolicyContext,
+) -> Vec<String> {
     let sha = item
         .get(field_names::SHA)
         .and_then(|v| v.as_str())
@@ -2171,7 +2171,7 @@ pub(crate) fn commit_integrity(
 
     // For public personal repositories, commit payloads often omit
     // `author_association`. Ensure owner-authored commits still get writer floor.
-    if !repo_private {
+    if repo_private == Some(false) {
         if let Some((owner, _repo)) = split_repo_id(repo_full_name) {
             if author_login.eq_ignore_ascii_case(owner) {
                 integrity = max_integrity(
@@ -2186,7 +2186,7 @@ pub(crate) fn commit_integrity(
 
     // Collaborator permission fallback for public repos (handles owners/admins
     // whose author_association is missing or "NONE").
-    if !repo_private {
+    if repo_private == Some(false) {
         integrity = elevate_via_collaborator_permission(
             author_login,
             repo_full_name,
@@ -2197,7 +2197,7 @@ pub(crate) fn commit_integrity(
         );
     }
 
-    if repo_private {
+    if repo_private == Some(true) {
         integrity = max_integrity(
             repo_full_name,
             &integrity,
@@ -2677,18 +2677,6 @@ mod tests {
     }
 
     #[test]
-    fn test_repo_private_or_secure_default_uses_cached_visibility() {
-        assert!(!repo_private_or_secure_default(Some(false)));
-        assert!(repo_private_or_secure_default(Some(true)));
-    }
-
-    #[test]
-    fn test_repo_private_or_secure_default_fails_open_in_tests_when_unknown() {
-        // In test builds, unknown visibility (None) resolves to false (fail-open for fixtures).
-        assert!(!repo_private_or_secure_default(None));
-    }
-
-    #[test]
     fn test_collaborator_permission_matches_author_association_writer() {
         let ctx = test_ctx();
         let perm_result = collaborator_permission_floor("owner/repo", Some("write"), &ctx);
@@ -2803,24 +2791,13 @@ mod tests {
         assert!(!repo_private_fallback("owner", ""));
     }
 
-    #[test]
-    fn test_repo_private_or_secure_default_preserves_known_visibility() {
-        assert!(repo_private_or_secure_default(Some(true)));
-        assert!(!repo_private_or_secure_default(Some(false)));
-    }
-
-    #[test]
-    fn test_repo_private_or_secure_default_unknown_matches_build_mode() {
-        assert_eq!(repo_private_or_secure_default(None), !cfg!(test));
-    }
-
     // =========================================================================
-    // Tests for is_default_branch_commit_context / looks_like_commit_sha
+    // Tests for is_default_branch_commit_context
     // =========================================================================
 
     #[test]
-    fn test_is_default_branch_commit_context_empty_ref_is_default() {
-        assert!(is_default_branch_commit_context("get_commit", ""));
+    fn test_is_default_branch_commit_context_empty_ref_is_default_only_for_list() {
+        assert!(!is_default_branch_commit_context("get_commit", ""));
         assert!(is_default_branch_commit_context("list_commits", ""));
     }
 
@@ -2835,10 +2812,13 @@ mod tests {
     }
 
     #[test]
-    fn test_is_default_branch_commit_context_get_commit_with_sha_is_default() {
-        let sha40 = "a590b228c2e258907f503759c31c75bbfcd78a36";
-        assert!(is_default_branch_commit_context("get_commit", sha40));
-        assert!(is_default_branch_commit_context("get_commit", "abc1234"));
+    fn test_is_default_branch_commit_context_get_commit_never_assumes_reachability() {
+        for reference in &["", "main", "HEAD", "feature", "abc1234"] {
+            assert!(
+                !is_default_branch_commit_context("get_commit", reference),
+                "{reference:?} does not prove default-branch reachability"
+            );
+        }
     }
 
     #[test]
@@ -2857,18 +2837,6 @@ mod tests {
             "get_commit",
             "v1.0.0-release"
         ));
-    }
-
-    #[test]
-    fn test_is_default_branch_commit_context_too_short_sha_not_treated_as_commit() {
-        assert!(!is_default_branch_commit_context("get_commit", "abc12"));
-        assert!(!is_default_branch_commit_context("get_commit", "abc123"));
-    }
-
-    #[test]
-    fn test_is_default_branch_commit_context_too_long_sha_not_treated_as_commit() {
-        let long_sha = "a590b228c2e258907f503759c31c75bbfcd78a361";
-        assert!(!is_default_branch_commit_context("get_commit", long_sha));
     }
 
     // =========================================================================
@@ -2942,6 +2910,24 @@ mod tests {
         let result = commit_integrity(&item, "owner/repo", false, false, &ctx);
 
         assert_eq!(integrity_rank("owner/repo", &result, &ctx), 3);
+    }
+
+    #[test]
+    fn test_commit_integrity_unknown_visibility_does_not_promote_owner_authored_commit() {
+        let ctx = PolicyContext::default();
+        let item = serde_json::json!({
+            "sha": "abc1234def",
+            "author": { "login": "owner" },
+            "author_association": "NONE"
+        });
+
+        let result = commit_integrity_with_visibility(&item, "owner/repo", None, false, &ctx);
+
+        assert_eq!(
+            integrity_rank("owner/repo", &result, &ctx),
+            2,
+            "unknown visibility must not grant a writer-level promotion"
+        );
     }
 
     #[test]

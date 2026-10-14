@@ -17,9 +17,8 @@ use super::helpers::{
     ensure_integrity_baseline, extract_number_as_string, extract_repo_info_from_search_query,
     format_repo_id, get_string_field, is_any_trusted_actor, is_default_branch_commit_context,
     is_default_branch_ref, max_integrity, merged_integrity, policy_private_scope_label,
-    private_scope_label, private_user_label, project_github_label, reader_integrity,
-    repo_private_or_secure_default, short_sha, split_repo_id, writer_integrity, PolicyContext,
-    ScopeKind,
+    private_scope_label, private_user_label, project_github_label, reader_integrity, short_sha,
+    split_repo_id, writer_integrity, PolicyContext, ScopeKind,
 };
 use std::borrow::Cow;
 
@@ -471,14 +470,11 @@ pub fn apply_tool_labels(
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             let is_default_ref = is_default_branch_commit_context(tool_name, sha_or_ref);
-            let repo_private_effective = repo_private_or_secure_default(repo_private);
 
             integrity = if is_default_ref {
                 merged_integrity(repo_id, ctx)
-            } else if repo_private_effective {
-                writer_integrity(repo_id, ctx)
             } else {
-                vec![]
+                private_writer_integrity(repo_id, repo_private, ctx)
             };
         }
 
@@ -2304,15 +2300,8 @@ mod tests {
         let args = serde_json::json!({});
 
         for tool in &[tool_names::DELETE_GIST, tool_names::RENAME_GIST] {
-            let (secrecy, integrity, _) = super::apply_tool_labels(
-                tool,
-                &args,
-                "",
-                vec![],
-                vec![],
-                String::new(),
-                &ctx,
-            );
+            let (secrecy, integrity, _) =
+                super::apply_tool_labels(tool, &args, "", vec![], vec![], String::new(), &ctx);
             assert_eq!(
                 secrecy,
                 private_user_label(),

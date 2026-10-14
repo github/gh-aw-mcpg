@@ -29,6 +29,8 @@ type stubGuard struct {
 	labelResourceErr    error
 	labelResponseData   difc.LabeledData
 	labelResponseErr    error
+	labelResourceTool   string
+	labelResourceArgs   interface{}
 }
 
 func (g *stubGuard) Name() string { return "stub" }
@@ -40,7 +42,9 @@ func (g *stubGuard) LabelAgent(_ context.Context, _ interface{}, _ guard.Backend
 	}, nil
 }
 
-func (g *stubGuard) LabelResource(_ context.Context, _ string, _ interface{}, _ guard.BackendCaller, _ *difc.Capabilities) (*difc.LabeledResource, difc.OperationType, error) {
+func (g *stubGuard) LabelResource(_ context.Context, toolName string, args interface{}, _ guard.BackendCaller, _ *difc.Capabilities) (*difc.LabeledResource, difc.OperationType, error) {
+	g.labelResourceTool = toolName
+	g.labelResourceArgs = args
 	return g.labelResourceResult, g.labelResourceOp, g.labelResourceErr
 }
 

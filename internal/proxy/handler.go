@@ -169,6 +169,11 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if q := r.URL.Query().Get("q"); q != "" {
 			args["query"] = q
 		}
+		// The commits endpoint uses sha to select a branch or commit. The
+		// guard needs it to distinguish default-branch history from arbitrary refs.
+		if sha := r.URL.Query().Get("sha"); sha != "" {
+			args["sha"] = sha
+		}
 	}
 
 	// Run the DIFC pipeline

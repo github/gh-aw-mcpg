@@ -266,7 +266,7 @@ pub(crate) fn is_repo_private_with_callback(
     }
 
     // Use exact repository scoping for visibility lookup.
-    let query = format!("repo:{repo_id}");
+    let query = format!("repo:{repo_id} fork:true");
     let args = serde_json::json!({
         "query": query,
         "perPage": 10
@@ -904,21 +904,29 @@ mod tests {
 
     fn repo_public_visibility_search_fallback_callback(
         tool: &str,
-        _args: &str,
+        args: &str,
         buffer: &mut [u8],
     ) -> Result<usize, i32> {
         match tool {
-            "search_repositories" => copy_payload(
-                serde_json::json!({
-                    "items": [
-                        {
-                            "full_name": "octocat/Hello-World",
-                            "visibility": "public"
-                        }
-                    ]
-                }),
-                buffer,
-            ),
+            "search_repositories" => {
+                let args: Value = serde_json::from_str(args).expect("valid search arguments");
+                assert_eq!(
+                    args.get("query").and_then(Value::as_str),
+                    Some("repo:octocat/Hello-World fork:true")
+                );
+                copy_payload(
+                    serde_json::json!({
+                        "items": [
+                            {
+                                "full_name": "octocat/Hello-World",
+                                "visibility": "public",
+                                "fork": true
+                            }
+                        ]
+                    }),
+                    buffer,
+                )
+            }
             _ => Err(-1),
         }
     }

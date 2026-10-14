@@ -205,6 +205,28 @@ func TestServeHTTP_KnownDataEndpointUsesDIFCPipeline(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "resource labeling failed")
 }
 
+func TestServeHTTP_ListCommitsPassesSHAToGuard(t *testing.T) {
+	upstream := mockUpstream(t, http.StatusOK, []interface{}{})
+	defer upstream.Close()
+
+	g := &stubGuard{
+		labelResourceResult: publicResource(),
+		labelResourceOp:     difc.OperationRead,
+	}
+	s := newTestServerWithStub(t, upstream.URL, g, difc.EnforcementFilter)
+	h := &proxyHandler{server: s}
+
+	req := httptest.NewRequest(http.MethodGet, "/repos/org/repo/commits?sha=feature%2Fbranch", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "list_commits", g.labelResourceTool)
+	args, ok := g.labelResourceArgs.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "feature/branch", args["sha"])
+}
+
 func TestServeHTTP_UnknownRESTEndpointPassthroughWithEmptyLabels(t *testing.T) {
 	require.NoError(t, logger.CloseAllLoggers())
 
