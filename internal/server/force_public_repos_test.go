@@ -549,3 +549,103 @@ func startMockRepoVisibilityServer(t *testing.T, visibility string, private bool
 	t.Cleanup(srv.Close)
 	return srv
 }
+
+// TestOverrideToPublicScope_PerServerPolicy_UnrecognizedFormat_InjectsAllowOnly verifies
+// that a non-empty per-server policy map that parses to no policy (policy == nil)
+// and has no write-sink key receives an injected allow-only policy while
+// preserving the existing unrecognized keys.
+func TestOverrideToPublicScope_PerServerPolicy_UnrecognizedFormat_InjectsAllowOnly(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  map[string]interface{}
+	}{
+		{name: "unknown scalar key", raw: map[string]interface{}{"custom": "value"}},
+		{name: "unknown nested object", raw: map[string]interface{}{"custom": map[string]interface{}{"x": 1}}},
+		{name: "multiple unknown keys", raw: map[string]interface{}{"a": 1, "b": "two"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
+
+			cfg := &config.Config{
+				Servers: map[string]*config.ServerConfig{
+					"github": {Type: "http", GuardPolicies: tt.raw},
+				},
+			}
+			us := newMinimalUnifiedServerForGuardTest(cfg)
+
+			us.overrideToPublicScope("github")
+
+			allowOnly, ok := cfg.Servers["github"].GuardPolicies["allow-only"].(map[string]interface{})
+			require.True(t, ok, "allow-only should be injected for unrecognized policy format")
+			assert.Equal(t, "public", allowOnly["repos"])
+			assert.Equal(t, config.IntegrityNone, allowOnly["min-integrity"])
+			for k := range tt.raw {
+				assert.Contains(t, cfg.Servers["github"].GuardPolicies, k, "existing key %q should be preserved", k)
+			}
+		})
+	}
+}
+
+// TestOverrideToPublicScope_PerServerPolicy_NestedByServerID_Overrides verifies that
+// a policy nested under the server ID key is parsed and overridden to repos=public.
+func TestOverrideToPublicScope_PerServerPolicy_NestedByServerID_Overrides(t *testing.T) {
+	t.Setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
+
+	cfg := &config.Config{
+		Servers: map[string]*config.ServerConfig{
+			"github": {
+				Type: "http",
+				GuardPolicies: map[string]interface{}{
+					"github": map[string]interface{}{
+						"allow-only": map[string]interface{}{
+							"repos":         "all",
+							"min-integrity": "approved",
+						},
+					},
+				},
+			},
+		},
+	}
+	us := newMinimalUnifiedServerForGuardTest(cfg)
+
+	us.overrideToPublicScope("github")
+
+	policy, err := config.ParseServerGuardPolicy("github", cfg.Servers["github"].GuardPolicies)
+	require.NoError(t, err)
+	require.NotNil(t, policy)
+	require.NotNil(t, policy.AllowOnly)
+	assert.Equal(t, "public", policy.AllowOnly.Repos)
+	assert.Equal(t, "approved", policy.AllowOnly.MinIntegrity)
+}
+
+// TestOverrideToPublicScope_NilServerConfig_NoOp verifies a nil ServerConfig entry is ignored.
+func TestOverrideToPublicScope_NilServerConfig_NoOp(t *testing.T) {
+	t.Setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
+
+	cfg := &config.Config{Servers: map[string]*config.ServerConfig{"github": nil}}
+	us := newMinimalUnifiedServerForGuardTest(cfg)
+
+	assert.NotPanics(t, func() { us.overrideToPublicScope("github") })
+	assert.Nil(t, cfg.Servers["github"])
+}
+
+// TestOverrideToPublicScope_GlobalPolicy_PreservesIntegrity verifies the global
+// override only changes repos and leaves min-integrity intact.
+func TestOverrideToPublicScope_GlobalPolicy_PreservesIntegrity(t *testing.T) {
+	t.Setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
+
+	cfg := &config.Config{
+		Servers: map[string]*config.ServerConfig{"github": {Type: "http"}},
+		GuardPolicy: &config.GuardPolicy{
+			AllowOnly: &config.AllowOnlyPolicy{Repos: []interface{}{"o/r"}, MinIntegrity: config.IntegrityApproved},
+		},
+	}
+	us := newMinimalUnifiedServerForGuardTest(cfg)
+
+	us.overrideToPublicScope("github")
+
+	assert.Equal(t, "public", cfg.GuardPolicy.AllowOnly.Repos)
+	assert.Equal(t, config.IntegrityApproved, cfg.GuardPolicy.AllowOnly.MinIntegrity)
+}
