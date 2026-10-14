@@ -118,7 +118,7 @@ func (hm *HealthMonitor) handleErrorState(serverID string, state ServerState) {
 	_, err := GetOrLaunch(hm.launcher, serverID)
 	if err != nil {
 		failures = hm.consecutiveFailures.Increment(serverID)
-		logHealth.Printf("Restart failed for serverID=%s: consecutiveFailures=%d, err=%v", serverID, failures, err)
+		logHealth.Printf("Restart failed for serverID=%s: consecutiveFailures=%d", serverID, failures)
 		logger.LogError("backend", "Health check: restart failed for server %q: %v (attempt %d/%d)",
 			serverID, err, failures, maxConsecutiveRestartFailures)
 		if failures >= maxConsecutiveRestartFailures {
