@@ -177,7 +177,7 @@ Notes:
 - For user-authored objects that include `author_association`, response labeling starts from the author-association floor and then elevates with endorsement evidence.
 - For issue/PR/commit-style response objects, helper functions enforce explicit baseline `none` when no stronger integrity is present.
 - Response labeling is authoritative and may be more precise than coarse resource labels.
-- `pull_request_read` sub-method responses (e.g., `get_commits`, `get_files`, `get_reviews`, `get_review_comments`, `get_check_runs`) use PR-level resource labels from the tool call rather than per-item response labeling; the PR facts lookup (merge status, author association, fork lineage) provides the correct integrity bound for all PR sub-resources.
+- `pull_request_read` user-authored sub-method responses are labeled from each returned item's provenance: comments and reviews use their own author, and commits use their own commit author. File/diff content without author evidence fails closed at `none`; maintainer-controlled checks, status, and label metadata retain approved integrity.
 
 ---
 

@@ -78,6 +78,41 @@ pub fn label_response_items(
     let actual_response = extract_mcp_response(response);
 
     match tool_name {
+        tool_names::LIST_DISCUSSIONS
+        | tool_names::GET_DISCUSSION
+        | tool_names::GET_DISCUSSION_COMMENTS => {
+            let items = extract_items_slice(&actual_response, "discussions");
+            let (owner, repo, repo_full) = extract_repo_info(tool_args);
+            let secrecy: SharedLabels =
+                repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+            for item in limit_items_with_log(items, tool_name) {
+                let id = item
+                    .get(field_names::ID)
+                    .and_then(|value| {
+                        value
+                            .as_i64()
+                            .map(|number| number.to_string())
+                            .or_else(|| value.as_str().map(str::to_string))
+                    })
+                    .unwrap_or_else(|| UNKNOWN_LABEL_FALLBACK.to_string());
+                labeled_items.push(LabeledItem {
+                    data: item.clone(),
+                    labels: ResourceLabels {
+                        description: format!("discussion:{repo_full}#{id}"),
+                        secrecy: secrecy.clone(),
+                        integrity: user_authored_integrity(
+                            item,
+                            &repo_full,
+                            "discussion",
+                            &id,
+                            ctx,
+                        )
+                        .into(),
+                    },
+                });
+            }
+        }
+
         // === Security alerts - always private and reader-level ===
         tool_names::LIST_SECRET_SCANNING_ALERTS
         | tool_names::GET_SECRET_SCANNING_ALERT
@@ -178,17 +213,64 @@ pub fn label_response_items(
         | tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM
         | tool_names::PULL_REQUEST_READ
         | tool_names::GET_PULL_REQUEST => {
-            // For pull_request_read sub-methods that return non-PR objects (e.g.
-            // get_check_runs, get_commits, get_files, get_review_comments, get_reviews,
-            // get_comments, get_diff, get_status), skip per-item response labeling.
-            // The resource-level labels from tool_rules (which call
-            // get_pull_request_facts) provide correct PR-scoped integrity.
             let method = tool_args
                 .get(field_names::METHOD)
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            if is_non_get_read_sub_method(tool_name, tool_names::PULL_REQUEST_READ, method) {
-                // Fall through — use resource-level labels from tool_rules
+            if tool_name == tool_names::PULL_REQUEST_READ
+                && matches!(
+                    method,
+                    "get_comments" | "get_reviews" | "get_review_comments"
+                )
+            {
+                let items = extract_items_slice(&actual_response, "items");
+                let (owner, repo, repo_full) = extract_repo_info(tool_args);
+                let secrecy: SharedLabels =
+                    repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                for item in limit_items_with_log(items, tool_name) {
+                    let id = get_str_or(item, field_names::ID, UNKNOWN_LABEL_FALLBACK);
+                    labeled_items.push(LabeledItem {
+                        data: item.clone(),
+                        labels: ResourceLabels {
+                            description: format!("{method}:{repo_full}#{id}"),
+                            secrecy: secrecy.clone(),
+                            integrity: user_authored_integrity(item, &repo_full, method, id, ctx)
+                                .into(),
+                        },
+                    });
+                }
+            } else if tool_name == tool_names::PULL_REQUEST_READ && method == "get_commits" {
+                let items = extract_items_slice(&actual_response, "items");
+                let (owner, repo, repo_full) = extract_repo_info(tool_args);
+                let secrecy: SharedLabels =
+                    repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                let repo_private = repo_visibility_private_for_repo_id(&repo_full);
+                for item in limit_items_with_log(items, tool_name) {
+                    let sha = get_str_or(item, field_names::SHA, UNKNOWN_LABEL_FALLBACK);
+                    labeled_items.push(LabeledItem {
+                        data: item.clone(),
+                        labels: ResourceLabels {
+                            description: format!(
+                                "{}{}@{}",
+                                desc_prefix::COMMIT,
+                                repo_full,
+                                short_sha(sha)
+                            ),
+                            secrecy: secrecy.clone(),
+                            integrity: commit_integrity_with_visibility(
+                                item,
+                                &repo_full,
+                                repo_private,
+                                false,
+                                ctx,
+                            )
+                            .into(),
+                        },
+                    });
+                }
+            } else if is_non_get_read_sub_method(tool_name, tool_names::PULL_REQUEST_READ, method) {
+                // Path labeling supplies conservative defaults for the remaining
+                // dispatched methods.
             } else {
                 let items = extract_items_slice(&actual_response, "pull_requests");
 
@@ -559,6 +641,33 @@ mod tests {
             items[0].get("number").and_then(serde_json::Value::as_u64),
             Some(1)
         );
+    }
+
+    #[test]
+    fn discussion_singletons_use_their_own_author_for_rest_and_graphql() {
+        let ctx = PolicyContext {
+            trusted_users: vec!["dual-listed".to_string()],
+            blocked_users: vec!["dual-listed".to_string()],
+            ..Default::default()
+        };
+        let args = json!({"owner": "octocat", "repo": "hello-world"});
+        let discussion = json!({
+            "id": "D_kw",
+            "author": {"login": "dual-listed"},
+            "authorAssociation": "OWNER"
+        });
+
+        for response in [
+            discussion.clone(),
+            json!({"data": {"repository": {"discussion": discussion.clone()}}}),
+        ] {
+            let result = label_response_items(tool_names::GET_DISCUSSION, &args, &response, &ctx);
+            assert_eq!(result.len(), 1);
+            assert_eq!(
+                result[0].labels.integrity,
+                blocked_integrity("octocat/hello-world", &ctx)
+            );
+        }
     }
 
     #[test]

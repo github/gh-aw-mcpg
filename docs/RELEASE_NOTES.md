@@ -7,6 +7,7 @@
 - **MCP prompt retrieval is now guarded**: `prompts/get` now requires session initialization and passes through per-agent server authorization, per-server prompt allowlisting, guard initialization, coarse DIFC checks, response labeling/filtering, and propagate-mode label accumulation. Prompt responses can no longer bypass the reference monitor through direct backend forwarding.
 - **DIFC nil-label responses fail closed**: Unified MCP calls now fall back to the coarse access decision when a guard returns no fine-grained response labels. A coarse-denied read is withheld instead of returning the original backend payload; coarse-allowed responses and propagate-mode reads retain their existing behavior.
 - **Custom guard compatibility**: Custom and third-party guards that intentionally return no response labels can no longer rely on the unified server passing through data after a coarse denial. Guards that need partial results for coarse-denied reads must provide fine-grained response labels; otherwise callers receive the standard DIFC access error.
+- **Author-aware GitHub content integrity**: Discussion bodies/comments and dispatched issue/PR sub-resources now derive integrity from each item's own author or commit provenance. Blocked users take precedence over trusted-user and collaborator elevation, authorless file/diff content fails closed below writer integrity, and maintainer-controlled labels/checks/status metadata keeps its approved integrity.
 
 ## v0.3.18
 
