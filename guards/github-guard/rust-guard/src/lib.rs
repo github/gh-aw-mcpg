@@ -1177,6 +1177,55 @@ mod tests {
     }
 
     #[test]
+    fn mcp_text_envelope_top_level_array_skips_single_item_fallback() {
+        let input = LabelResponseInput {
+            tool_name: "custom_list".to_string(),
+            tool_args: json!({"owner": "org", "repo": "repo"}),
+            tool_result: json!({
+                "content": [{
+                    "type": "text",
+                    "text": r#"[{"id":1,"secret":"withhold-me"}]"#
+                }]
+            }),
+        };
+
+        let mut labeled_items = Vec::new();
+        let action = apply_singleton_fallback_if_needed(
+            &input,
+            &PolicyContext::default(),
+            &mut labeled_items,
+        );
+
+        assert!(matches!(action, FallbackAction::SkipLabeling));
+        assert!(labeled_items.is_empty());
+    }
+
+    #[test]
+    fn mcp_text_envelope_object_uses_single_item_fallback() {
+        let input = LabelResponseInput {
+            tool_name: "custom_read".to_string(),
+            tool_args: json!({"owner": "org", "repo": "repo"}),
+            tool_result: json!({
+                "content": [{
+                    "type": "text",
+                    "text": r#"{"id":1,"value":"labeled"}"#
+                }]
+            }),
+        };
+
+        let mut labeled_items = Vec::new();
+        let action = apply_singleton_fallback_if_needed(
+            &input,
+            &PolicyContext::default(),
+            &mut labeled_items,
+        );
+
+        assert!(matches!(action, FallbackAction::ContinueProcessing));
+        assert_eq!(labeled_items.len(), 1);
+        assert_eq!(labeled_items[0].data, input.tool_result);
+    }
+
+    #[test]
     fn plaintext_notification_mutations_keep_user_secrecy() {
         let ctx = PolicyContext::default();
         for (tool_name, tool_args) in [

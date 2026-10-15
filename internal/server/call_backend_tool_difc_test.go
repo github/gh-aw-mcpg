@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
@@ -83,6 +84,10 @@ func (g *difcTestGuard) LabelResponse(_ context.Context, _ string, _ interface{}
 // newBackendWithToolResponse creates an httptest.Server that responds to a
 // tools/call request with the supplied JSON response body.
 func newBackendWithToolResponse(t *testing.T, toolName string, toolResponse interface{}) *httptest.Server {
+	return newBackendWithToolResponseAndCounter(t, toolName, toolResponse, nil)
+}
+
+func newBackendWithToolResponseAndCounter(t *testing.T, toolName string, toolResponse interface{}, callCount *atomic.Int32) *httptest.Server {
 	t.Helper()
 	respBytes, err := json.Marshal(toolResponse)
 	require.NoError(t, err)
@@ -118,6 +123,9 @@ func newBackendWithToolResponse(t *testing.T, toolName string, toolResponse inte
 				},
 			})
 		case "tools/call":
+			if callCount != nil {
+				callCount.Add(1)
+			}
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"jsonrpc": "2.0", "id": req["id"],
 				"result": json.RawMessage(respBytes),
@@ -236,36 +244,104 @@ func TestCallBackendTool_Phase2_WriteOperationBlocked(t *testing.T) {
 		"error should mention DIFC Violation")
 }
 
-// TestCallBackendTool_Phase2_ReadOperationNotBlocked verifies that read operations
-// skip the coarse-grained block and proceed to the backend even when the coarse
-// check would have failed.
-func TestCallBackendTool_Phase2_ReadOperationNotBlocked(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
-
-	backend := newBackendWithToolResponse(t, "read_tool", defaultToolResponse)
-	defer backend.Close()
-
-	// The resource carries a restricted secrecy tag the agent does not have.
-	// A coarse READ check would normally fail, but per DIFC spec the gateway
-	// skips the coarse block for reads and does fine-grained filtering instead.
-	resource := difc.NewLabeledResource("read target")
-	resource.Secrecy.Label.Add(difc.Tag("private:some/repo"))
-
-	g := &difcTestGuard{
-		name:                "difc-phase2-read-guard",
-		labelResourceResult: resource,
-		labelResourceOp:     difc.OperationRead,
-		// LabelResponse returns nil so Phase 5 uses the coarse result (allowed for read fallback)
-		labelResponseResult: nil,
+// TestCallBackendTool_Phase2_ReadOperationNilLabelsFallsBackToCoarseDenial verifies
+// that reads proceed to the backend for fine-grained labeling but fail closed when
+// no response labels are available and the coarse check denied access.
+func TestCallBackendTool_Phase2_ReadOperationNilLabelsFallsBackToCoarseDenial(t *testing.T) {
+	tests := []struct {
+		name         string
+		mode         string
+		toolResponse interface{}
+		secret       string
+	}{
+		{
+			name: "content/filter",
+			mode: "filter",
+			toolResponse: map[string]interface{}{
+				"content": []map[string]interface{}{
+					{"type": "text", "text": `[{"id":1,"secret":"content-secret"}]`},
+				},
+				"isError": false,
+			},
+			secret: "content-secret",
+		},
+		{
+			name: "content/strict",
+			mode: "strict",
+			toolResponse: map[string]interface{}{
+				"content": []map[string]interface{}{
+					{"type": "text", "text": `[{"id":1,"secret":"content-secret"}]`},
+				},
+				"isError": false,
+			},
+			secret: "content-secret",
+		},
+		{
+			name: "structured content/filter",
+			mode: "filter",
+			toolResponse: map[string]interface{}{
+				"structuredContent": map[string]interface{}{
+					"value": "structured-secret",
+				},
+				"isError": false,
+			},
+			secret: "structured-secret",
+		},
+		{
+			name: "structured content/strict",
+			mode: "strict",
+			toolResponse: map[string]interface{}{
+				"structuredContent": map[string]interface{}{
+					"value": "structured-secret",
+				},
+				"isError": false,
+			},
+			secret: "structured-secret",
+		},
 	}
-	us := makeUnifiedWithGuard(t, "difc-phase2-read-type", g, backend, "filter")
 
-	result, _, err := us.callBackendTool(callCtx("session-p2r"), "test-server", "read_tool", nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require := require.New(t)
+			assert := assert.New(t)
+			var backendCalls atomic.Int32
 
-	// Should NOT be blocked — the read was forwarded to the backend.
-	require.NotNil(result)
-	assert.NoError(err, "read operation should not be blocked at the coarse-grained check")
+			backend := newBackendWithToolResponseAndCounter(t, "list_issues", tt.toolResponse, &backendCalls)
+			defer backend.Close()
+
+			// Match TestHandleWithDIFC_NoFineGrainedLabels_CoarseBlocked so the
+			// proxy and unified routes pin the same coarse-denied pre-state.
+			resource := difc.NewLabeledResource("private-resource")
+			resource.Secrecy.Label.Add(difc.Tag("private:test-org/test-repo"))
+
+			g := &difcTestGuard{
+				name:                "difc-phase2-read-guard-" + tt.name,
+				labelResourceResult: resource,
+				labelResourceOp:     difc.OperationRead,
+				labelResponseResult: nil,
+			}
+			us := makeUnifiedWithGuard(t, "difc-phase2-read-type-"+tt.name, g, backend, tt.mode)
+
+			result, data, err := us.callBackendTool(
+				callCtx("session-p2r-"+tt.name),
+				"test-server",
+				"list_issues",
+				map[string]interface{}{"owner": "org", "repo": "repo"},
+			)
+
+			assert.Equal(int32(1), backendCalls.Load(), "read should reach the backend before falling back to the coarse result")
+			require.NotNil(result)
+			assert.True(result.IsError)
+			assert.Nil(data)
+			require.Error(err)
+			require.ErrorContains(err, "DIFC Violation:")
+
+			resultJSON, marshalErr := json.Marshal(result)
+			require.NoError(marshalErr)
+			assert.NotContains(string(resultJSON), tt.secret)
+			assert.NotContains(err.Error(), tt.secret)
+		})
+	}
 }
 
 // ─── Phase 3: Backend connectivity ───────────────────────────────────────────
@@ -522,6 +598,10 @@ func TestCallBackendTool_Phase5_NilLabeledData_PassesBackendResult(t *testing.T)
 	require.NoError(err)
 	assert.False(result.IsError)
 	assert.NotNil(data, "backend result should be passed through when LabelResponse returns nil")
+	require.Len(result.Content, 1)
+	text, ok := result.Content[0].(*sdk.TextContent)
+	require.True(ok)
+	assert.Equal("tool result", text.Text)
 }
 
 // TestCallBackendTool_Phase5_FilterMode_AllItemsFiltered_NoticePresent verifies that
@@ -750,9 +830,9 @@ func TestCallBackendTool_Phase5_FilterMode_ListToolSingleItemFiltered_NoticeNotE
 
 // ─── Phase 6: Label accumulation ─────────────────────────────────────────────
 
-// TestCallBackendTool_Phase6_PropagateModeAccumulatesLabels verifies that in
-// propagate mode, labels from the resource/response are accumulated onto the
-// agent after a read operation.
+// TestCallBackendTool_Phase6_PropagateModeAccumulatesLabels verifies that a
+// coarse secrecy mismatch with nil response labels still passes in propagate
+// mode and accumulates the resource labels onto the agent.
 func TestCallBackendTool_Phase6_PropagateModeAccumulatesLabels(t *testing.T) {
 	require := require.New(t)
 	assert := assert.New(t)

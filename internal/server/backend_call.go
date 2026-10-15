@@ -468,7 +468,23 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 	if labeledData != nil {
 		finalResult = filterResult.FinalResult
 	} else {
-		// No fine-grained labeling - use original backend result
+		// No fine-grained labeling - fall back to the coarse result.
+		if !pre.EvalResult.IsAllowed() {
+			denied := &guard.PipelineAccessDenied{
+				EvalResult:  pre.EvalResult,
+				Resource:    pre.Resource,
+				AgentLabels: pre.AgentLabels,
+			}
+			detailedErr := difc.FormatViolationError(
+				pre.EvalResult,
+				pre.AgentLabels.Secrecy,
+				pre.AgentLabels.Integrity,
+				pre.Resource,
+			)
+			logCoarseDIFCDenial(ctx, serverID, toolName, denied)
+			httpStatusCode = 403
+			return mcp.NewErrorCallToolResult(detailedErr)
+		}
 		finalResult = backendResult
 	}
 

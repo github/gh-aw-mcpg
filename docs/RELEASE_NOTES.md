@@ -1,5 +1,12 @@
 # Release Notes
 
+## Unreleased
+
+### 🔒 Security
+
+- **DIFC nil-label responses fail closed**: Unified MCP calls now fall back to the coarse access decision when a guard returns no fine-grained response labels. A coarse-denied read is withheld instead of returning the original backend payload; coarse-allowed responses and propagate-mode reads retain their existing behavior.
+- **Custom guard compatibility**: Custom and third-party guards that intentionally return no response labels can no longer rely on the unified server passing through data after a coarse denial. Guards that need partial results for coarse-denied reads must provide fine-grained response labels; otherwise callers receive the standard DIFC access error.
+
 ## v0.3.18
 
 This release focuses on **hardening the WASM guard subsystem**, improving code quality through targeted refactoring, and expanding test coverage for the Rust guard and collaborator permission packages.
