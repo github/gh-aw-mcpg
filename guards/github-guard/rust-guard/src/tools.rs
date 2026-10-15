@@ -262,15 +262,24 @@ mod tests {
     /// `labels/tool_rules.rs`, ignoring line comments.
     fn repo_scoped_write_arm_tools() -> Vec<String> {
         const TOOL_RULES_SRC: &str = include_str!("labels/tool_rules.rs");
+        const CONSTANTS_SRC: &str = include_str!("labels/constants.rs");
+        repo_scoped_write_arm_tools_from_sources(TOOL_RULES_SRC, CONSTANTS_SRC)
+    }
+
+    fn repo_scoped_write_arm_tools_from_sources(
+        tool_rules_src: &str,
+        constants_src: &str,
+    ) -> Vec<String> {
         const MARKER: &str = "// === Repo-scoped write operations ===";
 
-        let start = TOOL_RULES_SRC
+        let start = tool_rules_src
             .find(MARKER)
             .expect("tool_rules.rs must contain the repo-scoped write operations marker");
-        let block = &TOOL_RULES_SRC[start + MARKER.len()..];
+        let block = &tool_rules_src[start + MARKER.len()..];
         let end = block
             .find("=> {")
             .expect("repo-scoped write operations arm must end with `=> {`");
+        let constants = tool_name_constants(constants_src);
 
         let mut tools = Vec::new();
         for line in block[..end].lines() {
@@ -279,18 +288,72 @@ mod tests {
                 None => line,
             };
             for part in code.split('"').skip(1).step_by(2) {
-                // Guard against the parser picking up anything that is not a tool name.
+                push_parsed_tool_name(&mut tools, part);
+            }
+
+            let mut remaining = code;
+            while let Some((_, after_reference)) = remaining.split_once("tool_names::") {
+                let constant_name: String = after_reference
+                    .chars()
+                    .take_while(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || *c == '_')
+                    .collect();
                 assert!(
-                    !part.is_empty()
-                        && part
-                            .chars()
-                            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'),
-                    "unexpected token `{part}` parsed from the repo-scoped write operations arm"
+                    !constant_name.is_empty(),
+                    "missing constant name after `tool_names::` in repo-scoped write arm"
                 );
-                tools.push(part.to_string());
+                let tool_name = constants.get(&constant_name).unwrap_or_else(|| {
+                    panic!("tool_names::{constant_name} is missing from labels/constants.rs")
+                });
+                push_parsed_tool_name(&mut tools, tool_name);
+                remaining = &after_reference[constant_name.len()..];
             }
         }
         tools
+    }
+
+    fn tool_name_constants(constants_src: &str) -> std::collections::HashMap<String, String> {
+        let module = constants_src
+            .split_once("pub mod tool_names {")
+            .expect("constants.rs must contain the tool_names module")
+            .1;
+
+        let mut constants = std::collections::HashMap::new();
+        let mut declaration = String::new();
+        for line in module.lines().take_while(|line| line.trim() != "}") {
+            if declaration.is_empty() && !line.trim_start().starts_with("pub const ") {
+                continue;
+            }
+            declaration.push_str(line);
+            if !declaration.contains(';') {
+                declaration.push('\n');
+                continue;
+            }
+
+            let (name, value) = declaration
+                .trim()
+                .strip_prefix("pub const ")
+                .and_then(|declaration| declaration.split_once(':'))
+                .and_then(|(name, declaration)| {
+                    declaration.split_once('=').map(|(_, value)| (name, value))
+                })
+                .expect("tool name constant must have a name, type, and value");
+            if let Some(value) = value.split('"').nth(1) {
+                constants.insert(name.trim().to_string(), value.to_string());
+            }
+            declaration.clear();
+        }
+        constants
+    }
+
+    fn push_parsed_tool_name(tools: &mut Vec<String>, tool_name: &str) {
+        assert!(
+            !tool_name.is_empty()
+                && tool_name
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'),
+            "unexpected token `{tool_name}` parsed from the repo-scoped write operations arm"
+        );
+        tools.push(tool_name.to_string());
     }
 
     #[test]
@@ -308,6 +371,28 @@ mod tests {
                  a write/read-write source bucket in tools.rs"
             );
         }
+    }
+
+    #[test]
+    fn repo_scoped_write_arm_parser_keeps_literals_and_resolves_wrapped_constants() {
+        let tools = repo_scoped_write_arm_tools_from_sources(
+            r#"
+            // === Repo-scoped write operations ===
+            "literal_tool"
+            | tool_names::WRAPPED_TOOL
+            | tool_names::INLINE_TOOL => {
+            }
+            "#,
+            r#"
+            pub mod tool_names {
+                pub const WRAPPED_TOOL: &str =
+                    "wrapped_tool";
+                pub const INLINE_TOOL: &str = "inline_tool";
+            }
+            "#,
+        );
+
+        assert_eq!(tools, ["literal_tool", "wrapped_tool", "inline_tool"]);
     }
 
     fn write_source_buckets() -> [(&'static str, &'static [&'static str]); 7] {
