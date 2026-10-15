@@ -315,8 +315,8 @@ pub fn apply_tool_labels(
         "issue_dependency_write"
         | "issue_dependency_write_ff_issue_dependencies"
         | "pin_issue"
-        | "transfer_issue"
-        | "unpin_issue" => {
+        | tool_names::TRANSFER_ISSUE
+        | tool_names::UNPIN_ISSUE => {
             if !owner.is_empty() && !repo.is_empty() {
                 if let Some(issue_num) =
                     extract_number_as_string(tool_args, field_names::ISSUE_NUMBER)
@@ -750,17 +750,17 @@ pub fn apply_tool_labels(
         | tool_names::CREATE_DISCUSSION // gh discussion create — creates a discussion in a repository
         | tool_names::EDIT_DISCUSSION // gh discussion edit   — edits title/body/labels of a discussion
         // Granular issue mutation
-        | "close_issue"
-        | "reopen_issue"
-        | "lock_issue"
-        | "unlock_issue"
-        | "update_issue_assignees"
-        | "update_issue_body"
-        | "update_issue_labels"
-        | "update_issue_milestone"
-        | "update_issue_state"
-        | "update_issue_title"
-        | "update_issue_type"
+        | tool_names::CLOSE_ISSUE
+        | tool_names::REOPEN_ISSUE
+        | tool_names::LOCK_ISSUE
+        | tool_names::UNLOCK_ISSUE
+        | tool_names::UPDATE_ISSUE_ASSIGNEES
+        | tool_names::UPDATE_ISSUE_BODY
+        | tool_names::UPDATE_ISSUE_LABELS
+        | tool_names::UPDATE_ISSUE_MILESTONE
+        | tool_names::UPDATE_ISSUE_STATE
+        | tool_names::UPDATE_ISSUE_TITLE
+        | tool_names::UPDATE_ISSUE_TYPE
         | "set_issue_fields"
         // Sub-issues
         | "add_sub_issue"
@@ -779,7 +779,7 @@ pub fn apply_tool_labels(
         | "mark_pull_request_as_draft"
         | "mark_pull_request_as_ready_for_review"
         | "lock_pull_request"
-        | "unlock_pull_request"
+        | tool_names::UNLOCK_PULL_REQUEST
         | "update_pull_request_body"
         | "update_pull_request_draft_state"
         | "update_pull_request_state"
@@ -820,7 +820,7 @@ pub fn apply_tool_labels(
         | "revert_pull_request"
         // Pre-emptive: issue deletion, issue comments, repository deletion, releases
         | tool_names::DELETE_ISSUE
-        | "update_issue_comment"
+        | tool_names::UPDATE_ISSUE_COMMENT
         | "delete_issue_comment"
         | tool_names::DELETE_REPOSITORY
         | tool_names::CREATE_RELEASE

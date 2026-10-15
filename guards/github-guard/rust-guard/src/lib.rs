@@ -1157,7 +1157,7 @@ mod tests {
                 "owner": "org",
                 "repo": "repo",
                 "issue_number": "7",
-                "method": "get_comments"
+                "method": labels::constants::method_values::GET_COMMENTS
             }),
             tool_result: json!([
                 {"id": 1, "body": "first"},

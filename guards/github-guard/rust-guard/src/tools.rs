@@ -51,7 +51,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     "archive_project_item",     // gh project item-archive — archives a Projects v2 item
     tool_names::ARCHIVE_REPOSITORY, // gh repo archive — blocked: repo settings change unsupported
     tool_names::CANCEL_WORKFLOW_RUN, // gh run cancel — cancels an in-progress workflow run
-    "close_issue",              // gh issue close
+    tool_names::CLOSE_ISSUE,    // gh issue close
     "close_pull_request",       // gh pr close
     "copy_project",             // gh project copy — creates a new Projects v2 board
     tool_names::CREATE_CODESPACE, // gh codespace create — POST /user/codespaces
@@ -85,7 +85,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     tool_names::ENABLE_WORKFLOW, // gh workflow enable
     tool_names::FORCE_CANCEL_WORKFLOW_RUN, // gh run cancel --force — force-cancels a workflow run
     "link_project", // gh project link — links a Projects v2 board to a repository or team
-    "lock_issue",   // gh issue lock
+    tool_names::LOCK_ISSUE, // gh issue lock
     "lock_pull_request", // gh pr lock
     "mark_project_template", // gh project mark-template — GraphQL markProjectV2AsTemplate
     "mark_pull_request_as_draft", // gh pr ready --undo (convert back to draft)
@@ -94,7 +94,7 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     "rebuild_codespace", // gh codespace rebuild — Codespaces session RebuildContainer RPC
     tool_names::RENAME_GIST, // gh gist rename — POST /gists/{gist_id} (renames a gist file)
     tool_names::RENAME_REPOSITORY, // gh repo rename — blocked: breaks clone URLs and integrations
-    "reopen_issue", // gh issue reopen
+    tool_names::REOPEN_ISSUE, // gh issue reopen
     "reopen_pull_request", // gh pr reopen
     tool_names::RERUN_FAILED_JOBS, // gh run rerun --failed — reruns only failed jobs
     tool_names::RERUN_WORKFLOW_JOB, // gh run rerun --job — reruns a specific job
@@ -104,14 +104,14 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
     tool_names::SET_VARIABLE, // gh variable set
     tool_names::STOP_CODESPACE, // gh codespace stop — POST /user|/orgs/.../codespaces/.../stop
     tool_names::SYNC_FORK, // gh repo sync
-    "transfer_issue", // gh issue transfer
+    tool_names::TRANSFER_ISSUE, // gh issue transfer
     "unarchive_project_item", // gh project item-archive --undo — unarchives a Projects v2 item
     tool_names::UNARCHIVE_REPOSITORY, // gh repo unarchive — blocked: symmetric to archive_repository
     "unlink_project",                 // gh project unlink — unlinks a Projects v2 board
-    "unlock_issue",                   // gh issue unlock
-    "unlock_pull_request",            // gh pr unlock
+    tool_names::UNLOCK_ISSUE,         // gh issue unlock
+    tool_names::UNLOCK_PULL_REQUEST,  // gh pr unlock
     "unmark_project_template", // gh project mark-template --undo — GraphQL unmarkProjectV2AsTemplate
-    "unpin_issue",             // gh issue unpin
+    tool_names::UNPIN_ISSUE,   // gh issue unpin
     tool_names::UPDATE_CODESPACE, // gh codespace edit — PATCH /user/codespaces/{codespace_name}
     "update_codespace_port_visibility", // gh codespace ports visibility — session UpdatePortVisibility RPC
     "update_project", // gh project close/edit/reopen — updates Projects v2 metadata/status
@@ -158,14 +158,14 @@ pub const READ_WRITE_OPERATIONS: &[&str] = &[
     "submit_pending_pull_request_review", // POST /repos/.../pulls/{number}/reviews/{id}/events
     "unresolve_review_thread",            // PUT  /graphql — unresolveReviewThread
     "update_gist",
-    "update_issue_assignees", // PATCH — modifies issue assignees
-    "update_issue_body",      // PATCH — modifies issue body
-    "update_issue_comment",   // PATCH /repos/.../issues/comments/{id}
-    "update_issue_labels",    // PATCH — modifies issue labels
-    "update_issue_milestone", // PATCH — modifies issue milestone
-    "update_issue_state",     // PATCH — opens or closes an issue
-    "update_issue_title",     // PATCH — modifies issue title
-    "update_issue_type",      // PATCH — modifies issue type
+    tool_names::UPDATE_ISSUE_ASSIGNEES, // PATCH — modifies issue assignees
+    tool_names::UPDATE_ISSUE_BODY,      // PATCH — modifies issue body
+    tool_names::UPDATE_ISSUE_COMMENT,   // PATCH /repos/.../issues/comments/{id}
+    tool_names::UPDATE_ISSUE_LABELS,    // PATCH — modifies issue labels
+    tool_names::UPDATE_ISSUE_MILESTONE, // PATCH — modifies issue milestone
+    tool_names::UPDATE_ISSUE_STATE,     // PATCH — opens or closes an issue
+    tool_names::UPDATE_ISSUE_TITLE,     // PATCH — modifies issue title
+    tool_names::UPDATE_ISSUE_TYPE,      // PATCH — modifies issue type
     "update_pull_request",
     "update_pull_request_body", // PATCH — modifies PR body
     "update_pull_request_branch",
@@ -262,15 +262,24 @@ mod tests {
     /// `labels/tool_rules.rs`, ignoring line comments.
     fn repo_scoped_write_arm_tools() -> Vec<String> {
         const TOOL_RULES_SRC: &str = include_str!("labels/tool_rules.rs");
+        const CONSTANTS_SRC: &str = include_str!("labels/constants.rs");
+        repo_scoped_write_arm_tools_from_sources(TOOL_RULES_SRC, CONSTANTS_SRC)
+    }
+
+    fn repo_scoped_write_arm_tools_from_sources(
+        tool_rules_src: &str,
+        constants_src: &str,
+    ) -> Vec<String> {
         const MARKER: &str = "// === Repo-scoped write operations ===";
 
-        let start = TOOL_RULES_SRC
+        let start = tool_rules_src
             .find(MARKER)
             .expect("tool_rules.rs must contain the repo-scoped write operations marker");
-        let block = &TOOL_RULES_SRC[start + MARKER.len()..];
+        let block = &tool_rules_src[start + MARKER.len()..];
         let end = block
             .find("=> {")
             .expect("repo-scoped write operations arm must end with `=> {`");
+        let constants = tool_name_constants(constants_src);
 
         let mut tools = Vec::new();
         for line in block[..end].lines() {
@@ -279,18 +288,72 @@ mod tests {
                 None => line,
             };
             for part in code.split('"').skip(1).step_by(2) {
-                // Guard against the parser picking up anything that is not a tool name.
+                push_parsed_tool_name(&mut tools, part);
+            }
+
+            let mut remaining = code;
+            while let Some((_, after_reference)) = remaining.split_once("tool_names::") {
+                let constant_name: String = after_reference
+                    .chars()
+                    .take_while(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || *c == '_')
+                    .collect();
                 assert!(
-                    !part.is_empty()
-                        && part
-                            .chars()
-                            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'),
-                    "unexpected token `{part}` parsed from the repo-scoped write operations arm"
+                    !constant_name.is_empty(),
+                    "missing constant name after `tool_names::` in repo-scoped write arm"
                 );
-                tools.push(part.to_string());
+                let tool_name = constants.get(&constant_name).unwrap_or_else(|| {
+                    panic!("tool_names::{constant_name} is missing from labels/constants.rs")
+                });
+                push_parsed_tool_name(&mut tools, tool_name);
+                remaining = &after_reference[constant_name.len()..];
             }
         }
         tools
+    }
+
+    fn tool_name_constants(constants_src: &str) -> std::collections::HashMap<String, String> {
+        let module = constants_src
+            .split_once("pub mod tool_names {")
+            .expect("constants.rs must contain the tool_names module")
+            .1;
+
+        let mut constants = std::collections::HashMap::new();
+        let mut declaration = String::new();
+        for line in module.lines().take_while(|line| line.trim() != "}") {
+            if declaration.is_empty() && !line.trim_start().starts_with("pub const ") {
+                continue;
+            }
+            declaration.push_str(line);
+            if !declaration.contains(';') {
+                declaration.push('\n');
+                continue;
+            }
+
+            let (name, value) = declaration
+                .trim()
+                .strip_prefix("pub const ")
+                .and_then(|declaration| declaration.split_once(':'))
+                .and_then(|(name, declaration)| {
+                    declaration.split_once('=').map(|(_, value)| (name, value))
+                })
+                .expect("tool name constant must have a name, type, and value");
+            if let Some(value) = value.split('"').nth(1) {
+                constants.insert(name.trim().to_string(), value.to_string());
+            }
+            declaration.clear();
+        }
+        constants
+    }
+
+    fn push_parsed_tool_name(tools: &mut Vec<String>, tool_name: &str) {
+        assert!(
+            !tool_name.is_empty()
+                && tool_name
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'),
+            "unexpected token `{tool_name}` parsed from the repo-scoped write operations arm"
+        );
+        tools.push(tool_name.to_string());
     }
 
     #[test]
@@ -308,6 +371,28 @@ mod tests {
                  a write/read-write source bucket in tools.rs"
             );
         }
+    }
+
+    #[test]
+    fn repo_scoped_write_arm_parser_keeps_literals_and_resolves_wrapped_constants() {
+        let tools = repo_scoped_write_arm_tools_from_sources(
+            r#"
+            // === Repo-scoped write operations ===
+            "literal_tool"
+            | tool_names::WRAPPED_TOOL
+            | tool_names::INLINE_TOOL => {
+            }
+            "#,
+            r#"
+            pub mod tool_names {
+                pub const WRAPPED_TOOL: &str =
+                    "wrapped_tool";
+                pub const INLINE_TOOL: &str = "inline_tool";
+            }
+            "#,
+        );
+
+        assert_eq!(tools, ["literal_tool", "wrapped_tool", "inline_tool"]);
     }
 
     fn write_source_buckets() -> [(&'static str, &'static [&'static str]); 7] {

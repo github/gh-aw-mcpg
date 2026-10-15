@@ -37,9 +37,10 @@ pub mod policy_integrity {
 #[cfg(test)]
 mod tests {
     use super::{
-        desc_default, desc_prefix, field_names, policy_integrity, tool_names, ORG_FIELD_ALIASES,
-        SENSITIVE_PATH_PREFIXES, UI_GET_ACCESS_SENSITIVE_METHODS, UI_GET_GITHUB_APPROVED_METHODS,
-        UI_GET_REPO_SCOPED_METHODS, UNKNOWN_LABEL_FALLBACK, URL_FALLBACK_FIELDS,
+        desc_default, desc_prefix, field_names, method_values, policy_integrity, tool_names,
+        ORG_FIELD_ALIASES, SENSITIVE_PATH_PREFIXES, UI_GET_ACCESS_SENSITIVE_METHODS,
+        UI_GET_GITHUB_APPROVED_METHODS, UI_GET_REPO_SCOPED_METHODS, UNKNOWN_LABEL_FALLBACK,
+        URL_FALLBACK_FIELDS,
     };
 
     /// Ensures ORDER_LOW_TO_HIGH_PIPED stays in sync with ORDER_HIGH_TO_LOW.
@@ -106,6 +107,27 @@ mod tests {
             ORG_FIELD_ALIASES,
             &["org", "org_name", "organization", "organization_name"]
         );
+    }
+
+    #[test]
+    fn method_and_issue_mutation_constants_match_canonical_values() {
+        assert_eq!(method_values::GET, "get");
+        assert_eq!(method_values::GET_COMMENTS, "get_comments");
+        assert_eq!(tool_names::CLOSE_ISSUE, "close_issue");
+        assert_eq!(tool_names::REOPEN_ISSUE, "reopen_issue");
+        assert_eq!(tool_names::LOCK_ISSUE, "lock_issue");
+        assert_eq!(tool_names::UNLOCK_ISSUE, "unlock_issue");
+        assert_eq!(tool_names::UNLOCK_PULL_REQUEST, "unlock_pull_request");
+        assert_eq!(tool_names::TRANSFER_ISSUE, "transfer_issue");
+        assert_eq!(tool_names::UNPIN_ISSUE, "unpin_issue");
+        assert_eq!(tool_names::UPDATE_ISSUE_ASSIGNEES, "update_issue_assignees");
+        assert_eq!(tool_names::UPDATE_ISSUE_BODY, "update_issue_body");
+        assert_eq!(tool_names::UPDATE_ISSUE_COMMENT, "update_issue_comment");
+        assert_eq!(tool_names::UPDATE_ISSUE_LABELS, "update_issue_labels");
+        assert_eq!(tool_names::UPDATE_ISSUE_MILESTONE, "update_issue_milestone");
+        assert_eq!(tool_names::UPDATE_ISSUE_STATE, "update_issue_state");
+        assert_eq!(tool_names::UPDATE_ISSUE_TITLE, "update_issue_title");
+        assert_eq!(tool_names::UPDATE_ISSUE_TYPE, "update_issue_type");
     }
 
     #[test]
@@ -288,6 +310,12 @@ pub mod field_names {
     pub const TYPE: &str = "type";
 }
 
+/// Canonical method values for read-style dispatch tools.
+pub mod method_values {
+    pub const GET: &str = "get";
+    pub const GET_COMMENTS: &str = "get_comments";
+}
+
 /// Fallback identifier used in labels when a response item lacks an expected field.
 pub const UNKNOWN_LABEL_FALLBACK: &str = "unknown";
 
@@ -370,6 +398,21 @@ pub mod tool_names {
     pub const GET_PULL_REQUEST: &str = "get_pull_request";
     pub const ISSUE_READ: &str = "issue_read";
     pub const GET_ISSUE: &str = "get_issue";
+    pub const CLOSE_ISSUE: &str = "close_issue";
+    pub const REOPEN_ISSUE: &str = "reopen_issue";
+    pub const LOCK_ISSUE: &str = "lock_issue";
+    pub const UNLOCK_ISSUE: &str = "unlock_issue";
+    pub const UNLOCK_PULL_REQUEST: &str = "unlock_pull_request";
+    pub const TRANSFER_ISSUE: &str = "transfer_issue";
+    pub const UNPIN_ISSUE: &str = "unpin_issue";
+    pub const UPDATE_ISSUE_ASSIGNEES: &str = "update_issue_assignees";
+    pub const UPDATE_ISSUE_BODY: &str = "update_issue_body";
+    pub const UPDATE_ISSUE_COMMENT: &str = "update_issue_comment";
+    pub const UPDATE_ISSUE_LABELS: &str = "update_issue_labels";
+    pub const UPDATE_ISSUE_MILESTONE: &str = "update_issue_milestone";
+    pub const UPDATE_ISSUE_STATE: &str = "update_issue_state";
+    pub const UPDATE_ISSUE_TITLE: &str = "update_issue_title";
+    pub const UPDATE_ISSUE_TYPE: &str = "update_issue_type";
     pub const LIST_PULL_REQUESTS: &str = "list_pull_requests";
     pub const LIST_PULL_REQUESTS_FF_FIELDS_PARAM: &str = "list_pull_requests_ff_fields_param";
     pub const GET_FILE_CONTENTS: &str = "get_file_contents";
