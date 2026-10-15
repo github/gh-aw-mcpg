@@ -230,6 +230,12 @@ Non-absolute entries and the filesystem root (`/`) are ignored. When the resulti
   - Use `["*"]` (wildcard) to allow all tools (default behavior when field is omitted)
   - Example: `["get_file_contents", "search_code"]` (only these tools are accessible)
 
+- **`prompts`** (optional): List of prompt names to allow for this server
+  - Enforced at runtime: prompts not in this list are hidden from `prompts/list` responses and rejected if invoked via `prompts/get`
+  - Use `["*"]` (wildcard) to allow all prompts (default behavior when field is omitted)
+  - Prompt retrieval runs through session initialization, per-agent server authorization, and the configured DIFC guard pipeline
+  - Example: `["assign_coding_agent", "issue_to_fix_workflow"]`
+
 - **`tool_response_filters`** (optional): Per-tool jq expressions that transform tool response data before it is returned to the agent and before large-payload preview/schema processing runs
   - Map key: tool name; map value: jq expression string
   - Expressions are validated at startup (compile check); invalid jq causes startup/config validation failure

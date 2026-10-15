@@ -25,7 +25,8 @@ func TestConvertStdinServerConfig_StdioServer(t *testing.T) {
 			"PASSTHROUGH": "",
 			"ANOTHER_VAR": "abc",
 		},
-		Tools: []string{"tool1", "tool2"},
+		Tools:   []string{"tool1", "tool2"},
+		Prompts: []string{"prompt1", "prompt2"},
 	}
 
 	result, err := convertStdinServerConfig("test-server", server, nil)
@@ -69,6 +70,7 @@ func TestConvertStdinServerConfig_StdioServer(t *testing.T) {
 
 	// Check tools
 	assert.Equal([]string{"tool1", "tool2"}, result.Tools)
+	assert.Equal([]string{"prompt1", "prompt2"}, result.Prompts)
 }
 
 // TestConvertStdinServerConfig_HTTPServer tests HTTP server conversion.
@@ -83,7 +85,8 @@ func TestConvertStdinServerConfig_HTTPServer(t *testing.T) {
 			"Authorization": "******",
 			"X-Custom":      "value",
 		},
-		Tools: []string{"search", "fetch"},
+		Tools:   []string{"search", "fetch"},
+		Prompts: []string{"summarize"},
 	}
 
 	result, err := convertStdinServerConfig("http-server", server, nil)
@@ -95,6 +98,7 @@ func TestConvertStdinServerConfig_HTTPServer(t *testing.T) {
 	assert.Equal("******", result.Headers["Authorization"])
 	assert.Equal("value", result.Headers["X-Custom"])
 	assert.Equal([]string{"search", "fetch"}, result.Tools)
+	assert.Equal([]string{"summarize"}, result.Prompts)
 
 	// HTTP servers should not have Command or Args
 	assert.Empty(result.Command)

@@ -455,6 +455,21 @@ func (us *UnifiedServer) registerPromptsFromBackend(ctx context.Context, serverI
 		return nil
 	}
 
+	if allowedSet, ok := us.allowedPromptSets[serverID]; ok {
+		n := 0
+		for _, prompt := range listResult.Prompts {
+			if allowedSet[prompt.Name] {
+				listResult.Prompts[n] = prompt
+				n++
+			}
+		}
+		if n < len(listResult.Prompts) {
+			logger.LogInfo("backend", "[allowed-prompts] Filtered %d prompts from %s: keeping %d of %d",
+				len(listResult.Prompts)-n, serverID, n, len(listResult.Prompts))
+		}
+		listResult.Prompts = listResult.Prompts[:n]
+	}
+
 	// Register each prompt with a prefixed name so front-end clients can
 	// distinguish prompts from different backends.
 	promptNames := make([]string, 0, len(listResult.Prompts))
@@ -474,15 +489,17 @@ func (us *UnifiedServer) registerPromptsFromBackend(ctx context.Context, serverI
 
 		us.server.AddPrompt(sdkPrompt, func(ctx context.Context, req *sdk.GetPromptRequest) (*sdk.GetPromptResult, error) {
 			sessionID := us.getSessionID(ctx)
-			params := map[string]interface{}{
-				"name":      promptNameCopy,
-				"arguments": req.Params.Arguments,
+			if err := us.requireSession(ctx); err != nil {
+				logger.LogError("client", "MCP prompt call failed: session not initialized, session=%s, prompt=%s",
+					util.FormatSessionIDForLog(sessionID), promptNameCopy)
+				return nil, err
 			}
-			result, err := executeBackendRequest[sdk.GetPromptResult](ctx, us.launcher, serverIDCopy, sessionID, "prompts/get", params)
+
+			result, err := us.callBackendPrompt(ctx, serverIDCopy, promptNameCopy, req.Params.Arguments)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get prompt %s from backend %s: %w", promptNameCopy, serverIDCopy, err)
 			}
-			return &result, nil
+			return result, nil
 		})
 
 		logUnified.Printf("Registered prompt: %s___%s", serverID, promptNameCopy)
