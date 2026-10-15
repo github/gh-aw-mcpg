@@ -109,6 +109,10 @@ GITHUB_PERSONAL_ACCESS_TOKEN = ""  # Pass through from host
 # tools = ["*"]                    # Allow all tools (default)
 # tools = ["read_file", "list_files"]  # Allow specific tools only
 
+# Optional: Prompt filtering
+# prompts = ["*"]                  # Allow all prompts (default)
+# prompts = ["summarize", "translate"] # Allow specific prompts only
+
 # Optional: Per-tool response filters (jq expressions)
 # Transforms tool response payloads before they are returned and before large-payload
 # preview/schema processing runs.

@@ -345,6 +345,9 @@ type ServerConfig struct {
 	// Tools is an optional list of tools to filter/expose
 	Tools []string `toml:"tools" json:"tools,omitempty"`
 
+	// Prompts is an optional list of prompts to filter/expose.
+	Prompts []string `toml:"prompts" json:"prompts,omitempty"`
+
 	// ToolResponseFilters configures per-tool jq expressions that transform tool
 	// response data before it is returned to the agent and before large-payload
 	// preview/schema processing runs.

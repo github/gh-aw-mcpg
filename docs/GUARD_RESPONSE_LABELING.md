@@ -1,6 +1,6 @@
 # Guard Response Labeling
 
-This document describes how guards label responses for DIFC (Decentralized Information Flow Control) enforcement in the MCP Gateway.
+This document describes how guards label responses for DIFC (Decentralized Information Flow Control) enforcement in the MCP Gateway. The same reference-monitor phases mediate both `tools/call` and `prompts/get`; prompt names are passed to `LabelResource()` and `LabelResponse()` as the guarded operation name. When a prompt guard returns collection labels, the collection is interpreted as labels for the prompt's `messages` array and inaccessible messages are removed or cause the response to be blocked according to the active enforcement mode.
 
 ## DIFC Label Rules
 

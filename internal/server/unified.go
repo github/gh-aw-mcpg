@@ -103,6 +103,10 @@ type UnifiedServer struct {
 	// means all tools are permitted for that server.
 	allowedToolSets map[string]map[string]bool
 
+	// allowedPromptSets holds a pre-computed set of allowed prompt names per server ID.
+	// A missing or nil entry means all prompts are permitted for that server.
+	allowedPromptSets map[string]map[string]bool
+
 	// circuitBreakers holds a per-backend rate-limit circuit breaker keyed by server ID.
 	circuitBreakers   map[string]*circuitBreaker
 	circuitBreakersMu sync.RWMutex
@@ -188,6 +192,7 @@ func NewUnified(ctx context.Context, cfg *config.Config) (*UnifiedServer, error)
 		payloadPathPrefix:    payloadPathPrefix,
 		payloadSizeThreshold: payloadSizeThreshold,
 		allowedToolSets:      buildAllowedToolSets(cfg),
+		allowedPromptSets:    buildAllowedPromptSets(cfg),
 		circuitBreakers:      buildCircuitBreakers(cfg),
 
 		// Initialize DIFC components

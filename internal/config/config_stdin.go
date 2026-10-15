@@ -151,6 +151,9 @@ type StdinServerConfig struct {
 	// Tools is an optional list of tools to filter/expose
 	Tools []string `json:"tools,omitempty"`
 
+	// Prompts is an optional list of prompts to filter/expose
+	Prompts []string `json:"prompts,omitempty"`
+
 	// ToolResponseFilters configures per-tool jq expressions that transform tool
 	// response data before it is returned to the agent.
 	ToolResponseFilters map[string]string `json:"tool_response_filters,omitempty"`
@@ -245,6 +248,7 @@ func (s *StdinServerConfig) UnmarshalJSON(data []byte) error {
 		"url":                   true,
 		"headers":               true,
 		"tools":                 true,
+		"prompts":               true,
 		"tool_response_filters": true,
 		"registry":              true,
 		"guard-policies":        true,
@@ -690,6 +694,7 @@ func buildStdioServerConfigWithRuntime(name string, server *StdinServerConfig, r
 // between HTTP and stdio server configurations.
 func applyCommonServerConfigFields(cfg *ServerConfig, src *StdinServerConfig) {
 	cfg.Tools = src.Tools
+	cfg.Prompts = src.Prompts
 	cfg.ToolResponseFilters = src.ToolResponseFilters
 	cfg.Registry = src.Registry
 	cfg.GuardPolicies = src.GuardPolicies

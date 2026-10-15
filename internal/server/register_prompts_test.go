@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
+	"github.com/github/gh-aw-mcpg/internal/difc"
+	"github.com/github/gh-aw-mcpg/internal/guard"
 	"github.com/github/gh-aw-mcpg/internal/launcher"
 	"github.com/github/gh-aw-mcpg/internal/mcp"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -108,6 +110,24 @@ func minimalPromptsTestServer(t *testing.T) *UnifiedServer {
 	return &UnifiedServer{
 		server: newSDKServer("test-prompts", logUnified),
 	}
+}
+
+func promptHandlerTestServer(t *testing.T, name string, cfg *config.Config, l *launcher.Launcher) *UnifiedServer {
+	t.Helper()
+	components, err := difc.NewComponents(cfg.DIFCMode, difc.EnforcementStrict)
+	require.NoError(t, err)
+	us := &UnifiedServer{
+		server:            newSDKServer(name, logUnified),
+		launcher:          l,
+		sessions:          make(map[string]*Session),
+		payloadDir:        t.TempDir(),
+		allowedPromptSets: buildAllowedPromptSets(cfg),
+		guardRegistry:     guard.NewRegistry(),
+		DIFCComponents:    components,
+		cfg:               cfg,
+	}
+	us.guardRegistry.Register("prompts-server", guard.NewNoopGuard())
+	return us
 }
 
 // TestRegisterPromptsFromBackend_NoCapability verifies that a backend without prompts
@@ -220,9 +240,28 @@ func TestRegisterPromptsFromBackend_RegistersPrompts(t *testing.T) {
 
 	conn := connectStreamableBackend(t, srv)
 	us := minimalPromptsTestServer(t)
+	us.allowedPromptSets = map[string]map[string]bool{
+		"prompts-server": {"summarize": true},
+	}
 
 	err := us.registerPromptsFromBackend(context.Background(), "prompts-server", conn)
-	assert.NoError(t, err, "should return nil when prompts are successfully registered")
+	require.NoError(t, err, "should return nil when prompts are successfully registered")
+
+	serverTransport, clientTransport := sdk.NewInMemoryTransports()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	go func() { _ = us.server.Run(ctx, serverTransport) }()
+
+	client := sdk.NewClient(&sdk.Implementation{Name: "prompt-list-test-client", Version: "1.0"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer clientSession.Close()
+
+	listResult, err := clientSession.ListPrompts(ctx, &sdk.ListPromptsParams{})
+	require.NoError(t, err)
+	require.Len(t, listResult.Prompts, 1)
+	assert.Equal(t, "prompts-server___summarize", listResult.Prompts[0].Name,
+		"prompts outside the configured allowlist must be hidden from prompts/list")
 }
 
 // TestRegisterPromptsFromBackend_JSONRPCErrorResponse verifies that a JSON-RPC-level
@@ -364,10 +403,7 @@ func TestRegisterPromptsFromBackend_PromptHandlerInvocation(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, conn.BackendHasPromptsCapability())
 
-	us := &UnifiedServer{
-		server:   newSDKServer("test-prompts-handler", logUnified),
-		launcher: l,
-	}
+	us := promptHandlerTestServer(t, "test-prompts-handler", cfg, l)
 
 	err = us.registerPromptsFromBackend(context.Background(), "prompts-server", conn)
 	require.NoError(t, err, "prompt registration should succeed")
@@ -491,10 +527,7 @@ func TestRegisterPromptsFromBackend_PromptHandlerBackendError(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, conn.BackendHasPromptsCapability())
 
-	us := &UnifiedServer{
-		server:   newSDKServer("test-prompts-handler-error", logUnified),
-		launcher: l,
-	}
+	us := promptHandlerTestServer(t, "test-prompts-handler-error", cfg, l)
 
 	err = us.registerPromptsFromBackend(context.Background(), "prompts-server", conn)
 	require.NoError(t, err, "prompt registration should succeed even though the prompt itself will fail on invocation")

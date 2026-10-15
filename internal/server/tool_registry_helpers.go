@@ -175,6 +175,32 @@ func buildAllowedToolSets(cfg *config.Config) map[string]map[string]bool {
 	return sets
 }
 
+// buildAllowedPromptSets builds a per-server prompt allowlist for O(1) lookup.
+// Servers with no Prompts list, or with a "*" entry, permit every prompt.
+func buildAllowedPromptSets(cfg *config.Config) map[string]map[string]bool {
+	sets := make(map[string]map[string]bool)
+	if cfg == nil {
+		return sets
+	}
+	for serverID, serverCfg := range cfg.Servers {
+		if len(serverCfg.Prompts) == 0 {
+			continue
+		}
+		if hasWildcard(serverCfg.Prompts) {
+			logger.LogInfo("backend", "[allowed-prompts] Wildcard \"*\" configured for %s: allowing all prompts", serverID)
+			continue
+		}
+		set := make(map[string]bool, len(serverCfg.Prompts))
+		for _, prompt := range serverCfg.Prompts {
+			set[prompt] = true
+		}
+		sets[serverID] = set
+		logToolRegistryHelpers.Printf("Built allowed prompt set for server %s: %d prompt(s) permitted", serverID, len(set))
+	}
+	logToolRegistryHelpers.Printf("Built allowed prompt sets: %d server(s) with prompt restrictions", len(sets))
+	return sets
+}
+
 // hasWildcard reports whether the tools list contains a "*" entry.
 func hasWildcard(tools []string) bool {
 	for _, t := range tools {
