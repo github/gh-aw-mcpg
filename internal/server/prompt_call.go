@@ -41,6 +41,7 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 		}
 	}
 	if toolTimeout > 0 {
+		logUnified.Printf("callBackendPrompt: applying timeout: serverID=%s, timeoutSeconds=%d", serverID, toolTimeout)
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(toolTimeout)*time.Second)
 		defer cancel()
@@ -49,6 +50,7 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 	sessionID := us.getSessionID(ctx)
 	agentID := guard.GetAgentIDFromContext(ctx)
 	if us.agentPoliciesEnforced() && !us.agentCanAccessServer(agentID, serverID) {
+		logUnified.Printf("callBackendPrompt: agent policy denied access: serverID=%s, promptName=%s", serverID, promptName)
 		return nil, fmt.Errorf("prompt %q on server %q is not permitted for this agent", promptName, serverID)
 	}
 	if !us.isPromptAllowed(serverID, promptName) {
@@ -69,6 +71,7 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 		return nil, fmt.Errorf("guard session initialization failed: %w", err)
 	}
 
+	logUnified.Printf("callBackendPrompt: guard initialized: serverID=%s, enforcementMode=%v", serverID, enforcementMode)
 	requestEvaluator := difc.NewEvaluatorWithMode(enforcementMode)
 	pipelineIn := guard.PipelineInput{
 		AgentID:         agentID,
@@ -98,6 +101,7 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 		"arguments": args,
 	})
 	if err != nil {
+		logUnified.Printf("callBackendPrompt: backend prompts/get failed: serverID=%s, promptName=%s, err=%v", serverID, promptName, err)
 		return nil, err
 	}
 
@@ -117,6 +121,7 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 		return nil, fmt.Errorf("failed to convert labeled data: %w", err)
 	}
 	if filterResult.Blocked {
+		logUnified.Printf("callBackendPrompt: response blocked by DIFC filter: serverID=%s, promptName=%s", serverID, promptName)
 		return nil, fmt.Errorf("DIFC policy violation: prompt response contains data that is not accessible to this agent")
 	}
 
