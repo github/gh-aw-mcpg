@@ -2916,11 +2916,10 @@ mod tests {
             vec![] as Vec<String>,
             "list_discussions secrecy inherits repo visibility"
         );
-        // writer_integrity is used regardless of repo visibility — approved at resource level
         assert_eq!(
             integrity,
-            writer_integrity("github/copilot", &ctx),
-            "list_discussions integrity is approved at resource level"
+            none_integrity("github/copilot", &ctx),
+            "list_discussions must fail closed until each author is inspected"
         );
     }
 
@@ -2948,7 +2947,7 @@ mod tests {
         );
 
         assert_eq!(secrecy, vec![] as Vec<String>);
-        assert_eq!(integrity, writer_integrity("github/copilot", &ctx));
+        assert_eq!(integrity, none_integrity("github/copilot", &ctx));
     }
 
     // -------------------------------------------------------------------------
@@ -2975,7 +2974,7 @@ mod tests {
         );
 
         assert_eq!(secrecy, vec![] as Vec<String>);
-        assert_eq!(integrity, writer_integrity("github/copilot", &ctx));
+        assert_eq!(integrity, none_integrity("github/copilot", &ctx));
     }
 
     // -------------------------------------------------------------------------

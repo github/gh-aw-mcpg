@@ -46,6 +46,74 @@ fn commit_repo_visibility(
     }
 }
 
+fn dispatched_method(tool_args: &Value) -> &str {
+    tool_args
+        .get(field_names::METHOD)
+        .and_then(Value::as_str)
+        .unwrap_or("")
+}
+
+fn repo_default_labels(
+    description: &str,
+    secrecy: crate::SharedLabels,
+    integrity: Vec<String>,
+) -> crate::ResourceLabels {
+    crate::ResourceLabels {
+        description: description.to_string(),
+        secrecy,
+        integrity: integrity.into(),
+    }
+}
+
+fn label_author_items(
+    tool_name: &str,
+    tool_args: &Value,
+    actual_response: &Value,
+    description: &str,
+    ctx: &PolicyContext,
+) -> Option<PathLabelResult> {
+    let (items, items_path) = extract_items_array(actual_response);
+    let items = items?;
+    let (owner, repo, repo_full) = extract_repo_info(tool_args);
+    let secrecy: crate::SharedLabels =
+        repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+    let limited_items = limit_items_with_log(items, tool_name);
+    let labeled_paths = limited_items
+        .iter()
+        .enumerate()
+        .map(|(index, item)| {
+            let id = item
+                .get(field_names::ID)
+                .and_then(|value| {
+                    value
+                        .as_i64()
+                        .map(|number| number.to_string())
+                        .or_else(|| value.as_str().map(str::to_string))
+                })
+                .unwrap_or_else(|| UNKNOWN_LABEL_FALLBACK.to_string());
+            crate::PathLabel {
+                path: make_item_path(items_path, index),
+                labels: crate::ResourceLabels {
+                    description: format!("{description}:{repo_full}#{id}"),
+                    secrecy: secrecy.clone(),
+                    integrity: user_authored_integrity(item, &repo_full, description, &id, ctx)
+                        .into(),
+                },
+            }
+        })
+        .collect();
+
+    Some(PathLabelResult {
+        labeled_paths,
+        default_labels: Some(repo_default_labels(
+            description,
+            secrecy,
+            none_integrity(&repo_full, ctx),
+        )),
+        items_path: (!items_path.is_empty()).then_some(items_path),
+    })
+}
+
 struct RepoItemsContext<'a> {
     limited_items: &'a [Value],
     items_path: &'static str,
@@ -116,6 +184,16 @@ pub fn label_response_paths(
     let actual_response = extract_mcp_response(response);
 
     match tool_name {
+        tool_names::LIST_DISCUSSIONS
+        | tool_names::GET_DISCUSSION
+        | tool_names::GET_DISCUSSION_COMMENTS => {
+            if let Some(result) =
+                label_author_items(tool_name, tool_args, &actual_response, "discussion", ctx)
+            {
+                return Some(result);
+            }
+        }
+
         // === Security alert lists - always private and reader-level ===
         tool_names::LIST_SECRET_SCANNING_ALERTS
         | tool_names::LIST_CODE_SCANNING_ALERTS
@@ -224,15 +302,123 @@ pub fn label_response_paths(
         | tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM
         | tool_names::PULL_REQUEST_READ
         | tool_names::GET_PULL_REQUEST => {
-            // Skip per-item labeling for pull_request_read sub-methods that return
-            // non-PR objects (e.g. get_check_runs, get_files, get_reviews).
-            // Resource-level labels from tool_rules provide correct PR integrity.
-            let method = tool_args
-                .get(field_names::METHOD)
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            if is_non_get_read_sub_method(tool_name, tool_names::PULL_REQUEST_READ, method) {
-                // Fall through — use resource-level labels
+            let method = dispatched_method(tool_args);
+            if tool_name == tool_names::PULL_REQUEST_READ
+                && matches!(
+                    method,
+                    "get_comments" | "get_reviews" | "get_review_comments"
+                )
+            {
+                return label_author_items(tool_name, tool_args, &actual_response, method, ctx);
+            } else if tool_name == tool_names::PULL_REQUEST_READ && method == "get_commits" {
+                let (items, items_path) = extract_items_array(&actual_response);
+                if let Some(items) = items {
+                    let (owner, repo, repo_full) = extract_repo_info(tool_args);
+                    let secrecy: crate::SharedLabels =
+                        repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                    let repo_private = repo_visibility_private_for_repo_id(&repo_full);
+                    let limited_items = limit_items_with_log(items, tool_name);
+                    let labeled_paths = limited_items
+                        .iter()
+                        .enumerate()
+                        .map(|(index, item)| {
+                            let sha = get_str_or(item, field_names::SHA, UNKNOWN_LABEL_FALLBACK);
+                            crate::PathLabel {
+                                path: make_item_path(items_path, index),
+                                labels: crate::ResourceLabels {
+                                    description: format!(
+                                        "{}{}@{}",
+                                        desc_prefix::COMMIT,
+                                        repo_full,
+                                        short_sha(sha)
+                                    ),
+                                    secrecy: secrecy.clone(),
+                                    integrity: commit_integrity_with_visibility(
+                                        item,
+                                        &repo_full,
+                                        repo_private,
+                                        false,
+                                        ctx,
+                                    )
+                                    .into(),
+                                },
+                            }
+                        })
+                        .collect();
+                    return Some(PathLabelResult {
+                        labeled_paths,
+                        default_labels: Some(repo_default_labels(
+                            desc_default::COMMIT,
+                            secrecy,
+                            none_integrity(&repo_full, ctx),
+                        )),
+                        items_path: (!items_path.is_empty()).then_some(items_path),
+                    });
+                }
+            } else if tool_name == tool_names::PULL_REQUEST_READ
+                && matches!(method, "get_files" | "get_diff")
+            {
+                let (owner, repo, repo_full) = extract_repo_info(tool_args);
+                let secrecy: crate::SharedLabels =
+                    repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                let (items, items_path) = extract_items_array(&actual_response);
+                let labeled_paths = items
+                    .map(|items| {
+                        limit_items_with_log(items, tool_name)
+                            .iter()
+                            .enumerate()
+                            .map(|(index, _)| crate::PathLabel {
+                                path: make_item_path(items_path, index),
+                                labels: repo_default_labels(
+                                    "pull-request-content",
+                                    secrecy.clone(),
+                                    none_integrity(&repo_full, ctx),
+                                ),
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                return Some(PathLabelResult {
+                    labeled_paths,
+                    default_labels: Some(repo_default_labels(
+                        "pull-request-content",
+                        secrecy,
+                        none_integrity(&repo_full, ctx),
+                    )),
+                    items_path: (!items_path.is_empty()).then_some(items_path),
+                });
+            } else if tool_name == tool_names::PULL_REQUEST_READ
+                && matches!(method, "get_check_runs" | "get_status")
+            {
+                let (owner, repo, repo_full) = extract_repo_info(tool_args);
+                let secrecy: crate::SharedLabels =
+                    repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                let (items, items_path) = extract_items_array(&actual_response);
+                let labeled_paths = items
+                    .map(|items| {
+                        limit_items_with_log(items, tool_name)
+                            .iter()
+                            .enumerate()
+                            .map(|(index, _)| crate::PathLabel {
+                                path: make_item_path(items_path, index),
+                                labels: repo_default_labels(
+                                    "pull-request-status",
+                                    secrecy.clone(),
+                                    writer_integrity(&repo_full, ctx),
+                                ),
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                return Some(PathLabelResult {
+                    labeled_paths,
+                    default_labels: Some(repo_default_labels(
+                        "pull-request-status",
+                        secrecy,
+                        writer_integrity(&repo_full, ctx),
+                    )),
+                    items_path: (!items_path.is_empty()).then_some(items_path),
+                });
             } else if let Some(repo_item_ctx) = resolve_repo_item_context(
                 tool_name,
                 tool_args,
@@ -312,7 +498,34 @@ pub fn label_response_paths(
                 .get(field_names::METHOD)
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            if skip_issue_read_per_item_labeling(tool_name, method) {
+            if tool_name == tool_names::ISSUE_READ && method == "get_labels" {
+                let (owner, repo, repo_full) = extract_repo_info(tool_args);
+                let secrecy: crate::SharedLabels =
+                    repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                let (items, items_path) = extract_items_array(&actual_response);
+                let items = items?;
+                let labeled_paths = limit_items_with_log(items, tool_name)
+                    .iter()
+                    .enumerate()
+                    .map(|(index, _)| crate::PathLabel {
+                        path: make_item_path(items_path, index),
+                        labels: repo_default_labels(
+                            "label",
+                            secrecy.clone(),
+                            writer_integrity(&repo_full, ctx),
+                        ),
+                    })
+                    .collect();
+                return Some(PathLabelResult {
+                    labeled_paths,
+                    default_labels: Some(repo_default_labels(
+                        "label",
+                        secrecy,
+                        writer_integrity(&repo_full, ctx),
+                    )),
+                    items_path: (!items_path.is_empty()).then_some(items_path),
+                });
+            } else if skip_issue_read_per_item_labeling(tool_name, method) {
                 // Fall through — use resource-level labels
             } else if let Some(repo_item_ctx) = resolve_repo_item_context(
                 tool_name,
@@ -1491,6 +1704,247 @@ mod tests {
             tool_names::LIST_RELEASES_FF_FIELDS_PARAM,
             &repo_args,
             &releases_response,
+        );
+    }
+
+    #[test]
+    fn discussion_collections_use_each_item_author_across_rest_and_graphql_shapes() {
+        let policy = PolicyContext {
+            trusted_users: vec!["dual-listed".to_string()],
+            blocked_users: vec!["dual-listed".to_string()],
+            ..Default::default()
+        };
+        let args = json!({"owner": "octocat", "repo": "hello-world"});
+        let item = json!({
+            "id": "DIC_kw",
+            "author": {"login": "dual-listed"},
+            "authorAssociation": "OWNER"
+        });
+
+        for (tool, response, expected_path) in [
+            (tool_names::LIST_DISCUSSIONS, json!([item.clone()]), "/0"),
+            (
+                tool_names::LIST_DISCUSSIONS,
+                json!({"data": {"repository": {"discussions": {"nodes": [item.clone()]}}}}),
+                "/data/repository/discussions/nodes/0",
+            ),
+            (
+                tool_names::GET_DISCUSSION_COMMENTS,
+                json!([item.clone()]),
+                "/0",
+            ),
+            (
+                tool_names::GET_DISCUSSION_COMMENTS,
+                json!({"data": {"repository": {"discussion": {"comments": {"nodes": [item.clone()]}}}}}),
+                "/data/repository/discussion/comments/nodes/0",
+            ),
+        ] {
+            let result = label_response_paths(tool, &args, &response, &policy)
+                .expect("discussion collection should produce path labels");
+            assert_eq!(result.labeled_paths.len(), 1, "tool={tool}");
+            assert_eq!(result.labeled_paths[0].path, expected_path, "tool={tool}");
+            assert_eq!(
+                result.labeled_paths[0].labels.integrity,
+                blocked_integrity("octocat/hello-world", &policy),
+                "blocked-users must win over trusted/OWNER evidence for {tool}"
+            );
+        }
+    }
+
+    #[test]
+    fn pull_request_subresources_use_item_provenance_or_method_default() {
+        let policy = PolicyContext {
+            trusted_users: vec!["dual-listed".to_string()],
+            blocked_users: vec!["dual-listed".to_string()],
+            ..Default::default()
+        };
+        let repo = "octocat/hello-world";
+        let user_item = json!({
+            "id": 7,
+            "user": {"login": "dual-listed"},
+            "author_association": "OWNER"
+        });
+        let commit_item = json!({
+            "sha": "abcdef1234567890",
+            "author": {"login": "dual-listed"},
+            "author_association": "OWNER"
+        });
+
+        for (method, response, expected_path) in [
+            (
+                "get_comments",
+                json!({"data": {"repository": {"pullRequest": {"comments": {"nodes": [user_item.clone()]}}}}}),
+                "/data/repository/pullRequest/comments/nodes/0",
+            ),
+            (
+                "get_reviews",
+                json!({"data": {"repository": {"pullRequest": {"reviews": {"nodes": [user_item.clone()]}}}}}),
+                "/data/repository/pullRequest/reviews/nodes/0",
+            ),
+            (
+                "get_review_comments",
+                json!({"review_comments": [user_item.clone()]}),
+                "/review_comments/0",
+            ),
+        ] {
+            let args = json!({
+                "owner": "octocat",
+                "repo": "hello-world",
+                "pullNumber": 1,
+                "method": method
+            });
+            let result =
+                label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy)
+                    .expect("user-authored PR subresource should be labeled");
+            assert_eq!(result.labeled_paths[0].path, expected_path);
+            assert_eq!(
+                result.labeled_paths[0].labels.integrity,
+                blocked_integrity(repo, &policy),
+                "method={method}"
+            );
+        }
+
+        let commit_args = json!({
+            "owner": "octocat",
+            "repo": "hello-world",
+            "pullNumber": 1,
+            "method": "get_commits"
+        });
+        for (response, expected_path) in [
+            (json!({"commits": [commit_item.clone()]}), "/commits/0"),
+            (
+                json!({"data": {"repository": {"pullRequest": {"commits": {"nodes": [{
+                    "commit": {
+                        "oid": "abcdef1234567890",
+                        "author": {"user": {"login": "dual-listed"}}
+                    }
+                }]}}}}}),
+                "/data/repository/pullRequest/commits/nodes/0",
+            ),
+        ] {
+            let commits = label_response_paths(
+                tool_names::PULL_REQUEST_READ,
+                &commit_args,
+                &response,
+                &policy,
+            )
+            .expect("PR commits should be labeled");
+            assert_eq!(commits.labeled_paths[0].path, expected_path);
+            assert_eq!(
+                commits.labeled_paths[0].labels.integrity,
+                blocked_integrity(repo, &policy)
+            );
+        }
+
+        for (method, response) in [
+            (
+                "get_files",
+                json!({"files": [{"filename": "README.md", "patch": "+unsafe"}]}),
+            ),
+            ("get_diff", json!("diff --git a/README.md b/README.md")),
+        ] {
+            let args = json!({
+                "owner": "octocat",
+                "repo": "hello-world",
+                "pullNumber": 1,
+                "method": method
+            });
+            let result =
+                label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy)
+                    .expect("authorless PR content should still get conservative defaults");
+            assert_eq!(
+                result.default_labels.expect("default labels").integrity,
+                none_integrity(repo, &policy),
+                "method={method}"
+            );
+        }
+
+        for method in ["get_check_runs", "get_status"] {
+            let args = json!({
+                "owner": "octocat",
+                "repo": "hello-world",
+                "pullNumber": 1,
+                "method": method
+            });
+            let response = if method == "get_check_runs" {
+                json!({"check_runs": [{"id": 9, "status": "completed"}]})
+            } else {
+                json!({"statuses": [{"id": 9, "state": "success"}]})
+            };
+            let result =
+                label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy)
+                    .expect("maintainer metadata should be labeled");
+            assert_eq!(
+                result.labeled_paths[0].labels.integrity,
+                writer_integrity(repo, &policy),
+                "method={method}"
+            );
+        }
+    }
+
+    #[test]
+    fn issue_dispatch_preserves_comment_authors_and_metadata_distinction() {
+        let policy = PolicyContext {
+            blocked_users: vec!["blocked-user".to_string()],
+            ..Default::default()
+        };
+        let repo = "octocat/hello-world";
+
+        let comment_args = json!({
+            "owner": "octocat",
+            "repo": "hello-world",
+            "issue_number": 1,
+            "method": "get_comments"
+        });
+        let comments = json!({"comments": [{
+            "id": 1,
+            "user": {"login": "outsider"},
+            "author_association": "NONE"
+        }]});
+        let comment_result =
+            label_response_paths(tool_names::ISSUE_READ, &comment_args, &comments, &policy)
+                .expect("issue comments should remain item-labeled");
+        assert_eq!(
+            comment_result.labeled_paths[0].labels.integrity,
+            reader_integrity(repo, &policy)
+        );
+
+        let sub_issue_args = json!({
+            "owner": "octocat",
+            "repo": "hello-world",
+            "issue_number": 1,
+            "method": "get_sub_issues"
+        });
+        let sub_issues = json!({"data": {"repository": {"issue": {"subIssues": {"nodes": [{
+            "number": 2,
+            "user": {"login": "blocked-user"},
+            "authorAssociation": "OWNER"
+        }]}}}}});
+        let sub_issue_result = label_response_paths(
+            tool_names::ISSUE_READ,
+            &sub_issue_args,
+            &sub_issues,
+            &policy,
+        )
+        .expect("sub-issues should use their own authors");
+        assert_eq!(
+            sub_issue_result.labeled_paths[0].labels.integrity,
+            blocked_integrity(repo, &policy)
+        );
+
+        let label_args = json!({
+            "owner": "octocat",
+            "repo": "hello-world",
+            "issue_number": 1,
+            "method": "get_labels"
+        });
+        let labels = json!({"labels": [{"id": 3, "name": "bug"}]});
+        let label_result =
+            label_response_paths(tool_names::ISSUE_READ, &label_args, &labels, &policy)
+                .expect("label metadata should be labeled");
+        assert_eq!(
+            label_result.labeled_paths[0].labels.integrity,
+            writer_integrity(repo, &policy)
         );
     }
 }

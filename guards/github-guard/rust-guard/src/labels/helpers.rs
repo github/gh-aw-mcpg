@@ -27,6 +27,36 @@ pub(crate) enum ReactionKind {
     Disapproval,
 }
 
+/// Compute integrity for a user-authored response item without assuming that it
+/// is an issue or pull request. This is used for comments, reviews, and
+/// discussions whose integrity must come from the item's own author.
+pub(crate) fn user_authored_integrity(
+    item: &Value,
+    repo_full_name: &str,
+    resource_label: &str,
+    resource_id: &str,
+    ctx: &PolicyContext,
+) -> Vec<String> {
+    let author_login = extract_author_login(item);
+    if !author_login.is_empty() && is_blocked_user(author_login, ctx) {
+        crate::log_info(&format!(
+            "[integrity] {resource_label}:{resource_id} → blocked (author '{author_login}' in blocked-users)"
+        ));
+        return blocked_integrity(repo_full_name, ctx);
+    }
+
+    let mut integrity = author_association_floor(item, repo_full_name, ctx);
+    integrity = elevate_via_collaborator_permission(
+        author_login,
+        repo_full_name,
+        resource_label,
+        resource_id,
+        integrity,
+        ctx,
+    );
+    ensure_integrity_baseline(repo_full_name, &integrity, ctx)
+}
+
 impl ReactionKind {
     fn as_str(self) -> &'static str {
         match self {
@@ -1173,7 +1203,10 @@ pub(crate) fn is_non_get_read_sub_method(
 #[inline]
 pub(crate) fn skip_issue_read_per_item_labeling(tool_name: &str, method: &str) -> bool {
     is_non_get_read_sub_method(tool_name, tool_names::ISSUE_READ, method)
-        && method != method_values::GET_COMMENTS
+        && !matches!(
+            method,
+            method_values::GET_COMMENTS | "get_sub_issues" | "get_labels"
+        )
 }
 
 /// Extract a string field from a JSON value
@@ -1374,6 +1407,21 @@ pub(crate) fn extract_items_array(response: &Value) -> (Option<&Vec<Value>>, &'s
     if let Some(arr) = response.get("alerts").and_then(|v| v.as_array()) {
         return (Some(arr), "/alerts");
     }
+    for (field, pointer) in [
+        ("comments", "/comments"),
+        ("reviews", "/reviews"),
+        ("review_comments", "/review_comments"),
+        ("commits", "/commits"),
+        ("files", "/files"),
+        ("labels", "/labels"),
+        ("check_runs", "/check_runs"),
+        ("statuses", "/statuses"),
+        ("discussions", "/discussions"),
+    ] {
+        if let Some(arr) = response.get(field).and_then(Value::as_array) {
+            return (Some(arr), pointer);
+        }
+    }
 
     // GraphQL format: data.repository.<resource>.nodes or data.search.nodes
     if let Some((arr, pointer)) = find_graphql_nodes_with_path(response) {
@@ -1420,6 +1468,52 @@ fn find_graphql_nodes_with_path(response: &Value) -> Option<(&Vec<Value>, &'stat
                 .get(*field)
                 .and_then(|v| v.get("nodes"))
                 .and_then(|v| v.as_array())
+            {
+                return Some((arr, pointer));
+            }
+        }
+        if let Some(arr) = repo
+            .get("discussion")
+            .and_then(|value| value.get("comments"))
+            .and_then(|value| value.get("nodes"))
+            .and_then(Value::as_array)
+        {
+            return Some((arr, "/data/repository/discussion/comments/nodes"));
+        }
+        for (parent, field, pointer) in [
+            (
+                "pullRequest",
+                "comments",
+                "/data/repository/pullRequest/comments/nodes",
+            ),
+            (
+                "pullRequest",
+                "reviews",
+                "/data/repository/pullRequest/reviews/nodes",
+            ),
+            (
+                "pullRequest",
+                "commits",
+                "/data/repository/pullRequest/commits/nodes",
+            ),
+            (
+                "pullRequest",
+                "files",
+                "/data/repository/pullRequest/files/nodes",
+            ),
+            ("issue", "comments", "/data/repository/issue/comments/nodes"),
+            (
+                "issue",
+                "subIssues",
+                "/data/repository/issue/subIssues/nodes",
+            ),
+            ("issue", "labels", "/data/repository/issue/labels/nodes"),
+        ] {
+            if let Some(arr) = repo
+                .get(parent)
+                .and_then(|value| value.get(field))
+                .and_then(|value| value.get("nodes"))
+                .and_then(Value::as_array)
             {
                 return Some((arr, pointer));
             }
@@ -1702,14 +1796,28 @@ pub(crate) fn author_association_floor_from_str(
 
 /// Extract the author login from an item, checking common GitHub API fields.
 /// Returns empty string if no login found.
-fn extract_author_login(item: &Value) -> &str {
+pub(crate) fn extract_author_login(item: &Value) -> &str {
     // Issues and PRs use user.login
     let login = get_nested_str(item, "user", field_names::LOGIN);
     if !login.is_empty() {
         return login;
     }
     // Commits use author.login
-    get_nested_str(item, "author", field_names::LOGIN)
+    let login = get_nested_str(item, "author", field_names::LOGIN);
+    if !login.is_empty() {
+        return login;
+    }
+    // GraphQL pull-request commit connections wrap the commit object.
+    item.get("commit")
+        .and_then(|commit| commit.get("author"))
+        .and_then(|author| {
+            author
+                .get("user")
+                .and_then(|user| user.get(field_names::LOGIN))
+                .or_else(|| author.get(field_names::LOGIN))
+        })
+        .and_then(Value::as_str)
+        .unwrap_or("")
 }
 
 /// Extract the `author_association` field from an item, checking both the
@@ -4686,7 +4794,8 @@ mod is_non_get_read_sub_method_tests {
         for (tool_name, method, expected) in [
             (tool_names::ISSUE_READ, method_values::GET, false),
             (tool_names::ISSUE_READ, method_values::GET_COMMENTS, false),
-            (tool_names::ISSUE_READ, "get_labels", true),
+            (tool_names::ISSUE_READ, "get_labels", false),
+            (tool_names::ISSUE_READ, "get_sub_issues", false),
             (tool_names::ISSUE_READ, "", false),
             (tool_names::LIST_ISSUES, "get_labels", false),
         ] {

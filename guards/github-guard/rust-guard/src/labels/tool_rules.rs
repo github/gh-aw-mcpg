@@ -6,19 +6,19 @@
 use serde_json::Value;
 
 use super::constants::{
-    desc_prefix, field_names, scope_names, tool_names, ORG_FIELD_ALIASES, SENSITIVE_FILE_KEYWORDS,
-    SENSITIVE_FILE_PATTERNS, SENSITIVE_PATH_PREFIXES, UI_GET_ACCESS_SENSITIVE_METHODS,
-    UI_GET_GITHUB_APPROVED_METHODS, UI_GET_REPO_SCOPED_METHODS,
+    desc_prefix, field_names, method_values, scope_names, tool_names, ORG_FIELD_ALIASES,
+    SENSITIVE_FILE_KEYWORDS, SENSITIVE_FILE_PATTERNS, SENSITIVE_PATH_PREFIXES,
+    UI_GET_ACCESS_SENSITIVE_METHODS, UI_GET_GITHUB_APPROVED_METHODS, UI_GET_REPO_SCOPED_METHODS,
 };
 #[cfg(test)]
 use super::constants::{CODE_SCANNING_DEPENDABOT_ALERT_TOOLS, SECRET_SCANNING_ALERT_TOOLS};
 use super::helpers::{
-    author_association_floor_from_str, elevate_via_collaborator_permission,
+    author_association_floor_from_str, blocked_integrity, elevate_via_collaborator_permission,
     ensure_integrity_baseline, extract_number_as_string, extract_repo_info_from_search_query,
-    format_repo_id, get_string_field, is_any_trusted_actor, is_default_branch_commit_context,
-    is_default_branch_ref, max_integrity, merged_integrity, policy_private_scope_label,
-    private_scope_label, private_user_label, project_github_label, reader_integrity, short_sha,
-    split_repo_id, writer_integrity, PolicyContext, ScopeKind,
+    format_repo_id, get_string_field, is_any_trusted_actor, is_blocked_user,
+    is_default_branch_commit_context, is_default_branch_ref, max_integrity, merged_integrity,
+    policy_private_scope_label, private_scope_label, private_user_label, project_github_label,
+    reader_integrity, short_sha, split_repo_id, writer_integrity, PolicyContext, ScopeKind,
 };
 use std::borrow::Cow;
 
@@ -192,6 +192,10 @@ fn resolve_author_integrity(
     base_integrity: &[String],
     ctx: &PolicyContext,
 ) -> Vec<String> {
+    if author_login.is_some_and(|login| is_blocked_user(login, ctx)) {
+        return blocked_integrity(repo_id, ctx);
+    }
+
     let mut floor = author_association_floor_from_str(repo_id, author_association, ctx);
 
     if let Some(login) = author_login {
@@ -295,12 +299,17 @@ pub fn apply_tool_labels(
             // S(issue) = S(repo) - inherits from repository visibility
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
             integrity = private_writer_integrity(repo_id, repo_private, ctx);
-            let enrich = matches!(
-                tool_name,
-                tool_names::GET_ISSUE | tool_names::ISSUE_READ
-            );
+            let method = tool_args
+                .get(field_names::METHOD)
+                .and_then(Value::as_str)
+                .unwrap_or(method_values::GET);
+            let enrich = tool_name == tool_names::GET_ISSUE
+                || (tool_name == tool_names::ISSUE_READ && method == method_values::GET);
             (desc, integrity) =
                 apply_issue_read_enrichment(&owner, &repo, repo_id, tool_args, desc, integrity, enrich, ctx);
+            if tool_name == tool_names::ISSUE_READ && method != method_values::GET {
+                integrity = vec![];
+            }
         }
 
         tool_names::ISSUE_DEPENDENCY_READ | "issue_dependency_read_ff_issue_dependencies" => {
@@ -382,10 +391,15 @@ pub fn apply_tool_labels(
                 }
             }
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            let method = tool_args
+                .get(field_names::METHOD)
+                .and_then(Value::as_str)
+                .unwrap_or(method_values::GET);
             if matches!(
                 tool_name,
                 tool_names::GET_PULL_REQUEST | tool_names::PULL_REQUEST_READ
-            ) {
+            ) && method == method_values::GET
+            {
                 if let Some(ref number) = pull_number {
                     if let Some(facts) =
                         super::backend::get_pull_request_facts(&owner, &repo, number)
@@ -442,8 +456,14 @@ pub fn apply_tool_labels(
                     integrity = private_writer_integrity(repo_id, repo_private, ctx);
                 }
             } else {
-                // Collection/list calls are coarse; response labeling refines item-by-item.
-                integrity = private_writer_integrity(repo_id, repo_private, ctx);
+                // Collection/list calls and dispatched sub-resources are coarse;
+                // response labeling refines item-by-item. Sub-resources fail
+                // closed instead of inheriting the parent PR author's integrity.
+                integrity = if tool_name == tool_names::PULL_REQUEST_READ {
+                    vec![]
+                } else {
+                    private_writer_integrity(repo_id, repo_private, ctx)
+                };
             }
         }
 
@@ -524,8 +544,6 @@ pub fn apply_tool_labels(
         // S = inherits from repo visibility; I = writer
         tool_names::ACTIONS_LIST
         | tool_names::ACTIONS_GET
-        | tool_names::GET_DISCUSSION
-        | tool_names::GET_DISCUSSION_COMMENTS
         | "get_code_quality_finding"
         | "get_label"
         | "get_repository"
@@ -534,7 +552,6 @@ pub fn apply_tool_labels(
         | tool_names::GET_JOB_LOGS
         | "list_branches"
         | tool_names::LIST_DISCUSSION_CATEGORIES
-        | tool_names::LIST_DISCUSSIONS
         | "list_label"
         | tool_names::LIST_RELEASES
         | tool_names::LIST_RELEASES_FF_FIELDS_PARAM
@@ -543,6 +560,14 @@ pub fn apply_tool_labels(
         | "list_tags" => {
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
             integrity = writer_integrity(repo_id, ctx);
+        }
+
+        // === Discussions: user-authored content, refined per response item ===
+        tool_names::GET_DISCUSSION
+        | tool_names::GET_DISCUSSION_COMMENTS
+        | tool_names::LIST_DISCUSSIONS => {
+            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            integrity = vec![];
         }
 
         // === Repository collaborators (repo-scoped, access-sensitive) ===
@@ -2851,7 +2876,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_tool_labels_discussion_reads_are_repo_scoped_with_writer_integrity() {
+    fn apply_tool_labels_discussion_content_fails_closed_but_categories_remain_writer() {
         let ctx = default_ctx();
         let args = serde_json::json!({ "owner": "octocat", "repo": "hello-world" });
         let repo_id = "octocat/hello-world";
@@ -2859,7 +2884,6 @@ mod tests {
         for op in &[
             tool_names::GET_DISCUSSION,
             tool_names::GET_DISCUSSION_COMMENTS,
-            tool_names::LIST_DISCUSSION_CATEGORIES,
             tool_names::LIST_DISCUSSIONS,
         ] {
             let (secrecy, integrity, _desc) =
@@ -2869,10 +2893,130 @@ mod tests {
                 secrecy.is_empty(),
                 "{op}: public repo should have empty secrecy, got: {secrecy:?}"
             );
-            let expected_integrity = writer_integrity(repo_id, &ctx);
             assert_eq!(
-                integrity, expected_integrity,
-                "{op} must produce writer_integrity for repo_id, got: {integrity:?}"
+                integrity,
+                none_integrity(repo_id, &ctx),
+                "{op} must fail closed until response-item authors are inspected"
+            );
+        }
+
+        let (_, integrity, _) = super::apply_tool_labels(
+            tool_names::LIST_DISCUSSION_CATEGORIES,
+            &args,
+            repo_id,
+            vec![],
+            vec![],
+            String::new(),
+            &ctx,
+        );
+        assert_eq!(integrity, writer_integrity(repo_id, &ctx));
+    }
+
+    #[test]
+    fn resolve_author_integrity_blocks_before_trusted_elevation() {
+        let ctx = PolicyContext {
+            trusted_users: vec!["dual-listed".to_string()],
+            blocked_users: vec!["dual-listed".to_string()],
+            ..Default::default()
+        };
+
+        let integrity = super::resolve_author_integrity(
+            "octocat",
+            "hello-world",
+            "octocat/hello-world",
+            Some("dual-listed"),
+            Some("OWNER"),
+            "issue",
+            "1",
+            &writer_integrity("octocat/hello-world", &ctx),
+            &ctx,
+        );
+
+        assert_eq!(integrity, blocked_integrity("octocat/hello-world", &ctx));
+    }
+
+    #[test]
+    fn dispatched_issue_and_pull_request_reads_fail_closed_at_resource_level() {
+        let ctx = default_ctx();
+        let repo_id = "octocat/hello-world";
+
+        for (tool, number_field, method) in [
+            (
+                tool_names::ISSUE_READ,
+                field_names::ISSUE_NUMBER,
+                "get_comments",
+            ),
+            (
+                tool_names::ISSUE_READ,
+                field_names::ISSUE_NUMBER,
+                "get_labels",
+            ),
+            (
+                tool_names::ISSUE_READ,
+                field_names::ISSUE_NUMBER,
+                "get_sub_issues",
+            ),
+            (
+                tool_names::PULL_REQUEST_READ,
+                field_names::PULL_NUMBER,
+                "get_comments",
+            ),
+            (
+                tool_names::PULL_REQUEST_READ,
+                field_names::PULL_NUMBER,
+                "get_reviews",
+            ),
+            (
+                tool_names::PULL_REQUEST_READ,
+                field_names::PULL_NUMBER,
+                "get_review_comments",
+            ),
+            (
+                tool_names::PULL_REQUEST_READ,
+                field_names::PULL_NUMBER,
+                "get_commits",
+            ),
+            (
+                tool_names::PULL_REQUEST_READ,
+                field_names::PULL_NUMBER,
+                "get_files",
+            ),
+            (
+                tool_names::PULL_REQUEST_READ,
+                field_names::PULL_NUMBER,
+                "get_diff",
+            ),
+            (
+                tool_names::PULL_REQUEST_READ,
+                field_names::PULL_NUMBER,
+                "get_check_runs",
+            ),
+            (
+                tool_names::PULL_REQUEST_READ,
+                field_names::PULL_NUMBER,
+                "get_status",
+            ),
+        ] {
+            let args = serde_json::json!({
+                "owner": "octocat",
+                "repo": "hello-world",
+                number_field: 1,
+                "method": method
+            });
+            let (_, integrity, _) = super::apply_tool_labels(
+                tool,
+                &args,
+                repo_id,
+                vec![],
+                writer_integrity(repo_id, &ctx),
+                String::new(),
+                &ctx,
+            );
+
+            assert_eq!(
+                integrity,
+                none_integrity(repo_id, &ctx),
+                "tool={tool}, method={method}"
             );
         }
     }
