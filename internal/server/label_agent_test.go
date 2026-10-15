@@ -41,7 +41,8 @@ func (g *labelAgentTestGuard) LabelAgent(ctx context.Context, policy interface{}
 
 func (g *labelAgentTestGuard) LabelResource(ctx context.Context, toolName string, args interface{}, backend guard.BackendCaller, caps *difc.Capabilities) (*difc.LabeledResource, difc.OperationType, error) {
 	resource := difc.NewLabeledResource("test-resource")
-	resource.Secrecy.Label.Add(difc.Tag("different-tag"))
+	resource.Secrecy.Label.Add(difc.Tag("policy-secret"))
+	resource.Integrity.Label.Add(difc.Tag("policy-integrity"))
 	return resource, difc.OperationRead, nil
 }
 

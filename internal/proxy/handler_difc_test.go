@@ -211,7 +211,7 @@ func TestHandleWithDIFC_LabelResponseError_CoarseBlocked(t *testing.T) {
 
 func TestHandleWithDIFC_NoFineGrainedLabels_CoarseBlocked(t *testing.T) {
 	upstream := mockUpstream(t, http.StatusOK, []interface{}{
-		map[string]interface{}{"id": 1},
+		map[string]interface{}{"id": 1, "secret": "content-secret"},
 	})
 	defer upstream.Close()
 
@@ -233,6 +233,7 @@ func TestHandleWithDIFC_NoFineGrainedLabels_CoarseBlocked(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "[]", w.Body.String())
+	assert.NotContains(t, w.Body.String(), "content-secret")
 }
 
 // ─── Phase 5: strict mode blocks when any item is filtered ────────────────────
