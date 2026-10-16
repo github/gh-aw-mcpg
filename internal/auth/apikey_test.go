@@ -2,7 +2,7 @@ package auth_test
 
 import (
 	"encoding/hex"
-	"regexp"
+	"fmt"
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/auth"
@@ -25,47 +25,31 @@ func TestGenerateRandomAgentID(t *testing.T) {
 	assert.NotEqual(t, key, key2, "successive calls should produce unique keys")
 }
 
-// TestGenerateRandomAgentID_IsValidHex verifies the returned key is a valid
-// hex-encoded string that decodes to exactly 32 bytes.
-func TestGenerateRandomAgentID_IsValidHex(t *testing.T) {
-	key, err := auth.GenerateRandomAgentID()
-	require.NoError(t, err)
+// TestGenerateRandomAgentID_Format verifies every generated key is exactly 64
+// lowercase hex characters that decode to 32 bytes.
+func TestGenerateRandomAgentID_Format(t *testing.T) {
+	for i := 1; i <= 10; i++ {
+		t.Run(fmt.Sprintf("call_%d", i), func(t *testing.T) {
+			key, err := auth.GenerateRandomAgentID()
+			require.NoError(t, err)
+			assert.Regexp(t, `^[0-9a-f]{64}$`, key, "key should be 64 lowercase hex chars")
 
-	decoded, decodeErr := hex.DecodeString(key)
-	require.NoError(t, decodeErr, "key should be valid hex-encoded string; got %q", key)
-	assert.Len(t, decoded, 32, "decoded key should be 32 bytes")
-}
-
-// TestGenerateRandomAgentID_IsLowercaseHex verifies the key uses only lowercase
-// hex characters (0-9, a-f) as produced by hex.EncodeToString.
-func TestGenerateRandomAgentID_IsLowercaseHex(t *testing.T) {
-	key, err := auth.GenerateRandomAgentID()
-	require.NoError(t, err)
-
-	matched, matchErr := regexp.MatchString(`^[0-9a-f]{64}$`, key)
-	require.NoError(t, matchErr)
-	assert.True(t, matched, "key should consist of exactly 64 lowercase hex chars; got %q", key)
+			decoded, err := hex.DecodeString(key)
+			require.NoError(t, err, "key should be valid hex")
+			assert.Len(t, decoded, 32, "decoded key should be 32 bytes")
+		})
+	}
 }
 
 // TestGenerateRandomAgentID_Uniqueness verifies that repeated calls produce
 // distinct keys, confirming that crypto/rand entropy is used.
 func TestGenerateRandomAgentID_Uniqueness(t *testing.T) {
 	const n = 20
-	seen := make(map[string]bool, n)
+	seen := make(map[string]struct{}, n)
 	for i := 0; i < n; i++ {
 		key, err := auth.GenerateRandomAgentID()
 		require.NoError(t, err, "call %d: GenerateRandomAgentID() should not fail", i+1)
-		assert.False(t, seen[key], "call %d: generated duplicate key %q", i+1, key)
-		seen[key] = true
-	}
-}
-
-// TestGenerateRandomAgentID_LengthConsistency verifies that every call returns
-// a key of exactly 64 characters, regardless of call order.
-func TestGenerateRandomAgentID_LengthConsistency(t *testing.T) {
-	for i := 0; i < 10; i++ {
-		key, err := auth.GenerateRandomAgentID()
-		require.NoError(t, err, "call %d: GenerateRandomAgentID() should not fail", i+1)
-		assert.Len(t, key, 64, "call %d: key should always be 64 characters", i+1)
+		assert.NotContains(t, seen, key, "call %d: generated duplicate key", i+1)
+		seen[key] = struct{}{}
 	}
 }
