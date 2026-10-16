@@ -162,71 +162,6 @@ func TestHTTPConnection(t *testing.T) {
 							"%s": "%s"
 						}
 					}
-
-					func TestGetOrLaunch_IndependentServersLaunchConcurrently(t *testing.T) {
-						var (
-							mu       sync.Mutex
-							requests int
-							bothSeen = make(chan struct{})
-							release  = make(chan struct{})
-						)
-						newBlockingServer := func() *httptest.Server {
-							return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-								mu.Lock()
-								requests++
-								if requests == 2 {
-									close(bothSeen)
-								}
-								mu.Unlock()
-								<-release
-
-								var req map[string]interface{}
-								if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-									http.Error(w, err.Error(), http.StatusBadRequest)
-									return
-								}
-								w.Header().Set("Content-Type", "application/json")
-								_ = json.NewEncoder(w).Encode(map[string]interface{}{
-									"jsonrpc": "2.0",
-									"id":      req["id"],
-									"result": map[string]interface{}{
-										"protocolVersion": "2024-11-05",
-										"capabilities":    map[string]interface{}{},
-										"serverInfo":      map[string]interface{}{"name": "mock", "version": "1"},
-									},
-								})
-							}))
-						}
-
-						serverA := newBlockingServer()
-						defer serverA.Close()
-						serverB := newBlockingServer()
-						defer serverB.Close()
-
-						l := New(context.Background(), newTestConfig(map[string]*config.ServerConfig{
-							"a": {Type: "http", URL: serverA.URL},
-							"b": {Type: "http", URL: serverB.URL},
-						}))
-						defer l.Close()
-
-						results := make(chan error, 2)
-						for _, serverID := range []string{"a", "b"} {
-							go func(serverID string) {
-								_, err := GetOrLaunch(l, serverID)
-								results <- err
-							}(serverID)
-						}
-
-						select {
-						case <-bothSeen:
-						case <-time.After(2 * time.Second):
-							t.Fatal("second independent backend did not start before the first completed")
-						}
-						close(release)
-
-						assert.NoError(t, <-results)
-						assert.NoError(t, <-results)
-					}
 				},
 				"gateway": {
 					"port": 3001,
@@ -258,6 +193,71 @@ func TestHTTPConnection(t *testing.T) {
 			assert.Equal(t, tt.wantAuthValue, conn.GetHTTPHeaders()[tt.authHeader])
 		})
 	}
+}
+
+func TestGetOrLaunch_IndependentServersLaunchConcurrently(t *testing.T) {
+	var (
+		mu       sync.Mutex
+		requests int
+		bothSeen = make(chan struct{})
+		release  = make(chan struct{})
+	)
+	newBlockingServer := func() *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			requests++
+			if requests == 2 {
+				close(bothSeen)
+			}
+			mu.Unlock()
+			<-release
+
+			var req map[string]interface{}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      req["id"],
+				"result": map[string]interface{}{
+					"protocolVersion": "2024-11-05",
+					"capabilities":    map[string]interface{}{},
+					"serverInfo":      map[string]interface{}{"name": "mock", "version": "1"},
+				},
+			})
+		}))
+	}
+
+	serverA := newBlockingServer()
+	defer serverA.Close()
+	serverB := newBlockingServer()
+	defer serverB.Close()
+
+	l := New(context.Background(), newTestConfig(map[string]*config.ServerConfig{
+		"a": {Type: "http", URL: serverA.URL},
+		"b": {Type: "http", URL: serverB.URL},
+	}))
+	defer l.Close()
+
+	results := make(chan error, 2)
+	for _, serverID := range []string{"a", "b"} {
+		go func(serverID string) {
+			_, err := GetOrLaunch(l, serverID)
+			results <- err
+		}(serverID)
+	}
+
+	select {
+	case <-bothSeen:
+	case <-time.After(2 * time.Second):
+		t.Fatal("second independent backend did not start before the first completed")
+	}
+	close(release)
+
+	assert.NoError(t, <-results)
+	assert.NoError(t, <-results)
 }
 
 func TestMixedHTTPAndStdioServers(t *testing.T) {
