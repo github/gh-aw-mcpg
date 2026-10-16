@@ -94,23 +94,23 @@ Create a list of candidate functions with their:
 - Current coverage percentage
 - File location
 
-## Step 3: Analyze Function Complexity with Serena
+## Step 3: Analyze Function Complexity
 
-For each candidate function, use **Serena** to analyze code complexity:
+For each candidate function, inspect its source and use standard Go tooling to assess complexity:
 
-1. Use Serena's Go analysis capabilities to:
-   - Measure cyclomatic complexity
-   - Count number of branches/conditionals
-   - Identify error handling paths
-   - Detect complex logic patterns
-   - Analyze dependencies and method calls
+1. Review the function and its dependencies to identify:
+   - Branches and conditionals
+   - Error handling paths
+   - Complex logic patterns
+   - Dependencies and method calls
+2. Treat complexity as a reasoned estimate; do not claim a measured cyclomatic-complexity score unless an available tool produced it.
 
-2. Rank functions by a combined score:
-   - **Complexity score** (from Serena analysis)
+3. Rank functions by a combined score:
+   - **Complexity estimate** (based on branches, error paths, and dependencies)
    - **Inverse coverage** (lower coverage = higher priority)
    - **Code significance** (exported functions, core logic)
 
-3. Select the **top-ranked function** - the most complex function with lowest coverage
+4. Select the **top-ranked function** - the most complex function with lowest coverage
 
 ## Step 4: Understand the Function
 
@@ -309,22 +309,12 @@ All tests pass:
 - **Quality over quantity**: Write meaningful tests, not just lines of code
 - **Follow conventions**: Match the testing patterns used in the codebase
 - **Be thorough**: Cover all branches, edge cases, and error paths
-- **Use Serena**: Leverage Serena's code analysis for complexity measurement
+- **Assess complexity from source**: Treat complexity as an estimate unless an available tool measures it
 - **Verify coverage**: Always confirm tests actually improve coverage
 - **Table-driven tests**: Use Go's table-driven test pattern consistently
 
-## Serena Configuration
-
-Serena is configured for Go code analysis:
-- **Project Root**: ${{ github.workspace }}
-- **Language**: Go
-- **Capabilities**: Complexity analysis, code understanding, function analysis
-
-Use Serena to:
-- Identify function complexity
-- Understand code structure
-- Find all function usages
-- Analyze branching logic
+Use `go doc` and source searches to understand declarations and call sites. Do not assume an
+external code-analysis server is configured.
 
 ## Cache Memory
 

@@ -125,13 +125,6 @@ make test-rust
 ```
 Install the Rust toolchain from [rustup.rs](https://rustup.rs/) if not already present.
 
-#### Serena MCP Tests (Optional)
-Run Serena MCP Server tests (requires Docker and network access):
-```bash
-make test-serena          # Direct connection tests
-make test-serena-gateway  # Tests routed via the MCP Gateway
-```
-
 #### Container Proxy Tests (Optional)
 Run container proxy integration tests (requires Docker and `gh` CLI or a `GITHUB_TOKEN`/`GH_TOKEN` environment variable):
 ```bash

@@ -20,7 +20,6 @@ Load these additional files only when relevant:
 - [campaign.md](campaign.md)
 - [experiments.md](experiments.md)
 - [visual-regression.md](visual-regression.md)
-- [serena-tool.md](serena-tool.md)
 
 ## Scope
 

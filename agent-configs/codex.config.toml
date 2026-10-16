@@ -30,12 +30,5 @@ tool_timeout_sec = 120000
 startup_timeout_ms = 180000
 bearer_token_env_var = "AGENT_ID"
 
-[mcp_servers.serena]
-url = "http://127.0.0.1:8000/mcp/serena"
-transport = "streamablehttp"
-tool_timeout_sec = 120000
-startup_timeout_ms = 180000
-bearer_token_env_var = "AGENT_ID"
-
 [projects."/workspace/"]
 trust_level="trusted"

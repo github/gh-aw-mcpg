@@ -36,7 +36,7 @@ strict: true
 
 # Duplicate Code Detection
 
-Analyze Go code to identify duplicated patterns using Serena's semantic code analysis capabilities. Report significant findings that require refactoring.
+Analyze Go code to identify duplicated patterns by inspecting source code and comparing likely matches. Report significant findings that require refactoring.
 
 ## Task
 
@@ -54,13 +54,7 @@ Detect and report code duplication by:
 
 ## Analysis Workflow
 
-### 1. Project Activation
-
-Activate the project in Serena:
-- Use `activate_project` tool with workspace path `${{ github.workspace }}` (mounted repository directory)
-- This sets up the semantic code analysis environment for Go code
-
-### 2. Changed Files Analysis
+### 1. Changed Files Analysis
 
 Identify and analyze modified files:
 - Determine files changed in the recent commits
@@ -68,20 +62,19 @@ Identify and analyze modified files:
 - **Exclude test files** from analysis (files matching patterns: `*_test.go`, or located in directories named `test`, `tests`, or `__tests__`)
 - **Exclude workflow files** from analysis (files under `.github/workflows/*`)
 - **Exclude agent configuration** from analysis (files under `.github/agents/*`)
-- Use `get_symbols_overview` to understand file structure
-- Use `read_file` to examine modified file contents
+- Inspect declarations and implementations in the changed files
 
-### 3. Duplicate Detection
+### 2. Duplicate Detection
 
 Apply semantic code analysis to find duplicates:
 
 **Symbol-Level Analysis**:
-- For significant functions/methods in changed files, use `find_symbol` to search for similarly named symbols
-- Use `find_referencing_symbols` to understand usage patterns
+- For significant functions/methods in changed files, search the repository for similarly named symbols
+- Search call sites to understand usage patterns
 - Identify functions with similar names in different files (e.g., `NewLogger` across modules)
 
 **Pattern Search**:
-- Use `search_for_pattern` to find similar code patterns
+- Use text search to find similar code patterns
 - Search for duplication indicators:
   - Similar function signatures
   - Repeated logic blocks
@@ -91,8 +84,8 @@ Apply semantic code analysis to find duplicates:
   - Similar struct initialization patterns
 
 **Structural Analysis**:
-- Use `list_dir` and `find_file` to identify files with similar names or purposes
-- Compare symbol overviews across files for structural similarities
+- Use `find` to identify files with similar names or purposes
+- Inspect source declarations across files for structural similarities
 - Look for similar package structures in `internal/` directory
 
 ### 4. Duplication Evaluation
@@ -215,7 +208,7 @@ This analysis found [N] significant duplication patterns:
 ## Analysis Metadata
 
 - **Analyzed Files**: [count] Go files
-- **Detection Method**: Serena semantic code analysis
+- **Detection Method**: Source inspection and comparison of implementations
 - **Commit**: ${{ github.event.head_commit.id }}
 - **Analysis Date**: [timestamp]
 ```
@@ -322,7 +315,7 @@ Here's how to create the parent issue and link sub-issues using the `create_issu
 
 ### Security
 - Never execute untrusted code or commands
-- Only use Serena's read-only analysis tools
+- Use read-only source inspection and search tools
 - Do not modify files during analysis
 
 ### Efficiency
@@ -347,14 +340,9 @@ Here's how to create the parent issue and link sub-issues using the `create_issu
 - Suggest practical refactoring approaches
 - Use descriptive titles that clearly identify patterns (e.g., "Duplicate Code Pattern: Error Handling in Server Module")
 
-## Tool Usage Sequence
+## Tool Usage
 
-1. **Project Setup**: `activate_project` with repository path
-2. **File Discovery**: `list_dir`, `find_file` for changed files
-3. **Symbol Analysis**: `get_symbols_overview` for structure understanding
-4. **Content Review**: `read_file` for detailed code examination
-5. **Pattern Matching**: `search_for_pattern` for similar code
-6. **Symbol Search**: `find_symbol` for duplicate function names
-7. **Reference Analysis**: `find_referencing_symbols` for usage patterns
+Use `find`, `grep`, and source inspection to locate changed files, declarations,
+implementations, and call sites. Do not rely on external code-analysis tools.
 
 **Objective**: Improve code quality by identifying and reporting meaningful code duplication that impacts maintainability. Focus on actionable findings that enable automated or manual refactoring.

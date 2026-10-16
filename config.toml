@@ -19,13 +19,5 @@ args = ["run", "--rm", "-i",
 command = "docker"
 args = ["run", "--rm", "-i", "-e", "NO_COLOR=1", "-e", "TERM=dumb", "-e", "PYTHONUNBUFFERED=1", "mcp/memory"]
 
-[servers.serena]
-command = "docker"
-args = ["run", "--rm", "-i",
-        # Replace /path/to/workspace with an absolute path (TOML does not expand ${PWD})
-        "-v", "/path/to/workspace:/workspace:ro",
-        "-e", "NO_COLOR=1", "-e", "TERM=dumb",
-        "ghcr.io/github/serena-mcp-server:latest"]
-
 # Note: DOCKER_API_VERSION is automatically set by querying the Docker daemon's
 # current API version; falls back to 1.44 for all architectures if detection fails.

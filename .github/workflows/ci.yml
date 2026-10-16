@@ -252,22 +252,3 @@ jobs:
               ref: 'main'
             });
             console.log('✓ Triggered large-payload-tester workflow');
-
-  language-support-tester:
-    runs-on: ubuntu-latest
-    needs: [unit-test, lint, integration-test, rust-guard-test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      actions: write
-    steps:
-      - name: Trigger language-support-tester workflow
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'language-support-tester.lock.yml',
-              ref: 'main'
-            });
-            console.log('✓ Triggered language-support-tester workflow');

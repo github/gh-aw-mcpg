@@ -9,7 +9,6 @@ The MCP Gateway supports MCP servers via stdio transport using Docker containers
 | Server | Transport | Direct Tests | Gateway Tests | Configuration |
 |--------|-----------|--------------|---------------|---------------|
 | **GitHub MCP** | Stdio (Docker) | ✅ All passed | ✅ All passed | Production ready |
-| **Serena MCP** | Stdio (Docker) | ✅ 68/68 passed | ✅ All passed | Production ready |
 
 ---
 
@@ -38,32 +37,6 @@ The MCP Gateway supports MCP servers via stdio transport using Docker containers
 command = "docker"
 args = ["run", "--rm", "-i", "ghcr.io/github/github-mcp-server:latest"]
 ```
-
-### Serena MCP Server
-
-**JSON Configuration:**
-```json
-{
-  "mcpServers": {
-    "serena": {
-      "type": "stdio",
-      "container": "ghcr.io/github/serena-mcp-server:latest",
-      "env": {
-        "SERENA_CONFIG": "/path/to/config"
-      }
-    }
-  }
-}
-```
-
-**TOML Configuration:**
-```toml
-[servers.serena]
-command = "docker"
-args = ["run", "--rm", "-i", "ghcr.io/github/serena-mcp-server:latest"]
-```
-
----
 
 ## How It Works
 
@@ -98,20 +71,10 @@ Client Request 2 (session abc):
 - ✅ Issue management validated
 - ✅ Production deployment confirmed
 
-### Serena MCP Server
-- ✅ **Direct Connection:** 68 comprehensive tests (100% pass rate)
-- ✅ **Gateway Connection:** All integration tests passed via `make test-serena-gateway`
-- ✅ Multi-language support (Go, Java, JavaScript, Python)
-- ✅ All 29 tools tested and validated
-- ✅ File operations, symbol operations, memory management
-- ✅ See [SERENA_TEST_RESULTS.md](../SERENA_TEST_RESULTS.md) for details
-
 ---
 
 ## For More Details
 
 📖 **Configuration Specification:** [MCP Gateway Configuration Reference](https://github.com/github/gh-aw/blob/main/docs/src/content/docs/reference/mcp-gateway.md)
-
-📊 **Test Results:** [Serena Test Results](../SERENA_TEST_RESULTS.md)
 
 🏗️ **Architecture:** See README.md for session pooling and backend management details
