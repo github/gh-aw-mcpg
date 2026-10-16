@@ -43,7 +43,9 @@ RUN pip install --no-cache-dir git+https://github.com/oraios/serena.git || \
      pip install --no-cache-dir serena-agent)
 
 # Install Python language server for Python code analysis
-RUN pip install --no-cache-dir python-lsp-server[all]
+COPY requirements-python-lsp.txt /tmp/requirements-python-lsp.txt
+RUN pip install --no-cache-dir --require-hashes \
+    --requirement /tmp/requirements-python-lsp.txt
 
 # Install TypeScript language server (minimal)
 RUN npm install -g typescript typescript-language-server && \
