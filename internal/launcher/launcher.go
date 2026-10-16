@@ -27,6 +27,9 @@ var logLauncher = logger.ForFile()
 // is not present in the gateway configuration.
 var ErrServerNotFound = errors.New("server not found in config")
 
+// ErrLauncherClosed is returned when a launch is attempted or completes after shutdown.
+var ErrLauncherClosed = errors.New("launcher is closed")
+
 // connectionResult is used to return the result of a connection attempt from a goroutine
 type connectionResult struct {
 	conn *mcp.Connection
@@ -47,6 +50,7 @@ type Launcher struct {
 	connections        map[string]*mcp.Connection // Single connections per backend (stateless/HTTP)
 	sessionPool        *SessionConnectionPool     // Session-aware connections (stateful/stdio)
 	mu                 sync.RWMutex
+	closed             bool // protected by mu; prevents launches from publishing after shutdown
 	runningInContainer bool
 	startupTimeout     time.Duration // Timeout for backend server startup
 	oidcProvider       *oidc.Provider
@@ -120,6 +124,10 @@ func New(ctx context.Context, cfg *config.Config) *Launcher {
 // getServerConfig looks up the configuration for serverID under a read lock.
 func (l *Launcher) getServerConfig(serverID string) (*config.ServerConfig, error) {
 	l.mu.RLock()
+	if l.closed {
+		l.mu.RUnlock()
+		return nil, ErrLauncherClosed
+	}
 	cfg, ok := l.config.Servers[serverID]
 	l.mu.RUnlock()
 	if !ok {
@@ -136,6 +144,10 @@ func (l *Launcher) getServerConfig(serverID string) (*config.ServerConfig, error
 // need to acquire the config read-lock a second time.
 func getOrLaunchWithConfig(l *Launcher, serverID string, serverCfg *config.ServerConfig) (*mcp.Connection, error) {
 	l.mu.RLock()
+	if l.closed {
+		l.mu.RUnlock()
+		return nil, ErrLauncherClosed
+	}
 	conn, ok := l.connections[serverID]
 	l.mu.RUnlock()
 	if ok {
@@ -144,6 +156,10 @@ func getOrLaunchWithConfig(l *Launcher, serverID string, serverCfg *config.Serve
 
 	result, err, _ := l.launchGroup.Do(serverID, func() (any, error) {
 		l.mu.RLock()
+		if l.closed {
+			l.mu.RUnlock()
+			return nil, ErrLauncherClosed
+		}
 		conn, ok := l.connections[serverID]
 		l.mu.RUnlock()
 		if ok {
@@ -186,6 +202,11 @@ func getOrLaunchWithConfig(l *Launcher, serverID string, serverCfg *config.Serve
 			logger.LogInfoToServer(serverID, "backend", "Successfully configured HTTP MCP backend: %s", serverID)
 
 			l.mu.Lock()
+			if l.closed {
+				l.mu.Unlock()
+				conn.Close()
+				return nil, ErrLauncherClosed
+			}
 			l.connections[serverID] = conn
 			l.mu.Unlock()
 			l.recordStart(serverID)
@@ -199,6 +220,11 @@ func getOrLaunchWithConfig(l *Launcher, serverID string, serverCfg *config.Serve
 			return nil, err
 		}
 		l.mu.Lock()
+		if l.closed {
+			l.mu.Unlock()
+			conn.Close()
+			return nil, ErrLauncherClosed
+		}
 		l.connections[serverID] = conn
 		l.mu.Unlock()
 		l.recordStart(serverID)
@@ -247,7 +273,14 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 
 	logLauncher.Printf("Checking session pool: serverID=%s, sessionID=%s", serverID, util.FormatSessionIDForLog(sessionID))
 	// For stdio backends, check the session pool first
-	if conn, exists := l.sessionPool.Get(serverID, sessionID); exists {
+	l.mu.RLock()
+	if l.closed {
+		l.mu.RUnlock()
+		return nil, ErrLauncherClosed
+	}
+	conn, exists := l.sessionPool.Get(serverID, sessionID)
+	l.mu.RUnlock()
+	if exists {
 		logger.LogDebugToServer(serverID, "backend", "Reusing session connection: server=%s, session=%s", serverID, util.FormatSessionIDForLog(sessionID))
 		return conn, nil
 	}
@@ -262,7 +295,14 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 
 	result, err, _ := l.sessionLaunchGroup.Do(serverID+"\x00"+sessionID, func() (any, error) {
 		// Double-check after joining the per-session launch group.
-		if conn, exists := l.sessionPool.Get(serverID, sessionID); exists {
+		l.mu.RLock()
+		if l.closed {
+			l.mu.RUnlock()
+			return nil, ErrLauncherClosed
+		}
+		conn, exists := l.sessionPool.Get(serverID, sessionID)
+		l.mu.RUnlock()
+		if exists {
 			logger.LogDebugToServer(serverID, "backend", "Session connection created by another goroutine: server=%s, session=%s", serverID, util.FormatSessionIDForLog(sessionID))
 			return conn, nil
 		}
@@ -276,7 +316,14 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 		}
 
 		// Add to session pool and record start
+		l.mu.Lock()
+		if l.closed {
+			l.mu.Unlock()
+			conn.Close()
+			return nil, ErrLauncherClosed
+		}
 		l.sessionPool.Set(serverID, sessionID, conn)
+		l.mu.Unlock()
 		l.recordStart(serverID)
 		return conn, nil
 	})
@@ -402,6 +449,11 @@ func (l *Launcher) Close() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	if l.closed {
+		return
+	}
+	l.closed = true
+
 	logLauncher.Printf("Closing launcher: connections=%d, hasSessionPool=%v", len(l.connections), l.sessionPool != nil)
 	logLauncher.Printf("Closing %d connections", len(l.connections))
 	for _, conn := range l.connections {
@@ -423,6 +475,9 @@ func (l *Launcher) recordStart(serverID string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	if l.closed {
+		return
+	}
 	if _, exists := l.serverStartTimes[serverID]; !exists {
 		l.serverStartTimes[serverID] = time.Now()
 		delete(l.serverErrors, serverID)
@@ -435,6 +490,9 @@ func (l *Launcher) recordError(serverID string, errMsg string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	if l.closed {
+		return
+	}
 	l.serverErrors[serverID] = errMsg
 	logLauncher.Printf("Recorded server error: serverID=%s, error=%s", serverID, errMsg)
 }

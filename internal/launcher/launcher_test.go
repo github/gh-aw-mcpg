@@ -252,6 +252,7 @@ func TestGetOrLaunch_IndependentServersLaunchConcurrently(t *testing.T) {
 	select {
 	case <-bothSeen:
 	case <-time.After(2 * time.Second):
+		close(release)
 		t.Fatal("second independent backend did not start before the first completed")
 	}
 	close(release)
