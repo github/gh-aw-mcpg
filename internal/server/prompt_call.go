@@ -101,7 +101,7 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 		"arguments": args,
 	})
 	if err != nil {
-		logUnified.Printf("callBackendPrompt: backend prompts/get failed: serverID=%s, promptName=%s, err=%v", serverID, promptName, err)
+		logUnified.Printf("callBackendPrompt: backend prompts/get failed: serverID=%s, promptName=%s, err=%s", serverID, promptName, sanitize.SanitizeString(sanitize.RedactErrorForLogIf(err, pipelineIn.SensitiveLogging)))
 		return nil, err
 	}
 
