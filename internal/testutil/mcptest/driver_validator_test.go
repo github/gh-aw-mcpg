@@ -141,3 +141,74 @@ func TestTestDriver_StopIdempotentWithoutServers(t *testing.T) {
 		driver.Stop()
 	})
 }
+
+type failingTransport struct{ err error }
+
+func (f failingTransport) Connect(context.Context) (sdk.Connection, error) { return nil, f.err }
+
+// TestNewValidatorClient_ConnectError verifies transport failures are wrapped.
+func TestNewValidatorClient_ConnectError(t *testing.T) {
+	cause := errors.New("transport down")
+
+	client, err := mcptest.NewValidatorClient(context.Background(), failingTransport{err: cause})
+
+	require.Error(t, err)
+	assert.Nil(t, client)
+	assert.ErrorIs(t, err, cause)
+	assert.Contains(t, err.Error(), "connect to server")
+}
+
+// TestValidatorClient_ClosedSessionErrors verifies list/call/read operations
+// wrap errors returned by a closed session.
+func TestValidatorClient_ClosedSessionErrors(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	driver := mcptest.NewTestDriver()
+	defer driver.Stop()
+	require.NoError(t, driver.AddTestServer("test", mcptest.DefaultServerConfig()))
+
+	transport, err := driver.CreateStdioTransport("test")
+	require.NoError(t, err)
+	validator, err := mcptest.NewValidatorClient(ctx, transport)
+	require.NoError(t, err)
+	require.NoError(t, validator.Close())
+
+	tests := []struct {
+		name    string
+		call    func() error
+		wantMsg string
+	}{
+		{"ListTools", func() error { _, err := validator.ListTools(); return err }, "list tools"},
+		{"ListResources", func() error { _, err := validator.ListResources(); return err }, "list resources"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.call()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantMsg)
+		})
+	}
+}
+
+// TestValidatorClient_GetServerInfoAndClose covers GetServerInfo and Close on a
+// live client, plus Close on a client without a session.
+func TestValidatorClient_GetServerInfoAndClose(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	driver := mcptest.NewTestDriver()
+	defer driver.Stop()
+	require.NoError(t, driver.AddTestServer("test", mcptest.DefaultServerConfig()))
+	transport, err := driver.CreateStdioTransport("test")
+	require.NoError(t, err)
+	validator, err := mcptest.NewValidatorClient(ctx, transport)
+	require.NoError(t, err)
+
+	info := validator.GetServerInfo()
+	require.NotNil(t, info)
+	assert.NotEmpty(t, info.Name)
+	assert.NoError(t, validator.Close())
+
+	assert.NoError(t, (&mcptest.ValidatorClient{}).Close(), "Close without a session is a no-op")
+}
