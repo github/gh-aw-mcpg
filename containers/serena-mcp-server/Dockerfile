@@ -2,12 +2,12 @@
 # Optimized for Python, Go, and TypeScript support with minimal image size
 
 # Stage 1: Build gopls
-FROM golang:1.25-alpine AS gopls-builder
+FROM golang:1.25-alpine@sha256:1ae0735f00daffa3aaf1363a5184c0d2dc55c78e3db4ec70241cdac97bf84b59 AS gopls-builder
 # Pin to gopls v0.21.0 which is compatible with Go 1.25
 RUN go install golang.org/x/tools/gopls@v0.21.0
 
 # Stage 2: Final image
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
 
 # OCI labels for GitHub Container Registry
 LABEL org.opencontainers.image.title="Serena MCP Server"
@@ -37,6 +37,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy pre-built gopls from builder stage
 COPY --from=gopls-builder /go/bin/gopls /usr/local/bin/gopls
 
+# Install the pinned TypeScript language tools from the committed lockfile.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && \
+    test -x node_modules/.bin/tsc && \
+    test -x node_modules/.bin/tsserver && \
+    test -x node_modules/.bin/typescript-language-server && \
+    ln -s /app/node_modules/.bin/tsc /usr/local/bin/tsc && \
+    ln -s /app/node_modules/.bin/tsserver /usr/local/bin/tsserver && \
+    ln -s /app/node_modules/.bin/typescript-language-server /usr/local/bin/typescript-language-server && \
+    rm -rf /root/.npm /tmp/*
+
 # Install Serena MCP server and its locked, hash-verified dependencies.
 COPY requirements-serena.txt /tmp/requirements-serena.txt
 COPY requirements-serena-build.txt /tmp/requirements-serena-build.txt
@@ -46,10 +57,6 @@ RUN pip install --no-cache-dir --force-reinstall --no-deps \
     pip install --no-cache-dir --require-hashes --no-build-isolation \
       -r /tmp/requirements-serena.txt && \
     rm /tmp/requirements-serena.txt /tmp/requirements-serena-build.txt
-
-# Install TypeScript language server (minimal)
-RUN npm install -g typescript typescript-language-server && \
-    rm -rf /root/.npm /tmp/*
 
 # Create directories for Serena configuration and caching
 RUN mkdir -p /workspace /tmp/serena-cache /root/.serena

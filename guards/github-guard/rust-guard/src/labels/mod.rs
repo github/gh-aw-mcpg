@@ -36,8 +36,8 @@ mod response_items;
 mod response_paths;
 pub mod tool_rules;
 
-// Re-export helpers that form the public API consumed by lib.rs
-pub use helpers::{
+// Re-export helpers consumed by lib.rs within this crate.
+pub(crate) use helpers::{
     blocked_integrity, ensure_integrity_baseline, extract_repo_info,
     extract_repo_info_from_search_query, reader_integrity, search_result_total_count,
     writer_integrity, MinIntegrity, PolicyContext, PolicyScopeEntry, ScopeKind,

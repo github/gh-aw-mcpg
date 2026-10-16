@@ -452,7 +452,7 @@ fn extract_github_label_names(item: &Value) -> Vec<&str> {
 /// Check whether a content item carries at least one label from the configured
 /// `approval-labels` list (case-insensitive comparison).
 #[cfg(test)]
-pub fn has_approval_label(item: &Value, ctx: &PolicyContext) -> bool {
+pub(crate) fn has_approval_label(item: &Value, ctx: &PolicyContext) -> bool {
     first_matching_approval_label(item, ctx).is_some()
 }
 
@@ -475,13 +475,53 @@ fn first_matching_approval_label<'a>(item: &'a Value, ctx: &PolicyContext) -> Op
 /// Check whether a content item carries at least one label from the configured
 /// `refusal-labels` list (case-insensitive comparison).
 #[cfg(test)]
-pub fn has_refusal_label(item: &Value, ctx: &PolicyContext) -> bool {
+pub(crate) fn has_refusal_label(item: &Value, ctx: &PolicyContext) -> bool {
     first_matching_refusal_label(item, ctx).is_some()
 }
 
 /// Return the first matching refusal label name from an item, if any.
 fn first_matching_refusal_label<'a>(item: &'a Value, ctx: &PolicyContext) -> Option<&'a str> {
     first_matching_label(item, &ctx.refusal_labels)
+}
+
+fn promote_to_writer(
+    item: &Value,
+    resource_type: &str,
+    repo_full_name: &str,
+    integrity: Vec<String>,
+    ctx: &PolicyContext,
+    reason: &str,
+) -> Vec<String> {
+    crate::log_info(&format!(
+        "[integrity] {resource_type}:{repo_full_name}#{} promoted to approved ({reason})",
+        item_number(item)
+    ));
+    max_integrity(
+        repo_full_name,
+        &integrity,
+        &writer_integrity(repo_full_name, ctx),
+        ctx,
+    )
+}
+
+fn demote_to_none(
+    item: &Value,
+    resource_type: &str,
+    repo_full_name: &str,
+    integrity: Vec<String>,
+    ctx: &PolicyContext,
+    reason: &str,
+) -> Vec<String> {
+    crate::log_info(&format!(
+        "[integrity] {resource_type}:{repo_full_name}#{} demoted to none ({reason})",
+        item_number(item)
+    ));
+    cap_integrity(
+        repo_full_name,
+        &integrity,
+        &none_integrity(repo_full_name, ctx),
+        ctx,
+    )
 }
 
 /// Apply approval-label promotion: if the item carries a configured approval label,
@@ -494,15 +534,13 @@ fn apply_approval_label_promotion(
     ctx: &PolicyContext,
 ) -> Vec<String> {
     if let Some(label) = first_matching_approval_label(item, ctx) {
-        let number = item_number(item);
-        crate::log_info(&format!(
-            "[integrity] {resource_type}:{repo_full_name}#{number} promoted to approved (label '{label}' in approval-labels)"
-        ));
-        max_integrity(
+        promote_to_writer(
+            item,
+            resource_type,
             repo_full_name,
-            &integrity,
-            &writer_integrity(repo_full_name, ctx),
+            integrity,
             ctx,
+            &format!("label '{label}' in approval-labels"),
         )
     } else {
         integrity
@@ -519,15 +557,13 @@ fn apply_refusal_label_demotion(
     ctx: &PolicyContext,
 ) -> Vec<String> {
     if let Some(label) = first_matching_refusal_label(item, ctx) {
-        let number = item_number(item);
-        crate::log_info(&format!(
-            "[integrity] {resource_type}:{repo_full_name}#{number} demoted to none (label '{label}' in refusal-labels)"
-        ));
-        cap_integrity(
+        demote_to_none(
+            item,
+            resource_type,
             repo_full_name,
-            &integrity,
-            &none_integrity(repo_full_name, ctx),
+            integrity,
             ctx,
+            &format!("label '{label}' in refusal-labels"),
         )
     } else {
         integrity
@@ -551,13 +587,13 @@ fn item_has_config_label(item: &Value, config_label: &str) -> bool {
 
 /// Check whether a content item carries the configured built-in promotion label
 /// (case-insensitive). Returns `false` when `promotion_label` is empty (feature disabled).
-pub fn has_promotion_label(item: &Value, ctx: &PolicyContext) -> bool {
+pub(crate) fn has_promotion_label(item: &Value, ctx: &PolicyContext) -> bool {
     item_has_config_label(item, &ctx.promotion_label)
 }
 
 /// Check whether a content item carries the configured built-in demotion label
 /// (case-insensitive). Returns `false` when `demotion_label` is empty (feature disabled).
-pub fn has_demotion_label(item: &Value, ctx: &PolicyContext) -> bool {
+pub(crate) fn has_demotion_label(item: &Value, ctx: &PolicyContext) -> bool {
     item_has_config_label(item, &ctx.demotion_label)
 }
 
@@ -571,16 +607,13 @@ fn apply_promotion_label_promotion(
     ctx: &PolicyContext,
 ) -> Vec<String> {
     if has_promotion_label(item, ctx) {
-        let number = item_number(item);
-        crate::log_info(&format!(
-            "[integrity] {}:{}#{} promoted to approved (built-in promotion-label '{}')",
-            resource_type, repo_full_name, number, ctx.promotion_label
-        ));
-        max_integrity(
+        promote_to_writer(
+            item,
+            resource_type,
             repo_full_name,
-            &integrity,
-            &writer_integrity(repo_full_name, ctx),
+            integrity,
             ctx,
+            &format!("built-in promotion-label '{}'", ctx.promotion_label),
         )
     } else {
         integrity
@@ -598,16 +631,13 @@ fn apply_demotion_label_demotion(
     ctx: &PolicyContext,
 ) -> Vec<String> {
     if has_demotion_label(item, ctx) {
-        let number = item_number(item);
-        crate::log_info(&format!(
-            "[integrity] {}:{}#{} demoted to none (built-in demotion-label '{}')",
-            resource_type, repo_full_name, number, ctx.demotion_label
-        ));
-        cap_integrity(
+        demote_to_none(
+            item,
+            resource_type,
             repo_full_name,
-            &integrity,
-            &none_integrity(repo_full_name, ctx),
+            integrity,
             ctx,
+            &format!("built-in demotion-label '{}'", ctx.demotion_label),
         )
     } else {
         integrity
@@ -1407,13 +1437,15 @@ pub(crate) fn extract_items_array(response: &Value) -> (Option<&Vec<Value>>, &'s
     if let Some(arr) = response.get("alerts").and_then(|v| v.as_array()) {
         return (Some(arr), "/alerts");
     }
+    // A pull request's "labels" field is nested metadata, not the response
+    // collection. Collection endpoints return their items as a root array or
+    // an explicit wrapper such as "items".
     for (field, pointer) in [
         ("comments", "/comments"),
         ("reviews", "/reviews"),
         ("review_comments", "/review_comments"),
         ("commits", "/commits"),
         ("files", "/files"),
-        ("labels", "/labels"),
         ("check_runs", "/check_runs"),
         ("statuses", "/statuses"),
         ("discussions", "/discussions"),
@@ -2537,14 +2569,14 @@ mod tests {
             "app/copilot-swe-agent",
         ];
 
-        for username in trusted {
+        for (case, username) in trusted.into_iter().enumerate() {
             assert!(
                 is_trusted_first_party_bot(username),
-                "{username} must be recognized as a trusted first-party bot"
+                "trusted first-party bot fixture {case} must be recognized"
             );
             assert!(
                 is_trusted_first_party_bot(&username.to_uppercase()),
-                "{username} (uppercase) must also be recognized"
+                "uppercase trusted first-party bot fixture {case} must be recognized"
             );
         }
 
@@ -3792,6 +3824,30 @@ mod tests {
         let (items, path) = extract_items_array(&response);
         assert!(items.is_some());
         assert_eq!(path, "/pull_requests");
+    }
+
+    #[test]
+    fn test_extract_items_array_singleton_with_empty_labels() {
+        let response = serde_json::json!({
+            "number": 42,
+            "title": "Unlabeled pull request",
+            "labels": []
+        });
+        let (items, path) = extract_items_array(&response);
+        assert!(items.is_none());
+        assert_eq!(path, "");
+    }
+
+    #[test]
+    fn test_extract_items_array_singleton_with_labels() {
+        let response = serde_json::json!({
+            "number": 42,
+            "title": "Labeled pull request",
+            "labels": [{"name": "bug"}]
+        });
+        let (items, path) = extract_items_array(&response);
+        assert!(items.is_none());
+        assert_eq!(path, "");
     }
 
     #[test]
