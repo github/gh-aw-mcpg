@@ -154,7 +154,7 @@ func TestNewValidatorClient_ConnectError(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, client)
-	assert.ErrorIs(t, err, cause)
+	require.ErrorIs(t, err, cause)
 	assert.Contains(t, err.Error(), "connect to server")
 }
 
