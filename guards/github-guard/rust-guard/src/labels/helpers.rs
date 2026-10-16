@@ -1407,13 +1407,15 @@ pub(crate) fn extract_items_array(response: &Value) -> (Option<&Vec<Value>>, &'s
     if let Some(arr) = response.get("alerts").and_then(|v| v.as_array()) {
         return (Some(arr), "/alerts");
     }
+    // A pull request's "labels" field is nested metadata, not the response
+    // collection. Collection endpoints return their items as a root array or
+    // an explicit wrapper such as "items".
     for (field, pointer) in [
         ("comments", "/comments"),
         ("reviews", "/reviews"),
         ("review_comments", "/review_comments"),
         ("commits", "/commits"),
         ("files", "/files"),
-        ("labels", "/labels"),
         ("check_runs", "/check_runs"),
         ("statuses", "/statuses"),
         ("discussions", "/discussions"),
@@ -3792,6 +3794,30 @@ mod tests {
         let (items, path) = extract_items_array(&response);
         assert!(items.is_some());
         assert_eq!(path, "/pull_requests");
+    }
+
+    #[test]
+    fn test_extract_items_array_singleton_with_empty_labels() {
+        let response = serde_json::json!({
+            "number": 42,
+            "title": "Unlabeled pull request",
+            "labels": []
+        });
+        let (items, path) = extract_items_array(&response);
+        assert!(items.is_none());
+        assert_eq!(path, "");
+    }
+
+    #[test]
+    fn test_extract_items_array_singleton_with_labels() {
+        let response = serde_json::json!({
+            "number": 42,
+            "title": "Labeled pull request",
+            "labels": [{"name": "bug"}]
+        });
+        let (items, path) = extract_items_array(&response);
+        assert!(items.is_none());
+        assert_eq!(path, "");
     }
 
     #[test]
