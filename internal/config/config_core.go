@@ -339,6 +339,9 @@ type ServerConfig struct {
 	// Headers are HTTP headers to send (for http servers)
 	Headers map[string]string `toml:"headers" json:"headers,omitempty"`
 
+	// CACertFile is a PEM file containing CA certificates trusted only for this HTTP server.
+	CACertFile string `toml:"ca_cert_file" json:"caCertFile,omitempty"`
+
 	// Auth configures upstream authentication for HTTP MCP servers.
 	Auth *AuthConfig `toml:"auth" json:"auth,omitempty"`
 
@@ -582,6 +585,9 @@ func LoadFromFile(path string) (*Config, error) {
 	logConfig.Printf("Validating shared server configuration for %d servers", len(cfg.Servers))
 	for name, serverCfg := range cfg.Servers {
 		jsonPath := fmt.Sprintf("servers.%s", name)
+		if serverCfg.CACertFile != "" && serverCfg.Type != "http" {
+			return nil, fmt.Errorf("%s.ca_cert_file is only supported for HTTP servers", jsonPath)
+		}
 		if err := validateCommonServerFields(name, serverCfg.Type, serverCfg.Auth, serverCfg.ToolResponseFilters, jsonPath); err != nil {
 			return nil, err
 		}

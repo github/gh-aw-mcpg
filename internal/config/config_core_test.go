@@ -332,6 +332,7 @@ agent_id = "test-agent"
 type = "http"
 url = "http://localhost:9090/mcp"
 connect_timeout = 60
+ca_cert_file = "/tmp/custom-ca.pem"
 `)
 	cfg, err := LoadFromFile(path)
 	require.NoError(t, err)
@@ -340,6 +341,7 @@ connect_timeout = 60
 	require.True(t, ok)
 	assert.Equal(t, 60, server.ConnectTimeout)
 	assert.Equal(t, 60*time.Second, server.HTTPConnectTimeout())
+	assert.Equal(t, "/tmp/custom-ca.pem", server.CACertFile)
 }
 
 // TestLoadFromFile_AppliesGatewayDefaults verifies that when no [gateway] section

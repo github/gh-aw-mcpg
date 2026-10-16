@@ -79,8 +79,9 @@ func TestConvertStdinServerConfig_HTTPServer(t *testing.T) {
 	assert := assert.New(t)
 
 	server := &StdinServerConfig{
-		Type: "http",
-		URL:  "http://example.com:8080",
+		Type:       "http",
+		URL:        "http://example.com:8080",
+		CACertFile: "/tmp/custom-ca.pem",
 		Headers: map[string]string{
 			"Authorization": "******",
 			"X-Custom":      "value",
@@ -95,6 +96,7 @@ func TestConvertStdinServerConfig_HTTPServer(t *testing.T) {
 
 	assert.Equal("http", result.Type)
 	assert.Equal("http://example.com:8080", result.URL)
+	assert.Equal("/tmp/custom-ca.pem", result.CACertFile)
 	assert.Equal("******", result.Headers["Authorization"])
 	assert.Equal("value", result.Headers["X-Custom"])
 	assert.Equal([]string{"search", "fetch"}, result.Tools)

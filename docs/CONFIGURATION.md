@@ -207,6 +207,8 @@ Non-absolute entries and the filesystem root (`/`) are ignored. When the resulti
 - **`headers`** (optional): HTTP headers to include in requests (for `type: "http"` servers)
   - Map of header name to value (e.g., `{"Authorization": "Bearer token"}`)
 
+- **`caCertFile`** (optional JSON stdin) / **`ca_cert_file`** (optional TOML): Path to a PEM file containing CA certificates trusted only for this HTTP server's outbound TLS connections. System trust remains enabled, and certificate and hostname verification are not disabled. Relative paths are resolved from the gateway's working directory. Unreadable files or files without valid CA certificates cause the connection to fail with an error that does not include certificate contents.
+
 - **`auth`** (optional, HTTP servers only): Upstream authentication configuration
   - Only supported for `type: "http"` servers; using `auth` with stdio servers returns a validation error
   - Currently supports one `type`:

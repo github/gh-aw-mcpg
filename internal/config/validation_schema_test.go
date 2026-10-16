@@ -89,6 +89,7 @@ func TestValidateJSONSchema(t *testing.T) {
 					"remote": {
 						"type": "http",
 						"url": "https://api.example.com/mcp",
+						"caCertFile": "/tmp/private-ca.pem",
 						"headers": {"Authorization": "Bearer token"}
 					}
 				},

@@ -148,6 +148,9 @@ type StdinServerConfig struct {
 	// Headers are HTTP headers to send (for http servers)
 	Headers map[string]string `json:"headers,omitempty"`
 
+	// CACertFile is a PEM file containing CA certificates trusted only for this HTTP server.
+	CACertFile string `json:"caCertFile,omitempty"`
+
 	// Tools is an optional list of tools to filter/expose
 	Tools []string `json:"tools,omitempty"`
 
@@ -247,6 +250,7 @@ func (s *StdinServerConfig) UnmarshalJSON(data []byte) error {
 		"env":                   true,
 		"url":                   true,
 		"headers":               true,
+		"caCertFile":            true,
 		"tools":                 true,
 		"prompts":               true,
 		"tool_response_filters": true,
@@ -567,9 +571,10 @@ func convertStdinServerConfigWithRuntime(name string, server *StdinServerConfig,
 		logConfig.Printf("Configured HTTP MCP server: name=%s, url=%s", name, server.URL)
 		log.Printf("[CONFIG] Configured HTTP MCP server: %s -> %s", name, server.URL)
 		serverCfg := &ServerConfig{
-			Type:    "http",
-			URL:     server.URL,
-			Headers: server.Headers,
+			Type:       "http",
+			URL:        server.URL,
+			Headers:    server.Headers,
+			CACertFile: server.CACertFile,
 		}
 		applyCommonServerConfigFields(serverCfg, server)
 		if server.ConnectTimeout != nil {

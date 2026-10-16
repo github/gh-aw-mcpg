@@ -55,6 +55,11 @@ func validateServerConfigWithCustomSchemas(name string, server *StdinServerConfi
 		logValidationServer.Printf("Server type normalized from %q to %q: name=%s", server.Type, normalized, name)
 		server.Type = normalized
 	}
+	if server.CACertFile != "" && server.Type != "http" {
+		return serverValidator{name: name, serverType: server.Type}.fail(
+			"caCertFile is set on a non-HTTP server",
+			UnsupportedField("caCertFile", "custom CA certificates are only supported for HTTP servers", fmt.Sprintf("mcpServers.%s", name), "Remove the 'caCertFile' field or change the server type to \"http\""))
+	}
 
 	// Check if it's a standard type
 	if server.Type == "stdio" || server.Type == "http" {
