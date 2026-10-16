@@ -505,7 +505,10 @@ pub fn label_response_paths(
                 let (items, items_path) = actual_response
                     .get("labels")
                     .and_then(Value::as_array)
-                    .map_or((None, ""), |items| (Some(items), "/labels"));
+                    .map_or_else(
+                        || extract_items_array(&actual_response),
+                        |items| (Some(items), "/labels"),
+                    );
                 let items = items?;
                 let labeled_paths = limit_items_with_log(items, tool_name)
                     .iter()
