@@ -20,17 +20,6 @@
             "type": "local",
             "container": "mcp/memory"
         },
-        "serena": {
-            "type": "stdio",
-            "container": "ghcr.io/github/serena-mcp-server:latest",
-            "mounts": [
-                "${PWD}:/workspace:ro"
-            ],
-            "env": {
-                "NO_COLOR": "1",
-                "TERM": "dumb"
-            }
-        },
         "custom-app": {
             "type": "stdio",
             "container": "myorg/custom-mcp:latest",

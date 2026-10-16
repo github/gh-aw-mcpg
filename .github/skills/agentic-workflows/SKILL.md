@@ -74,7 +74,6 @@ If GitHub API, `gh api`, or GitHub MCP downloads return HTTP 403 (including a to
 - `.github/aw/safe-outputs-management.md`
 - `.github/aw/safe-outputs-runtime.md`
 - `.github/aw/safe-outputs.md`
-- `.github/aw/serena-tool.md`
 - `.github/aw/shared-safe-jobs.md`
 - `.github/aw/skills.md`
 - `.github/aw/subagents.md`
