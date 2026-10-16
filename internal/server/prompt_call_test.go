@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -330,4 +331,148 @@ func TestCallBackendPromptPropagateAccumulatesLabels(t *testing.T) {
 	require.NotNil(t, result)
 	labels := us.AgentRegistry.GetOrCreate("propagate-session")
 	assert.Contains(t, labels.GetSecrecyTags(), difc.Tag("private:org/repo"))
+}
+
+func TestCallBackendPrompt_ErrorAndEdgePaths(t *testing.T) {
+	collection := func(items ...interface{}) difc.LabeledData {
+		c := &difc.CollectionLabeledData{}
+		for _, item := range items {
+			c.Items = append(c.Items, difc.LabeledItem{Data: item, Labels: difc.NewLabeledResource("item")})
+		}
+		return c
+	}
+	validMessages := []map[string]interface{}{{
+		"role":    "user",
+		"content": map[string]interface{}{"type": "text", "text": "hello"},
+	}}
+
+	tests := []struct {
+		name        string
+		result      map[string]interface{}
+		guard       *promptDIFCTestGuard
+		wantErr     string
+		wantMessage int
+	}{
+		{
+			name:        "unlabeled response passes through backend result",
+			result:      map[string]interface{}{"messages": validMessages},
+			guard:       &promptDIFCTestGuard{mode: difc.EnforcementStrict},
+			wantMessage: 1,
+		},
+		{
+			name:        "collection with all-allowed items keeps messages",
+			result:      map[string]interface{}{"messages": validMessages},
+			guard:       &promptDIFCTestGuard{mode: difc.EnforcementStrict, response: collection(validMessages[0])},
+			wantMessage: 1,
+		},
+		{
+			name:    "collection but response has null messages",
+			result:  map[string]interface{}{"description": "no messages"},
+			guard:   &promptDIFCTestGuard{mode: difc.EnforcementStrict, response: collection(validMessages[0])},
+			wantErr: "unexpected type",
+		},
+		{
+			name:    "backend rejects malformed messages",
+			result:  map[string]interface{}{"messages": "not-a-list"},
+			guard:   &promptDIFCTestGuard{mode: difc.EnforcementStrict, response: collection(validMessages[0])},
+			wantErr: "prompts/get",
+		},
+		{
+			name:   "unlabeled response with denied evaluation is rejected",
+			result: map[string]interface{}{"messages": validMessages},
+			guard: func() *promptDIFCTestGuard {
+				resource := difc.NewLabeledResource("protected prompt")
+				resource.Integrity.Label.Add("approved")
+				return &promptDIFCTestGuard{mode: difc.EnforcementFilter, resource: resource, operation: difc.OperationWrite}
+			}(),
+			wantErr: "DIFC",
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			backend := newPromptDIFCBackend(t, "p", tt.result, nil)
+			defer backend.Close()
+			us, _ := newPromptDIFCTestServer(t, backend.URL, nil, tt.guard)
+			ctx := promptCallContext("edge-session-" + string(rune('a'+i)))
+			require.NoError(t, us.requireSession(ctx))
+
+			result, err := us.callBackendPrompt(ctx, "prompts-server", "p", map[string]string{"k": "v"})
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Nil(t, result)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Len(t, result.Messages, tt.wantMessage)
+		})
+	}
+}
+
+func TestCallBackendPrompt_ServerToolTimeoutOverridesGateway(t *testing.T) {
+	backend := newPromptDIFCBackend(t, "p", map[string]interface{}{
+		"messages": []map[string]interface{}{{
+			"role":    "user",
+			"content": map[string]interface{}{"type": "text", "text": "hi"},
+		}},
+	}, nil)
+	defer backend.Close()
+
+	us, _ := newPromptDIFCTestServer(t, backend.URL, nil, &promptDIFCTestGuard{mode: difc.EnforcementStrict})
+	us.cfg.Servers["prompts-server"].ToolTimeout = 30
+	ctx := promptCallContext("timeout-session")
+	require.NoError(t, us.requireSession(ctx))
+
+	result, err := us.callBackendPrompt(ctx, "prompts-server", "p", nil)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Len(t, result.Messages, 1)
+}
+
+func TestCallBackendPrompt_BackendFailureIsReturned(t *testing.T) {
+	var failGet atomic.Bool
+	inner := newPromptDIFCBackend(t, "p", map[string]interface{}{"messages": []interface{}{}}, nil)
+	defer inner.Close()
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var req map[string]interface{}
+		_ = json.Unmarshal(body, &req)
+		if failGet.Load() && req["method"] == "prompts/get" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      req["id"],
+				"error":   map[string]interface{}{"code": -32000, "message": "backend exploded"},
+			})
+			return
+		}
+		fwd, _ := http.NewRequestWithContext(r.Context(), r.Method, inner.URL, bytes.NewReader(body))
+		fwd.Header = r.Header.Clone()
+		resp, err := http.DefaultClient.Do(fwd)
+		if err != nil {
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		for k, v := range resp.Header {
+			w.Header()[k] = v
+		}
+		w.WriteHeader(resp.StatusCode)
+		_, _ = io.Copy(w, resp.Body)
+	}))
+	defer proxy.Close()
+
+	us, _ := newPromptDIFCTestServer(t, proxy.URL, nil, &promptDIFCTestGuard{mode: difc.EnforcementStrict})
+	ctx := promptCallContext("backend-failure-session")
+	require.NoError(t, us.requireSession(ctx))
+	failGet.Store(true)
+
+	result, err := us.callBackendPrompt(ctx, "prompts-server", "p", nil)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
 }
