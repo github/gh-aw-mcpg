@@ -452,7 +452,7 @@ fn extract_github_label_names(item: &Value) -> Vec<&str> {
 /// Check whether a content item carries at least one label from the configured
 /// `approval-labels` list (case-insensitive comparison).
 #[cfg(test)]
-pub fn has_approval_label(item: &Value, ctx: &PolicyContext) -> bool {
+pub(crate) fn has_approval_label(item: &Value, ctx: &PolicyContext) -> bool {
     first_matching_approval_label(item, ctx).is_some()
 }
 
@@ -475,7 +475,7 @@ fn first_matching_approval_label<'a>(item: &'a Value, ctx: &PolicyContext) -> Op
 /// Check whether a content item carries at least one label from the configured
 /// `refusal-labels` list (case-insensitive comparison).
 #[cfg(test)]
-pub fn has_refusal_label(item: &Value, ctx: &PolicyContext) -> bool {
+pub(crate) fn has_refusal_label(item: &Value, ctx: &PolicyContext) -> bool {
     first_matching_refusal_label(item, ctx).is_some()
 }
 
@@ -551,13 +551,13 @@ fn item_has_config_label(item: &Value, config_label: &str) -> bool {
 
 /// Check whether a content item carries the configured built-in promotion label
 /// (case-insensitive). Returns `false` when `promotion_label` is empty (feature disabled).
-pub fn has_promotion_label(item: &Value, ctx: &PolicyContext) -> bool {
+pub(crate) fn has_promotion_label(item: &Value, ctx: &PolicyContext) -> bool {
     item_has_config_label(item, &ctx.promotion_label)
 }
 
 /// Check whether a content item carries the configured built-in demotion label
 /// (case-insensitive). Returns `false` when `demotion_label` is empty (feature disabled).
-pub fn has_demotion_label(item: &Value, ctx: &PolicyContext) -> bool {
+pub(crate) fn has_demotion_label(item: &Value, ctx: &PolicyContext) -> bool {
     item_has_config_label(item, &ctx.demotion_label)
 }
 
