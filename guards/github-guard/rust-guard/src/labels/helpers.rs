@@ -2544,7 +2544,7 @@ mod tests {
             );
             assert!(
                 is_trusted_first_party_bot(&username.to_uppercase()),
-                "{username} (uppercase) must also be recognized"
+                "uppercase trusted bot variant must also be recognized"
             );
         }
 
