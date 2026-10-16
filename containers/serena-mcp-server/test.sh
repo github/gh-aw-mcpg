@@ -178,6 +178,13 @@ else
     echo "⚠ typescript-language-server not found in PATH"
 fi
 
+if docker run --rm --entrypoint tsc "$CONTAINER_IMAGE" --version > /dev/null 2>&1; then
+    TYPESCRIPT_VERSION=$(docker run --rm --entrypoint tsc "$CONTAINER_IMAGE" --version 2>&1)
+    echo "✓ TypeScript: $TYPESCRIPT_VERSION"
+else
+    echo "⚠ TypeScript compiler not found in PATH"
+fi
+
 # Check for Serena itself
 if docker run --rm --entrypoint sh "$CONTAINER_IMAGE" -c "command -v serena-mcp-server" > /dev/null 2>&1; then
     echo "✓ serena-mcp-server installed"
