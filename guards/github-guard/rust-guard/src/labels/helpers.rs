@@ -2540,7 +2540,7 @@ mod tests {
         for username in trusted {
             assert!(
                 is_trusted_first_party_bot(username),
-                "{username} must be recognized as a trusted first-party bot"
+                "trusted first-party bot must be recognized"
             );
             assert!(
                 is_trusted_first_party_bot(&username.to_uppercase()),
