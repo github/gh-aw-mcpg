@@ -4,11 +4,15 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -212,8 +216,17 @@ func NewConnection(ctx context.Context, serverID, command string, args []string,
 //
 // This ensures compatibility with all types of HTTP MCP servers.
 func NewHTTPConnection(ctx context.Context, serverID, url string, headers map[string]string, oidcProvider *oidc.Provider, oidcAudience string, keepAlive time.Duration, connectTimeout time.Duration) (*Connection, error) {
+	return NewHTTPConnectionWithCA(ctx, serverID, url, headers, oidcProvider, oidcAudience, keepAlive, connectTimeout, "")
+}
+
+// NewHTTPConnectionWithCA creates an HTTP MCP connection with an optional per-server CA certificate file.
+func NewHTTPConnectionWithCA(ctx context.Context, serverID, url string, headers map[string]string, oidcProvider *oidc.Provider, oidcAudience string, keepAlive time.Duration, connectTimeout time.Duration, caCertFile string) (*Connection, error) {
 	// Apply default connect timeout when not specified
 	connectTimeout = normalizeConnectTimeout(connectTimeout)
+	rootCAs, err := loadServerCARoots(serverID, caCertFile)
+	if err != nil {
+		return nil, err
+	}
 	logger.LogInfo("backend", "Creating HTTP MCP connection with transport fallback, url=%s, connectTimeout=%v", url, connectTimeout)
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -223,16 +236,20 @@ func NewHTTPConnection(ctx context.Context, serverID, url string, headers map[st
 	// tool timeout budget). connectTimeout bounds transport establishment/fallback
 	// (TCP dial, TLS handshake) but must not cap how long we wait for response
 	// headers during a tools/call — that is governed by toolTimeout via context.
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout: connectTimeout,
+		}).DialContext,
+		MaxIdleConns:        10,
+		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+	if rootCAs != nil {
+		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
+	}
 	httpClient := &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout: connectTimeout,
-			}).DialContext,
-			MaxIdleConns:        10,
-			IdleConnTimeout:     90 * time.Second,
-			TLSHandshakeTimeout: 10 * time.Second,
-		},
+		Transport: transport,
 	}
 
 	// Build the transport layer in the correct order so that OIDC takes precedence
@@ -286,6 +303,51 @@ func NewHTTPConnection(ctx context.Context, serverID, url string, headers map[st
 	cancel()
 	logger.LogError("backend", "All HTTP transports failed for url=%s", url)
 	return nil, fmt.Errorf("failed to connect using any HTTP transport (tried streamable, SSE, and plain JSON-RPC): last error: %w", err)
+}
+
+func loadServerCARoots(serverID, caCertFile string) (*x509.CertPool, error) {
+	if caCertFile == "" {
+		return nil, nil
+	}
+
+	certificatePEM, err := os.ReadFile(caCertFile)
+	if err != nil {
+		return nil, fmt.Errorf("server %q: unable to read custom CA certificate file: %w", serverID, err)
+	}
+
+	roots, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, fmt.Errorf("server %q: unable to load system CA certificates: %w", serverID, err)
+	}
+	if roots == nil {
+		return nil, fmt.Errorf("server %q: system CA certificate pool is unavailable", serverID)
+	}
+
+	remaining := certificatePEM
+	certificateCount := 0
+	for len(remaining) > 0 {
+		block, rest := pem.Decode(remaining)
+		if block == nil {
+			if strings.TrimSpace(string(remaining)) != "" {
+				return nil, fmt.Errorf("server %q: custom CA certificate file contains invalid PEM data", serverID)
+			}
+			break
+		}
+		remaining = rest
+		if block.Type != "CERTIFICATE" {
+			return nil, fmt.Errorf("server %q: custom CA certificate file contains a non-certificate PEM block", serverID)
+		}
+		certificate, err := x509.ParseCertificate(block.Bytes)
+		if err != nil || !certificate.IsCA {
+			return nil, fmt.Errorf("server %q: custom CA certificate file contains an invalid CA certificate", serverID)
+		}
+		certificateCount++
+	}
+	if certificateCount == 0 || !roots.AppendCertsFromPEM(certificatePEM) {
+		return nil, fmt.Errorf("server %q: custom CA certificate file contains no valid CA certificates", serverID)
+	}
+
+	return roots, nil
 }
 
 // IsHTTP returns true if this is an HTTP connection

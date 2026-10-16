@@ -2,10 +2,21 @@ package mcp
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,7 +29,45 @@ import (
 // transport handshake reliably.
 func newMinimalTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewServer(newMinimalTestHandler(t))
+}
+
+func newMinimalTLSTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewTLSServer(newMinimalTestHandler(t))
+}
+
+func newDistinctCertTLSTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(time.Now().UnixNano()),
+		Subject:               pkix.Name{CommonName: "different test CA"},
+		NotBefore:             time.Now().Add(-time.Minute),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	certificate, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	require.NoError(t, err)
+
+	server := httptest.NewUnstartedServer(newMinimalTestHandler(t))
+	server.TLS = &tls.Config{Certificates: []tls.Certificate{{
+		Certificate: [][]byte{certificate},
+		PrivateKey:  key,
+	}}}
+	server.StartTLS()
+	return server
+}
+
+func newMinimalTestHandler(t *testing.T) http.Handler {
+	t.Helper()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			w.Header().Set("Content-Type", "text/event-stream")
@@ -63,7 +112,7 @@ func newMinimalTestServer(t *testing.T) *httptest.Server {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-	}))
+	})
 }
 
 // TestNewHTTPConnection_DefaultConnectTimeout_ZeroInput verifies that a zero
@@ -93,6 +142,51 @@ func TestNewHTTPConnection_UsesEnvironmentProxyConfig(t *testing.T) {
 	transport, ok := conn.httpClient.Transport.(*http.Transport)
 	require.True(t, ok, "HTTP connection should use an http.Transport")
 	assert.NotNil(t, transport.Proxy, "HTTP transport should use environment proxy configuration")
+	assert.Nil(t, transport.TLSClientConfig, "default connections should retain the default TLS configuration")
+}
+
+func TestNewHTTPConnectionWithCA_TrustIsScopedToServer(t *testing.T) {
+	trustedServer := newMinimalTLSTestServer(t)
+	defer trustedServer.Close()
+	otherServer := newDistinctCertTLSTestServer(t)
+	defer otherServer.Close()
+
+	caPath := filepath.Join(t.TempDir(), "server-ca.pem")
+	certificate := trustedServer.TLS.Certificates[0].Certificate[0]
+	certificatePEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate})
+	require.NoError(t, os.WriteFile(caPath, certificatePEM, 0600))
+
+	conn, err := NewHTTPConnectionWithCA(context.Background(), "trusted", trustedServer.URL, nil, nil, "", 0, 0, caPath)
+	require.NoError(t, err, "configured private CA should establish the TLS connection")
+	defer conn.Close()
+
+	transport, ok := conn.httpClient.Transport.(*http.Transport)
+	require.True(t, ok)
+	require.NotNil(t, transport.TLSClientConfig)
+	assert.False(t, transport.TLSClientConfig.InsecureSkipVerify)
+	assert.NotNil(t, transport.TLSClientConfig.RootCAs)
+
+	_, err = NewHTTPConnectionWithCA(context.Background(), "untrusted", otherServer.URL, nil, nil, "", 0, 0, caPath)
+	require.Error(t, err, "the configured CA must not trust a different HTTP server")
+
+	_, err = NewHTTPConnection(context.Background(), "default", trustedServer.URL, nil, nil, "", 0, 0)
+	require.Error(t, err, "connections without a custom CA must keep default trust behavior")
+}
+
+func TestNewHTTPConnectionWithCA_InvalidCertificateFile(t *testing.T) {
+	t.Run("unreadable file", func(t *testing.T) {
+		_, err := NewHTTPConnectionWithCA(context.Background(), "test", "https://example.invalid", nil, nil, "", 0, 0, filepath.Join(t.TempDir(), "missing.pem"))
+		require.ErrorContains(t, err, "unable to read custom CA certificate file")
+	})
+
+	t.Run("invalid PEM", func(t *testing.T) {
+		caPath := filepath.Join(t.TempDir(), "invalid.pem")
+		require.NoError(t, os.WriteFile(caPath, []byte("PRIVATE-CERTIFICATE-CONTENTS"), 0600))
+
+		_, err := NewHTTPConnectionWithCA(context.Background(), "test", "https://example.invalid", nil, nil, "", 0, 0, caPath)
+		require.ErrorContains(t, err, "invalid PEM data")
+		assert.NotContains(t, err.Error(), "PRIVATE-CERTIFICATE-CONTENTS")
+	})
 }
 
 // TestNewHTTPConnection_DefaultConnectTimeout_NegativeInput verifies that a

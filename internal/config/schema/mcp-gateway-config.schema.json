@@ -211,6 +211,11 @@
           },
           "default": {}
         },
+        "caCertFile": {
+          "type": "string",
+          "description": "Path to a PEM file containing CA certificates trusted only for this HTTP server's outbound TLS connections.",
+          "minLength": 1
+        },
         "tools": {
           "type": "array",
           "description": "Tool filter for the MCP server. Use ['*'] to allow all tools, or specify a list of tool names to allow. This field is passed through to agent configurations.",

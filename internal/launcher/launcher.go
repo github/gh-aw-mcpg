@@ -191,7 +191,7 @@ func getOrLaunchWithConfig(l *Launcher, serverID string, serverCfg *config.Serve
 			}
 
 			// Create an HTTP connection
-			conn, err := mcp.NewHTTPConnection(l.ctx, serverID, serverCfg.URL, serverCfg.Headers, oidcProvider, oidcAudience, l.config.Gateway.HTTPKeepaliveInterval(), serverCfg.HTTPConnectTimeout())
+			conn, err := mcp.NewHTTPConnectionWithCA(l.ctx, serverID, serverCfg.URL, serverCfg.Headers, oidcProvider, oidcAudience, l.config.Gateway.HTTPKeepaliveInterval(), serverCfg.HTTPConnectTimeout(), serverCfg.CACertFile)
 			if err != nil {
 				log.Printf("FAILED to create HTTP connection for server %q: %v", serverID, err)
 				logger.LogErrorToServer(serverID, "backend", "Failed to create HTTP connection: %s, error=%v", serverID, err)
