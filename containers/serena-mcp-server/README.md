@@ -11,7 +11,7 @@ A containerized version of the [Serena MCP Server](https://github.com/oraios/ser
 
 ## Supported Languages
 
-- **Python** (3.11+) - via pyright and python-lsp-server
+- **Python** (3.11+) - via Serena's Pyright integration
 - **Java** (JDK 21) - via Serena's built-in LSP integration
 - **JavaScript/TypeScript** - via typescript-language-server
 - **Go** - via gopls
@@ -132,7 +132,6 @@ docker run --rm -i \
 
 ### Python
 - Pyright is included by default (part of Serena dependencies)
-- python-lsp-server provides additional features
 - Requires Python 3.11+
 
 ### Java
