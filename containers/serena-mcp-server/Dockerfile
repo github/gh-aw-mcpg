@@ -39,8 +39,13 @@ COPY --from=gopls-builder /go/bin/gopls /usr/local/bin/gopls
 
 # Install Serena MCP server and its locked, hash-verified dependencies.
 COPY requirements-serena.txt /tmp/requirements-serena.txt
-RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements-serena.txt && \
-    rm /tmp/requirements-serena.txt
+COPY requirements-serena-build.txt /tmp/requirements-serena-build.txt
+RUN pip install --no-cache-dir --force-reinstall --no-deps \
+      --require-hashes --only-binary=:all: \
+      -r /tmp/requirements-serena-build.txt && \
+    pip install --no-cache-dir --require-hashes --no-build-isolation \
+      -r /tmp/requirements-serena.txt && \
+    rm /tmp/requirements-serena.txt /tmp/requirements-serena-build.txt
 
 # Install TypeScript language server (minimal)
 RUN npm install -g typescript typescript-language-server && \
