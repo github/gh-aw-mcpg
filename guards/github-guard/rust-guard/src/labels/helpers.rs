@@ -2567,14 +2567,14 @@ mod tests {
             "app/copilot-swe-agent",
         ];
 
-        for username in trusted {
+        for (case, username) in trusted.into_iter().enumerate() {
             assert!(
                 is_trusted_first_party_bot(username),
-                "{username} must be recognized as a trusted first-party bot"
+                "trusted first-party bot fixture {case} must be recognized"
             );
             assert!(
                 is_trusted_first_party_bot(&username.to_uppercase()),
-                "{username} (uppercase) must also be recognized"
+                "uppercase trusted first-party bot fixture {case} must be recognized"
             );
         }
 
