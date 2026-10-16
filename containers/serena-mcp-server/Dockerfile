@@ -37,13 +37,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy pre-built gopls from builder stage
 COPY --from=gopls-builder /go/bin/gopls /usr/local/bin/gopls
 
-# Install Serena MCP server from GitHub
-RUN pip install --no-cache-dir git+https://github.com/oraios/serena.git || \
-    (echo "GitHub installation failed, trying PyPI..." && \
-     pip install --no-cache-dir serena-agent)
-
-# Install Python language server for Python code analysis
-RUN pip install --no-cache-dir python-lsp-server[all]
+# Install Serena MCP server and its locked, hash-verified dependencies.
+COPY requirements-serena.txt /tmp/requirements-serena.txt
+RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements-serena.txt && \
+    rm /tmp/requirements-serena.txt
 
 # Install TypeScript language server (minimal)
 RUN npm install -g typescript typescript-language-server && \
@@ -75,7 +72,7 @@ if [ ! -f /workspace/.serena/project.yml ] || \\\n\
 fi\n\
 \n\
 # Start the Serena MCP server\n\
-exec serena-mcp-server "$@"\n\
+exec serena start-mcp-server "$@"\n\
 ' > /usr/local/bin/serena-init.sh && chmod +x /usr/local/bin/serena-init.sh
 
 # Create a dummy project to pre-warm Serena's LSP cache
