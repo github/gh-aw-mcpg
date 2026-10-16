@@ -37,14 +37,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy pre-built gopls from builder stage
 COPY --from=gopls-builder /go/bin/gopls /usr/local/bin/gopls
 
+# Install the pinned TypeScript language tools from the committed lockfile.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && \
+    test -x node_modules/.bin/tsc && \
+    test -x node_modules/.bin/tsserver && \
+    test -x node_modules/.bin/typescript-language-server && \
+    ln -s /app/node_modules/.bin/tsc /usr/local/bin/tsc && \
+    ln -s /app/node_modules/.bin/tsserver /usr/local/bin/tsserver && \
+    ln -s /app/node_modules/.bin/typescript-language-server /usr/local/bin/typescript-language-server && \
+    rm -rf /root/.npm /tmp/*
+
 # Install Serena MCP server from GitHub
 RUN pip install --no-cache-dir git+https://github.com/oraios/serena.git || \
     (echo "GitHub installation failed, trying PyPI..." && \
      pip install --no-cache-dir serena-agent)
 
-# Install TypeScript language server (minimal)
-RUN npm install -g typescript typescript-language-server && \
-    rm -rf /root/.npm /tmp/*
+# Install Python language server for Python code analysis
+RUN pip install --no-cache-dir python-lsp-server[all]==1.12.2
 
 # Create directories for Serena configuration and caching
 RUN mkdir -p /workspace /tmp/serena-cache /root/.serena

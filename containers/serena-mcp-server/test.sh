@@ -178,7 +178,15 @@ else
     echo "⚠ typescript-language-server not found in PATH"
 fi
 
+if docker run --rm --entrypoint tsc "$CONTAINER_IMAGE" --version > /dev/null 2>&1; then
+    TYPESCRIPT_VERSION=$(docker run --rm --entrypoint tsc "$CONTAINER_IMAGE" --version 2>&1)
+    echo "✓ TypeScript: $TYPESCRIPT_VERSION"
+else
+    echo "⚠ TypeScript compiler not found in PATH"
+fi
+
 # Check for Serena itself
+echo "Test 6: Verifying Serena is installed"
 if docker run --rm --entrypoint sh "$CONTAINER_IMAGE" -c "command -v serena-mcp-server" > /dev/null 2>&1; then
     echo "✓ serena-mcp-server installed"
 else
@@ -186,8 +194,74 @@ else
 fi
 echo ""
 
-# Test 6: Check container size
-echo "Test 6: Container size"
+# Verify the TypeScript language server can start its backend and answer LSP requests
+echo "Test 7: Verifying TypeScript language-server initialization"
+if timeout 45s docker run --rm --entrypoint python3 "$CONTAINER_IMAGE" -c '
+import json
+import subprocess
+import sys
+
+def send(process, message):
+    body = json.dumps(message).encode()
+    process.stdin.write(b"Content-Length: " + str(len(body)).encode() +
+                        b"\r\n\r\n" + body)
+    process.stdin.flush()
+
+def receive_response(process, request_id):
+    while True:
+        headers = {}
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                raise RuntimeError("language server closed stdout")
+            if line == b"\r\n":
+                break
+            key, value = line.decode().split(":", 1)
+            headers[key.lower()] = value.strip()
+        response = json.loads(process.stdout.read(int(headers["content-length"])))
+        if response.get("id") == request_id:
+            return response
+
+process = None
+try:
+    process = subprocess.Popen(["typescript-language-server", "--stdio"],
+                               stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+    uri = "file:///tmp/serena-lsp-test.ts"
+    send(process, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+        "processId": None, "rootUri": "file:///tmp", "capabilities": {}}})
+    if "result" not in receive_response(process, 1):
+        raise RuntimeError("language server did not initialize")
+    send(process, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
+    send(process, {"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {
+        "textDocument": {"uri": uri, "languageId": "typescript", "version": 1,
+                         "text": "const answer: number = 42;\n"}}})
+    send(process, {"jsonrpc": "2.0", "id": 2, "method": "textDocument/hover",
+                   "params": {"textDocument": {"uri": uri},
+                              "position": {"line": 0, "character": 6}}})
+    hover = receive_response(process, 2)
+    if not hover.get("result", {}).get("contents"):
+        raise RuntimeError("language server did not answer the hover request")
+    send(process, {"jsonrpc": "2.0", "id": 3, "method": "shutdown", "params": None})
+    receive_response(process, 3)
+    send(process, {"jsonrpc": "2.0", "method": "exit", "params": None})
+    process.stdin.close()
+    if process.wait(timeout=10) != 0:
+        raise RuntimeError(process.stderr.read().decode(errors="replace"))
+except Exception as error:
+    print("TypeScript language-server initialization failed:", error, file=sys.stderr)
+    if process and process.poll() is None:
+        process.terminate()
+    sys.exit(1)
+' ; then
+    echo "✓ TypeScript language server initialized and answered a hover request"
+else
+    echo "✗ TypeScript language-server initialization failed"
+    exit 1
+fi
+
+# Test 8: Check container size
+echo "Test 8: Container size"
 SIZE=$(docker images "$CONTAINER_IMAGE" --format "{{.Size}}")
 echo "Container size: $SIZE"
 echo ""
