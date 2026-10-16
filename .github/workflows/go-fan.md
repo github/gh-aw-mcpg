@@ -151,9 +151,9 @@ go list -m -u github.com/modelcontextprotocol/go-sdk
 Report an available tagged update as a recommendation and confirm that the SDK upgrade canary
 tests are run before upgrading.
 
-## Step 4: Analyze Project Usage with Serena
+## Step 4: Analyze Project Usage with Go Tooling
 
-Use the Serena MCP server to perform deep code analysis:
+Use the repository's Go source and standard Go tooling to analyze dependency usage:
 
 ### 4.1 Find All Imports
 ```bash
@@ -161,7 +161,7 @@ grep -r 'import' --include='*.go' | grep "<module_path>"
 ```
 
 ### 4.2 Analyze Usage Patterns
-With Serena, analyze:
+Inspect imports and their call sites to determine:
 - How the module is imported and used
 - Which APIs are utilized
 - Are advanced features being leveraged?
@@ -303,12 +303,8 @@ Create an issue summarizing your findings:
 - **Track Progress**: Use cache-memory to maintain state across runs.
 - **Embed Summaries**: Always include the full module summary in the issue body.
 
-## Serena Configuration
-
-The Serena MCP server is configured for Go analysis with:
-- **Project Root**: ${{ github.workspace }}
-- **Language**: Go
-- Identifying refactoring opportunities
+Use `grep` to locate imports and call sites, then inspect the relevant source. Do not assume an
+external code-analysis server is configured.
 
 ## Output
 

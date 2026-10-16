@@ -57,7 +57,7 @@ Analyze all Go source files (`.go` files, excluding test files) in the repositor
 2. Collect all function names per file
 3. Cluster functions semantically by name and purpose
 4. Identify outliers (functions that might be in the wrong file)
-5. Use Serena's semantic analysis to detect potential duplicates
+5. Compare likely duplicates by inspecting function implementations and call sites
 6. Suggest refactoring fixes
 
 ## Important Constraints
@@ -65,7 +65,7 @@ Analyze all Go source files (`.go` files, excluding test files) in the repositor
 1. **Only analyze `.go` files** - Ignore all other file types
 2. **Skip test files** - Never analyze files ending in `_test.go`
 3. **Focus on internal/ directory** - Primary analysis area (this repository uses `internal/` instead of `pkg/`)
-4. **Use Serena for semantic analysis** - Leverage the MCP server's capabilities
+4. **Use source inspection and available Go tooling** - Do not assume an external code-analysis server is configured
 5. **One file per feature rule** - Files should be named after their primary purpose/feature
 
 ## Repository Structure
@@ -84,14 +84,6 @@ This is the MCP Gateway repository (gh-aw-mcpg), which uses the `internal/` dire
 - `internal/sys/` - System utilities
 
 Total: ~39 Go files (excluding tests)
-
-## Serena Configuration
-
-The Serena MCP server is configured for this workspace:
-- **Workspace**: ${{ github.workspace }}
-- **Memory cache**: /tmp/gh-aw/cache-memory/serena
-- **Context**: codex
-- **Language service**: Go (gopls)
 
 ## Close Existing Refactor Issues (CRITICAL FIRST STEP)
 
@@ -126,18 +118,7 @@ close_issue(issue_number=123, body="Closing this issue as a new semantic functio
 
 **Do not proceed to step 2 until all existing `[refactor]` issues are closed.**
 
-### 2. Activate Serena Project
-
-After closing existing issues, activate the project in Serena to enable semantic analysis:
-
-```bash
-# Serena's activate_project tool should be called with the workspace path
-# This is handled automatically by the MCP server configuration
-```
-
-Use Serena's `activate_project` tool with the workspace path.
-
-### 3. Discover Go Source Files
+### 2. Discover Go Source Files
 
 Find all non-test Go files in the repository:
 
@@ -148,12 +129,12 @@ find internal -name "*.go" ! -name "*_test.go" -type f | sort
 
 Group files by package/directory to understand the organization.
 
-### 4. Collect Function Names Per File
+### 3. Collect Function Names Per File
 
 For each discovered Go file:
 
-1. Use Serena's `get_symbols_overview` to get all symbols (functions, methods, types) in the file
-2. Use Serena's `read_file` if needed to understand context
+1. Inspect function declarations in the source file and use `go doc` for exported declarations when useful
+2. Read relevant source and call sites to understand context
 3. Create a structured inventory of:
    - File path
    - Package name
@@ -171,7 +152,7 @@ Functions:
   - expandEnvVars(s string) (string, error)
 ```
 
-### 5. Semantic Clustering Analysis
+### 4. Semantic Clustering Analysis
 
 Analyze the collected functions to identify patterns:
 
@@ -196,26 +177,25 @@ Look for functions that don't match their file's primary purpose:
 - Helper functions scattered across multiple files
 - Generic utility functions not in a dedicated utils file
 
-### 6. Use Serena for Semantic Duplicate Detection
+### 5. Compare Likely Duplicates
 
 For each cluster of similar functions:
 
-1. Use `find_symbol` to locate functions with similar names across files
-2. Use `search_for_pattern` to find similar code patterns
-3. Use `find_referencing_symbols` to understand usage patterns
+1. Search for functions with similar names across files
+2. Search for recurring code patterns
+3. Search call sites to understand usage patterns
 4. Compare function implementations to identify:
    - Exact duplicates (identical implementations)
    - Near duplicates (similar logic with variations)
    - Functional duplicates (different implementations, same purpose)
 
-Example Serena tool usage:
+Use standard command-line tools to locate and compare candidate implementations:
 ```bash
-# Find symbols with similar names
-# Use find_symbol for "processData" or similar
-# Use search_for_pattern to find similar implementations
+grep -RIn 'processData' internal/
+grep -RIn 'validateConfig' internal/
 ```
 
-### 7. Deep Reasoning Analysis
+### 6. Deep Reasoning Analysis
 
 Apply deep reasoning to identify refactoring opportunities:
 
@@ -232,7 +212,7 @@ Apply deep reasoning to identify refactoring opportunities:
 - **Use Generics**: When similar functions differ only by type
 - **Extract Interface**: When similar methods are defined on different types
 
-### 8. Generate Refactoring Report
+### 7. Generate Refactoring Report
 
 Create a comprehensive issue with findings:
 
@@ -394,7 +374,7 @@ Create a comprehensive issue with findings:
 - **Function Clusters Identified**: [count]
 - **Outliers Found**: [count]
 - **Duplicates Detected**: [count]
-- **Detection Method**: Serena semantic code analysis + naming pattern analysis
+- **Detection Method**: Source inspection, call-site searches, and naming-pattern analysis
 - **Analysis Date**: [timestamp]
 ```
 
@@ -406,8 +386,7 @@ Create a comprehensive issue with findings:
 - Do not modify files during analysis (read-only mode)
 
 ### Efficiency
-- Use Serena's semantic analysis capabilities effectively
-- Cache Serena results in the memory folder
+- Use bounded source searches and inspect relevant implementations
 - Balance thoroughness with timeout constraints
 - Focus on meaningful patterns, not trivial similarities
 
@@ -445,44 +424,6 @@ Create a comprehensive issue with findings:
 - Test files (already excluded)
 - Trivial helper functions (<5 lines)
 
-## Serena Tool Usage Guide
-
-### Project Activation
-```
-Tool: activate_project
-Args: { "path": "${{ github.workspace }}" }
-```
-
-### Symbol Overview
-```
-Tool: get_symbols_overview
-Args: { "file_path": "internal/config/validation.go" }
-```
-
-### Find Similar Symbols
-```
-Tool: find_symbol
-Args: { "symbol_name": "validateConfig", "workspace": "${{ github.workspace }}" }
-```
-
-### Search for Patterns
-```
-Tool: search_for_pattern
-Args: { "pattern": "func.*Config.*error", "workspace": "${{ github.workspace }}" }
-```
-
-### Find References
-```
-Tool: find_referencing_symbols
-Args: { "symbol_name": "LoadConfig", "file_path": "internal/config/config.go" }
-```
-
-### Read File Content
-```
-Tool: read_file
-Args: { "file_path": "internal/config/config.go" }
-```
-
 ## Success Criteria
 
 This analysis is successful when:
@@ -490,7 +431,7 @@ This analysis is successful when:
 2. ✅ Function names and signatures are collected and organized
 3. ✅ Semantic clusters are identified based on naming and purpose
 4. ✅ Outliers (functions in wrong files) are detected
-5. ✅ Duplicates are identified using Serena's semantic analysis
+5. ✅ Duplicates are identified by comparing implementations and call sites
 6. ✅ Concrete refactoring recommendations are provided
 7. ✅ A detailed issue is created with actionable findings
 
