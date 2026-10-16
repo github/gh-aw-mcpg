@@ -77,7 +77,7 @@ RUN apk add --no-cache \
     conmon \
     containers-common \
     crun \
-    docker-cli=29.5.3-r0 \
+    docker-cli=29.8.2-r1 \
     fuse-overlayfs \
     gpgme \
     libgcc \
