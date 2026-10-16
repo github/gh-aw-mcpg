@@ -2,12 +2,12 @@
 # Optimized for Python, Go, and TypeScript support with minimal image size
 
 # Stage 1: Build gopls
-FROM golang:1.25-alpine AS gopls-builder
+FROM golang:1.25-alpine@sha256:1ae0735f00daffa3aaf1363a5184c0d2dc55c78e3db4ec70241cdac97bf84b59 AS gopls-builder
 # Pin to gopls v0.21.0 which is compatible with Go 1.25
 RUN go install golang.org/x/tools/gopls@v0.21.0
 
 # Stage 2: Final image
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
 
 # OCI labels for GitHub Container Registry
 LABEL org.opencontainers.image.title="Serena MCP Server"
