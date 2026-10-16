@@ -148,12 +148,20 @@ func TestNewHTTPConnection_UsesEnvironmentProxyConfig(t *testing.T) {
 func TestNewHTTPConnectionWithCA_TrustIsScopedToServer(t *testing.T) {
 	trustedServer := newMinimalTLSTestServer(t)
 	defer trustedServer.Close()
+	additionalCAServer := newDistinctCertTLSTestServer(t)
+	defer additionalCAServer.Close()
 	otherServer := newDistinctCertTLSTestServer(t)
 	defer otherServer.Close()
 
 	caPath := filepath.Join(t.TempDir(), "server-ca.pem")
 	certificate := trustedServer.TLS.Certificates[0].Certificate[0]
-	certificatePEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate})
+	additionalCACertificate := additionalCAServer.TLS.Certificates[0].Certificate[0]
+	certificatePEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: additionalCACertificate})
+	certificatePEM = append(certificatePEM, pem.EncodeToMemory(&pem.Block{
+		Type:    "CERTIFICATE",
+		Headers: map[string]string{"X-CA-Label": "trusted"},
+		Bytes:   certificate,
+	})...)
 	require.NoError(t, os.WriteFile(caPath, certificatePEM, 0600))
 
 	conn, err := NewHTTPConnectionWithCA(context.Background(), "trusted", trustedServer.URL, nil, nil, "", 0, 0, caPath)

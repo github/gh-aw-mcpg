@@ -341,9 +341,10 @@ func loadServerCARoots(serverID, caCertFile string) (*x509.CertPool, error) {
 		if err != nil || !certificate.IsCA {
 			return nil, fmt.Errorf("server %q: custom CA certificate file contains an invalid CA certificate", serverID)
 		}
+		roots.AddCert(certificate)
 		certificateCount++
 	}
-	if certificateCount == 0 || !roots.AppendCertsFromPEM(certificatePEM) {
+	if certificateCount == 0 {
 		return nil, fmt.Errorf("server %q: custom CA certificate file contains no valid CA certificates", serverID)
 	}
 
