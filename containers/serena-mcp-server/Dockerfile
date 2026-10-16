@@ -54,7 +54,7 @@ RUN pip install --no-cache-dir git+https://github.com/oraios/serena.git || \
      pip install --no-cache-dir serena-agent)
 
 # Install Python language server for Python code analysis
-RUN pip install --no-cache-dir python-lsp-server[all]
+RUN pip install --no-cache-dir python-lsp-server[all]==1.12.2
 
 # Create directories for Serena configuration and caching
 RUN mkdir -p /workspace /tmp/serena-cache /root/.serena
