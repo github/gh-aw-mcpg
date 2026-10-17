@@ -83,7 +83,9 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteJSONResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
-	if h.server.readOnly {
+	localReflection := h.server.enclave == nil && h.server.delegation == nil &&
+		r.Method == http.MethodGet && rawPath == "/reflect"
+	if h.server.readOnly && !localReflection {
 		selectedBody, err := h.validateReadOnlyRequest(r, fullPath)
 		if err != nil {
 			rejectProxyRequest(w, oteltrace.SpanFromContext(r.Context()), http.StatusForbidden,
@@ -197,6 +199,9 @@ func (h *proxyHandler) validateReadOnlyRequest(r *http.Request, path string) ([]
 		return nil, errReadOnlyDenied
 	}
 	pathOnly, _, _ := strings.Cut(path, "?")
+	if (h.server.enclave != nil || h.server.delegation != nil) && IsGraphQLPath(pathOnly) {
+		return nil, errReadOnlyDenied
+	}
 	isGraphQLPost := r.Method == http.MethodPost && IsGraphQLPath(pathOnly)
 	var body []byte
 	if isGraphQLPost {

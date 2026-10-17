@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -53,7 +54,11 @@ func TestReadOnlyProxyRejectsBeforeForwarding(t *testing.T) {
 				githubAPIURL: upstream.URL,
 				httpClient:   upstream.Client(),
 			}
-			req := httptest.NewRequest(tt.method, upstream.URL+tt.path, strings.NewReader(tt.body))
+			var requestBody io.Reader
+			if tt.body != "" {
+				requestBody = strings.NewReader(tt.body)
+			}
+			req := httptest.NewRequest(tt.method, upstream.URL+tt.path, requestBody)
 			req.Header.Set("Authorization", "token write-capable-client-token")
 			req.Header.Set("Content-Type", "application/json")
 			if tt.header != "" {
@@ -66,6 +71,38 @@ func TestReadOnlyProxyRejectsBeforeForwarding(t *testing.T) {
 			assert.Equal(t, http.StatusForbidden, recorder.Code)
 			assert.NotContains(t, recorder.Body.String(), "write-capable")
 			assert.Zero(t, upstreamRequests.Load())
+		})
+	}
+}
+
+type readCountingBody struct {
+	reads atomic.Int32
+}
+
+func (b *readCountingBody) Read([]byte) (int, error) {
+	b.reads.Add(1)
+	return 0, io.EOF
+}
+
+func (*readCountingBody) Close() error { return nil }
+
+func TestReadOnlyAlternateModesRejectGraphQLBeforeReadingBody(t *testing.T) {
+	for _, mode := range []string{"enclave", "delegation"} {
+		t.Run(mode, func(t *testing.T) {
+			server := &Server{readOnly: true}
+			if mode == "enclave" {
+				server.enclave = &enclaveState{}
+			} else {
+				server.delegation = &DelegationConfig{}
+			}
+			body := &readCountingBody{}
+			req := httptest.NewRequest(http.MethodPost, "/graphql", body)
+			recorder := httptest.NewRecorder()
+
+			(&proxyHandler{server: server}).ServeHTTP(recorder, req)
+
+			assert.Equal(t, http.StatusForbidden, recorder.Code)
+			assert.Zero(t, body.reads.Load())
 		})
 	}
 }
@@ -130,7 +167,7 @@ func TestReadOnlyProxyAllowsSupportedRESTAndSelectedGraphQLQuery(t *testing.T) {
 	resp.Body.Close()
 	assert.EqualValues(t, 2, upstreamRequests.Load())
 
-	multiOperationQuery := `{"operationName":"Read","query":"query Read { __schema { queryType { name } } } mutation Write { createIssue(input: {}) { clientMutationId } }"}`
+	multiOperationQuery := `{"operationName":"Read","query":"fragment TypeFields on __Type { name } query Read { __schema { types { ...TypeFields } } } mutation Write { createIssue(input: {}) { clientMutationId } }"}`
 	req := httptest.NewRequest(http.MethodPost, upstream.URL+"/graphql", strings.NewReader(multiOperationQuery))
 	req.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
@@ -139,7 +176,34 @@ func TestReadOnlyProxyAllowsSupportedRESTAndSelectedGraphQLQuery(t *testing.T) {
 	assert.Equal(t, http.StatusOK, recorder.Code)
 	assert.EqualValues(t, 3, upstreamRequests.Load())
 	assert.Contains(t, requestBody, `"query":"query Read`)
+	assert.Contains(t, requestBody, "fragment TypeFields on __Type")
 	assert.NotContains(t, requestBody, "mutation Write")
+}
+
+func TestReadOnlyProxyAllowsCollaboratorPermissionEnrichment(t *testing.T) {
+	var upstreamRequests atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamRequests.Add(1)
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/repos/org/repo/collaborators/user/permission", r.URL.Path)
+		_, _ = w.Write([]byte(`{"permission":"write","user":{"login":"user"}}`))
+	}))
+	defer upstream.Close()
+
+	caller := &restBackendCaller{server: &Server{
+		readOnly:     true,
+		githubAPIURL: upstream.URL,
+		httpClient:   upstream.Client(),
+	}}
+	result, err := caller.CallTool(context.Background(), "get_collaborator_permission", map[string]interface{}{
+		"owner":    "org",
+		"repo":     "repo",
+		"username": "user",
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.EqualValues(t, 1, upstreamRequests.Load())
 }
 
 func TestReadOnlyProxyRejectsWritesInAlternateModes(t *testing.T) {
@@ -206,4 +270,78 @@ func TestReadOnlyRequestBodySelectsOperation(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, string(selected), "mutation Write")
 	assert.Contains(t, string(selected), "query Read")
+}
+
+func TestReadOnlyRequestBodyPreservesReferencedFragments(t *testing.T) {
+	query := `fragment pr on PullRequest{number,title}
+    query PullRequestList(
+      $owner: String!,
+      $repo: String!,
+      $limit: Int!,
+      $endCursor: String,
+      $state: [PullRequestState!] = OPEN
+    ) {
+      repository(owner: $owner, name: $repo) {
+        pullRequests(
+          states: $state,
+          first: $limit,
+          after: $endCursor,
+          orderBy: {field: CREATED_AT, direction: DESC}
+        ) {
+          totalCount
+          nodes {
+            ...pr
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
+      }
+    }`
+	body, err := json.Marshal(GraphQLRequest{Query: query, OperationName: "PullRequestList"})
+	require.NoError(t, err)
+
+	selected, err := readOnlyRequestBody(http.MethodPost, "/graphql", body, nil)
+	require.NoError(t, err)
+	assert.Contains(t, string(selected), "query PullRequestList")
+	assert.Contains(t, string(selected), "fragment pr on PullRequest")
+}
+
+func TestReadOnlyRequestBodyPreservesTransitiveFragments(t *testing.T) {
+	body := []byte(`{"operationName":"Read","query":"fragment first on User { ...second } fragment second on User { login } query Read { viewer { ...first } }"}`)
+	selected, err := readOnlyRequestBody(http.MethodPost, "/graphql", body, nil)
+	require.NoError(t, err)
+	assert.Contains(t, string(selected), "fragment first on User")
+	assert.Contains(t, string(selected), "fragment second on User")
+}
+
+func TestReadOnlyRequestBodyRejectsInvalidFragmentReferences(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{
+			name:  "missing fragment",
+			query: `query Read { viewer { ...missing } }`,
+		},
+		{
+			name:  "duplicate fragment",
+			query: `query Read { viewer { ...part } } fragment part on User { login } fragment part on User { name }`,
+		},
+		{
+			name:  "cyclic fragments",
+			query: `query Read { viewer { ...first } } fragment first on User { ...second } fragment second on User { ...first }`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := json.Marshal(GraphQLRequest{Query: tt.query, OperationName: "Read"})
+			require.NoError(t, err)
+
+			_, err = readOnlyRequestBody(http.MethodPost, "/graphql", body, nil)
+			assert.ErrorIs(t, err, errReadOnlyDenied)
+		})
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/restroute"
@@ -16,9 +17,10 @@ import (
 )
 
 var (
-	errReadOnlyDenied      = errors.New("request denied by read-only proxy")
-	readOnlyRepositoryPath = regexp.MustCompile(`^/repos/[^/]+/[^/]+$`)
-	methodOverrideHeader   = []string{"X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override", "X-Original-Method"}
+	errReadOnlyDenied        = errors.New("request denied by read-only proxy")
+	readOnlyRepositoryPath   = regexp.MustCompile(`^/repos/[^/]+/[^/]+$`)
+	readOnlyCollaboratorPath = regexp.MustCompile(`^/repos/[^/]+/[^/]+/collaborators/[^/]+/permission$`)
+	methodOverrideHeader     = []string{"X-HTTP-Method-Override", "X-HTTP-Method", "X-Method-Override", "X-Original-Method"}
 )
 
 // readOnlyRequestBody validates a request before forwarding. A returned body is
@@ -67,7 +69,8 @@ func readOnlyRequestBody(method, path string, body []byte, headers http.Header) 
 }
 
 func isSupportedReadOnlyRESTPath(path string) bool {
-	if isMetadataPassthroughPath(path) || readOnlyRepositoryPath.MatchString(path) {
+	if isMetadataPassthroughPath(path) || readOnlyRepositoryPath.MatchString(path) ||
+		readOnlyCollaboratorPath.MatchString(path) {
 		return true
 	}
 	for _, candidate := range routes[:len(routes)-1] {
@@ -154,27 +157,86 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 			}
 		}
 	}
-	if selected == nil || selected.Operation != ast.Query || hasFragmentSpread(selected.SelectionSet) {
+	if selected == nil || selected.Operation != ast.Query {
 		return nil, errReadOnlyDenied
 	}
 
 	runes := []rune(request.Query)
-	start := selected.Position.Start
-	end := len(runes)
+	type definition struct {
+		start    int
+		fragment *ast.FragmentDefinition
+	}
+	definitions := make([]definition, 0, len(doc.Operations)+len(doc.Fragments))
+	fragments := make(map[string]*ast.FragmentDefinition, len(doc.Fragments))
 	for _, operation := range doc.Operations {
-		if operation.Position.Start > start && operation.Position.Start < end {
-			end = operation.Position.Start
-		}
+		definitions = append(definitions, definition{start: operation.Position.Start})
 	}
 	for _, fragment := range doc.Fragments {
-		if fragment.Position.Start > start && fragment.Position.Start < end {
-			end = fragment.Position.Start
+		if _, duplicate := fragments[fragment.Name]; duplicate {
+			return nil, errReadOnlyDenied
 		}
+		fragments[fragment.Name] = fragment
+		definitions = append(definitions, definition{start: fragment.Position.Start, fragment: fragment})
 	}
-	selectedQuery := strings.TrimSpace(string(runes[start:end]))
+	sort.Slice(definitions, func(i, j int) bool { return definitions[i].start < definitions[j].start })
+
+	definitionSource := func(start int) string {
+		end := len(runes)
+		for _, item := range definitions {
+			if item.start > start && item.start < end {
+				end = item.start
+			}
+		}
+		return strings.TrimSpace(string(runes[start:end]))
+	}
+	selectedQuery := definitionSource(selected.Position.Start)
 	if selectedQuery == "" {
 		return nil, errReadOnlyDenied
 	}
+
+	referenced := make(map[string]bool)
+	visiting := make(map[string]bool)
+	var includeFragment func(string) error
+	includeFragment = func(name string) error {
+		if visiting[name] {
+			return errReadOnlyDenied
+		}
+		fragment := fragments[name]
+		if fragment == nil {
+			return errReadOnlyDenied
+		}
+		if referenced[name] {
+			return nil
+		}
+		visiting[name] = true
+		spreads := make(map[string]bool)
+		collectFragmentSpreads(fragment.SelectionSet, spreads)
+		for spread := range spreads {
+			if err := includeFragment(spread); err != nil {
+				return err
+			}
+		}
+		delete(visiting, name)
+		referenced[name] = true
+		return nil
+	}
+	spreads := make(map[string]bool)
+	collectFragmentSpreads(selected.SelectionSet, spreads)
+	for spread := range spreads {
+		if err := includeFragment(spread); err != nil {
+			return nil, errReadOnlyDenied
+		}
+	}
+
+	for _, item := range definitions {
+		if item.fragment != nil && referenced[item.fragment.Name] {
+			selectedQuery += "\n" + definitionSource(item.start)
+		}
+	}
+	if selectedQuery == "" {
+		return nil, errReadOnlyDenied
+	}
+	selectedQuery = strings.TrimSpace(selectedQuery)
 	selectedBody, err := json.Marshal(GraphQLRequest{Query: selectedQuery, Variables: request.Variables})
 	if err != nil {
 		return nil, errReadOnlyDenied
@@ -182,20 +244,15 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 	return selectedBody, nil
 }
 
-func hasFragmentSpread(selections ast.SelectionSet) bool {
+func collectFragmentSpreads(selections ast.SelectionSet, spreads map[string]bool) {
 	for _, selection := range selections {
 		switch selection := selection.(type) {
 		case *ast.FragmentSpread:
-			return true
+			spreads[selection.Name] = true
 		case *ast.Field:
-			if hasFragmentSpread(selection.SelectionSet) {
-				return true
-			}
+			collectFragmentSpreads(selection.SelectionSet, spreads)
 		case *ast.InlineFragment:
-			if hasFragmentSpread(selection.SelectionSet) {
-				return true
-			}
+			collectFragmentSpreads(selection.SelectionSet, spreads)
 		}
 	}
-	return false
 }
