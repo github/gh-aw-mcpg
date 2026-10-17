@@ -130,7 +130,7 @@ func TestForwardToGitHubReadOnlyRejectsMutationWithoutRequest(t *testing.T) {
 		"token write-capable-client-token",
 	)
 
-	assert.ErrorIs(t, err, errReadOnlyDenied)
+	require.ErrorIs(t, err, errReadOnlyDenied)
 	assert.Nil(t, resp)
 	assert.Zero(t, upstreamRequests.Load())
 }
