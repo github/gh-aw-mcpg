@@ -83,6 +83,18 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteJSONResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
+	if h.server.readOnly {
+		selectedBody, err := h.validateReadOnlyRequest(r, fullPath)
+		if err != nil {
+			rejectProxyRequest(w, oteltrace.SpanFromContext(r.Context()), http.StatusForbidden,
+				"read_only_denied", "request is not allowed in read-only proxy mode", errReadOnlyDenied)
+			return
+		}
+		if selectedBody != nil {
+			r.Body = io.NopCloser(bytes.NewReader(selectedBody))
+			r.ContentLength = int64(len(selectedBody))
+		}
+	}
 	if h.server.enclave != nil {
 		h.handleEnclaveRequest(w, r)
 		return
@@ -178,6 +190,31 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Run the DIFC pipeline
 	h.handleWithDIFC(w, r, fullPath, toolName, args, graphQLBody)
+}
+
+func (h *proxyHandler) validateReadOnlyRequest(r *http.Request, path string) ([]byte, error) {
+	if r.URL.RawPath != "" {
+		return nil, errReadOnlyDenied
+	}
+	pathOnly, _, _ := strings.Cut(path, "?")
+	isGraphQLPost := r.Method == http.MethodPost && IsGraphQLPath(pathOnly)
+	var body []byte
+	if isGraphQLPost {
+		if r.Body == nil {
+			return nil, errReadOnlyDenied
+		}
+		var err error
+		body, err = io.ReadAll(r.Body)
+		if err != nil {
+			return nil, errReadOnlyDenied
+		}
+		if r.Body != nil {
+			_ = r.Body.Close()
+		}
+	} else if r.Body != nil && r.Body != http.NoBody {
+		return nil, errReadOnlyDenied
+	}
+	return readOnlyRequestBody(r.Method, path, body, r.Header)
 }
 
 func (h *proxyHandler) handleUnrecognizedPassthrough(w http.ResponseWriter, r *http.Request, rawPath, fullPath string) {

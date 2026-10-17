@@ -8,6 +8,33 @@ The MCP gateway enforces DIFC on MCP tool calls, but tools that call the GitHub 
 
 ## Quick Start
 
+### Read-only mode
+
+Use `--read-only` to reject GitHub API writes before any upstream request:
+
+```bash
+awmg proxy \
+  --guard-wasm guards/github-guard/github_guard.wasm \
+  --policy '{"allow-only":{"repos":["org/repo"]}}' \
+  --github-token "$GITHUB_TOKEN" \
+  --read-only
+```
+
+The default is disabled. `MCP_GATEWAY_PROXY_READ_ONLY=1` enables the same mode
+when configured by the environment. In read-only mode, only supported GET REST
+routes and structurally valid GraphQL queries are forwarded. Mutating HTTP
+methods, GraphQL mutations/subscriptions, ambiguous or malformed GraphQL
+documents, unsupported routes, and method-override headers are rejected before
+forwarding. Upstream redirects are not followed. This applies regardless of
+whether authentication comes from the client or a fallback token, including
+enclave and delegated forwarding paths.
+
+For `gh aw compile --dry-run`, run the separate `awmg proxy` process with
+`--read-only` (or set `MCP_GATEWAY_PROXY_READ_ONLY=1`) in addition to the
+GitHub MCP server's `GITHUB_READ_ONLY=1`; the MCP setting does not configure
+this CLI proxy. The flag constrains this proxy's API requests, not credential
+permissions or other workflow side effects.
+
 ### With `gh` CLI (TLS mode)
 
 ```bash
@@ -58,7 +85,8 @@ gh CLI  →  awmg proxy (localhost:8443, TLS)  →  api.github.com
 5. The response is filtered per-item based on secrecy/integrity labels; top-level REST arrays that have no per-item guard schema (for example, issue comment list endpoints) are passed through unchanged after the coarse policy check
 6. The filtered response is returned to the client
 
-Write operations (PUT, POST, DELETE, PATCH) pass through unmodified.
+By default, write operations (PUT, POST, DELETE, PATCH) pass through
+unmodified. With `--read-only`, they are rejected before forwarding.
 
 ## Single-use enclave profile (`issues-read-v1`)
 
@@ -167,6 +195,7 @@ Response schema:
 | `--log-dir` | `/tmp/gh-aw/mcp-logs` | Log file directory |
 | `--guards-mode` | `filter` | DIFC mode: `strict`, `filter`, or `propagate` |
 | `--github-api-url` | `https://api.github.com` | Upstream GitHub API URL |
+| `--read-only` | `false` | Reject writes and unsupported requests before forwarding; can also be enabled with `MCP_GATEWAY_PROXY_READ_ONLY=1` |
 | `--tls` | `false` | Enable HTTPS with auto-generated self-signed certificates |
 | `--tls-dir` | `<log-dir>/proxy-tls` | Directory for generated TLS certificate files |
 | `--tls-dns-name` | *(disabled)* | Additional DNS SAN for the generated certificate; repeat the flag or use a comma-separated list |
@@ -362,4 +391,4 @@ and the security model.
 ## Known Limitations
 
 - **GraphQL nested filtering**: Deeply nested GraphQL response structures depend on guard support for item-level labeling.
-- **Read-only filtering**: Only GET requests and GraphQL POST queries are filtered. Write operations pass through unmodified.
+- **Read-only filtering**: Without `--read-only`, writes pass through unmodified. When enabled, only supported GET REST routes and structurally validated GraphQL queries are allowed; unsupported or ambiguous requests fail closed.

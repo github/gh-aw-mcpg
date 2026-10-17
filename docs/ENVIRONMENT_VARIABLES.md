@@ -29,6 +29,7 @@ When running locally (`run.sh`), these variables are optional (warnings shown if
 | `MCP_GATEWAY_PAYLOAD_PATH_PREFIX` | Path prefix for remapping payloadPath returned to clients (sets default for `--payload-path-prefix` flag) | (empty - use actual filesystem path) |
 | `MCP_GATEWAY_PAYLOAD_SIZE_THRESHOLD` | Size threshold in bytes for payload storage (sets default for `--payload-size-threshold` flag) | `524288` |
 | `MCP_GATEWAY_URL_DOMAIN_AUDIT` | Enable URL-domain audit logging (sets default for `--url-domain-audit`). When enabled, observed domains are written to `observed-url-domains.json`. | `false` |
+| `MCP_GATEWAY_PROXY_READ_ONLY` | Enable `awmg proxy` read-only enforcement (same as `--read-only`) | `false` |
 | `MCP_GATEWAY_SESSION_TIMEOUT` | Session timeout for stateful sessions in both unified (`/mcp`) and routed (`/mcp/<server>`) modes. Accepts Go duration strings (e.g., `30m`, `1h`). Default is 6 hours to match the GitHub Actions default timeout. | `6h` |
 | `MCP_GATEWAY_SHUTDOWN_TIMEOUT` | Maximum time to wait for in-flight requests to complete during graceful shutdown (sets default for `--shutdown-timeout` flag). Accepts Go duration strings (e.g., `30s`, `2m`). | `5s` |
 | `MCP_GATEWAY_TOOL_TIMEOUT` | Tool invocation timeout in seconds. Used as fallback when `gateway.toolTimeout` is not set in the stdin JSON config. Accepts any integer ≥ 10 (no upper bound). Priority: stdin `gateway.toolTimeout` > this env var > built-in default. | `60` |

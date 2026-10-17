@@ -5,6 +5,7 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -51,6 +52,7 @@ type Server struct {
 
 	githubToken  string
 	githubAPIURL string // upstream base URL (no trailing slash)
+	readOnly     bool
 
 	httpClient *http.Client
 
@@ -101,6 +103,9 @@ type Config struct {
 
 	// Delegation enables runtime AWF-controlled repository-read identities.
 	Delegation *DelegationConfig
+
+	// ReadOnly rejects requests other than explicitly supported reads.
+	ReadOnly bool
 }
 
 // New creates a new proxy Server from the given Config.
@@ -171,6 +176,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		DIFCComponents: difcComponents,
 		githubToken:    cfg.GitHubToken,
 		githubAPIURL:   apiURL,
+		readOnly:       cfg.ReadOnly,
 		delegation:     cfg.Delegation,
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
@@ -182,6 +188,8 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 	if cfg.Enclave != nil {
 		s.enclave = newEnclaveState(cfg.Enclave.Policy, cfg.Enclave.Verifier)
+	}
+	if cfg.Enclave != nil || cfg.ReadOnly {
 		s.httpClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		}
@@ -472,6 +480,24 @@ func (s *Server) upstreamHost() string {
 // clientAuth is the Authorization header from the inbound client request;
 // if non-empty it is forwarded as-is, otherwise the configured fallback token is used.
 func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body io.Reader, contentType string, clientAuth string) (*http.Response, error) {
+	if s.readOnly {
+		var bodyBytes []byte
+		if body != nil {
+			var err error
+			bodyBytes, err = io.ReadAll(body)
+			if err != nil {
+				return nil, errReadOnlyDenied
+			}
+		}
+		selectedBody, err := readOnlyRequestBody(method, path, bodyBytes, nil)
+		if err != nil {
+			return nil, err
+		}
+		if selectedBody != nil {
+			body = bytes.NewReader(selectedBody)
+		}
+	}
+
 	url := s.githubAPIURL + path
 	pathOnly, query, hasQuery := strings.Cut(path, "?")
 	if IsGraphQLPath(pathOnly) {
@@ -516,6 +542,9 @@ func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body 
 	githubhttp.ApplyGitHubAPIHeaders(req, authHeader)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
+	}
+	if s.readOnly {
+		return doWithoutFollowingRedirects(s.httpClient, req)
 	}
 	if method == http.MethodGet && artifactZipDownloadPathPattern.MatchString(pathOnly) {
 		logProxy.Print("forwardToGitHub: artifact zip download, not following redirects")
