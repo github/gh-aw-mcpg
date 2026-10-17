@@ -13,8 +13,9 @@ var logGraphQL = logger.ForFile()
 
 // GraphQLRequest represents a parsed GraphQL request body.
 type GraphQLRequest struct {
-	Query     string                 `json:"query"`
-	Variables map[string]interface{} `json:"variables,omitempty"`
+	Query         string                 `json:"query"`
+	OperationName string                 `json:"operationName,omitempty"`
+	Variables     map[string]interface{} `json:"variables,omitempty"`
 }
 
 // GraphQLRouteMatch contains the result of matching a GraphQL query to a guard tool name.

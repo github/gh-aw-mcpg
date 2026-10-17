@@ -169,6 +169,7 @@ func TestNewProxyCmd_AllFlagsRegistered(t *testing.T) {
 		"wasm-cache-dir",
 		"guards-mode",
 		"github-api-url",
+		"read-only",
 		"tls",
 		"tls-dir",
 		"tls-dns-name",
@@ -221,6 +222,7 @@ func TestNewProxyCmd_DefaultFlagValues(t *testing.T) {
 	// Clear relevant env vars to get clean defaults
 	envVarsToClear := []string{
 		config.EnvGuardPolicyJSON,
+		config.EnvProxyReadOnly,
 		"MCP_GATEWAY_GUARDS_MODE",
 		"MCP_GATEWAY_LOG_DIR",
 		"OTEL_EXPORTER_OTLP_ENDPOINT",
@@ -272,6 +274,15 @@ func TestNewProxyCmd_DefaultFlagValues(t *testing.T) {
 				val, err := cmd.Flags().GetString("github-api-url")
 				require.NoError(t, err)
 				assert.Empty(t, val, "--github-api-url default should be empty")
+			},
+		},
+		{
+			flagName: "read-only",
+			validate: func(t *testing.T, cmd *cobra.Command) {
+				t.Helper()
+				val, err := cmd.Flags().GetBool("read-only")
+				require.NoError(t, err)
+				assert.False(t, val, "--read-only should default to false")
 			},
 		},
 		{
@@ -365,6 +376,20 @@ func TestNewProxyCmd_PolicyDefaultFromEnv(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, envPolicy, val,
 		"--policy default should reflect MCP_GATEWAY_GUARD_POLICY_JSON environment variable")
+}
+
+func TestNewProxyCmd_ReadOnlyDefaultFromEnvAndFlagOverride(t *testing.T) {
+	t.Setenv(config.EnvProxyReadOnly, "true")
+
+	cmd := newProxyCmd()
+	value, err := cmd.Flags().GetBool("read-only")
+	require.NoError(t, err)
+	assert.True(t, value, "environment variable should enable read-only mode")
+
+	require.NoError(t, cmd.Flags().Parse([]string{"--read-only=false"}))
+	value, err = cmd.Flags().GetBool("read-only")
+	require.NoError(t, err)
+	assert.False(t, value, "explicit flag should override the environment default")
 }
 
 // TestNewProxyCmd_OTLPEndpointDefaultFromEnv verifies that --otlp-endpoint picks

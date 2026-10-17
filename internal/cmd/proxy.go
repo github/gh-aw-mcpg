@@ -48,6 +48,7 @@ var (
 	proxyTLSDNSNames     []string
 	proxyTrustedBots     []string
 	proxyTrustedUsers    []string
+	proxyReadOnly        bool
 	proxyOTLPEndpoint    string
 	proxyOTLPService     string
 	proxyOTLPSampleRate  float64
@@ -118,6 +119,7 @@ Container usage (uses baked-in guard automatically):
     ghcr.io/github/gh-aw-mcpg:latest proxy \
     --policy '{"allow-only":{"repos":["org/repo"],"min-integrity":"approved"}}' \
     --listen 0.0.0.0:8443 \
+    --read-only \
     --tls
 
   # Trust the CA cert from the mounted volume
@@ -130,7 +132,7 @@ Local usage:
   awmg proxy \
     --guard-wasm guards/github-guard/github_guard.wasm \
     --policy '{"allow-only":{"repos":["org/repo"],"min-integrity":"approved"}}' \
-    --listen localhost:8443 --tls`,
+    --listen localhost:8443 --read-only --tls`,
 		Example: `  # Run with auto-detected baked-in guard (container image)
   awmg proxy --policy '{"allow-only":{"repos":["org/repo"],"min-integrity":"approved"}}'
 
@@ -169,6 +171,7 @@ Local usage:
 	registerGuardsModeFlag(cmd, &proxyDIFCMode)
 	cmd.Flags().StringVar(&proxyAPIURL, "github-api-url", "", "Upstream GitHub API URL (default: auto-derived from GITHUB_API_URL or GITHUB_SERVER_URL, falls back to https://api.github.com)")
 	cmd.Flags().BoolVar(&proxyForcePublicRepo, "force-public-repos", envutil.GetEnvBool(config.EnvForcePublicRepos, true), "When true (default), forces repos=\"public\" at runtime if the workflow repo is public. Set to false to disable.")
+	cmd.Flags().BoolVar(&proxyReadOnly, "read-only", envutil.GetEnvBool(config.EnvProxyReadOnly, false), "Reject GitHub API writes and unsupported reads before forwarding")
 	cmd.Flags().BoolVar(&proxyTLS, "tls", false, "Enable HTTPS with auto-generated self-signed certificates")
 	cmd.Flags().StringVar(&proxyTLSDir, "tls-dir", "", "Directory for TLS certificates (default: <log-dir>/proxy-tls)")
 	cmd.Flags().StringSliceVar(&proxyTLSDNSNames, "tls-dns-name", nil, "Additional DNS name for the generated TLS certificate (repeatable or comma-separated; requires --tls)")
@@ -367,6 +370,7 @@ func runProxy(cmd *cobra.Command, args []string) error {
 		TrustedUsers: proxyTrustedUsers,
 		Enclave:      enclaveConfig,
 		Delegation:   delegationConfig,
+		ReadOnly:     proxyReadOnly,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create proxy server: %w", err)

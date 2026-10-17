@@ -11,7 +11,6 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/github/gh-aw-mcpg/internal/enclavegithub"
-	"github.com/github/gh-aw-mcpg/internal/githubhttp"
 	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/util"
@@ -111,12 +110,7 @@ func (s *Server) enclaveRepositoryIsPublic(ctx context.Context, repo string) boo
 }
 
 func (s *Server) forwardEnclaveVisibilityLookup(ctx context.Context, repo string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.githubAPIURL+"/repos/"+repo, nil)
-	if err != nil {
-		return nil, err
-	}
-	githubhttp.ApplyGitHubAPIHeaders(req, "token "+s.githubToken)
-	return s.httpClient.Do(req)
+	return s.forwardToGitHub(ctx, http.MethodGet, "/repos/"+repo, nil, "", "")
 }
 
 func (s *Server) cacheEnclaveVisibilityDenial(repo string) {
