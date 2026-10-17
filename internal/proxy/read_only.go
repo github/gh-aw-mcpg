@@ -11,10 +11,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/restroute"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
 )
+
+var logReadOnly = logger.ForFile()
 
 var (
 	errReadOnlyDenied        = errors.New("request denied by read-only proxy")
@@ -29,6 +32,7 @@ func readOnlyRequestBody(method, path string, body []byte, headers http.Header) 
 	if headers != nil {
 		for _, name := range methodOverrideHeader {
 			if _, ok := headers[http.CanonicalHeaderKey(name)]; ok {
+				logReadOnly.Printf("Denied: method override header present: header=%s", name)
 				return nil, errReadOnlyDenied
 			}
 		}
@@ -37,15 +41,18 @@ func readOnlyRequestBody(method, path string, body []byte, headers http.Header) 
 	pathOnly, rawQuery, _ := strings.Cut(path, "?")
 	if pathOnly == "" || !strings.HasPrefix(pathOnly, "/") || strings.HasPrefix(pathOnly, "//") ||
 		strings.ContainsAny(pathOnly, `%\`) || strings.ContainsAny(pathOnly, "\r\n") {
+		logReadOnly.Printf("Denied: malformed or unsafe path: method=%s", method)
 		return nil, errReadOnlyDenied
 	}
 	normalizedPath := StripGHHostPrefix(pathOnly)
 	if IsGraphQLPath(pathOnly) || IsGraphQLPath(normalizedPath) {
 		if method != http.MethodPost || rawQuery != "" {
+			logReadOnly.Printf("Denied: invalid GraphQL request shape: method=%s, hasQuery=%t", method, rawQuery != "")
 			return nil, errReadOnlyDenied
 		}
 		selectedBody, err := selectReadOnlyGraphQLOperation(body)
 		if err != nil {
+			logReadOnly.Printf("Denied: GraphQL operation selection failed: %v", err)
 			return nil, errReadOnlyDenied
 		}
 		return selectedBody, nil
@@ -63,6 +70,7 @@ func readOnlyRequestBody(method, path string, body []byte, headers http.Header) 
 		}
 	}
 	if method != http.MethodGet || len(body) != 0 || !isSupportedReadOnlyRESTPath(normalizedPath) {
+		logReadOnly.Printf("Denied: REST request not read-only: method=%s, bodyLen=%d", method, len(body))
 		return nil, errReadOnlyDenied
 	}
 	return nil, nil
