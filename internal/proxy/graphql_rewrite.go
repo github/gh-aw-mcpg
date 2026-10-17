@@ -138,6 +138,7 @@ func InjectGuardFields(body []byte, toolName string) []byte {
 	gql.Query = modified
 	out, err := json.Marshal(gql)
 	if err != nil {
+		logGraphQLRewrite.Printf("Failed to re-marshal modified GraphQL body: tool=%s, err=%v", toolName, err)
 		return body
 	}
 	return out
@@ -284,6 +285,7 @@ func injectIntoFragment(query, fragName, field string) string {
 	// Find the opening brace of the fragment body
 	braceStart := strings.Index(query[idx:], "{")
 	if braceStart == -1 {
+		logGraphQLRewrite.Printf("injectIntoFragment: no opening brace found for fragment %q", fragName)
 		return query
 	}
 	braceStart += idx
