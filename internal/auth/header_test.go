@@ -382,6 +382,26 @@ func TestExtractAgentID(t *testing.T) {
 			authHeader: "key!@#$%^&*()",
 			want:       "key!@#$%^&*()",
 		},
+		{
+			name:       "Bearer scheme strips prefix",
+			authHeader: "Bearer tok-1",
+			want:       "tok-1",
+		},
+		{
+			name:       "Agent scheme with empty value",
+			authHeader: "Agent ",
+			want:       "",
+		},
+		{
+			name:       "Scheme without trailing space is treated as plain key",
+			authHeader: "Bearer",
+			want:       "Bearer",
+		},
+		{
+			name:       "Scheme match is case sensitive",
+			authHeader: "bearer tok-1",
+			want:       "bearer tok-1",
+		},
 	}
 
 	for _, tt := range tests {
