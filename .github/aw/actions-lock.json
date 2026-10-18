@@ -110,15 +110,15 @@
       "version": "v4.39.0",
       "sha": "6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee"
     },
-    "github/gh-aw-actions/setup-cli@v0.92.4": {
+    "github/gh-aw-actions/setup-cli@v0.92.5": {
       "repo": "github/gh-aw-actions/setup-cli",
-      "version": "v0.92.4",
-      "sha": "dc455073a216c68be9fe9a292c4371243c036d25"
+      "version": "v0.92.5",
+      "sha": "ebb97091a4afcc9bf2d594071dbabe861e9a34fc"
     },
-    "github/gh-aw-actions/setup@v0.92.4": {
+    "github/gh-aw-actions/setup@v0.92.5": {
       "repo": "github/gh-aw-actions/setup",
-      "version": "v0.92.4",
-      "sha": "dc455073a216c68be9fe9a292c4371243c036d25"
+      "version": "v0.92.5",
+      "sha": "ebb97091a4afcc9bf2d594071dbabe861e9a34fc"
     },
     "haskell-actions/setup@v2.12.1": {
       "repo": "haskell-actions/setup",
