@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -73,6 +74,36 @@ func TestReadOnlyProxyRejectsBeforeForwarding(t *testing.T) {
 			assert.Zero(t, upstreamRequests.Load())
 		})
 	}
+}
+
+func TestReadOnlyDenialLogsDoNotExposeRequestData(t *testing.T) {
+	const sensitiveValue = "private-query-value"
+	const overflowingNumber = "123456789e1000"
+
+	logs := captureProxyLogs(t, func() {
+		previousLogger := logReadOnly
+		logReadOnly = logger.New("proxy:read_only")
+		defer func() { logReadOnly = previousLogger }()
+		require.True(t, logReadOnly.Enabled())
+
+		body := []byte(`{"query":"query { viewer { login } }","variables":{"count":` + overflowingNumber + `}}`)
+		_, err := readOnlyRequestBody(http.MethodPost, "/graphql", body, nil)
+		require.ErrorIs(t, err, errReadOnlyDenied)
+
+		_, err = readOnlyRequestBody(http.MethodGet, "/repos/org/repo/issues?bad=%zz", nil, nil)
+		require.ErrorIs(t, err, errReadOnlyDenied)
+
+		_, err = readOnlyRequestBody(http.MethodGet, "/repos/org/repo/issues?_method="+sensitiveValue, nil, nil)
+		require.ErrorIs(t, err, errReadOnlyDenied)
+	})
+
+	assert.Contains(t, logs, "GraphQL operation selection failed")
+	assert.Contains(t, logs, "bodyLen=")
+	assert.Contains(t, logs, "invalid REST query string")
+	assert.Contains(t, logs, "method override query parameter present: name=_method")
+	assert.NotContains(t, logs, overflowingNumber)
+	assert.NotContains(t, logs, "%zz")
+	assert.NotContains(t, logs, sensitiveValue)
 }
 
 type readCountingBody struct {

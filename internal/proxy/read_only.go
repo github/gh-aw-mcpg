@@ -52,7 +52,7 @@ func readOnlyRequestBody(method, path string, body []byte, headers http.Header) 
 		}
 		selectedBody, err := selectReadOnlyGraphQLOperation(body)
 		if err != nil {
-			logReadOnly.Printf("Denied: GraphQL operation selection failed: %v", err)
+			logReadOnly.Printf("Denied: GraphQL operation selection failed: bodyLen=%d", len(body))
 			return nil, errReadOnlyDenied
 		}
 		return selectedBody, nil
@@ -60,11 +60,13 @@ func readOnlyRequestBody(method, path string, body []byte, headers http.Header) 
 
 	query, err := url.ParseQuery(rawQuery)
 	if err != nil {
+		logReadOnly.Printf("Denied: invalid REST query string: method=%s", method)
 		return nil, errReadOnlyDenied
 	}
 	for key := range query {
 		for _, name := range []string{"_method", "method", "http_method", "x-http-method-override"} {
 			if strings.EqualFold(key, name) {
+				logReadOnly.Printf("Denied: method override query parameter present: name=%s", name)
 				return nil, errReadOnlyDenied
 			}
 		}
