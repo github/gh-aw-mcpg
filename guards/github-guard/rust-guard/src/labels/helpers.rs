@@ -1134,6 +1134,16 @@ pub(crate) fn repo_visibility_secrecy(
     }
 }
 
+/// Extract repository identifiers and their visibility-derived shared secrecy labels.
+pub(crate) fn repo_info_with_secrecy(
+    tool_args: &Value,
+    ctx: &PolicyContext,
+) -> (String, String, String, crate::SharedLabels) {
+    let (owner, repo, repo_full) = extract_repo_info(tool_args);
+    let secrecy = repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+    (owner, repo, repo_full, secrecy)
+}
+
 /// Convenience wrapper: splits `repo_id` as "owner/repo" and delegates to
 /// [`repo_visibility_secrecy`].
 pub(crate) fn repo_visibility_secrecy_for_repo_id(
@@ -2753,6 +2763,35 @@ mod tests {
     fn test_repo_private_fallback_uses_cached_visibility_when_present() {
         let _guard = super::super::backend::cache_repo_visibility_for_tests("owner/repo", true);
         assert!(repo_private_fallback("owner", "repo"));
+    }
+
+    #[test]
+    fn test_repo_info_with_secrecy() {
+        let ctx = test_ctx();
+        let args = serde_json::json!({"owner": "scope-owner", "repo": "scope-repo"});
+        let _guard =
+            super::super::backend::cache_repo_visibility_for_tests("scope-owner/scope-repo", true);
+        let (owner, repo, repo_full, secrecy) = repo_info_with_secrecy(&args, &ctx);
+        assert_eq!(
+            (owner.as_str(), repo.as_str(), repo_full.as_str()),
+            ("scope-owner", "scope-repo", "scope-owner/scope-repo")
+        );
+        assert_eq!(secrecy, vec!["private:scope-owner/scope-repo".to_string()]);
+
+        let public_args = serde_json::json!({"owner": "public-owner", "repo": "public-repo"});
+        let _public_guard = super::super::backend::cache_repo_visibility_for_tests(
+            "public-owner/public-repo",
+            false,
+        );
+        let (_, _, _, secrecy) = repo_info_with_secrecy(&public_args, &ctx);
+        assert!(secrecy.is_empty());
+
+        let (owner, repo, repo_full, secrecy) =
+            repo_info_with_secrecy(&serde_json::json!({}), &ctx);
+        assert!(owner.is_empty());
+        assert!(repo.is_empty());
+        assert!(repo_full.is_empty());
+        assert_eq!(secrecy, vec![label_constants::PRIVATE_BASE.to_string()]);
     }
 
     #[test]

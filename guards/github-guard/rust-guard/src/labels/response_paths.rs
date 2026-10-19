@@ -74,9 +74,7 @@ fn label_author_items(
 ) -> Option<PathLabelResult> {
     let (items, items_path) = extract_items_array(actual_response);
     let items = items?;
-    let (owner, repo, repo_full) = extract_repo_info(tool_args);
-    let secrecy: crate::SharedLabels =
-        repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+    let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
     let limited_items = limit_items_with_log(items, tool_name);
     let labeled_paths = limited_items
         .iter()
@@ -313,9 +311,7 @@ pub fn label_response_paths(
             } else if tool_name == tool_names::PULL_REQUEST_READ && method == "get_commits" {
                 let (items, items_path) = extract_items_array(&actual_response);
                 if let Some(items) = items {
-                    let (owner, repo, repo_full) = extract_repo_info(tool_args);
-                    let secrecy: crate::SharedLabels =
-                        repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                    let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
                     let repo_private = repo_visibility_private_for_repo_id(&repo_full);
                     let limited_items = limit_items_with_log(items, tool_name);
                     let labeled_paths = limited_items
@@ -358,9 +354,7 @@ pub fn label_response_paths(
             } else if tool_name == tool_names::PULL_REQUEST_READ
                 && matches!(method, "get_files" | "get_diff")
             {
-                let (owner, repo, repo_full) = extract_repo_info(tool_args);
-                let secrecy: crate::SharedLabels =
-                    repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
                 let (items, items_path) = extract_items_array(&actual_response);
                 let labeled_paths = items
                     .map(|items| {
@@ -390,9 +384,7 @@ pub fn label_response_paths(
             } else if tool_name == tool_names::PULL_REQUEST_READ
                 && matches!(method, "get_check_runs" | "get_status")
             {
-                let (owner, repo, repo_full) = extract_repo_info(tool_args);
-                let secrecy: crate::SharedLabels =
-                    repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
                 let (items, items_path) = extract_items_array(&actual_response);
                 let labeled_paths = items
                     .map(|items| {
@@ -499,9 +491,7 @@ pub fn label_response_paths(
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             if tool_name == tool_names::ISSUE_READ && method == "get_labels" {
-                let (owner, repo, repo_full) = extract_repo_info(tool_args);
-                let secrecy: crate::SharedLabels =
-                    repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
                 let (items, items_path) = actual_response
                     .get("labels")
                     .and_then(Value::as_array)
