@@ -155,7 +155,9 @@ func (us *UnifiedServer) computeForcePublicRepos() bool {
 		return false
 	}
 
-	return vis == githubhttp.RepoVisibilityPublic
+	forced := vis == githubhttp.RepoVisibilityPublic
+	logGuardInit.Printf("shouldForcePublicRepos: repo=%s visibility=%s forcePublic=%t", nwo, vis, forced)
+	return forced
 }
 
 // isServerExemptFromSinkVisibility returns true if the given server should NOT
@@ -218,6 +220,7 @@ func (us *UnifiedServer) validateSinkVisibilityExemptServers() {
 // resolveGuardPolicy calls for the given server.
 func (us *UnifiedServer) overrideToPublicScope(serverID string) {
 	nwo := os.Getenv("GITHUB_REPOSITORY")
+	logGuardInit.Printf("overrideToPublicScope: applying public scope override for serverID=%s", serverID)
 
 	// Case 1: global policy override (set via CLI or env flags).
 	if us.cfg != nil && us.cfg.GuardPolicy != nil {
@@ -245,16 +248,19 @@ func (us *UnifiedServer) overrideToPublicScope(serverID string) {
 
 	// Case 2: per-server guard policies in config.
 	if us.cfg == nil || us.cfg.Servers == nil {
+		logGuardInit.Printf("overrideToPublicScope: no server config available, skipping serverID=%s", serverID)
 		return
 	}
 	serverCfg, ok := us.cfg.Servers[serverID]
 	if !ok || serverCfg == nil {
+		logGuardInit.Printf("overrideToPublicScope: serverID=%s not found in config, skipping", serverID)
 		return
 	}
 
 	if len(serverCfg.GuardPolicies) == 0 {
 		// No existing per-server policy — inject a minimal allow-only policy so
 		// the WASM guard (if loaded) will restrict reads to public repos.
+		logGuardInit.Printf("overrideToPublicScope: no per-server policy for serverID=%s, injecting allow-only repos=public", serverID)
 		serverCfg.GuardPolicies = map[string]interface{}{
 			"allow-only": map[string]interface{}{
 				"repos":         "public",
