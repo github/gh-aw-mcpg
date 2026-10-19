@@ -82,9 +82,7 @@ pub fn label_response_items(
         | tool_names::GET_DISCUSSION
         | tool_names::GET_DISCUSSION_COMMENTS => {
             let items = extract_items_slice(&actual_response, "discussions");
-            let (owner, repo, repo_full) = extract_repo_info(tool_args);
-            let secrecy: SharedLabels =
-                repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+            let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
             for item in limit_items_with_log(items, tool_name) {
                 let id = item
                     .get(field_names::ID)
@@ -224,9 +222,7 @@ pub fn label_response_items(
                 )
             {
                 let items = extract_items_slice(&actual_response, "items");
-                let (owner, repo, repo_full) = extract_repo_info(tool_args);
-                let secrecy: SharedLabels =
-                    repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
                 for item in limit_items_with_log(items, tool_name) {
                     let id = get_str_or(item, field_names::ID, UNKNOWN_LABEL_FALLBACK);
                     labeled_items.push(LabeledItem {
@@ -241,9 +237,7 @@ pub fn label_response_items(
                 }
             } else if tool_name == tool_names::PULL_REQUEST_READ && method == "get_commits" {
                 let items = extract_items_slice(&actual_response, "items");
-                let (owner, repo, repo_full) = extract_repo_info(tool_args);
-                let secrecy: SharedLabels =
-                    repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
                 let repo_private = repo_visibility_private_for_repo_id(&repo_full);
                 for item in limit_items_with_log(items, tool_name) {
                     let sha = get_str_or(item, field_names::SHA, UNKNOWN_LABEL_FALLBACK);
