@@ -13,6 +13,8 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 func TestReadOnlyProxyRejectsBeforeForwarding(t *testing.T) {
@@ -375,4 +377,105 @@ func TestReadOnlyRequestBodyRejectsInvalidFragmentReferences(t *testing.T) {
 			assert.ErrorIs(t, err, errReadOnlyDenied)
 		})
 	}
+}
+
+func TestSelectReadOnlyGraphQLOperation_Rejects(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		// denied expects errReadOnlyDenied; otherwise any error is accepted (JSON syntax errors).
+		denied bool
+	}{
+		{"empty body", ``, false},
+		{"array body", `[]`, true},
+		{"scalar body", `"query"`, true},
+		{"unterminated object", `{"query":"query Q { viewer { login } }"`, false},
+		{"invalid key token", `{"query":`, false},
+		{"duplicate key", `{"query":"query Q { a }","query":"query Q { b }"}`, true},
+		{"unknown key", `{"query":"query Q { a }","extensions":{}}`, true},
+		{"invalid query type", `{"query":5}`, false},
+		{"invalid operationName type", `{"query":"query Q { a }","operationName":5}`, false},
+		{"invalid variables type", `{"query":"query Q { a }","variables":"x"}`, false},
+		{"trailing data", `{"query":"query Q { a }"} {}`, true},
+		{"empty query", `{"query":""}`, true},
+		{"missing query", `{"operationName":"Q"}`, true},
+		{"empty operationName present", `{"query":"query Q { a }","operationName":""}`, true},
+		{"unparsable query", `{"query":"query {"}`, true},
+		{"fragments only", `{"query":"fragment f on User { login }"}`, true},
+		{"multiple operations without name", `{"query":"query A { a } query B { b }"}`, true},
+		{"operationName not found", `{"query":"query A { a }","operationName":"Missing"}`, true},
+		{"duplicate operation names", `{"query":"query A { a } query A { b }","operationName":"A"}`, true},
+		{"mutation selected", `{"query":"mutation M { a }"}`, true},
+		{"subscription selected", `{"query":"subscription S { a }"}`, true},
+		{"mutation named", `{"query":"query Q { a } mutation M { b }","operationName":"M"}`, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			selected, err := selectReadOnlyGraphQLOperation([]byte(tt.body))
+			require.Error(t, err)
+			assert.Nil(t, selected)
+			if tt.denied {
+				assert.ErrorIs(t, err, errReadOnlyDenied)
+			}
+		})
+	}
+}
+
+func TestSelectReadOnlyGraphQLOperation_Allows(t *testing.T) {
+	t.Run("single anonymous query preserves variables", func(t *testing.T) {
+		selected, err := selectReadOnlyGraphQLOperation([]byte(`{"query":"query($n:Int){ viewer { login } }","variables":{"n":1}}`))
+		require.NoError(t, err)
+
+		var got GraphQLRequest
+		require.NoError(t, json.Unmarshal(selected, &got))
+		assert.Contains(t, got.Query, "viewer")
+		assert.Equal(t, map[string]interface{}{"n": float64(1)}, got.Variables)
+		assert.Empty(t, got.OperationName, "selected request must not carry operationName")
+	})
+
+	t.Run("fragments reached via inline fragments and nested fields are kept", func(t *testing.T) {
+		query := `query Read { viewer { ... on User { ...inner } } }
+fragment inner on User { repositories { nodes { ...leaf } } }
+fragment leaf on Repository { name }
+fragment unused on User { email }`
+		body, err := json.Marshal(GraphQLRequest{Query: query, OperationName: "Read"})
+		require.NoError(t, err)
+
+		selected, err := selectReadOnlyGraphQLOperation(body)
+		require.NoError(t, err)
+		assert.Contains(t, string(selected), "fragment inner")
+		assert.Contains(t, string(selected), "fragment leaf")
+		assert.NotContains(t, string(selected), "fragment unused")
+	})
+
+	t.Run("unselected operations and fragments removed", func(t *testing.T) {
+		query := `query A { a } query B { b ...f } fragment f on T { c }`
+		body, err := json.Marshal(GraphQLRequest{Query: query, OperationName: "A"})
+		require.NoError(t, err)
+
+		selected, err := selectReadOnlyGraphQLOperation(body)
+		require.NoError(t, err)
+		assert.Contains(t, string(selected), "query A")
+		assert.NotContains(t, string(selected), "query B")
+		assert.NotContains(t, string(selected), "fragment f")
+	})
+}
+
+func TestCollectFragmentSpreads(t *testing.T) {
+	doc, err := parser.ParseQuery(&ast.Source{Input: `query Q {
+  a { ...one b { ...two } }
+  ... on User { ...three }
+  ...four
+}`})
+	require.NoError(t, err)
+	require.Len(t, doc.Operations, 1)
+
+	spreads := map[string]bool{}
+	collectFragmentSpreads(doc.Operations[0].SelectionSet, spreads)
+	assert.Equal(t, map[string]bool{"one": true, "two": true, "three": true, "four": true}, spreads)
+
+	empty := map[string]bool{}
+	collectFragmentSpreads(nil, empty)
+	assert.Empty(t, empty)
 }
