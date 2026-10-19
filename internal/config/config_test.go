@@ -97,6 +97,58 @@ func TestLoadFromStdin_ValidJSON(t *testing.T) {
 	assert.Contains(server.Args, "arg2", "Entrypoint arg2 not found")
 }
 
+func TestLoadFromStdin_ContainerImageReferences(t *testing.T) {
+	digest := strings.Repeat("aB", 32)
+	tests := []struct {
+		name    string
+		image   string
+		wantErr bool
+	}{
+		{name: "untagged", image: "ghcr.io/example/server"},
+		{name: "tagged", image: "ghcr.io/example/server:v1.0.0"},
+		{name: "digest only", image: "ghcr.io/example/server@sha256:" + digest},
+		{name: "tag and digest", image: "ghcr.io/example/server:v1.0.0@sha256:" + digest},
+		{name: "short digest", image: "ghcr.io/example/server@sha256:" + digest[:63], wantErr: true},
+		{name: "long digest", image: "ghcr.io/example/server@sha256:" + digest + "a", wantErr: true},
+		{name: "non-hex digest", image: "ghcr.io/example/server@sha256:" + digest[:63] + "g", wantErr: true},
+		{name: "unsupported algorithm", image: "ghcr.io/example/server@sha512:" + digest, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := fmt.Sprintf(`{
+				"mcpServers": {"test": {"type": "stdio", "container": %q, "entrypointArgs": ["--verbose"]}},
+				"gateway": {"port": 8080, "domain": "localhost", "agentId": "test-key"}
+			}`, tt.image)
+			r, w, err := os.Pipe()
+			require.NoError(t, err)
+			oldStdin := os.Stdin
+			os.Stdin = r
+			t.Cleanup(func() {
+				os.Stdin = oldStdin
+				r.Close()
+			})
+			_, err = w.WriteString(input)
+			require.NoError(t, err)
+			require.NoError(t, w.Close())
+
+			cfg, err := LoadFromStdin()
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, "container")
+				return
+			}
+			require.NoError(t, err)
+			server := cfg.Servers["test"]
+			require.NotNil(t, server)
+			assert.Equal(t, "docker", server.Command)
+			require.GreaterOrEqual(t, len(server.Args), 2)
+			assert.Equal(t, tt.image, server.Args[len(server.Args)-2])
+			assert.Equal(t, "--verbose", server.Args[len(server.Args)-1])
+		})
+	}
+}
+
 func TestLoadFromStdin_WithGateway(t *testing.T) {
 	port := 8080
 	jsonConfig := `{
