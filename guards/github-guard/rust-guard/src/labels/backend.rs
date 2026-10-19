@@ -454,15 +454,6 @@ pub(crate) fn get_pull_request_facts(
     get_pull_request_facts_with_callback(crate::invoke_backend, owner, repo, pull_number)
 }
 
-pub(crate) fn get_issue_author_association(
-    owner: &str,
-    repo: &str,
-    issue_number: &str,
-) -> Option<String> {
-    get_issue_author_info_with_callback(crate::invoke_backend, owner, repo, issue_number)
-        .and_then(|info| info.author_association)
-}
-
 /// Fetch issue author info (association + login) for resource-level initialization.
 pub(crate) fn get_issue_author_info_with_callback(
     callback: GithubMcpCallback,
@@ -494,7 +485,8 @@ pub(crate) fn get_issue_author_info_with_callback(
 
     let response_str = std::str::from_utf8(&result).ok()?;
     let response = serde_json::from_str::<Value>(response_str).ok()?;
-    let issue = super::extract_mcp_response(&response);
+    let extracted = super::extract_mcp_response(&response);
+    let issue = extracted.get("issue").unwrap_or(&extracted);
 
     let author_association = get_author_association(&issue).map(String::from);
 
@@ -717,6 +709,50 @@ mod tests {
         let bytes = serialized.as_bytes();
         buffer[..bytes.len()].copy_from_slice(bytes);
         Ok(bytes.len())
+    }
+
+    #[test]
+    fn test_issue_author_info_flat_and_wrapped() {
+        fn callback(tool: &str, args: &str, buffer: &mut [u8]) -> Result<usize, i32> {
+            assert_eq!(tool, tool_names::ISSUE_READ);
+            let args: Value = serde_json::from_str(args).unwrap();
+            assert_eq!(args["method"], "get");
+            let (association, login) = match args["issue_number"].as_str().unwrap() {
+                "1" => ("COLLABORATOR", "wrapped-author"),
+                "2" => ("CONTRIBUTOR", "flat-author"),
+                "3" => ("NONE", "resource-author"),
+                _ => panic!("unexpected issue number"),
+            };
+            let issue = serde_json::json!({
+                "author_association": association,
+                "user": {"login": login}
+            });
+            let payload = match args["issue_number"].as_str().unwrap() {
+                "1" => serde_json::json!({
+                    "content": [{"type": "text", "text": serde_json::json!({
+                        "method": "get", "issue": issue
+                    }).to_string()}]
+                }),
+                "3" => serde_json::json!({
+                    "content": [{"type": "resource", "resource": {"text": serde_json::json!({
+                        "method": "get", "issue": issue
+                    }).to_string()}}]
+                }),
+                _ => issue,
+            };
+            copy_payload(payload, buffer)
+        }
+
+        for (number, association, login) in [
+            ("1", "COLLABORATOR", "wrapped-author"),
+            ("2", "CONTRIBUTOR", "flat-author"),
+            ("3", "NONE", "resource-author"),
+        ] {
+            let info = get_issue_author_info_with_callback(callback, "owner", "repo", number)
+                .expect("issue author info");
+            assert_eq!(info.author_association.as_deref(), Some(association));
+            assert_eq!(info.author_login.as_deref(), Some(login));
+        }
     }
 
     // Tolerates a poisoned mutex so one panicking test doesn't cascade into others.

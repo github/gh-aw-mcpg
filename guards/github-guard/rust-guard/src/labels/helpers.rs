@@ -2207,9 +2207,25 @@ pub(crate) fn issue_integrity(
     repo_private: bool,
     ctx: &PolicyContext,
 ) -> Vec<String> {
+    issue_integrity_with_callback(
+        item,
+        repo_full_name,
+        repo_private,
+        ctx,
+        crate::invoke_backend,
+    )
+}
+
+fn issue_integrity_with_callback(
+    item: &Value,
+    repo_full_name: &str,
+    repo_private: bool,
+    ctx: &PolicyContext,
+    callback: GithubMcpCallback,
+) -> Vec<String> {
     // Step 1: Check if author is in blocked_users — takes precedence over all other rules.
-    let author_login = extract_author_login(item);
-    if !author_login.is_empty() && is_blocked_user(author_login, ctx) {
+    let mut author_login = extract_author_login(item).to_string();
+    if !author_login.is_empty() && is_blocked_user(&author_login, ctx) {
         let number = item_number(item);
         crate::log_info(&format!(
             "[integrity] issue:{repo_full_name}#{number} → blocked (author '{author_login}' in blocked-users)"
@@ -2227,16 +2243,34 @@ pub(crate) fn issue_integrity(
         let number_opt = extract_item_number_opt(item);
         if let Some(number_str) = number_opt {
             if let Some((owner, repo)) = split_repo_id(repo_full_name) {
-                if let Some(association) =
-                    super::backend::get_issue_author_association(owner, repo, &number_str)
-                {
-                    crate::log_debug(&format!(
-                        "[integrity] issue:{repo_full_name}#{number_str} enriched author_association='{association}'"
-                    ));
-                    // Re-check trusted bot status with enriched login
-                    let enriched_floor =
-                        author_association_floor_from_str(repo_full_name, Some(&association), ctx);
-                    integrity = max_integrity(repo_full_name, &integrity, &enriched_floor, ctx);
+                if let Some(info) = super::backend::get_issue_author_info_with_callback(
+                    callback,
+                    owner,
+                    repo,
+                    &number_str,
+                ) {
+                    if let Some(login) = info.author_login {
+                        if is_blocked_user(&login, ctx) {
+                            crate::log_info(&format!(
+                                "[integrity] issue:{repo_full_name}#{number_str} → blocked (author '{login}' in blocked-users)"
+                            ));
+                            return blocked_integrity(repo_full_name, ctx);
+                        }
+                        if author_login.is_empty() {
+                            author_login = login;
+                        }
+                    }
+                    if let Some(association) = info.author_association {
+                        crate::log_debug(&format!(
+                            "[integrity] issue:{repo_full_name}#{number_str} enriched author_association='{association}'"
+                        ));
+                        let enriched_floor = author_association_floor_from_str(
+                            repo_full_name,
+                            Some(&association),
+                            ctx,
+                        );
+                        integrity = max_integrity(repo_full_name, &integrity, &enriched_floor, ctx);
+                    }
                 } else {
                     crate::log_debug(&format!(
                         "[integrity] issue:{repo_full_name}#{number_str} enrichment failed (backend returned None)"
@@ -2251,7 +2285,7 @@ pub(crate) fn issue_integrity(
     if !repo_private {
         let number = item_number(item);
         integrity = elevate_via_collaborator_permission(
-            author_login,
+            &author_login,
             repo_full_name,
             "issue",
             &format!("{repo_full_name}#{number}"),
@@ -4529,6 +4563,48 @@ mod tests {
         let result = issue_integrity(&item, "owner/repo", false, &ctx);
 
         assert_eq!(integrity_rank("owner/repo", &result, &ctx), 3);
+    }
+
+    #[test]
+    fn test_sparse_issue_integrity_enriches_wrapped_author() {
+        fn callback(tool: &str, args: &str, buffer: &mut [u8]) -> Result<usize, i32> {
+            assert_eq!(tool, tool_names::ISSUE_READ);
+            let args: Value = serde_json::from_str(args).unwrap();
+            let (association, login) = match args["issue_number"].as_str().unwrap() {
+                "1" => ("COLLABORATOR", "collaborator"),
+                "2" => ("CONTRIBUTOR", "contributor"),
+                "3" => ("NONE", "none-author"),
+                "4" => ("COLLABORATOR", "blocked-author"),
+                _ => panic!("unexpected issue number"),
+            };
+            let payload = serde_json::json!({
+                "content": [{"type": "text", "text": serde_json::json!({
+                    "method": "get",
+                    "issue": {
+                        "author_association": association,
+                        "user": {"login": login}
+                    }
+                }).to_string()}]
+            })
+            .to_string();
+            buffer[..payload.len()].copy_from_slice(payload.as_bytes());
+            Ok(payload.len())
+        }
+
+        let ctx = PolicyContext {
+            blocked_users: vec!["blocked-author".to_string()],
+            ..Default::default()
+        };
+        for (number, expected_rank) in [(1, 3), (2, 2), (3, 2)] {
+            let item = serde_json::json!({"number": number, "title": "sparse issue"});
+            let result = issue_integrity_with_callback(&item, "owner/repo", false, &ctx, callback);
+            assert_eq!(integrity_rank("owner/repo", &result, &ctx), expected_rank);
+        }
+        let blocked = serde_json::json!({"number": 4, "title": "blocked issue"});
+        assert_eq!(
+            issue_integrity_with_callback(&blocked, "owner/repo", false, &ctx, callback),
+            blocked_integrity("owner/repo", &ctx)
+        );
     }
 
     #[test]
