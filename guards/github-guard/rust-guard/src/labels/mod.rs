@@ -3976,24 +3976,29 @@ mod tests {
     fn test_label_response_items_issue_read_trusted_bot() {
         // issue_read should label responses the same as get_issue
         let ctx = default_ctx();
-        let tool_args = json!({"owner": "github", "repo": "gh-aw-mcpg", "issue_number": 2278});
+        let tool_args = json!({
+            "owner": "github", "repo": "gh-aw-mcpg", "issue_number": 2278, "method": "get"
+        });
         let response = json!({
             "number": 2278,
             "title": "Monthly Activity",
             "user": {"login": "github-actions[bot]"},
             "author_association": "NONE"
         });
-        let items = label_response_items("issue_read", &tool_args, &response, &ctx);
-        assert_eq!(items.len(), 1);
-        assert!(
-            items[0]
-                .labels
-                .integrity
-                .iter()
-                .any(|t| t.starts_with("approved:")),
-            "issue_read for trusted bot should get approved integrity, got: {:?}",
-            items[0].labels.integrity
-        );
+        for payload in [&response, &json!({"method": "get", "issue": response})] {
+            let items = label_response_items("issue_read", &tool_args, payload, &ctx);
+            assert_eq!(items.len(), 1);
+            assert_eq!(items[0].data, response);
+            assert!(
+                items[0]
+                    .labels
+                    .integrity
+                    .iter()
+                    .any(|t| t.starts_with("approved:")),
+                "issue_read for trusted bot should get approved integrity, got: {:?}",
+                items[0].labels.integrity
+            );
+        }
     }
 
     #[test]

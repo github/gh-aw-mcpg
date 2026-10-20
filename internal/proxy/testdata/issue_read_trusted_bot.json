@@ -1,0 +1,27 @@
+{
+  "method": "get",
+  "issue": {
+    "number": 42,
+    "title": "Audit finding",
+    "body": "Implement this audit finding.",
+    "state": "open",
+    "html_url": "https://github.com/testorg/testrepo/issues/42",
+    "user": {
+      "id": 1,
+      "login": "github-actions[bot]"
+    },
+    "author_association": "CONTRIBUTOR",
+    "assignees": [],
+    "reactions": {
+      "total_count": 0
+    },
+    "created_at": "2026-10-16T12:00:00Z",
+    "updated_at": "2026-10-16T12:00:00Z",
+    "has_children": false,
+    "has_parent": false,
+    "closed_by_pull_requests": {
+      "total_count": 0,
+      "references": []
+    }
+  }
+}

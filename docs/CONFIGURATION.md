@@ -392,7 +392,7 @@ min-integrity = "unapproved"
 
 - **`approval-labels`** *(optional)*: Array of GitHub label names that promote a content item's effective integrity to `approved` when present. Uses `max(base, approved)` so it never lowers integrity. Does not override `blocked-users`.
 
-- **`trusted-users`** *(optional)*: Array of GitHub usernames whose content is unconditionally elevated to `approved` integrity. Useful for granting specific external contributors the same treatment as repository members without lowering `min-integrity` globally. Uses `max(base, approved)` so it never lowers integrity. Does not override `blocked-users`.
+- **`trusted-users`** *(optional)*: Array of GitHub usernames whose content is elevated to at least `approved` integrity, including bot logins such as `github-actions[bot]`. Useful for granting specific external contributors the same treatment as repository members without lowering `min-integrity` globally. Uses `max(base, approved)` so it never lowers integrity. Does not override `blocked-users` or explicit demotion rules. Trust applies to each item's own author: trusting an issue author does not elevate comments by other authors.
 
 - **`tool-call-limits`** *(optional)*: Map of tool names to per-session call limits enforced by the gateway. Positive values cap how many times that tool may be called in one session; `0` or an omitted entry leaves the tool unlimited.
 
