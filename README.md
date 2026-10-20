@@ -104,6 +104,25 @@ Key operator-facing environment variables (see [AGENTS.md](AGENTS.md) for the fu
 
 ## Authentication
 
+### eMudhra CA compromise (October 2026)
+
+Build with Go **1.26.10 or later in the 1.26 series**, or **1.27.3 or later**,
+to reject the eight compromised eMudhra intermediate keys
+([CVE-2026-111943](https://go.dev/issue/82345),
+[incident report](https://emudhra.we-have-a-problem.com/)).
+Rebuild and redeploy existing gateway binaries and container images; updating
+the source or host CA bundle alone does not patch an already compiled Go binary.
+
+The container builders and runtime also disable the affected Alpine trust anchors
+(`emSign ECC Root CA - G3` and, if present, `Comodo AAA Services root`) for non-Go
+clients. This can reject legitimate services that still depend on those roots;
+their operators must migrate to unaffected certificate chains. Update host trust
+stores and audit custom `caCertFile` / `--tls-ca` bundles independently. The Go fix
+rejects the compromised keys even when explicitly trusted in a custom bundle.
+Separately update backend MCP containers and externally installed Docker/Podman
+clients: they do not inherit the gateway's Go verifier or container trust store.
+Do not disable certificate or hostname verification to restore connectivity.
+
 The gateway reads a GitHub token from the first non-empty value of these variables (checked in priority order):
 
 | Variable | Description |

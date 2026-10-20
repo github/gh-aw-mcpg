@@ -94,7 +94,7 @@ Test all commands and instructions in `CONTRIBUTING.md`:
 
 1. **Verify prerequisites list:**
    - Read the Prerequisites section
-   - Check if Go version requirement (1.26.4) matches `go.mod`
+   - Check if Go version requirement (1.26.10) matches `go.mod`
    - Verify Docker requirement matches actual usage
    - Check if any prerequisites are missing
 

@@ -1,5 +1,16 @@
+# Go 1.26.10 rejects the compromised eMudhra intermediate keys (CVE-2026-111943).
+FROM golang:1.26.10-alpine3.24@sha256:9ce231b28998b32e116927c61aa5c406183061d4f3f2d61b292c88e7f6bdf7ca AS go-base
+
+# Also protect non-Go build tools that use Alpine's system trust store.
+RUN apk add --no-cache ca-certificates \
+    && sed -i \
+       -e 's|^mozilla/emSign_ECC_Root_CA_-_G3.crt$|!&|' \
+       -e 's|^mozilla/Comodo_AAA_Services_root.crt$|!&|' \
+       /etc/ca-certificates.conf \
+    && update-ca-certificates
+
 # Podman build stage
-FROM golang:1.26.4-alpine3.24@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 AS podman-builder
+FROM go-base AS podman-builder
 
 ARG PODMAN_VERSION=6.0.2
 ARG PODMAN_SHA256=0895a541aeb7aa8e99133ed2b328c1bb40fd397b7c3b01e083396c90e8628756
@@ -25,7 +36,7 @@ RUN wget -q "https://github.com/containers/podman/archive/refs/tags/v${PODMAN_VE
 
 # Podman 6 requires the Netavark 2 network schema, which is newer than the
 # version packaged by Alpine 3.24.
-FROM golang:1.26.4-alpine3.24@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 AS network-builder
+FROM go-base AS network-builder
 
 ARG NETAVARK_VERSION=2.0.0
 ARG NETAVARK_SHA256=031aeeacc930382e8635d40a885798eff1da164dfcf9024b698f822e5995d9c8
@@ -49,7 +60,7 @@ RUN wget -q "https://github.com/containers/aardvark-dns/archive/refs/tags/v${AAR
     && cargo build --release --locked --bin aardvark-dns
 
 # Gateway build stage
-FROM golang:1.26.4-alpine3.24@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 AS builder
+FROM go-base AS builder
 
 WORKDIR /app
 
@@ -67,12 +78,13 @@ ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION}" -o awmg .
 
 # Runtime stage
-FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
 # Keep both supported container runtimes in one image. Podman is built above
 # because Alpine's packaged version still embeds vulnerable Go dependencies.
 RUN apk add --no-cache \
     bash \
+    ca-certificates \
     catatonit \
     conmon \
     containers-common \
@@ -85,7 +97,12 @@ RUN apk add --no-cache \
     passt \
     shadow-subids \
     sqlite-libs \
-    && sed -i 's/^driver = "overlay"$/driver = "vfs"/' /etc/containers/storage.conf
+    && sed -i 's/^driver = "overlay"$/driver = "vfs"/' /etc/containers/storage.conf \
+    && sed -i \
+       -e 's|^mozilla/emSign_ECC_Root_CA_-_G3.crt$|!&|' \
+       -e 's|^mozilla/Comodo_AAA_Services_root.crt$|!&|' \
+       /etc/ca-certificates.conf \
+    && update-ca-certificates
 
 COPY --from=podman-builder /src/bin/podman /usr/bin/podman
 COPY --from=podman-builder /src/bin/rootlessport /usr/libexec/podman/rootlessport
