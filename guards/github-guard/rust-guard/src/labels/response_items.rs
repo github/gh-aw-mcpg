@@ -358,7 +358,15 @@ pub fn label_response_items(
             if skip_issue_read_per_item_labeling(tool_name, method) {
                 // Fall through — use resource-level labels from tool_rules
             } else {
-                let items = extract_items_slice(&actual_response, "issues");
+                let issue_response = if tool_name == tool_names::ISSUE_READ && method == "get" {
+                    actual_response
+                        .get("issue")
+                        .filter(|issue| issue.is_object())
+                        .unwrap_or(&actual_response)
+                } else {
+                    &actual_response
+                };
+                let items = extract_items_slice(issue_response, "issues");
 
                 // Limit items to prevent WASM memory exhaustion
                 let items_limited = limit_items_with_log(items, tool_names::LIST_ISSUES);
