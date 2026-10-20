@@ -71,3 +71,19 @@ func TestNewGuardRuntimeConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestGuardRuntimeMemoryLimit(t *testing.T) {
+	ctx := context.Background()
+	rt := wazero.NewRuntimeWithConfig(ctx, newGuardRuntimeConfig(nil))
+	defer func() { require.NoError(t, rt.Close(ctx)) }()
+
+	mod := instantiateTestWasmModule(t, ctx, rt, directMemoryFallbackGuardWasm, "memory-limit")
+	mem := mod.Memory()
+	const limitPages = 128 * 1024 * 1024 / 65536
+	pages, ok := mem.Grow(0)
+	require.True(t, ok)
+	_, ok = mem.Grow(limitPages - pages)
+	require.True(t, ok, "guard memory must accommodate parsing multi-MiB inputs")
+	_, ok = mem.Grow(1)
+	assert.False(t, ok, "guard memory must remain bounded")
+}
