@@ -47,7 +47,7 @@ pub(crate) use helpers::{
 pub(crate) use helpers::{is_mcp_text_wrapper, is_search_result_wrapper};
 
 #[cfg(test)]
-pub use helpers::project_github_label;
+pub(crate) use helpers::project_github_label;
 
 // Test-only re-exports: helpers used by tests in this file and sibling modules.
 // The cfg(test) gate keeps them out of the non-test public surface.

@@ -172,6 +172,16 @@ pub enum MinIntegrity {
 }
 
 impl MinIntegrity {
+    /// 1 = none, 2 = unapproved, 3 = approved, 4 = merged (matches integrity_rank_normalized).
+    pub(crate) const fn rank(self) -> u8 {
+        match self {
+            Self::None => 1,
+            Self::Unapproved => 2,
+            Self::Approved => 3,
+            Self::Merged => 4,
+        }
+    }
+
     /// Returns the canonical policy-facing string for this integrity level.
     pub fn as_str(self) -> &'static str {
         use super::constants::policy_integrity;
@@ -402,7 +412,10 @@ fn build_integrity_labels(normalized_scope: &str, max_level: usize) -> Vec<Strin
 }
 
 pub(crate) fn none_integrity(scope: &str, ctx: &PolicyContext) -> Vec<String> {
-    build_integrity_labels(&normalize_scope(scope, ctx), 0)
+    build_integrity_labels(
+        &normalize_scope(scope, ctx),
+        MinIntegrity::None.rank() as usize - 1,
+    )
 }
 
 /// Generate blocked-level integrity tags for a scope.
@@ -410,7 +423,7 @@ pub(crate) fn none_integrity(scope: &str, ctx: &PolicyContext) -> Vec<String> {
 /// Items with blocked integrity are unconditionally denied by the DIFC filter
 /// because no agent is ever assigned a "blocked:" tag. This represents the
 /// integrity level for items authored by users in the `blocked-users` list.
-pub fn blocked_integrity(scope: &str, ctx: &PolicyContext) -> Vec<String> {
+pub(crate) fn blocked_integrity(scope: &str, ctx: &PolicyContext) -> Vec<String> {
     let normalized_scope = normalize_scope(scope, ctx);
     vec![format_integrity_label(
         label_constants::BLOCKED_PREFIX,
@@ -694,19 +707,15 @@ fn effective_endorser_min_integrity(ctx: &PolicyContext) -> &'static str {
 /// Returns: 1 = none, 2 = unapproved, 3 = approved, 4 = merged.
 /// Unrecognised levels default to rank 3 (approved) with a warning log.
 fn integrity_level_rank(level: &str) -> u8 {
-    match MinIntegrity::from_policy_str(level) {
-        Some(MinIntegrity::None) => 1,
-        Some(MinIntegrity::Unapproved) => 2,
-        Some(MinIntegrity::Approved) => 3,
-        Some(MinIntegrity::Merged) => 4,
-        None => {
+    MinIntegrity::from_policy_str(level)
+        .unwrap_or_else(|| {
             crate::log_warn(&format!(
                 "integrity_level_rank: unrecognised level {:?}, defaulting to 'approved'",
                 level.trim()
             ));
-            3 // unrecognised → safe default is "approved" (matches endorser_min_integrity default)
-        }
-    }
+            MinIntegrity::Approved
+        })
+        .rank()
 }
 
 /// Cap integrity at the given level. Returns `min(current, cap)` using the integrity hierarchy.
@@ -972,7 +981,7 @@ fn apply_disapproval_demotion(
     }
 }
 
-pub fn ensure_integrity_baseline(
+pub(crate) fn ensure_integrity_baseline(
     scope: &str,
     integrity: &[String],
     ctx: &PolicyContext,
@@ -1035,7 +1044,7 @@ pub(crate) fn gist_secrecy_for_item(item: &Value) -> Vec<String> {
 
 /// Returns a vec with the "approved:github" label
 #[inline]
-pub fn project_github_label(ctx: &PolicyContext) -> Vec<String> {
+pub(crate) fn project_github_label(ctx: &PolicyContext) -> Vec<String> {
     writer_integrity(scope_names::GITHUB, ctx)
 }
 
@@ -1269,7 +1278,7 @@ pub(crate) fn format_repo_id(owner: &str, repo: &str) -> String {
 
 /// Extract owner, repo, and repo_id from tool arguments
 /// Returns (owner, repo, repo_id) where repo_id is "owner/repo" or empty
-pub fn extract_repo_info(tool_args: &Value) -> (String, String, String) {
+pub(crate) fn extract_repo_info(tool_args: &Value) -> (String, String, String) {
     let owner = get_string_field(tool_args, field_names::OWNER);
     let repo = get_string_field(tool_args, field_names::REPO);
     let repo_id = format_repo_id(&owner, &repo);
@@ -1283,7 +1292,7 @@ fn strip_query_punctuation(s: &str) -> &str {
 
 /// Extract owner/repo from a search query containing `repo:owner/repo`
 /// Returns (owner, repo, repo_id) where repo_id is "owner/repo" or empty
-pub fn extract_repo_info_from_search_query(query: &str) -> (String, String, String) {
+pub(crate) fn extract_repo_info_from_search_query(query: &str) -> (String, String, String) {
     if query.is_empty() {
         return (String::new(), String::new(), String::new());
     }
@@ -1594,7 +1603,7 @@ pub(crate) fn is_search_result_wrapper(response: &Value) -> bool {
 
 /// Returns the total count from a search result wrapper, handling both
 /// REST format (`total_count`) and GraphQL format (`totalCount`).
-pub fn search_result_total_count(response: &Value) -> Option<u64> {
+pub(crate) fn search_result_total_count(response: &Value) -> Option<u64> {
     response
         .get("total_count")
         .and_then(Value::as_u64)
@@ -1715,20 +1724,29 @@ pub(crate) fn extract_number_as_string(tool_args: &Value, field: &str) -> Option
 ///
 /// These labels represent the lowest integrity levels; higher levels
 /// (such as approved) build on top of them.
-pub fn reader_integrity(scope: &str, ctx: &PolicyContext) -> Vec<String> {
-    build_integrity_labels(&normalize_scope(scope, ctx), 1)
+pub(crate) fn reader_integrity(scope: &str, ctx: &PolicyContext) -> Vec<String> {
+    build_integrity_labels(
+        &normalize_scope(scope, ctx),
+        MinIntegrity::Unapproved.rank() as usize - 1,
+    )
 }
 
 /// Generate approved-level integrity tags for a scope.
 /// Includes unapproved level (hierarchical: approved > unapproved)
-pub fn writer_integrity(scope: &str, ctx: &PolicyContext) -> Vec<String> {
-    build_integrity_labels(&normalize_scope(scope, ctx), 2)
+pub(crate) fn writer_integrity(scope: &str, ctx: &PolicyContext) -> Vec<String> {
+    build_integrity_labels(
+        &normalize_scope(scope, ctx),
+        MinIntegrity::Approved.rank() as usize - 1,
+    )
 }
 
 /// Generate merged-level integrity tags for a scope.
 /// Includes approved and unapproved (hierarchical: merged > approved > unapproved)
 pub(crate) fn merged_integrity(scope: &str, ctx: &PolicyContext) -> Vec<String> {
-    build_integrity_labels(&normalize_scope(scope, ctx), 3)
+    build_integrity_labels(
+        &normalize_scope(scope, ctx),
+        MinIntegrity::Merged.rank() as usize - 1,
+    )
 }
 
 fn integrity_rank(scope: &str, labels: &[String], ctx: &PolicyContext) -> u8 {
@@ -2932,6 +2950,49 @@ mod tests {
         );
         assert_eq!(MinIntegrity::Approved.as_str(), policy_integrity::APPROVED);
         assert_eq!(MinIntegrity::Merged.as_str(), policy_integrity::MERGED);
+    }
+
+    #[test]
+    fn test_min_integrity_rank_matches_labels() {
+        let ctx = PolicyContext::default();
+        for (level, rank, prefix, base) in [
+            (
+                MinIntegrity::None,
+                1,
+                label_constants::NONE_PREFIX,
+                label_constants::NONE,
+            ),
+            (
+                MinIntegrity::Unapproved,
+                2,
+                label_constants::READER_PREFIX,
+                label_constants::READER_BASE,
+            ),
+            (
+                MinIntegrity::Approved,
+                3,
+                label_constants::WRITER_PREFIX,
+                label_constants::WRITER_BASE,
+            ),
+            (
+                MinIntegrity::Merged,
+                4,
+                label_constants::MERGED_PREFIX,
+                label_constants::MERGED_BASE,
+            ),
+        ] {
+            assert_eq!(level.rank(), rank);
+            assert_eq!(INTEGRITY_LEVELS[level.rank() as usize - 1], (prefix, base));
+            for scope in ["", "owner/repo", "owner/repo|other/repo"] {
+                let labels = level.build_labels(scope, &ctx);
+                assert_eq!(labels.len(), rank as usize);
+                assert_eq!(
+                    labels.last(),
+                    Some(&format_integrity_label(prefix, scope, base))
+                );
+                assert_eq!(integrity_rank_normalized(scope, &labels), level.rank());
+            }
+        }
     }
 
     #[test]
