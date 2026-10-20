@@ -78,6 +78,7 @@ type TracingConfig struct {
 // GetSampleRate returns the configured sample rate, defaulting to 1.0 if unset.
 func (c *TracingConfig) GetSampleRate() float64 {
 	if c == nil || c.SampleRate == nil {
+		logTracingCfg.Printf("Sample rate unset, using default: %v", DefaultTracingSampleRate)
 		return DefaultTracingSampleRate
 	}
 	return *c.SampleRate
@@ -97,12 +98,14 @@ func init() {
 	// Register stdin converter for the opentelemetry gateway config field (spec §4.1.3.6).
 	RegisterStdinConverter(func(cfg *Config, stdinCfg *StdinConfig) {
 		if stdinCfg.Gateway == nil || stdinCfg.Gateway.OpenTelemetry == nil {
+			logTracingCfg.Print("No OpenTelemetry config in stdin, skipping tracing conversion")
 			return
 		}
 		otel := stdinCfg.Gateway.OpenTelemetry
 		logTracingCfg.Printf("Converting OpenTelemetry config from stdin: hasEndpoint=%v, hasServiceName=%v, hasTraceID=%v",
 			otel.Endpoint != "", otel.ServiceName != "", otel.TraceID != "")
 		if cfg.Gateway == nil {
+			logTracingCfg.Print("Gateway config missing, creating empty gateway config for tracing")
 			cfg.Gateway = &GatewayConfig{}
 		}
 		cfg.Gateway.Tracing = &TracingConfig{
