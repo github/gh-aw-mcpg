@@ -189,9 +189,11 @@ func CloseGlobalCompilationCache(ctx context.Context) error {
 	return nil
 }
 
-// guardMemoryLimitPages caps guest memory at 512 pages (32 MiB), which
-// accommodates the max input/output buffers plus overhead.
-const guardMemoryLimitPages = 512
+// guardMemoryLimitPages caps guest memory at 128 MiB. Budget 8x the input
+// limit for JSON parsing and guest allocations, plus 4x the output limit for
+// serialization, buffer growth, and allocator headroom. The input/output
+// buffers alone underestimate the Rust guard's peak memory requirements.
+const guardMemoryLimitPages = (8*wasmMaxInputSize + 4*wasmMaxOutputSize) / (64 * 1024)
 
 // newGuardRuntimeConfig builds the wazero runtime configuration used for guard
 // runtimes. It applies the memory cap, context-cancellation cleanup, and

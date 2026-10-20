@@ -8,6 +8,12 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
+const (
+	wasmInitialOutputSize = 4 * 1024 * 1024
+	wasmMaxOutputSize     = 16 * 1024 * 1024
+	wasmMaxInputSize      = 8 * 1024 * 1024
+)
+
 // callWasmFunction calls an exported function in the WASM module.
 // Precondition: g.mu must be held by the caller. All public methods
 // (LabelAgent, LabelResource, LabelResponse) hold g.mu for their entire
@@ -34,13 +40,8 @@ func (g *WasmGuard) callWasmFunction(ctx context.Context, funcName string, input
 		return nil, fmt.Errorf("WASM module has no memory")
 	}
 
-	// Start with 4MB output buffer, can grow up to 16MB if needed
-	initialOutputSize := uint32(4 * 1024 * 1024) // 4MB initial
-	maxOutputSize := uint32(16 * 1024 * 1024)    // 16MB maximum
-	maxInputSize := uint32(8 * 1024 * 1024)      // 8MB max input
-
-	if uint32(len(inputJSON)) > maxInputSize {
-		return nil, fmt.Errorf("input too large: %d bytes (max %d)", len(inputJSON), maxInputSize)
+	if len(inputJSON) > wasmMaxInputSize {
+		return nil, fmt.Errorf("input too large: %d bytes (max %d)", len(inputJSON), wasmMaxInputSize)
 	}
 
 	// Adaptive output buffer strategy:
@@ -55,7 +56,7 @@ func (g *WasmGuard) callWasmFunction(ctx context.Context, funcName string, input
 	// We retry up to maxRetries times, growing from 4MB toward the 16MB ceiling.
 	// A WASM trap (e.g. "wasm error: unreachable" from a Rust panic) permanently
 	// marks the guard as failed because the module's internal state may be corrupt.
-	outputSize := initialOutputSize
+	outputSize := uint32(wasmInitialOutputSize)
 	const maxRetries = 3
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -84,8 +85,8 @@ func (g *WasmGuard) callWasmFunction(ctx context.Context, funcName string, input
 			requiredSize = outputSize * 2
 		}
 
-		if requiredSize > maxOutputSize {
-			return nil, fmt.Errorf("guard requires buffer of %d bytes which exceeds maximum of %d bytes", requiredSize, maxOutputSize)
+		if requiredSize > wasmMaxOutputSize {
+			return nil, fmt.Errorf("guard requires buffer of %d bytes which exceeds maximum of %d bytes", requiredSize, wasmMaxOutputSize)
 		}
 
 		logWasm.Printf("Buffer too small (%d bytes), retrying with %d bytes", outputSize, requiredSize)
@@ -145,11 +146,8 @@ func (g *WasmGuard) tryCallWasmFunction(ctx context.Context, fn api.Function, me
 
 	// Ensure memory is large enough for our buffers
 	// Layout: [...guard memory...][input buffer][output buffer]
-	// wazero enforces only the module's declared linear-memory maximum, so guard
-	// authors should set an explicit max page count in the WASM binary when they
-	// need a hard cap. The gateway does not impose an additional host-side limit,
-	// so a guard that declares an excessively large maximum can still consume
-	// correspondingly large host memory if it grows toward that maximum.
+	// Both the runtime's guardMemoryLimitPages cap and any smaller maximum
+	// declared by the module apply to memory growth.
 	requiredMemory := inputSize + outputSize + uint32(64*1024) // Extra 64KB for safety margin
 
 	memSize, ok := wasmMemorySize(mem)
