@@ -63,7 +63,7 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 
 ## Key Tech
 
-- **Go 1.26.4** with `cobra`, `toml`, `go-sdk`
+- **Go 1.26.10** with `cobra`, `toml`, `go-sdk`
 - **Protocol**: JSON-RPC 2.0 over stdio
 - **Routing**: `/mcp/{serverID}` (routed) or `/mcp` (unified)
 - **Docker**: Launches MCP servers as containers

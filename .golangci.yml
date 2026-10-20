@@ -1,6 +1,6 @@
 version: "2"
 run:
-  go: "1.26.4"
+  go: "1.26.10"
   tests: true
   timeout: 5m
   modules-download-mode: readonly
