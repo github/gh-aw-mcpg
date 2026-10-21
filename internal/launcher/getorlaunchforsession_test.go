@@ -508,3 +508,52 @@ func TestGetOrLaunchForSession_StartupTimeout(t *testing.T) {
 	require.Nil(conn)
 	require.ErrorContains(err, "timeout", "error should mention timeout")
 }
+
+// TestGetOrLaunchForSession_StdioLaunchFailureRecordsError verifies that a failed
+// stdio launch surfaces the error and records it in the server state.
+func TestGetOrLaunchForSession_StdioLaunchFailureRecordsError(t *testing.T) {
+	cfg := newTestConfig(map[string]*config.ServerConfig{
+		"broken-stdio": {
+			Type:    "stdio",
+			Command: "/nonexistent/binary-for-launch-failure",
+		},
+	})
+	l := New(context.Background(), cfg)
+	defer l.Close()
+
+	conn, err := GetOrLaunchForSession(l, "broken-stdio", "session-fail")
+	require.Error(t, err)
+	assert.Nil(t, conn)
+
+	state := l.GetServerState("broken-stdio")
+	assert.Equal(t, "error", state.Status)
+	assert.NotEmpty(t, state.LastError)
+}
+
+// TestLauncherRecordError_AfterClose verifies recordError is a no-op once the launcher is closed.
+func TestLauncherRecordError_AfterClose(t *testing.T) {
+	l := New(context.Background(), newTestConfig(map[string]*config.ServerConfig{}))
+
+	l.recordError("srv", "before close")
+	assert.Equal(t, "before close", l.serverErrors["srv"])
+
+	l.Close()
+	l.recordError("srv", "after close")
+	l.recordError("other", "after close")
+
+	assert.Equal(t, "before close", l.serverErrors["srv"], "error must not be overwritten after close")
+	assert.NotContains(t, l.serverErrors, "other")
+}
+
+// TestGetOrLaunchForSession_ClosedLauncher verifies stdio lookups fail fast after Close.
+func TestGetOrLaunchForSession_ClosedLauncher(t *testing.T) {
+	cfg := newTestConfig(map[string]*config.ServerConfig{
+		"stdio-backend": {Type: "stdio", Command: "docker", Args: []string{"run", "--rm", "-i", "x:latest"}},
+	})
+	l := New(context.Background(), cfg)
+	l.Close()
+
+	conn, err := GetOrLaunchForSession(l, "stdio-backend", "s")
+	require.ErrorIs(t, err, ErrLauncherClosed)
+	assert.Nil(t, conn)
+}
