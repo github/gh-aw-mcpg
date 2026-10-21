@@ -79,26 +79,30 @@ func TestCompileOptsWithVariables_DoesNotMutateSharedSlice(t *testing.T) {
 	assert.Equal(t, origCap, cap(SecureCompileOpts), "SecureCompileOpts capacity should not change")
 }
 
-func TestParseErrorDetails_WithParseError(t *testing.T) {
+func TestParseErrorDetails_ParseErrors(t *testing.T) {
+	tests := []struct {
+		name   string
+		filter string
+		want   string
+	}{
+		{name: "invalid token", filter: "!!!", want: ` at offset 1 (token "!")`},
+		{name: "EOF token", filter: ".foo |", want: ` at offset 6 (token "<EOF>")`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := gojq.Parse(tt.filter)
+			require.Error(t, err)
+			assert.Equal(t, tt.want, ParseErrorDetails(err))
+		})
+	}
+}
+
+func TestParseErrorDetails_WrappedParseError(t *testing.T) {
 	_, err := gojq.Parse("!!!")
 	require.Error(t, err)
 
-	details := ParseErrorDetails(err)
+	details := ParseErrorDetails(fmt.Errorf("compile filter: %w", err))
 	assert.Contains(t, details, "offset")
-	assert.Contains(t, details, "token")
-}
-
-func TestParseErrorDetails_EOFToken(t *testing.T) {
-	// An incomplete expression produces a ParseError with an empty token (EOF).
-	_, err := gojq.Parse(".")
-	if err == nil {
-		// "." is valid; use an expression that triggers an EOF parse error
-		_, err = gojq.Parse(".foo |")
-	}
-	require.Error(t, err)
-
-	details := ParseErrorDetails(err)
-	assert.Contains(t, details, "<EOF>")
 }
 
 func TestParseErrorDetails_NonParseError(t *testing.T) {
