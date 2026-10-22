@@ -874,7 +874,14 @@ pub fn apply_tool_labels(
             } else {
                 (field_names::PULL_NUMBER, desc_prefix::PR)
             };
-            if let Some(number) = extract_number_as_string(tool_args, number_field) {
+            let number = extract_number_as_string(tool_args, number_field).or_else(|| {
+                if number_field == field_names::PULL_NUMBER {
+                    extract_number_as_string(tool_args, "pullNumber")
+                } else {
+                    None
+                }
+            });
+            if let Some(number) = number {
                 desc = format!("{prefix}{repo_id}#{number}");
             }
         }
