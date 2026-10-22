@@ -36,6 +36,9 @@ const WRITE_OPERATIONS: &[&str] = &[
     tool_names::DISCUSSION_COMMENT_WRITE, // creates or edits GitHub Discussion comments
     "dismiss_notification",
     tool_names::FORK_REPOSITORY,
+    tool_names::HIDE_ISSUE_COMMENT,
+    tool_names::HIDE_PULL_REQUEST_REVIEW,
+    tool_names::HIDE_PULL_REQUEST_REVIEW_COMMENT,
     tool_names::LABEL_WRITE,
     "mark_all_notifications_read",
     "projects_write",
@@ -45,6 +48,9 @@ const WRITE_OPERATIONS: &[&str] = &[
     tool_names::REMOVE_PULL_REQUEST_REVIEW_COMMENT_REACTION, // DELETE /repos/.../pulls/comments/{id}/reactions/{reaction_id}
     "request_copilot_review",
     tool_names::STAR_REPOSITORY,
+    tool_names::UNHIDE_ISSUE_COMMENT,
+    tool_names::UNHIDE_PULL_REQUEST_REVIEW,
+    tool_names::UNHIDE_PULL_REQUEST_REVIEW_COMMENT,
     tool_names::UNSTAR_REPOSITORY,
 ];
 
@@ -1125,6 +1131,28 @@ mod tests {
             assert!(
                 !is_write_operation(op),
                 "{op} should not be in WRITE_OPERATIONS (it is in READ_WRITE_OPERATIONS)"
+            );
+        }
+    }
+
+    #[test]
+    fn test_comment_moderation_operations_are_upstream_writes() {
+        for op in [
+            "hide_issue_comment",
+            "unhide_issue_comment",
+            "hide_pull_request_review_comment",
+            "unhide_pull_request_review_comment",
+            "hide_pull_request_review",
+            "unhide_pull_request_review",
+        ] {
+            assert!(
+                WRITE_OPERATIONS.binary_search(&op).is_ok(),
+                "{op} must be classified as an upstream write operation"
+            );
+            assert!(is_write_operation(op), "{op} must be a write operation");
+            assert!(
+                !is_read_write_operation(op),
+                "{op} must not be a read-write operation"
             );
         }
     }

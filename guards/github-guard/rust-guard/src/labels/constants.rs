@@ -408,6 +408,12 @@ pub mod tool_names {
     pub const UPDATE_ISSUE_ASSIGNEES: &str = "update_issue_assignees";
     pub const UPDATE_ISSUE_BODY: &str = "update_issue_body";
     pub const UPDATE_ISSUE_COMMENT: &str = "update_issue_comment";
+    pub const HIDE_ISSUE_COMMENT: &str = "hide_issue_comment";
+    pub const UNHIDE_ISSUE_COMMENT: &str = "unhide_issue_comment";
+    pub const HIDE_PULL_REQUEST_REVIEW_COMMENT: &str = "hide_pull_request_review_comment";
+    pub const UNHIDE_PULL_REQUEST_REVIEW_COMMENT: &str = "unhide_pull_request_review_comment";
+    pub const HIDE_PULL_REQUEST_REVIEW: &str = "hide_pull_request_review";
+    pub const UNHIDE_PULL_REQUEST_REVIEW: &str = "unhide_pull_request_review";
     pub const UPDATE_ISSUE_LABELS: &str = "update_issue_labels";
     pub const UPDATE_ISSUE_MILESTONE: &str = "update_issue_milestone";
     pub const UPDATE_ISSUE_STATE: &str = "update_issue_state";
