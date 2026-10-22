@@ -155,6 +155,7 @@ func TestHealthEndpoint_ResponseFields(t *testing.T) {
 				specVersion, ok := value.(string)
 				require.True(ok, "Expected 'specVersion' to be string, got %T", value)
 				assert.Equal(MCPGatewaySpecVersion, specVersion, "specVersion must match gateway spec")
+				assert.Equal("1.18.0", specVersion, "specVersion must advertise spec 1.18.0 compliance")
 			},
 		},
 		{

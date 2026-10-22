@@ -536,6 +536,13 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 
 ## SDK Upgrade Process
 
+The [v1.8.0 release review](https://github.com/modelcontextprotocol/go-sdk/releases/tag/v1.8.0)
+retains the existing `go.mod` pin; no transport or session configuration changes are required.
+The gateway already configures stateful `StreamableHTTPOptions` with a session timeout and
+logger in `internal/server/middleware.go`. Re-run the canaries below when evaluating v1.9.x
+or any other SDK upgrade, and keep tracking upstream for a supported argument-validation
+bypass (see `internal/server/tool_registry_helpers.go`).
+
 Before upgrading `github.com/modelcontextprotocol/go-sdk`, verify the two canary tests still pass:
 
 | Test | File | Guards |

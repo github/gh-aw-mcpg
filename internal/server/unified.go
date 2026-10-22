@@ -34,7 +34,7 @@ type backendRegistrationFailure struct {
 }
 
 // MCPGatewaySpecVersion is the MCP Gateway Specification version this implementation conforms to
-const MCPGatewaySpecVersion = "1.17.0"
+const MCPGatewaySpecVersion = "1.18.0"
 
 // Session represents a MCPG session
 type Session struct {
