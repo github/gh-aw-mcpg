@@ -765,8 +765,6 @@ pub fn apply_tool_labels(
         | "issue_write_ff_remote_mcp_issue_fields"
         | "sub_issue_write"
         | "add_issue_comment"
-        | tool_names::HIDE_ISSUE_COMMENT
-        | tool_names::UNHIDE_ISSUE_COMMENT
         | "create_pull_request"
         | "create_pull_request_with_copilot"
         | "update_pull_request"
@@ -812,10 +810,6 @@ pub fn apply_tool_labels(
         | "update_pull_request_state"
         | "update_pull_request_title"
         // PR reviews
-        | tool_names::HIDE_PULL_REQUEST_REVIEW
-        | tool_names::UNHIDE_PULL_REQUEST_REVIEW
-        | tool_names::HIDE_PULL_REQUEST_REVIEW_COMMENT
-        | tool_names::UNHIDE_PULL_REQUEST_REVIEW_COMMENT
         | "add_pull_request_review_comment"
         | "create_pull_request_review"
         | "delete_pending_pull_request_review"
@@ -861,6 +855,35 @@ pub fn apply_tool_labels(
         | "upload_release_asset" => {
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
             integrity = writer_integrity(repo_id, ctx);
+        }
+
+        // === Issue/PR comment and review moderation ===
+        tool_names::HIDE_ISSUE_COMMENT
+        | tool_names::UNHIDE_ISSUE_COMMENT
+        | tool_names::HIDE_PULL_REQUEST_REVIEW_COMMENT
+        | tool_names::UNHIDE_PULL_REQUEST_REVIEW_COMMENT
+        | tool_names::HIDE_PULL_REQUEST_REVIEW
+        | tool_names::UNHIDE_PULL_REQUEST_REVIEW => {
+            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            integrity = writer_integrity(repo_id, ctx);
+            let (number_field, prefix) = if matches!(
+                tool_name,
+                tool_names::HIDE_ISSUE_COMMENT | tool_names::UNHIDE_ISSUE_COMMENT
+            ) {
+                (field_names::ISSUE_NUMBER, desc_prefix::ISSUE)
+            } else {
+                (field_names::PULL_NUMBER, desc_prefix::PR)
+            };
+            let number = extract_number_as_string(tool_args, number_field).or_else(|| {
+                if number_field == field_names::PULL_NUMBER {
+                    extract_number_as_string(tool_args, "pullNumber")
+                } else {
+                    None
+                }
+            });
+            if let Some(number) = number {
+                desc = format!("{prefix}{repo_id}#{number}");
+            }
         }
 
         // === Governance writes (repository/org/enterprise-scoped) ===
@@ -1540,15 +1563,92 @@ mod tests {
     }
 
     #[test]
+    fn apply_tool_labels_moderation_tools_are_repo_scoped_writes() {
+        let ctx = default_ctx();
+        let repo_id = "octocat/moderation-test";
+        for private in [false, true] {
+            let _guard = crate::labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            for (tool, field, prefix) in [
+                (
+                    "hide_issue_comment",
+                    field_names::ISSUE_NUMBER,
+                    desc_prefix::ISSUE,
+                ),
+                (
+                    "unhide_issue_comment",
+                    field_names::ISSUE_NUMBER,
+                    desc_prefix::ISSUE,
+                ),
+                (
+                    "hide_pull_request_review_comment",
+                    field_names::PULL_NUMBER,
+                    desc_prefix::PR,
+                ),
+                (
+                    "unhide_pull_request_review_comment",
+                    field_names::PULL_NUMBER,
+                    desc_prefix::PR,
+                ),
+                (
+                    "hide_pull_request_review",
+                    field_names::PULL_NUMBER,
+                    desc_prefix::PR,
+                ),
+                (
+                    "unhide_pull_request_review",
+                    field_names::PULL_NUMBER,
+                    desc_prefix::PR,
+                ),
+            ] {
+                for number in [Value::Null, serde_json::json!(42), serde_json::json!("42")] {
+                    let mut args =
+                        serde_json::json!({ "owner": "octocat", "repo": "moderation-test" });
+                    if !number.is_null() {
+                        args[field] = number.clone();
+                    }
+                    let initial_secrecy =
+                        private_label("octocat", "moderation-test", repo_id, &ctx);
+                    let (secrecy, integrity, desc) = super::apply_tool_labels(
+                        tool,
+                        &args,
+                        repo_id,
+                        initial_secrecy.clone(),
+                        vec![],
+                        "original".to_string(),
+                        &ctx,
+                    );
+                    assert_eq!(
+                        secrecy,
+                        if private { initial_secrecy } else { vec![] },
+                        "{tool} (private={private}) must inherit repository visibility"
+                    );
+                    assert_eq!(integrity, writer_integrity(repo_id, &ctx), "{tool}");
+                    assert_eq!(
+                        desc,
+                        if number.is_null() {
+                            "original".to_string()
+                        } else {
+                            format!("{prefix}{repo_id}#42")
+                        },
+                        "{tool}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn apply_tool_labels_comment_moderation_requires_repo_writer_integrity() {
         let ctx = default_ctx();
         let repo_id = "moderation-owner/moderation-repo";
         for private in [false, true] {
-            let _guard =
-                crate::labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            let _guard = crate::labels::backend::cache_repo_visibility_for_tests(repo_id, private);
             for (op, target_args) in [
                 ("hide_issue_comment", serde_json::json!({"comment_id": 42})),
-                ("unhide_issue_comment", serde_json::json!({"comment_id": 42})),
+                (
+                    "unhide_issue_comment",
+                    serde_json::json!({"comment_id": 42}),
+                ),
                 (
                     "hide_pull_request_review_comment",
                     serde_json::json!({"comment_id": 43}),

@@ -798,6 +798,25 @@ mod tests {
     }
 
     #[test]
+    fn test_moderation_tools_are_upstream_write_operations() {
+        for op in [
+            "hide_issue_comment",
+            "unhide_issue_comment",
+            "hide_pull_request_review_comment",
+            "unhide_pull_request_review_comment",
+            "hide_pull_request_review",
+            "unhide_pull_request_review",
+        ] {
+            assert!(
+                WRITE_OPERATIONS.binary_search(&op).is_ok(),
+                "{op} must be explicitly listed as an upstream write"
+            );
+            assert!(is_write_operation(op), "{op} must be a write operation");
+            assert!(!is_read_write_operation(op), "{op} must not be read-write");
+        }
+    }
+
+    #[test]
     fn test_pr_review_tools_are_read_write_operations() {
         for op in &[
             "add_pull_request_review_comment",
