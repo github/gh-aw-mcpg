@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://docs.github.com/gh-aw/schemas/mcp-gateway-config.schema.json",
   "title": "MCP Gateway Configuration",
-  "description": "Configuration schema for the Model Context Protocol (MCP) Gateway as defined in the MCP Gateway Specification v1.0.0. The gateway provides transparent HTTP access to multiple MCP servers with protocol translation, server isolation, and authentication capabilities.",
+  "description": "Configuration schema for the Model Context Protocol (MCP) Gateway as defined in the MCP Gateway Specification v1.18.0. The gateway provides transparent HTTP access to multiple MCP servers with protocol translation, server isolation, and authentication capabilities.",
   "type": "object",
   "properties": {
     "mcpServers": {
@@ -89,7 +89,7 @@
         },
         "container": {
           "type": "string",
-          "description": "Container image for the MCP server (e.g., 'ghcr.io/example/mcp-server:latest'). This field is required for stdio servers per MCP Gateway Specification section 4.1.2.",
+          "description": "Container image for the MCP server (e.g., 'ghcr.io/example/mcp-server:latest'). Accepts an optional @sha256:<64 hex characters> digest suffix, with or without a tag. This field is required for stdio servers per MCP Gateway Specification section 4.1.2.",
           "minLength": 1,
           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9./_-]*(:([a-zA-Z0-9._-]+|latest))?(@sha256:[a-fA-F0-9]{64})?$"
         },

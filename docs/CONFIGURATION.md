@@ -2,7 +2,7 @@
 
 This document provides the complete field-by-field reference for MCP Gateway configuration.
 
-For the upstream specification, see the **[MCP Gateway Configuration Reference](https://github.com/github/gh-aw/blob/main/docs/src/content/docs/reference/mcp-gateway.md)**.
+The gateway advertises MCP Gateway specification version `1.18.0` in its `/health` response. For the upstream specification, see the **[MCP Gateway Configuration Reference](https://github.com/github/gh-aw/blob/main/docs/src/content/docs/reference/mcp-gateway.md)**.
 
 ## Configuration Formats
 
@@ -118,6 +118,7 @@ Run `./awmg --help` for full CLI options. Selected frequently-used flags (run `.
   - `"local"` - Alias for `"stdio"` (backward compatibility)
 
 - **`container`** (required for stdio in JSON format): Docker container image (e.g., `"ghcr.io/github/github-mcp-server:latest"`)
+  - Supports an optional `@sha256:<64 hex characters>` digest suffix, with or without a tag (e.g., `ghcr.io/owner/image:tag@sha256:<digest>` or `ghcr.io/owner/image@sha256:<digest>`), per specification 1.18.0 section 4.1.2
   - Automatically wraps as `<runtime> run --rm -i <container>` where `<runtime>` defaults to `docker`
   - **Note**: The `command` field is NOT supported in JSON stdin format (stdio servers must use `container` instead)
   - **TOML format uses `command` and `args` fields - `command` must match the configured runtime command (default: `"docker"`)**

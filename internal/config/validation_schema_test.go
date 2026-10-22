@@ -420,6 +420,41 @@ func TestValidateJSONSchema(t *testing.T) {
 	}
 }
 
+func TestValidateJSONSchemaContainerDigest(t *testing.T) {
+	digest := strings.Repeat("a1", 32)
+	tests := []struct {
+		name      string
+		container string
+		shouldErr bool
+	}{
+		{name: "untagged image", container: "ghcr.io/owner/image"},
+		{name: "tagged image", container: "ghcr.io/owner/image:v1.2.3"},
+		{name: "digest without tag", container: "ghcr.io/owner/image@sha256:" + digest},
+		{name: "digest with tag", container: "ghcr.io/owner/image:v1.2.3@sha256:" + digest},
+		{name: "uppercase hex digest", container: "ghcr.io/owner/image@sha256:" + strings.ToUpper(digest)},
+		{name: "empty digest", container: "ghcr.io/owner/image@sha256:", shouldErr: true},
+		{name: "short digest", container: "ghcr.io/owner/image@sha256:" + digest[:63], shouldErr: true},
+		{name: "long digest", container: "ghcr.io/owner/image@sha256:" + digest + "a", shouldErr: true},
+		{name: "non-hex digest", container: "ghcr.io/owner/image@sha256:" + strings.Repeat("g", 64), shouldErr: true},
+		{name: "unsupported algorithm", container: "ghcr.io/owner/image@sha512:" + digest, shouldErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := fmt.Sprintf(`{
+				"mcpServers": {"test": {"type": "stdio", "container": %q}},
+				"gateway": {"port": 8080, "domain": "localhost", "agentId": "test-key"}
+			}`, tt.container)
+			err := validateJSONSchema([]byte(config))
+			if tt.shouldErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateStringPatterns(t *testing.T) {
 	tests := []struct {
 		name      string
