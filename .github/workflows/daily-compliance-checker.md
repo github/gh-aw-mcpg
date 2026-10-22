@@ -26,7 +26,7 @@ safe-outputs:
     labels: [compliance, automation, specification]
     assignees: []
     max: 1
-  missing-tool:
+  report-missing-tool:
     create-issue: true
 
 steps:

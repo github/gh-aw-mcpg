@@ -26,7 +26,7 @@ safe-outputs:
     labels: [documentation, maintenance, automated]
     max: 1
     expires: 3d
-  missing-tool:
+  report-missing-tool:
     create-issue: true
 timeout-minutes: 45
 ---

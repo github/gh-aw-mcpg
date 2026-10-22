@@ -113,7 +113,7 @@ steps:
 
   # ── Test 1: In-scope repo — list issues (REST) ────────────────────
   - name: "Test 1: In-scope list issues (REST)"
-    uses: actions/github-script@v9.0.0
+    uses: actions/github-script@v9
     with:
       base-url: "http://localhost:18443"
       script: |
@@ -147,7 +147,7 @@ steps:
 
   # ── Test 2: Out-of-scope repo — list issues (REST) ────────────────
   - name: "Test 2: Out-of-scope list issues (REST)"
-    uses: actions/github-script@v9.0.0
+    uses: actions/github-script@v9
     with:
       base-url: "http://localhost:18443"
       script: |
@@ -179,7 +179,7 @@ steps:
 
   # ── Test 3: In-scope repo — GraphQL query ──────────────────────────
   - name: "Test 3: In-scope GraphQL query"
-    uses: actions/github-script@v9.0.0
+    uses: actions/github-script@v9
     with:
       base-url: "http://localhost:18443"
       script: |
@@ -223,7 +223,7 @@ steps:
 
   # ── Test 4: Out-of-scope repo — GraphQL query ─────────────────────
   - name: "Test 4: Out-of-scope GraphQL query"
-    uses: actions/github-script@v9.0.0
+    uses: actions/github-script@v9
     with:
       base-url: "http://localhost:18443"
       script: |
@@ -260,7 +260,7 @@ steps:
 
   # ── Test 5: In-scope search (REST) ─────────────────────────────────
   - name: "Test 5: In-scope search code (REST)"
-    uses: actions/github-script@v9.0.0
+    uses: actions/github-script@v9
     with:
       base-url: "http://localhost:18443"
       script: |
@@ -291,7 +291,7 @@ steps:
 
   # ── Test 6: Integrity filtering — bot-authored issues ──────────────
   - name: "Test 6: Integrity filtering of bot-authored content"
-    uses: actions/github-script@v9.0.0
+    uses: actions/github-script@v9
     with:
       base-url: "http://localhost:18443"
       script: |

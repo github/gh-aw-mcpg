@@ -45,7 +45,7 @@ safe-outputs:
     labels: [maintenance, automation, schema]
     draft: false
     expires: 7d
-  missing-tool:
+  report-missing-tool:
     create-issue: true
 
 model: gpt-5.4
