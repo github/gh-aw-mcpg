@@ -5,8 +5,14 @@
 
 use crate::labels::constants::tool_names;
 
+const MERGE_PREFIX: &str = "merge_";
+const DELETE_PREFIX: &str = "delete_";
+// Neither prefix matches the other: "unlock_" does not start with "lock_".
+const LOCK_PREFIX: &str = "lock_";
+const UNLOCK_PREFIX: &str = "unlock_";
+
 /// Upstream github-mcp-server write operations that modify data.
-pub const WRITE_OPERATIONS: &[&str] = &[
+const WRITE_OPERATIONS: &[&str] = &[
     // Keep sorted for binary_search correctness.
     tool_names::ACTIONS_RUN_TRIGGER,
     "add_comment_to_pending_review",
@@ -43,7 +49,7 @@ pub const WRITE_OPERATIONS: &[&str] = &[
 ];
 
 /// Synthetic write operations reachable through GitHub CLI but not current upstream MCP tools.
-pub const CLI_WRITE_OPERATIONS: &[&str] = &[
+const CLI_WRITE_OPERATIONS: &[&str] = &[
     // Keep sorted for binary_search correctness.
     tool_names::ADD_DEPLOY_KEY, // gh repo deploy-key add — POST /repos/.../keys
     tool_names::ADD_GPG_KEY,    // gh gpg-key add — adds a user GPG signing key
@@ -119,14 +125,14 @@ pub const CLI_WRITE_OPERATIONS: &[&str] = &[
 ];
 
 /// Synthetic non-MCP write operations owned by the guard/runtime.
-pub const SYNTHETIC_WRITE_OPERATIONS: &[&str] = &[
+const SYNTHETIC_WRITE_OPERATIONS: &[&str] = &[
     // Keep sorted for binary_search correctness.
     tool_names::ENABLE_TOOLSET, // Dynamically enables additional toolsets, expanding agent capabilities
     tool_names::TRANSFER_REPOSITORY, // defensively blocked; no current `gh` command performs repo transfer
 ];
 
 /// Deprecated compatibility aliases for write operations.
-pub const DEPRECATED_WRITE_ALIASES: &[&str] = &[
+const DEPRECATED_WRITE_ALIASES: &[&str] = &[
     // Keep sorted for binary_search correctness.
     "add_project_item", // deprecated alias for projects_write (addProjectV2ItemById)
     "delete_project_item", // deprecated alias for projects_write (deleteProjectV2Item)
@@ -135,7 +141,7 @@ pub const DEPRECATED_WRITE_ALIASES: &[&str] = &[
 ];
 
 /// Upstream github-mcp-server read-write operations that both read and modify data.
-pub const READ_WRITE_OPERATIONS: &[&str] = &[
+const READ_WRITE_OPERATIONS: &[&str] = &[
     // Keep sorted for binary_search correctness.
     "add_pull_request_review_comment", // POST /repos/.../pulls/{number}/comments
     "add_sub_issue",                   // POST  /repos/.../issues/{number}/sub_issues
@@ -175,63 +181,74 @@ pub const READ_WRITE_OPERATIONS: &[&str] = &[
 ];
 
 /// Synthetic read-write operations reachable through GitHub CLI but not current upstream MCP tools.
-pub const CLI_READ_WRITE_OPERATIONS: &[&str] = &[
+const CLI_READ_WRITE_OPERATIONS: &[&str] = &[
     // Keep sorted for binary_search correctness.
     tool_names::CREATE_AGENT_TASK, // gh agent-task create — creates a Copilot coding-agent job; blocked as unsupported
     "update_project_draft_issue", // gh project item-edit --title/--body — GraphQL updateProjectV2DraftIssue
 ];
 
 /// Deprecated compatibility aliases for read-write operations.
-pub const DEPRECATED_READ_WRITE_ALIASES: &[&str] = &[
+const DEPRECATED_READ_WRITE_ALIASES: &[&str] = &[
     // Keep sorted for binary_search correctness.
     "issue_write_ff_remote_mcp_issue_fields", // deprecated feature-flag alias of issue_write
     "update_project_item", // deprecated alias for projects_write (updateProjectV2ItemFieldValue)
 ];
 
+/// `list` must be sorted (enforced by the `*_are_sorted` tests).
+fn contains_sorted(list: &[&str], name: &str) -> bool {
+    list.binary_search(&name).is_ok()
+}
+
 /// Check if a tool is a write operation
 pub(crate) fn is_write_operation(tool_name: &str) -> bool {
-    WRITE_OPERATIONS.binary_search(&tool_name).is_ok()
-        || CLI_WRITE_OPERATIONS.binary_search(&tool_name).is_ok()
-        || SYNTHETIC_WRITE_OPERATIONS.binary_search(&tool_name).is_ok()
-        || DEPRECATED_WRITE_ALIASES.binary_search(&tool_name).is_ok()
+    [
+        WRITE_OPERATIONS,
+        CLI_WRITE_OPERATIONS,
+        SYNTHETIC_WRITE_OPERATIONS,
+        DEPRECATED_WRITE_ALIASES,
+    ]
+    .iter()
+    .any(|list| contains_sorted(list, tool_name))
         || is_lock_operation(tool_name)
         || is_unlock_operation(tool_name)
 }
 
 /// Check if a tool is a read-write operation
 pub(crate) fn is_read_write_operation(tool_name: &str) -> bool {
-    READ_WRITE_OPERATIONS.binary_search(&tool_name).is_ok()
-        || CLI_READ_WRITE_OPERATIONS.binary_search(&tool_name).is_ok()
-        || DEPRECATED_READ_WRITE_ALIASES
-            .binary_search(&tool_name)
-            .is_ok()
+    [
+        READ_WRITE_OPERATIONS,
+        CLI_READ_WRITE_OPERATIONS,
+        DEPRECATED_READ_WRITE_ALIASES,
+    ]
+    .iter()
+    .any(|list| contains_sorted(list, tool_name))
 }
 
 /// Check if a tool is a merge operation
 pub(crate) fn is_merge_operation(tool_name: &str) -> bool {
-    tool_name.starts_with("merge_")
+    tool_name.starts_with(MERGE_PREFIX)
 }
 
 /// Check if a tool is a delete operation
 pub(crate) fn is_delete_operation(tool_name: &str) -> bool {
-    tool_name.starts_with("delete_")
+    tool_name.starts_with(DELETE_PREFIX)
 }
 
 /// Check if a tool is a lock operation
 pub(crate) fn is_lock_operation(tool_name: &str) -> bool {
-    tool_name.starts_with("lock_")
+    tool_name.starts_with(LOCK_PREFIX)
 }
 
 /// Check if a tool is an unlock operation
 pub(crate) fn is_unlock_operation(tool_name: &str) -> bool {
-    tool_name.starts_with("unlock_")
+    tool_name.starts_with(UNLOCK_PREFIX)
 }
 
 /// Tools that are unconditionally blocked regardless of agent integrity.
 ///
 /// Keep sorted for `binary_search` correctness (see `blocked_tools_are_sorted` test).
 /// Entries here should also be classified by `is_write_operation` or `is_read_write_operation`.
-pub const BLOCKED_TOOLS: &[&str] = &[
+const BLOCKED_TOOLS: &[&str] = &[
     tool_names::ARCHIVE_REPOSITORY,   // repo settings change; unsupported
     tool_names::CREATE_AGENT_TASK,    // unsupported agent-task creation
     tool_names::RENAME_REPOSITORY,    // breaks clone URLs and integrations
@@ -241,12 +258,24 @@ pub const BLOCKED_TOOLS: &[&str] = &[
 
 /// Returns `true` if `tool_name` is in [`BLOCKED_TOOLS`] — denied regardless of agent integrity.
 pub(crate) fn is_blocked_tool(tool_name: &str) -> bool {
-    BLOCKED_TOOLS.binary_search(&tool_name).is_ok()
+    contains_sorted(BLOCKED_TOOLS, tool_name)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_contains_sorted() {
+        let list = &["alpha", "delta", "omega"];
+        for name in list {
+            assert!(contains_sorted(list, name), "{name} must be found");
+        }
+        for name in ["", "aardvark", "beta", "zeta"] {
+            assert!(!contains_sorted(list, name), "{name} must not be found");
+        }
+        assert!(!contains_sorted(&[], "alpha"));
+    }
 
     #[test]
     fn blocked_tools_are_classified_as_write_or_read_write() {
@@ -1008,6 +1037,8 @@ mod tests {
         assert!(is_merge_operation("merge_upstream"));
         assert!(!is_merge_operation("create_pull_request"));
         assert!(!is_merge_operation("update_pull_request"));
+        assert!(!is_merge_operation("merge"));
+        assert!(!is_merge_operation("pre_merge_pull_request"));
         assert!(!is_merge_operation(""));
     }
 
@@ -1017,6 +1048,8 @@ mod tests {
         assert!(is_delete_operation("delete_branch"));
         assert!(is_delete_operation("delete_release"));
         assert!(!is_delete_operation("create_repository"));
+        assert!(!is_delete_operation("delete"));
+        assert!(!is_delete_operation("pre_delete_branch"));
         assert!(!is_delete_operation(""));
     }
 
@@ -1026,6 +1059,8 @@ mod tests {
         assert!(is_lock_operation("lock_pull_request"));
         assert!(!is_lock_operation("unlock_issue"));
         assert!(!is_lock_operation("create_issue"));
+        assert!(!is_lock_operation("lock"));
+        assert!(!is_lock_operation("pre_lock_issue"));
         assert!(!is_lock_operation(""));
     }
 
@@ -1035,6 +1070,8 @@ mod tests {
         assert!(is_unlock_operation("unlock_pull_request"));
         assert!(!is_unlock_operation("lock_issue"));
         assert!(!is_unlock_operation("create_issue"));
+        assert!(!is_unlock_operation("unlock"));
+        assert!(!is_unlock_operation("pre_unlock_issue"));
         assert!(!is_unlock_operation(""));
     }
 
@@ -1043,6 +1080,8 @@ mod tests {
         // is_write_operation delegates to is_lock_operation and is_unlock_operation
         assert!(is_write_operation("lock_issue"));
         assert!(is_write_operation("unlock_issue"));
+        assert!(is_write_operation("lock_unknown_tool"));
+        assert!(is_write_operation("unlock_unknown_tool"));
     }
 
     #[test]
