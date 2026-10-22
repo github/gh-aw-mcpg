@@ -32,10 +32,6 @@ const POLICY_SCOPE_ALL: &str = "all";
 const POLICY_SCOPE_PUBLIC: &str = "public";
 const DIFC_MODE: &str = "filter";
 
-fn should_fallback_to_single_item_label(response: &Value) -> bool {
-    !response.is_array()
-}
-
 /// Global policy context for WASM runtime entry points.
 ///
 /// `label_agent` stores the parsed policy here; `label_resource` and
@@ -326,6 +322,24 @@ struct LabeledItem {
     labels: ResourceLabels,
 }
 
+impl LabeledItem {
+    fn from_result(
+        input: &LabelResponseInput,
+        description: String,
+        secrecy: Vec<String>,
+        integrity: Vec<String>,
+    ) -> Self {
+        Self {
+            data: input.tool_result.clone(),
+            labels: ResourceLabels {
+                description,
+                secrecy: secrecy.into(),
+                integrity: integrity.into(),
+            },
+        }
+    }
+}
+
 /// Output structure for label_response using legacy format
 /// Used for singleton responses where copying is acceptable
 #[derive(Debug, Serialize)]
@@ -387,18 +401,11 @@ fn apply_singleton_fallback_if_needed(
             "    server metadata (text message or empty search), integrity={integrity:?}"
         ));
 
-        labeled_items.push(LabeledItem {
-            data: input.tool_result.clone(),
-            labels: ResourceLabels {
-                description: desc,
-                secrecy: secrecy.into(),
-                integrity: integrity.into(),
-            },
-        });
+        labeled_items.push(LabeledItem::from_result(input, desc, secrecy, integrity));
         return FallbackAction::ContinueProcessing;
     }
 
-    if !should_fallback_to_single_item_label(&actual_response) {
+    if actual_response.is_array() {
         log_info("    no fine-grained items for top-level array response, skipping fallback label");
         return FallbackAction::SkipLabeling;
     }
@@ -423,14 +430,9 @@ fn apply_singleton_fallback_if_needed(
         "    fallback labels: secrecy={secrecy:?}, integrity={integrity:?}"
     ));
 
-    labeled_items.push(LabeledItem {
-        data: input.tool_result.clone(),
-        labels: ResourceLabels {
-            description: final_desc,
-            secrecy: secrecy.into(),
-            integrity: integrity.into(),
-        },
-    });
+    labeled_items.push(LabeledItem::from_result(
+        input, final_desc, secrecy, integrity,
+    ));
 
     FallbackAction::ContinueProcessing
 }
@@ -1140,13 +1142,32 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn top_level_array_responses_skip_single_item_fallback() {
-        assert!(!should_fallback_to_single_item_label(&json!([{"id": 1}])));
-    }
+    fn labeled_item_from_result_preserves_data_and_labels() {
+        let input = LabelResponseInput {
+            tool_name: "custom_read".to_string(),
+            tool_args: json!({}),
+            tool_result: json!({"id": 1, "nested": {"value": "original"}}),
+        };
 
-    #[test]
-    fn singleton_object_responses_use_single_item_fallback() {
-        assert!(should_fallback_to_single_item_label(&json!({"id": 1})));
+        for (secrecy, integrity) in [
+            (vec![], vec![]),
+            (
+                vec!["private:org/repo".to_string()],
+                vec!["approved:org/repo".to_string()],
+            ),
+        ] {
+            let item = LabeledItem::from_result(
+                &input,
+                "resource:custom_read".to_string(),
+                secrecy.clone(),
+                integrity.clone(),
+            );
+
+            assert_eq!(item.data, input.tool_result);
+            assert_eq!(item.labels.description, "resource:custom_read");
+            assert_eq!(item.labels.secrecy, secrecy);
+            assert_eq!(item.labels.integrity, integrity);
+        }
     }
 
     #[test]
@@ -1253,6 +1274,11 @@ mod tests {
 
             assert!(matches!(action, FallbackAction::ContinueProcessing));
             assert_eq!(labeled_items.len(), 1);
+            assert_eq!(labeled_items[0].data, input.tool_result);
+            assert_eq!(
+                labeled_items[0].labels.description,
+                format!("metadata:{tool_name}")
+            );
             assert_eq!(
                 labeled_items[0].labels.secrecy,
                 labels::private_user_label(),
