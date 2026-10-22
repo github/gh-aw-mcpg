@@ -509,3 +509,85 @@ func TestSysListServersHandler(t *testing.T) {
 	require.NotNil(t, session)
 	assert.DirExists(t, filepath.Join(us.payloadDir, "list-handler-session"))
 }
+
+func TestSysInitHandler_Branches(t *testing.T) {
+	newServer := func(t *testing.T) *UnifiedServer {
+		t.Helper()
+		cfg := &config.Config{
+			Servers: map[string]*config.ServerConfig{
+				"github": {Type: "http", URL: "http://127.0.0.1:1"},
+			},
+		}
+		us, err := NewUnified(context.Background(), cfg)
+		require.NoError(t, err)
+		t.Cleanup(func() { us.Close() })
+		us.payloadDir = t.TempDir()
+		return us
+	}
+
+	t.Run("invalid arguments JSON returns error result", func(t *testing.T) {
+		us := newServer(t)
+		req := &sdk.CallToolRequest{
+			Params: &sdk.CallToolParamsRaw{Arguments: json.RawMessage(`{not json`)},
+		}
+		ctx := context.WithValue(context.Background(), SessionIDContextKey, "bad-args")
+
+		result, _, err := us.sysInitHandler(ctx, req, nil)
+
+		require.Error(t, err)
+		require.NotNil(t, result)
+		assert.True(t, result.IsError)
+		assert.Empty(t, us.getSessionKeys())
+	})
+
+	t.Run("missing session ID falls back to default session", func(t *testing.T) {
+		us := newServer(t)
+		req := &sdk.CallToolRequest{
+			Params: &sdk.CallToolParamsRaw{Arguments: json.RawMessage(`{"token":"t"}`)},
+		}
+
+		result, data, err := us.sysInitHandler(context.Background(), req, nil)
+
+		require.NoError(t, err)
+		assert.Nil(t, result)
+		assert.NotNil(t, data)
+		assert.Contains(t, us.getSessionKeys(), "default")
+	})
+
+	t.Run("non-string token is ignored", func(t *testing.T) {
+		us := newServer(t)
+		req := &sdk.CallToolRequest{
+			Params: &sdk.CallToolParamsRaw{Arguments: json.RawMessage(`{"token":123}`)},
+		}
+		ctx := context.WithValue(context.Background(), SessionIDContextKey, "non-string-token")
+
+		result, data, err := us.sysInitHandler(ctx, req, nil)
+
+		require.NoError(t, err)
+		assert.Nil(t, result)
+		assert.NotNil(t, data)
+		us.sessionMu.RLock()
+		session := us.sessions["non-string-token"]
+		us.sessionMu.RUnlock()
+		require.NotNil(t, session)
+		assert.Empty(t, session.Token)
+	})
+
+	t.Run("session directory failure is non-fatal", func(t *testing.T) {
+		us := newServer(t)
+		blocker := filepath.Join(t.TempDir(), "file")
+		require.NoError(t, os.WriteFile(blocker, []byte("x"), 0o600))
+		us.payloadDir = blocker
+		req := &sdk.CallToolRequest{
+			Params: &sdk.CallToolParamsRaw{Arguments: json.RawMessage(`{}`)},
+		}
+		ctx := context.WithValue(context.Background(), SessionIDContextKey, "dir-fail")
+
+		result, data, err := us.sysInitHandler(ctx, req, nil)
+
+		require.NoError(t, err)
+		assert.Nil(t, result)
+		assert.NotNil(t, data)
+		assert.Contains(t, us.getSessionKeys(), "dir-fail")
+	})
+}
