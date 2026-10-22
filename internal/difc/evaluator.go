@@ -117,11 +117,13 @@ type DIFCComponents struct {
 // When modeStr is empty or cannot be parsed, defaultMode is used and the parse
 // error is returned so callers can decide whether to log a warning.
 func NewComponents(modeStr string, defaultMode EnforcementMode) (DIFCComponents, error) {
+	logEvaluator.Printf("Initializing DIFC components: modeStr=%q, defaultMode=%s", modeStr, defaultMode)
 	mode := defaultMode
 	var parseErr error
 	if modeStr != "" {
 		parsed, err := ParseEnforcementMode(modeStr)
 		if err != nil {
+			logEvaluator.Printf("Invalid enforcement mode %q, using default %s: %v", modeStr, defaultMode, err)
 			parseErr = err
 		} else {
 			mode = parsed
@@ -195,12 +197,14 @@ func NewEvaluator() *Evaluator {
 
 // NewEvaluatorWithMode creates a new DIFC evaluator with the specified enforcement mode
 func NewEvaluatorWithMode(mode EnforcementMode) *Evaluator {
+	logEvaluator.Printf("Creating evaluator: mode=%s", mode)
 	return &Evaluator{mode: mode}
 }
 
 // WithSecrecyPropagationMax returns an evaluator that may propagate only the
 // supplied secrecy tags. Reads requiring any other secrecy tag are denied.
 func (e *Evaluator) WithSecrecyPropagationMax(tags ...Tag) *Evaluator {
+	logEvaluator.Printf("Restricting secrecy propagation: mode=%s, maxTagCount=%d", e.mode, len(tags))
 	return &Evaluator{
 		mode:                  e.mode,
 		secrecyPropagationMax: NewSecrecyLabel(tags...),
@@ -209,6 +213,7 @@ func (e *Evaluator) WithSecrecyPropagationMax(tags ...Tag) *Evaluator {
 
 // SetMode sets the enforcement mode
 func (e *Evaluator) SetMode(mode EnforcementMode) {
+	logEvaluator.Printf("Changing evaluator mode: %s -> %s", e.mode, mode)
 	e.mode = mode
 }
 
