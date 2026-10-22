@@ -545,13 +545,15 @@ func TestLauncherRecordError_AfterClose(t *testing.T) {
 	assert.NotContains(t, l.serverErrors, "other")
 }
 
-// TestGetOrLaunchForSession_ClosedLauncher verifies stdio lookups fail fast after Close.
-func TestGetOrLaunchForSession_ClosedLauncher(t *testing.T) {
+// TestGetOrLaunchForSession_CloseAfterPoolMiss verifies that closing the launcher
+// after a session-pool miss prevents a stdio backend from being launched.
+func TestGetOrLaunchForSession_CloseAfterPoolMiss(t *testing.T) {
 	cfg := newTestConfig(map[string]*config.ServerConfig{
 		"stdio-backend": {Type: "stdio", Command: "docker", Args: []string{"run", "--rm", "-i", "x:latest"}},
 	})
 	l := New(context.Background(), cfg)
-	l.Close()
+	defer l.Close()
+	l.hookAfterFirstPoolMiss = l.Close
 
 	conn, err := GetOrLaunchForSession(l, "stdio-backend", "s")
 	require.ErrorIs(t, err, ErrLauncherClosed)
