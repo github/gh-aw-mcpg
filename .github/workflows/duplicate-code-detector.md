@@ -28,7 +28,7 @@ safe-outputs:
     parent-title-prefix: "[duplicate-code]"
     sub-title-prefix: "[duplicate-code]"
     max: 3
-  missing-tool:
+  report-missing-tool:
     create-issue: true
 timeout-minutes: 15
 strict: true

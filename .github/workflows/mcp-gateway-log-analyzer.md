@@ -27,7 +27,7 @@ safe-outputs:
     labels: [bug, mcp-gateway, automation]
     assignees: [lpcox]
     max: 1
-  missing-tool:
+  report-missing-tool:
     create-issue: true
 
 tools:
