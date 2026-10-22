@@ -102,7 +102,7 @@ func TestParseErrorDetails_WrappedParseError(t *testing.T) {
 	require.Error(t, err)
 
 	details := ParseErrorDetails(fmt.Errorf("compile filter: %w", err))
-	assert.Contains(t, details, "offset")
+	assert.Equal(t, ` at offset 1 (token "!")`, details)
 }
 
 func TestParseErrorDetails_NonParseError(t *testing.T) {
