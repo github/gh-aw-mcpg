@@ -47,7 +47,7 @@ type launchResult struct {
 // does require that InputSchema is non-nil and has type "object" (enforced since v1.5.0), but
 // it does not validate the argument values — that responsibility belongs to the caller.
 // This distinction relies on internal SDK behaviour and must be re-verified on every SDK upgrade.
-// Verified correct for go-sdk v1.6.1 (see server.go:Server.AddTool vs AddTool[In,Out]).
+// Verified correct for go-sdk v1.8.0 by TestArgumentValidationBypassCanary.
 // Track https://github.com/modelcontextprotocol/go-sdk/issues for a supported validation bypass.
 func registerToolWithoutValidation(server *sdk.Server, tool *sdk.Tool, handler func(context.Context, *sdk.CallToolRequest, interface{}) (*sdk.CallToolResult, interface{}, error)) {
 	logToolRegistryHelpers.Printf("Registering tool without validation: %s", tool.Name)
