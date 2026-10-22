@@ -527,7 +527,7 @@ func TestGetOrLaunchForSession_StdioLaunchFailureRecordsError(t *testing.T) {
 
 	state := l.GetServerState("broken-stdio")
 	assert.Equal(t, "error", state.Status)
-	assert.NotEmpty(t, state.LastError)
+	assert.Equal(t, err.Error(), state.LastError)
 }
 
 // TestLauncherRecordError_AfterClose verifies recordError is a no-op once the launcher is closed.
