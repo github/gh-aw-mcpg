@@ -26,7 +26,7 @@ safe-outputs:
     labels: [agentic-workflows, automation, maintenance]
     draft: true
     expires: 7d
-  missing-tool:
+  report-missing-tool:
     create-issue: true
 timeout-minutes: 25
 ---

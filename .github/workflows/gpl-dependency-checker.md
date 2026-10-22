@@ -27,7 +27,7 @@ safe-outputs:
   add-comment:
     max: 2
   noop:
-  missing-tool:
+  report-missing-tool:
     create-issue: true
 
 steps:
