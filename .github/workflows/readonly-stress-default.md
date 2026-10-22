@@ -52,7 +52,7 @@ sandbox:
     id: awf
   mcp:
     container: "ghcr.io/github/gh-aw-mcpg"
-    version: "latest"
+    version: "v0.4.36"
 safe-outputs:
   threat-detection:
     enabled: false

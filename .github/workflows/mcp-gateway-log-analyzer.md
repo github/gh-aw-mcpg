@@ -73,7 +73,7 @@ Use github-mcp-server list_workflow_runs with:
 
 - This means the `GH_AW_MCP_MULTIREPO_TOKEN` secret does not have access to `github/gh-aw`.
 - **DO NOT use `report_incomplete`** — authentication failures are a configuration issue, not an analysis failure.
-- Emit `missing_data` with:
+- Emit `report_missing_data` with:
   - `data_type`: `workflow_runs`
   - `reason`: `Authentication failed (401 Bad credentials): GH_AW_MCP_MULTIREPO_TOKEN does not have access to github/gh-aw. The token may be expired or missing the required repository permissions (actions:read).`
   - `context`: `Cannot access github/gh-aw repository via GitHub MCP server`
@@ -82,7 +82,7 @@ Use github-mcp-server list_workflow_runs with:
 
 **If you receive a 403 Forbidden or 404 Not Found error:**
 
-- Emit `missing_data` with:
+- Emit `report_missing_data` with:
   - `data_type`: `workflow_runs`
   - `reason`: `Access denied or repository not found: received HTTP [status] when accessing github/gh-aw`
   - `context`: `Cannot access github/gh-aw repository via GitHub MCP server`
@@ -498,7 +498,7 @@ Analyzed [N] workflow runs across [M] workflows
 ### Access and Authentication Errors
 
 - **Never use `report_incomplete` for authentication or permission errors.** These are configuration issues that require a human to fix the secret/token — they are not analysis failures.
-- If the `github/gh-aw` repository is inaccessible (401, 403, 404), emit `missing_data` followed by `noop` and exit gracefully (see Step 0).
+- If the `github/gh-aw` repository is inaccessible (401, 403, 404), emit `report_missing_data` followed by `noop` and exit gracefully (see Step 0).
 - `report_incomplete` is only appropriate when a task is genuinely unfinishable due to a bug or unexpected state that the agent cannot work around.
 
 ### Accuracy
