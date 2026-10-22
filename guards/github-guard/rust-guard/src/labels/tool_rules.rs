@@ -857,6 +857,28 @@ pub fn apply_tool_labels(
             integrity = writer_integrity(repo_id, ctx);
         }
 
+        // === Issue/PR comment and review moderation ===
+        tool_names::HIDE_ISSUE_COMMENT
+        | tool_names::UNHIDE_ISSUE_COMMENT
+        | tool_names::HIDE_PULL_REQUEST_REVIEW_COMMENT
+        | tool_names::UNHIDE_PULL_REQUEST_REVIEW_COMMENT
+        | tool_names::HIDE_PULL_REQUEST_REVIEW
+        | tool_names::UNHIDE_PULL_REQUEST_REVIEW => {
+            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            integrity = writer_integrity(repo_id, ctx);
+            let (number_field, prefix) = if matches!(
+                tool_name,
+                tool_names::HIDE_ISSUE_COMMENT | tool_names::UNHIDE_ISSUE_COMMENT
+            ) {
+                (field_names::ISSUE_NUMBER, desc_prefix::ISSUE)
+            } else {
+                (field_names::PULL_NUMBER, desc_prefix::PR)
+            };
+            if let Some(number) = extract_number_as_string(tool_args, number_field) {
+                desc = format!("{prefix}{repo_id}#{number}");
+            }
+        }
+
         // === Governance writes (repository/org/enterprise-scoped) ===
         tool_names::CUSTOM_PROPERTIES_WRITE | tool_names::CREATE_REPOSITORY_RULESET => {
             apply_governance_labels(
@@ -1530,6 +1552,80 @@ mod tests {
                     .any(|l| expected_writer_integrity.contains(l)),
                 "{tool_name} ({method}) integrity must contain a writer-level approved label, got: {integrity:?}"
             );
+        }
+    }
+
+    #[test]
+    fn apply_tool_labels_moderation_tools_are_repo_scoped_writes() {
+        let ctx = default_ctx();
+        let repo_id = "octocat/moderation-test";
+        for private in [false, true] {
+            let _guard = crate::labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            for (tool, field, prefix) in [
+                (
+                    "hide_issue_comment",
+                    field_names::ISSUE_NUMBER,
+                    desc_prefix::ISSUE,
+                ),
+                (
+                    "unhide_issue_comment",
+                    field_names::ISSUE_NUMBER,
+                    desc_prefix::ISSUE,
+                ),
+                (
+                    "hide_pull_request_review_comment",
+                    field_names::PULL_NUMBER,
+                    desc_prefix::PR,
+                ),
+                (
+                    "unhide_pull_request_review_comment",
+                    field_names::PULL_NUMBER,
+                    desc_prefix::PR,
+                ),
+                (
+                    "hide_pull_request_review",
+                    field_names::PULL_NUMBER,
+                    desc_prefix::PR,
+                ),
+                (
+                    "unhide_pull_request_review",
+                    field_names::PULL_NUMBER,
+                    desc_prefix::PR,
+                ),
+            ] {
+                for number in [Value::Null, serde_json::json!(42), serde_json::json!("42")] {
+                    let mut args =
+                        serde_json::json!({ "owner": "octocat", "repo": "moderation-test" });
+                    if !number.is_null() {
+                        args[field] = number.clone();
+                    }
+                    let initial_secrecy = private_label("octocat", "moderation-test", repo_id, &ctx);
+                    let (secrecy, integrity, desc) = super::apply_tool_labels(
+                        tool,
+                        &args,
+                        repo_id,
+                        initial_secrecy.clone(),
+                        vec![],
+                        "original".to_string(),
+                        &ctx,
+                    );
+                    assert_eq!(
+                        secrecy,
+                        if private { initial_secrecy } else { vec![] },
+                        "{tool} (private={private}) must inherit repository visibility"
+                    );
+                    assert_eq!(integrity, writer_integrity(repo_id, &ctx), "{tool}");
+                    assert_eq!(
+                        desc,
+                        if number.is_null() {
+                            "original".to_string()
+                        } else {
+                            format!("{prefix}{repo_id}#42")
+                        },
+                        "{tool}"
+                    );
+                }
+            }
         }
     }
 
