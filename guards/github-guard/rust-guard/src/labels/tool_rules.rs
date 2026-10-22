@@ -765,6 +765,8 @@ pub fn apply_tool_labels(
         | "issue_write_ff_remote_mcp_issue_fields"
         | "sub_issue_write"
         | "add_issue_comment"
+        | tool_names::HIDE_ISSUE_COMMENT
+        | tool_names::UNHIDE_ISSUE_COMMENT
         | "create_pull_request"
         | "create_pull_request_with_copilot"
         | "update_pull_request"
@@ -810,6 +812,10 @@ pub fn apply_tool_labels(
         | "update_pull_request_state"
         | "update_pull_request_title"
         // PR reviews
+        | tool_names::HIDE_PULL_REQUEST_REVIEW
+        | tool_names::UNHIDE_PULL_REQUEST_REVIEW
+        | tool_names::HIDE_PULL_REQUEST_REVIEW_COMMENT
+        | tool_names::UNHIDE_PULL_REQUEST_REVIEW_COMMENT
         | "add_pull_request_review_comment"
         | "create_pull_request_review"
         | "delete_pending_pull_request_review"
@@ -1530,6 +1536,69 @@ mod tests {
                     .any(|l| expected_writer_integrity.contains(l)),
                 "{tool_name} ({method}) integrity must contain a writer-level approved label, got: {integrity:?}"
             );
+        }
+    }
+
+    #[test]
+    fn apply_tool_labels_comment_moderation_requires_repo_writer_integrity() {
+        let ctx = default_ctx();
+        let repo_id = "moderation-owner/moderation-repo";
+        for private in [false, true] {
+            let _guard =
+                crate::labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            for (op, target_args) in [
+                ("hide_issue_comment", serde_json::json!({"comment_id": 42})),
+                ("unhide_issue_comment", serde_json::json!({"comment_id": 42})),
+                (
+                    "hide_pull_request_review_comment",
+                    serde_json::json!({"comment_id": 43}),
+                ),
+                (
+                    "unhide_pull_request_review_comment",
+                    serde_json::json!({"comment_id": 43}),
+                ),
+                (
+                    "hide_pull_request_review",
+                    serde_json::json!({"pullNumber": 7, "review_id": 44}),
+                ),
+                (
+                    "unhide_pull_request_review",
+                    serde_json::json!({"pullNumber": 7, "review_id": 44}),
+                ),
+            ] {
+                let mut args = target_args;
+                args["owner"] = serde_json::json!("moderation-owner");
+                args["repo"] = serde_json::json!("moderation-repo");
+                if op.starts_with("hide_") {
+                    args["classifier"] = serde_json::json!("OFF_TOPIC");
+                }
+                let (secrecy, integrity, _) = super::apply_tool_labels(
+                    op,
+                    &args,
+                    repo_id,
+                    vec![],
+                    reader_integrity(repo_id, &ctx),
+                    String::new(),
+                    &ctx,
+                );
+                let expected_secrecy = if private {
+                    private_label("moderation-owner", "moderation-repo", repo_id, &ctx)
+                } else {
+                    vec![]
+                };
+                assert_eq!(secrecy, expected_secrecy, "{op}: private={private}");
+                let approved = writer_integrity(repo_id, &ctx);
+                let unapproved = reader_integrity(repo_id, &ctx);
+                assert_eq!(integrity, approved, "{op}: must require writer integrity");
+                assert!(
+                    integrity.iter().all(|label| approved.contains(label)),
+                    "{op}: approved integrity must satisfy the write requirement"
+                );
+                assert!(
+                    !integrity.iter().all(|label| unapproved.contains(label)),
+                    "{op}: unapproved integrity must not satisfy the write requirement"
+                );
+            }
         }
     }
 
