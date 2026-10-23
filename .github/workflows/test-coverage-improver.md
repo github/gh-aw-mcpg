@@ -11,7 +11,9 @@ permissions:
   pull-requests: read
   copilot-requests: write
 
-engine: copilot
+engine:
+  id: copilot
+  version: "1.0.98"
 max-daily-ai-credits: 10K
 
 network:
