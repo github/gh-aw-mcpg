@@ -61,6 +61,7 @@ func FetchRepoVisibility(ctx context.Context, apiBaseURL, nwo, authHeader string
 
 	var repo repoResponse
 	if err := json.NewDecoder(resp.Body).Decode(&repo); err != nil {
+		logVisibility.Printf("Failed to decode repo response: nwo=%s, err=%v", nwo, err)
 		return "", fmt.Errorf("failed to decode repo response for %s: %w", nwo, err)
 	}
 
@@ -97,12 +98,15 @@ func FetchRepoVisibility(ctx context.Context, apiBaseURL, nwo, authHeader string
 //   - Whether an override occurred
 //   - Any error encountered (non-fatal — callers should log and use configured value)
 func VerifySinkVisibility(ctx context.Context, apiBaseURL, nwo, authHeader, configuredVisibility string) (string, bool, error) {
+	logVisibility.Printf("Verifying sink visibility: nwo=%s, configured=%s", nwo, configuredVisibility)
 	if nwo == "" {
+		logVisibility.Print("Sink visibility verification skipped: no repository configured")
 		return configuredVisibility, false, fmt.Errorf("no repository configured for sink visibility verification")
 	}
 
 	actual, err := FetchRepoVisibility(ctx, apiBaseURL, nwo, authHeader)
 	if err != nil {
+		logVisibility.Printf("Sink visibility verification failed, keeping configured value: nwo=%s, configured=%s, err=%v", nwo, configuredVisibility, err)
 		return configuredVisibility, false, err
 	}
 
@@ -111,9 +115,11 @@ func VerifySinkVisibility(ctx context.Context, apiBaseURL, nwo, authHeader, conf
 	// If actual is "public" but configured is not "public",
 	// override to "public" — this is the security-critical case.
 	if actual == RepoVisibilityPublic && configured != "public" {
+		logVisibility.Printf("Overriding sink visibility to public: nwo=%s, configured=%s", nwo, configured)
 		return "public", true, nil
 	}
 
+	logVisibility.Printf("Sink visibility unchanged: nwo=%s, configured=%s, actual=%s", nwo, configured, actual)
 	// All other cases: return the configured value unchanged.
 	// This includes:
 	//   - configured="public" but actual=private → keep "public" (more restrictive)
