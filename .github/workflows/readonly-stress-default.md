@@ -18,6 +18,8 @@ name: "Read-Only Stress: default runtime"
 model: claude-sonnet-5
 engine:
   id: copilot
+  # Keep the CLI on a release with a reviewed checksum in the pinned setup action.
+  version: "1.0.98"
 strict: false
 inlined-imports: true
 imports:
