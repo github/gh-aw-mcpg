@@ -51,7 +51,6 @@ safe-outputs:
 model: gpt-5.4
 engine:
   id: copilot
-  version: 1.0.87
 sandbox:
   agent:
     id: awf
