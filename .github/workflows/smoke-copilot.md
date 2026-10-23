@@ -18,6 +18,8 @@ permissions:
 name: Smoke Copilot
 engine:
   id: copilot
+  # Keep the CLI on a release with a reviewed checksum in the pinned setup action.
+  version: "1.0.98"
 strict: false
 imports:
   - shared/mcp-pagination.md
