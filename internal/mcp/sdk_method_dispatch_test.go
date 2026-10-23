@@ -356,11 +356,7 @@ func TestSendRequestWithServerID_AgentTags_PlainJSONError(t *testing.T) {
 
 	// Status 500 with error JSON is returned as a synthetic JSON-RPC error, not a Go error.
 	resp, err := conn.SendRequestWithServerID(ctx, "tools/list", nil, "sink-server")
-	// Either a Go error or a JSON-RPC error response is acceptable; either way the
-	// shouldAttachAgentTags logging branch was exercised.
-	if err != nil {
-		assert.Nil(t, resp)
-	} else {
-		require.NotNil(t, resp)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.NotNil(t, resp.Error, "HTTP 500 should surface as a JSON-RPC error response")
 }
