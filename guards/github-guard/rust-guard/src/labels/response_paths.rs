@@ -199,8 +199,9 @@ pub fn label_response_paths(
             let (items, items_path) = extract_items_array(&actual_response);
             if let Some(items) = items {
                 let (owner, repo, repo_full) = extract_repo_scope_with_query_fallback(tool_args);
-                let secrecy = policy_private_scope_label(&owner, &repo, &repo_full, ctx);
-                let integrity = reader_integrity(&repo_full, ctx);
+                let secrecy: crate::SharedLabels =
+                    policy_private_scope_label(&owner, &repo, &repo_full, ctx).into();
+                let integrity: crate::SharedLabels = reader_integrity(&repo_full, ctx).into();
                 let items_to_process = limit_items_with_log(items, tool_name);
                 let labeled_paths = items_to_process
                     .iter()
@@ -211,8 +212,8 @@ pub fn label_response_paths(
                             path: make_item_path(items_path, index),
                             labels: crate::ResourceLabels {
                                 description: format!("security-alert:{repo_full}#{number}"),
-                                secrecy: secrecy.clone().into(),
-                                integrity: integrity.clone().into(),
+                                secrecy: secrecy.clone(),
+                                integrity: integrity.clone(),
                             },
                         }
                     })
@@ -222,8 +223,8 @@ pub fn label_response_paths(
                     labeled_paths,
                     default_labels: Some(crate::ResourceLabels {
                         description: "security-alert".to_string(),
-                        secrecy: secrecy.into(),
-                        integrity: integrity.into(),
+                        secrecy,
+                        integrity,
                     }),
                     items_path: (!items_path.is_empty()).then_some(items_path),
                 });
@@ -928,6 +929,65 @@ mod tests {
 
     fn ctx() -> PolicyContext {
         PolicyContext::default()
+    }
+
+    #[test]
+    fn security_alert_paths_share_labels_with_defaults() {
+        let tool_args = json!({"owner": "octocat", "repo": "hello-world"});
+        let ctx = ctx();
+
+        for tool_name in [
+            tool_names::LIST_SECRET_SCANNING_ALERTS,
+            tool_names::LIST_CODE_SCANNING_ALERTS,
+            tool_names::LIST_DEPENDABOT_ALERTS,
+        ] {
+            for items_path in ["", "/items", "/alerts"] {
+                for alerts in [json!([]), json!([{"number": 1}, {"number": 2}])] {
+                    let response = match items_path {
+                        "/items" => json!({"items": alerts}),
+                        "/alerts" => json!({"alerts": alerts}),
+                        _ => alerts.clone(),
+                    };
+                    let result = label_response_paths(tool_name, &tool_args, &response, &ctx)
+                        .expect("security alerts should produce path labels");
+                    let defaults = result.default_labels.expect("alerts should have defaults");
+
+                    assert_eq!(
+                        result.items_path,
+                        (!items_path.is_empty()).then_some(items_path)
+                    );
+                    assert_eq!(result.labeled_paths.len(), alerts.as_array().unwrap().len());
+                    assert_eq!(
+                        serde_json::to_value(&defaults).unwrap(),
+                        json!({
+                            "description": "security-alert",
+                            "secrecy": policy_private_scope_label(
+                                "octocat", "hello-world", "octocat/hello-world", &ctx
+                            ),
+                            "integrity": reader_integrity("octocat/hello-world", &ctx),
+                        })
+                    );
+
+                    for (index, entry) in result.labeled_paths.iter().enumerate() {
+                        assert_eq!(entry.path, format!("{items_path}/{index}"));
+                        assert_eq!(
+                            entry.labels.description,
+                            format!("security-alert:octocat/hello-world#{}", index + 1)
+                        );
+                        assert_eq!(entry.labels.secrecy, defaults.secrecy);
+                        assert_eq!(entry.labels.integrity, defaults.integrity);
+                        assert!(std::sync::Arc::ptr_eq(
+                            &entry.labels.secrecy.0,
+                            &defaults.secrecy.0,
+                        ));
+                        assert!(std::sync::Arc::ptr_eq(
+                            &entry.labels.integrity.0,
+                            &defaults.integrity.0,
+                        ));
+                    }
+                }
+            }
+        }
     }
 
     fn assert_alias_path_labels_match(
