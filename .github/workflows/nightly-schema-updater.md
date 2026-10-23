@@ -51,10 +51,11 @@ safe-outputs:
 model: gpt-5.4
 engine:
   id: copilot
+  version: 1.0.98
 sandbox:
   agent:
     id: awf
-    version: v0.28.25
+    version: v0.28.70
 timeout-minutes: 15
 ---
 
