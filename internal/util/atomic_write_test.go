@@ -25,6 +25,31 @@ func TestAtomicWriteFile(t *testing.T) {
 		assert.Empty(t, tempFiles(t, filepath.Dir(path)))
 	})
 
+	t.Run("overwrites existing file and applies new permissions", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "state.json")
+		require.NoError(t, os.WriteFile(path, []byte("old content that is longer"), 0o644))
+
+		require.NoError(t, AtomicWriteFile(path, []byte("new"), 0o600))
+
+		got, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Equal(t, []byte("new"), got)
+		info, err := os.Stat(path)
+		require.NoError(t, err)
+		assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+		assert.Empty(t, tempFiles(t, filepath.Dir(path)))
+	})
+
+	t.Run("writes empty data", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "empty.json")
+
+		require.NoError(t, AtomicWriteFile(path, nil, 0o600))
+
+		info, err := os.Stat(path)
+		require.NoError(t, err)
+		assert.Zero(t, info.Size())
+	})
+
 	t.Run("fails when parent directory does not exist", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "missing", "state.json")
 
