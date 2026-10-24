@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -475,4 +476,77 @@ func TestCallBackendPrompt_BackendFailureIsReturned(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, result)
+}
+
+type promptErrGuard struct {
+	*promptDIFCTestGuard
+	agentErr, resourceErr, responseErr error
+}
+
+func (g *promptErrGuard) LabelAgent(ctx context.Context, p interface{}, bc guard.BackendCaller, c *difc.Capabilities) (*guard.LabelAgentResult, error) {
+	if g.agentErr != nil {
+		return nil, g.agentErr
+	}
+	return g.promptDIFCTestGuard.LabelAgent(ctx, p, bc, c)
+}
+
+func (g *promptErrGuard) LabelResource(ctx context.Context, n string, a interface{}, bc guard.BackendCaller, c *difc.Capabilities) (*difc.LabeledResource, difc.OperationType, error) {
+	if g.resourceErr != nil {
+		return nil, difc.OperationRead, g.resourceErr
+	}
+	return g.promptDIFCTestGuard.LabelResource(ctx, n, a, bc, c)
+}
+
+func (g *promptErrGuard) LabelResponse(ctx context.Context, n string, r interface{}, bc guard.BackendCaller, c *difc.Capabilities) (difc.LabeledData, error) {
+	if g.responseErr != nil {
+		return nil, g.responseErr
+	}
+	return g.promptDIFCTestGuard.LabelResponse(ctx, n, r, bc, c)
+}
+
+func TestCallBackendPrompt_GuardFailures(t *testing.T) {
+	messages := []map[string]interface{}{{
+		"role":    "user",
+		"content": map[string]interface{}{"type": "text", "text": "hello"},
+	}}
+	tests := []struct {
+		name    string
+		guard   *promptErrGuard
+		wantErr string
+		wantGet int32
+	}{
+		{
+			name:    "guard session initialization failure",
+			guard:   &promptErrGuard{promptDIFCTestGuard: &promptDIFCTestGuard{mode: difc.EnforcementStrict}, agentErr: errors.New("label agent boom")},
+			wantErr: "guard session initialization failed",
+		},
+		{
+			name:    "resource labeling failure prevents backend call",
+			guard:   &promptErrGuard{promptDIFCTestGuard: &promptDIFCTestGuard{mode: difc.EnforcementStrict}, resourceErr: errors.New("label resource boom")},
+			wantErr: "guard labeling failed",
+		},
+		{
+			name:    "response labeling failure",
+			guard:   &promptErrGuard{promptDIFCTestGuard: &promptDIFCTestGuard{mode: difc.EnforcementStrict}, responseErr: errors.New("label response boom")},
+			wantErr: "response labeling failed",
+			wantGet: 1,
+		},
+	}
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var getCount atomic.Int32
+			backend := newPromptDIFCBackend(t, "p", map[string]interface{}{"messages": messages}, &getCount)
+			defer backend.Close()
+			us, _ := newPromptDIFCTestServer(t, backend.URL, nil, tt.guard)
+			ctx := promptCallContext("guard-failure-" + string(rune('a'+i)))
+			require.NoError(t, us.requireSession(ctx))
+
+			result, err := us.callBackendPrompt(ctx, "prompts-server", "p", nil)
+
+			require.Error(t, err)
+			assert.Nil(t, result)
+			assert.Contains(t, err.Error(), tt.wantErr)
+			assert.Equal(t, tt.wantGet, getCount.Load())
+		})
+	}
 }
