@@ -85,10 +85,10 @@
       "version": "v7.4.0",
       "sha": "c3c9e263c25d99ce0380d002d59b67737d91b0dc"
     },
-    "docker/login-action@v4.6.0": {
+    "docker/login-action@v4.7.0": {
       "repo": "docker/login-action",
-      "version": "v4.6.0",
-      "sha": "dbcb813823bdd20940b903addbd779551569679f"
+      "version": "v4.7.0",
+      "sha": "81c6f93d4bc991e510b342a00b419b3bb4efc5c6"
     },
     "docker/setup-buildx-action@v4.4.1": {
       "repo": "docker/setup-buildx-action",
@@ -110,15 +110,15 @@
       "version": "v4.39.1",
       "sha": "9b3254085494b55a0f7c4c2b3d2d52cc712ce370"
     },
-    "github/gh-aw-actions/setup-cli@v0.93.2": {
+    "github/gh-aw-actions/setup-cli@v0.93.3": {
       "repo": "github/gh-aw-actions/setup-cli",
-      "version": "v0.93.2",
-      "sha": "d9128eb3ea40c18b77c76184eda03c0ff2608d79"
+      "version": "v0.93.3",
+      "sha": "e89a5670dc4c790b37ade361215b8d72d8ce8942"
     },
-    "github/gh-aw-actions/setup@v0.93.2": {
+    "github/gh-aw-actions/setup@v0.93.3": {
       "repo": "github/gh-aw-actions/setup",
-      "version": "v0.93.2",
-      "sha": "d9128eb3ea40c18b77c76184eda03c0ff2608d79"
+      "version": "v0.93.3",
+      "sha": "e89a5670dc4c790b37ade361215b8d72d8ce8942"
     },
     "haskell-actions/setup@v2.12.1": {
       "repo": "haskell-actions/setup",
@@ -130,10 +130,10 @@
       "version": "v2.2.0",
       "sha": "0c5077e51419868618aeaa5fe8019c62421857d6"
     },
-    "ruby/setup-ruby@v1.334.0": {
+    "ruby/setup-ruby@v1.335.0": {
       "repo": "ruby/setup-ruby",
-      "version": "v1.334.0",
-      "sha": "26e5b7d197ebf60545ee9667bcbace0be11ccaec"
+      "version": "v1.335.0",
+      "sha": "7f797815d8adceb1c412e7abefdd1ab4abc47a5f"
     }
   },
   "containers": {
