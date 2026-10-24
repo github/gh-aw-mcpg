@@ -263,7 +263,7 @@ func TestNormalizeGuardPolicy_ScopeInvalidString(t *testing.T) {
 	}
 	_, err := NormalizeGuardPolicy(p)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "'all' or 'public'")
+	assert.Contains(t, err.Error(), "is invalid")
 }
 
 func TestNormalizeGuardPolicy_ScopeArray(t *testing.T) {
@@ -612,4 +612,30 @@ func TestNormalizeAndValidateScopeArray_TrimmedDuplicates(t *testing.T) {
 	_, err := normalizeAndValidateScopeArray([]interface{}{"github/repo", " github/repo "})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicates")
+}
+
+func TestNormalizeGuardPolicy_ScalarRepoScopes(t *testing.T) {
+	tests := []struct {
+		name  string
+		repos interface{}
+		want  []string
+	}{
+		{"single repo", "Owner/Repo", []string{"owner/repo"}},
+		{"wildcard", "owner/re*", []string{"owner/re*"}},
+		{"comma separated", "b/two,a/one", []string{"a/one", "b/two"}},
+		{"array entry with multiple scopes", []interface{}{"a/one, b/two", "c/*"}, []string{"a/one", "b/two", "c/*"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NormalizeGuardPolicy(&GuardPolicy{AllowOnly: &AllowOnlyPolicy{Repos: tt.repos, MinIntegrity: "none"}})
+			require.NoError(t, err)
+			assert.Equal(t, "scoped", got.ScopeKind)
+			assert.Equal(t, tt.want, got.ScopeValues)
+		})
+	}
+
+	for _, bad := range []interface{}{"a/one,,all", "a/one,a/one", "a/one,bad", ",", 5} {
+		_, err := NormalizeGuardPolicy(&GuardPolicy{AllowOnly: &AllowOnlyPolicy{Repos: bad, MinIntegrity: "none"}})
+		assert.Error(t, err, "%v should be rejected", bad)
+	}
 }

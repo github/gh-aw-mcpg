@@ -123,7 +123,7 @@ func TestNormalizeGuardPolicy(t *testing.T) {
 				Repos:        "private",
 				MinIntegrity: "none",
 			}},
-			wantErr: "allow-only.repos string must be 'all' or 'public'",
+			wantErr: "is invalid; expected public",
 		},
 		{
 			name: "repos array with valid scopes sorted",
@@ -1056,7 +1056,7 @@ func TestParseGuardPolicyJSONComprehensive(t *testing.T) {
 		{
 			name:    "valid JSON but invalid policy structure",
 			input:   `{"allow-only":{"repos":"private","min-integrity":"none"}}`,
-			wantErr: "allow-only.repos string must be 'all' or 'public'",
+			wantErr: "is invalid; expected public",
 		},
 		{
 			name:    "valid JSON but invalid min-integrity",

@@ -92,7 +92,7 @@ func TestParsePolicyMap(t *testing.T) {
 					"min-integrity": "none",
 				},
 			},
-			wantErr: "allow-only.repos string must be 'all' or 'public'",
+			wantErr: "is invalid; expected public",
 		},
 		{
 			name: "allow-only with invalid min-integrity returns error",
@@ -298,7 +298,7 @@ func TestParseServerGuardPolicy(t *testing.T) {
 					"min-integrity": "none",
 				},
 			},
-			wantErr: "allow-only.repos string must be 'all' or 'public'",
+			wantErr: "is invalid; expected public",
 		},
 		{
 			name:     "server-id nested value is not a map returns error",
@@ -319,7 +319,7 @@ func TestParseServerGuardPolicy(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "allow-only.repos string must be 'all' or 'public'",
+			wantErr: "is invalid; expected public",
 		},
 		// ── multiple keys with no direct match returns nil ─────────────────────────
 		{

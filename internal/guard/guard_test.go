@@ -1334,7 +1334,8 @@ func TestIsValidAllowOnlyRepos(t *testing.T) {
 		{name: "string private", input: "private", want: false},
 		{name: "string empty", input: "", want: false},
 		{name: "string whitespace only", input: "   ", want: false},
-		{name: "string random", input: "owner/repo", want: false},
+		{name: "string random", input: "not-a-scope", want: false},
+		{name: "string single repo scope", input: "owner/repo", want: true},
 		// Valid arrays
 		{name: "array with one string", input: []interface{}{"owner/repo"}, want: true},
 		{name: "array with multiple strings", input: []interface{}{"owner/repo1", "owner/repo2"}, want: true},

@@ -418,6 +418,13 @@ labels aligned with accepted write-sink tags. For example,
 broadening the exact repository boundary. Visibility prefixes must remain
 lowercase; dynamic and delegated selectors remain strict.
 
+`allow-only.repos` accepts `"all"`, `"public"`, a single scope string
+(`"owner/repo"`), or an array of scopes. Each string (scalar or array entry) may
+also hold several scopes separated by commas or whitespace, so a runtime-expanded
+GitHub Actions expression like `"owner/a,owner/b"` works. Every expanded scope is
+validated individually; empty, duplicate, malformed, or `all`-combined results
+are rejected.
+
 #### sink-visibility (CRITICAL for security)
 
 The `sink-visibility` field declares the visibility of the output channel's target

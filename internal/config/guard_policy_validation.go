@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/github/gh-aw-mcpg/internal/reposelector"
 	"github.com/github/gh-aw-mcpg/internal/util"
@@ -197,7 +198,13 @@ func NormalizeGuardPolicy(policy *GuardPolicy) (*NormalizedGuardPolicy, error) {
 	case string:
 		scopeValue := util.NormalizeStringCI(scope)
 		if scopeValue != "all" && scopeValue != "public" {
-			return nil, fmt.Errorf("allow-only.repos string must be 'all' or 'public'")
+			scopes, err := normalizeAndValidateScopeArray([]interface{}{scope})
+			if err != nil {
+				return nil, err
+			}
+			normalized.ScopeKind = "scoped"
+			normalized.ScopeValues = scopes
+			return normalized, nil
 		}
 		normalized.ScopeKind = scopeValue
 		logGuardPolicy.Printf("Guard policy normalized: scopeKind=%s, integrity=%s", normalized.ScopeKind, normalized.MinIntegrity)
@@ -241,10 +248,34 @@ func ValidateAndNormalizeIntegrityField(fieldPath, raw string, optional bool) (s
 	return v, nil
 }
 
+// expandScopeStrings splits string entries holding several scopes separated by
+// commas or whitespace (e.g. the runtime value of a GitHub Actions expression).
+// Non-string and blank entries are kept so validation reports them.
+func expandScopeStrings(scopes []interface{}) []interface{} {
+	out := make([]interface{}, 0, len(scopes))
+	for _, v := range scopes {
+		str, ok := v.(string)
+		if !ok {
+			out = append(out, v)
+			continue
+		}
+		parts := strings.FieldsFunc(str, func(r rune) bool { return r == ',' || unicode.IsSpace(r) })
+		if len(parts) == 0 {
+			out = append(out, str)
+			continue
+		}
+		for _, p := range parts {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 func normalizeAndValidateScopeArray(scopes []interface{}) ([]string, error) {
 	if len(scopes) == 0 {
 		return nil, fmt.Errorf("allow-only.repos array must contain at least one scope")
 	}
+	scopes = expandScopeStrings(scopes)
 	logGuardPolicy.Printf("normalizeAndValidateScopeArray: validating %d repo scope entries", len(scopes))
 
 	if err := util.ValidateUnique(scopes, func(scopeValue interface{}) error {
@@ -408,7 +439,11 @@ func IsValidAllowOnlyReposValue(repos interface{}) bool {
 	switch value := repos.(type) {
 	case string:
 		trimmed := util.NormalizeStringCI(value)
-		return trimmed == "all" || trimmed == "public"
+		if trimmed == "all" || trimmed == "public" {
+			return true
+		}
+		_, err := normalizeAndValidateScopeArray([]interface{}{value})
+		return err == nil
 	case []interface{}:
 		_, err := normalizeAndValidateScopeArray(value)
 		return err == nil
@@ -424,7 +459,7 @@ func NormalizeAllowOnlyReposValue(repos interface{}) (interface{}, error) {
 	case string:
 		normalized := util.NormalizeStringCI(value)
 		if normalized != "all" && normalized != "public" {
-			return nil, fmt.Errorf("allow-only.repos string must be 'all' or 'public'")
+			return normalizeAndValidateScopeArray([]interface{}{value})
 		}
 		return normalized, nil
 	case []interface{}:

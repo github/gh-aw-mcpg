@@ -16,8 +16,10 @@ func TestNormalizeAllowOnlyReposValue(t *testing.T) {
 	}{
 		{"string all", "all", "all", ""},
 		{"string public mixed case with spaces", "  PuBlic ", "public", ""},
-		{"string invalid", "owner/repo", nil, "must be 'all' or 'public'"},
-		{"empty string", "", nil, "must be 'all' or 'public'"},
+		{"string single repo scope", "Owner/Repo", []string{"owner/repo"}, ""},
+		{"string multiple scopes", "a/b, c/d e/*", []string{"a/b", "c/d", "e/*"}, ""},
+		{"string invalid", "not-a-scope", nil, "is invalid"},
+		{"empty string", "", nil, "repos is required"},
 		{"interface slice sorted and lowercased", []interface{}{"Org/Repo", " acme/* "}, []string{"acme/*", "org/repo"}, ""},
 		{"interface slice with public", []interface{}{"public"}, []string{"public"}, ""},
 		{"string slice", []string{"Zed/b", "alpha/a*"}, []string{"alpha/a*", "zed/b"}, ""},
