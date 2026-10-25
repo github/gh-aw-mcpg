@@ -212,6 +212,24 @@ func TestMatchGraphQL_OrganizationRepositoryFieldsAreParsedRecursively(t *testin
 	}
 }
 
+func TestMatchGraphQL_UsesSelectedOperationForOrganizationScope(t *testing.T) {
+	body, err := json.Marshal(GraphQLRequest{
+		OperationName: "Org",
+		Query:         `query Org { organization(login: "org") { name } } query Other { repository(owner: "wrong", name: "repo") { description } }`,
+	})
+	require.NoError(t, err)
+
+	match := MatchGraphQL(body)
+	require.NotNil(t, match)
+	assert.Equal(t, "graphql_organization", match.ToolName)
+	assert.Equal(t, []string{"organization"}, match.Args["graphql_root_fields"])
+	hasRepositoryFields, ok := match.Args["graphql_has_repository_fields"].(bool)
+	require.True(t, ok)
+	assert.False(t, hasRepositoryFields)
+	assert.NotContains(t, match.Args, "owner")
+	assert.NotContains(t, match.Args, "repo")
+}
+
 func TestMatchGraphQL_HistoryUsesConservativeRef(t *testing.T) {
 	tests := []struct {
 		name  string

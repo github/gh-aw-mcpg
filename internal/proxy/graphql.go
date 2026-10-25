@@ -96,7 +96,7 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 	// These sensitive/safe classifications require parsing the top-level
 	// selection set, rather than matching arbitrary query text.
 	var toolName string
-	rootFields, hasRepositoryFields, parsedRootFields := graphqlRootFields(gql.Query, gql.OperationName)
+	rootFields, hasRepositoryFields, operationQuery, parsedRootFields := graphqlRootFields(gql.Query, gql.OperationName)
 	if !parsedRootFields && graphqlOrganizationPattern.MatchString(gql.Query) {
 		logGraphQL.Print("unparseable organization GraphQL query, blocking request")
 		return nil
@@ -142,7 +142,11 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 	}
 
 	// Extract owner/repo from variables
-	owner, repo := extractOwnerRepo(gql.Variables, gql.Query)
+	ownerRepoQuery := gql.Query
+	if parsedRootFields {
+		ownerRepoQuery = operationQuery
+	}
+	owner, repo := extractOwnerRepo(gql.Variables, ownerRepoQuery)
 
 	args := map[string]interface{}{}
 	if owner != "" {
@@ -178,32 +182,36 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 }
 
 // graphqlRootFields returns the root fields of the selected query operation.
-func graphqlRootFields(query, operationName string) ([]string, bool, bool) {
+func graphqlRootFields(query, operationName string) ([]string, bool, string, bool) {
 	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, 100000)
 	if err != nil || doc == nil || len(doc.Operations) == 0 {
-		return nil, false, false
+		return nil, false, "", false
 	}
 	var operation *ast.OperationDefinition
 	if operationName == "" {
 		if len(doc.Operations) != 1 {
-			return nil, false, false
+			return nil, false, "", false
 		}
 		operation = doc.Operations[0]
 	} else {
 		for _, candidate := range doc.Operations {
 			if candidate.Name == operationName {
 				if operation != nil {
-					return nil, false, false
+					return nil, false, "", false
 				}
 				operation = candidate
 			}
 		}
 	}
 	if operation == nil {
-		return nil, false, false
+		return nil, false, "", false
 	}
 	if operation.Operation != ast.Query {
-		return nil, false, false
+		return nil, false, "", false
+	}
+	operationQuery, ok := graphqlOperationText(query, operation, doc)
+	if !ok {
+		return nil, false, "", false
 	}
 
 	fields := make([]string, 0, len(operation.SelectionSet))
@@ -215,7 +223,35 @@ func graphqlRootFields(query, operationName string) ([]string, bool, bool) {
 			fields = append(fields, "...")
 		}
 	}
-	return fields, graphqlHasRepositoryFields(operation.SelectionSet, doc.Fragments), len(fields) != 0
+	return fields, graphqlHasRepositoryFields(operation.SelectionSet, doc.Fragments), operationQuery, len(fields) != 0
+}
+
+func graphqlOperationText(
+	query string,
+	operation *ast.OperationDefinition,
+	doc *ast.QueryDocument,
+) (string, bool) {
+	if operation.Position == nil {
+		return "", false
+	}
+	source := []rune(query)
+	start := operation.Position.Start
+	if start < 0 || start >= len(source) {
+		return "", false
+	}
+	end := len(source)
+	for _, candidate := range doc.Operations {
+		if candidate != operation && candidate.Position != nil &&
+			candidate.Position.Start > start && candidate.Position.Start < end {
+			end = candidate.Position.Start
+		}
+	}
+	for _, fragment := range doc.Fragments {
+		if fragment.Position != nil && fragment.Position.Start > start && fragment.Position.Start < end {
+			end = fragment.Position.Start
+		}
+	}
+	return string(source[start:end]), true
 }
 
 func graphqlHasRepositoryFields(
