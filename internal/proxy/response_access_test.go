@@ -32,6 +32,9 @@ func TestProxyOpaqueResponseAccess(t *testing.T) {
 		{"log redirect", "/repos/org/repo/actions/jobs/1/logs", "text/plain", "download", http.StatusFound, "https://downloads.example.test/logs"},
 		{"artifact", "/repos/org/repo/actions/artifacts/1/zip", "application/zip", "PK\x03\x04\x00\xff", http.StatusOK, ""},
 		{"artifact redirect", "/repos/org/repo/actions/artifacts/1/zip", "text/plain", "download", http.StatusFound, "https://downloads.example.test/artifact"},
+		{"artifact error", "/repos/org/repo/actions/artifacts/1/zip", "application/json", `{"message":"artifact error marker"}`, http.StatusNotFound, ""},
+		{"client error", "/repos/org/repo/issues", "application/json", `{"message":"client error marker"}`, http.StatusNotFound, ""},
+		{"server error", "/repos/org/repo/issues", "application/json", `{"message":"server error marker"}`, http.StatusInternalServerError, ""},
 	}
 	accessCases := []struct {
 		name    string
@@ -69,9 +72,8 @@ func TestProxyOpaqueResponseAccess(t *testing.T) {
 					s.httpClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
 						return http.ErrUseLastResponse
 					}
-					h := &proxyHandler{server: s}
 					w := httptest.NewRecorder()
-					h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, format.path, nil))
+					s.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, format.path, nil))
 
 					if !access.allowed {
 						assert.Equal(t, http.StatusForbidden, w.Code)
@@ -80,7 +82,7 @@ func TestProxyOpaqueResponseAccess(t *testing.T) {
 						if format.body != "" {
 							assert.NotContains(t, w.Body.String(), format.body)
 						}
-						if format.name == "artifact" || format.name == "artifact redirect" {
+						if format.name == "artifact" || format.name == "artifact redirect" || format.name == "artifact error" {
 							assert.Zero(t, upstreamCalls)
 						}
 						assert.Empty(t, s.AgentRegistry.GetOrCreate(proxyAgentID).GetSecrecyTags())

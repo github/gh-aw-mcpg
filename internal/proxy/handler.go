@@ -346,19 +346,17 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 		return
 	}
 
-	// Redirects cannot be filtered, so they require coarse authorization.
+	// Redirects and errors cannot be filtered, so they require coarse authorization.
 	if resp.StatusCode >= 300 {
-		if resp.StatusCode < 400 {
-			if s.enclave != nil {
-				writeEnclaveDenied(w)
-				return
-			}
-			if !pre.EvalResult.IsAllowed() {
-				writeDIFCForbidden(w, "DIFC policy violation: response requires resource access")
-				return
-			}
-			guard.RunPipelinePhase6(pre, nil, s.Mode)
+		if s.enclave != nil && resp.StatusCode < 400 {
+			writeEnclaveDenied(w)
+			return
 		}
+		if !pre.EvalResult.IsAllowed() {
+			writeDIFCForbidden(w, "DIFC policy violation: response requires resource access")
+			return
+		}
+		guard.RunPipelinePhase6(pre, nil, s.Mode)
 		h.writeResponse(w, r, resp, respBody)
 		return
 	}
