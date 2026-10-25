@@ -38,8 +38,9 @@ type graphqlPattern struct {
 // graphqlPatterns is the ordered list of GraphQL operation → tool name mappings.
 var graphqlPatterns = []graphqlPattern{
 	// Schema introspection queries (safe read-only metadata, no repo data)
-	{queryPattern: regexp.MustCompile(`(?i)__type\s*\(`), toolName: "graphql_introspection"},
-	{queryPattern: regexp.MustCompile(`(?i)__schema\b`), toolName: "graphql_introspection"},
+	// Match only introspection-only top-level selection sets to avoid mixed-query misclassification.
+	{queryPattern: regexp.MustCompile(`(?is)^\s*(?:query|mutation|subscription)?\s*(?:[A-Za-z_][A-Za-z0-9_]*)?\s*(?:\([^)]*\)\s*)?\{\s*__type\s*\([^)]*\)\s*(?:\{[\s\S]*\}\s*)?\}\s*$`), toolName: "graphql_introspection"},
+	{queryPattern: regexp.MustCompile(`(?is)^\s*(?:query|mutation|subscription)?\s*(?:[A-Za-z_][A-Za-z0-9_]*)?\s*(?:\([^)]*\)\s*)?\{\s*__schema\b\s*(?:\{[\s\S]*\}\s*)?\}\s*$`), toolName: "graphql_introspection"},
 
 	// Issue operations (singular before plural — more specific first)
 	{queryPattern: regexp.MustCompile(`(?i)repository\s*\([^)]*\)\s*\{[^}]*\bissue\s*\(`), toolName: "issue_read"},
