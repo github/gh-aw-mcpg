@@ -108,10 +108,11 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 			toolName = "graphql_introspection"
 		} else {
 			for _, field := range rootFields {
-				if field == "organization" {
+				switch field {
+				case "organization":
 					hasOrganizationRoot = true
 					toolName = "graphql_organization"
-				} else if field == "..." {
+				case "...":
 					hasFragmentRoot = true
 				}
 			}
