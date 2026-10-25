@@ -3,9 +3,12 @@ package proxy
 import (
 	"compress/gzip"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/stretchr/testify/assert"
@@ -24,6 +27,8 @@ func TestProxyOpaqueResponseAccess(t *testing.T) {
 		{"job logs", "/repos/org/repo/actions/jobs/1/logs", "text/plain; charset=utf-8", "job output\n", http.StatusOK, ""},
 		{"run logs", "/repos/org/repo/actions/runs/1/logs", "application/zip", "PK\x03\x04\x00\xff", http.StatusOK, ""},
 		{"raw file", "/repos/org/repo/contents/file.txt", "application/vnd.github.raw", "file contents\n", http.StatusOK, ""},
+		{"raw JSON media type", "/repos/org/repo/contents/file.txt", "application/vnd.github.raw+json", "not a JSON document\n", http.StatusOK, ""},
+		{"JSON-looking raw file", "/repos/org/repo/contents/file.txt", "application/vnd.github.raw+json", `{"raw":true}`, http.StatusOK, ""},
 		{"JSON-looking text", "/repos/org/repo/contents/file.txt", "text/plain", " { \"value\": 1 }\n", http.StatusOK, ""},
 		{"diff", "/repos/org/repo/pulls/1", "application/vnd.github.diff", "diff --git a/file b/file\n", http.StatusOK, ""},
 		{"binary", "/repos/org/repo/contents/file.bin", "application/octet-stream", "\x00\xff\x01", http.StatusOK, ""},
@@ -96,6 +101,128 @@ func TestProxyOpaqueResponseAccess(t *testing.T) {
 					assert.Equal(t, 1, upstreamCalls)
 					assert.Contains(t, s.AgentRegistry.GetOrCreate(proxyAgentID).GetSecrecyTags(), difc.Tag("private:test-org/test-repo"))
 				})
+			}
+		})
+	}
+}
+
+func TestProxyBodylessEncodedResponse(t *testing.T) {
+	for _, status := range []int{http.StatusNoContent, http.StatusResetContent} {
+		for _, encoding := range []string{"gzip", "br"} {
+			for _, allowed := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%d/%s/allowed=%t", status, encoding, allowed), func(t *testing.T) {
+					upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+						w.Header().Set("Content-Type", "application/json")
+						w.Header().Set("Content-Encoding", encoding)
+						w.WriteHeader(status)
+					}))
+					defer upstream.Close()
+					g := &stubGuard{labelResourceResult: privateResource(), labelResourceOp: difc.OperationRead}
+					s := newTestServerWithStub(t, upstream.URL, g, difc.EnforcementFilter)
+					if allowed {
+						s = newTestServerWithPrivateAgent(t, upstream.URL, g, difc.EnforcementFilter)
+					}
+					// Keep the transport from trying to decode a bodyless gzip response.
+					s.httpClient.Transport = &http.Transport{DisableCompression: true}
+					w := httptest.NewRecorder()
+					s.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/repos/org/repo/contents/file.txt", nil))
+					if allowed {
+						assert.Equal(t, status, w.Code)
+						assert.Empty(t, w.Body.String())
+					} else {
+						assert.Equal(t, http.StatusForbidden, w.Code)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestProxyDeniedRateLimitResponse(t *testing.T) {
+	for _, status := range []int{http.StatusTooManyRequests, http.StatusForbidden} {
+		for _, retryAfter := range []string{"", "75"} {
+			t.Run(fmt.Sprintf("%d/retry=%s", status, retryAfter), func(t *testing.T) {
+				headers := map[string]string{
+					"X-RateLimit-Limit": "5000", "X-RateLimit-Remaining": "0",
+					"X-RateLimit-Reset":    strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10),
+					"X-RateLimit-Resource": "core", "X-RateLimit-Used": "5000",
+				}
+				upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					for name, value := range headers {
+						w.Header().Set(name, value)
+					}
+					w.Header().Set("Retry-After", retryAfter)
+					w.Header().Set("Location", "https://example.test/private")
+					w.Header().Set("Link", "<https://example.test/private>; rel=next")
+					w.Header().Set("Content-Disposition", `attachment; filename="private"`)
+					w.WriteHeader(status)
+					_, err := w.Write([]byte("upstream body marker"))
+					assert.NoError(t, err)
+				}))
+				defer upstream.Close()
+				g := &stubGuard{labelResourceResult: privateResource(), labelResourceOp: difc.OperationRead}
+				s := newTestServerWithStub(t, upstream.URL, g, difc.EnforcementFilter)
+				w := httptest.NewRecorder()
+				s.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/repos/org/repo/issues", nil))
+				assert.Equal(t, http.StatusForbidden, w.Code)
+				assert.NotContains(t, w.Body.String(), "upstream body marker")
+				for name, value := range headers {
+					assert.Equal(t, value, w.Header().Get(name))
+				}
+				if retryAfter != "" {
+					assert.Equal(t, retryAfter, w.Header().Get("Retry-After"))
+				} else {
+					seconds, err := strconv.Atoi(w.Header().Get("Retry-After"))
+					require.NoError(t, err)
+					assert.Positive(t, seconds)
+				}
+				for _, name := range []string{"Location", "Link", "Content-Disposition"} {
+					assert.Empty(t, w.Header().Get(name))
+				}
+			})
+		}
+	}
+}
+
+func TestProxyResponseDenialTracing(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		path   string
+		status int
+	}{
+		{"artifact", "/repos/org/repo/actions/artifacts/1/zip", http.StatusOK},
+		{"error", "/repos/org/repo/issues", http.StatusNotFound},
+		{"opaque", "/repos/org/repo/contents/file.txt", http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "text/plain")
+				w.WriteHeader(tc.status)
+				_, err := w.Write([]byte("private marker"))
+				assert.NoError(t, err)
+			}))
+			defer upstream.Close()
+			g := &stubGuard{labelResourceResult: privateResource(), labelResourceOp: difc.OperationRead}
+			s := newTestServerWithStub(t, upstream.URL, g, difc.EnforcementFilter)
+			h, spans := newRecordingProxyHandler(t, s)
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, tc.path, nil))
+			require.Equal(t, http.StatusForbidden, w.Code)
+			recorded := spans()
+			pipeline := spanByName(recorded, "proxy.difc_pipeline")
+			require.NotNil(t, pipeline)
+			assert.Equal(t, "Error", pipeline.Status.Code.String())
+			foundDenial := false
+			for _, event := range pipeline.Events {
+				if event.Name == "difc.access_denied" {
+					foundDenial = true
+				}
+			}
+			assert.True(t, foundDenial, "denial must be recorded as a span event")
+			if tc.name == "artifact" {
+				assert.Nil(t, spanByName(recorded, "proxy.backend.forward"))
+			} else {
+				assert.NotNil(t, spanByName(recorded, "proxy.backend.forward"))
 			}
 		})
 	}

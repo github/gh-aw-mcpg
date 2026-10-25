@@ -290,15 +290,7 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 			return
 		}
 		if denied, _ := guard.HandlePrePhaseError(err); denied != nil {
-			logHandler.Printf("[DIFC] Phase 2: BLOCKED %s %s — %s", r.Method, path, denied.EvalResult.Reason)
-			deniedErr := fmt.Errorf("DIFC policy violation: %s", denied.EvalResult.Reason)
-			if difcSpan.IsRecording() {
-				difcSpan.AddEvent("difc.access_denied", oteltrace.WithAttributes(
-					attribute.String("reason", denied.EvalResult.Reason),
-				))
-			}
-			tracing.RecordSpanError(difcSpan, deniedErr, "access denied: "+denied.EvalResult.Reason)
-			writeDIFCForbidden(w, deniedErr.Error())
+			h.denyResponseAccess(w, r, difcSpan, denied.EvalResult.Reason)
 			return
 		}
 		rejectProxyRequest(w, difcSpan, http.StatusBadGateway, "bad_gateway", "resource labeling failed", err)
@@ -309,6 +301,10 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 	}
 
 	// **Phase 3: Forward to upstream GitHub API**
+	if isArtifactDownload(toolName, args) && !pre.EvalResult.IsAllowed() {
+		h.denyResponseAccess(w, r, difcSpan, "response requires resource access")
+		return
+	}
 	var resp *http.Response
 	var respBody []byte
 
@@ -318,10 +314,6 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 	// Artifact ZIP downloads are streamed directly to the client after the authorization
 	// check to avoid buffering potentially large binary responses in memory via io.ReadAll.
 	if isArtifactDownload(toolName, args) {
-		if !pre.EvalResult.IsAllowed() {
-			writeDIFCForbidden(w, "DIFC policy violation: response requires resource access")
-			return
-		}
 		if !h.streamArtifactResponse(w, r, path, fwdCtx, difcSpan, fwdSpan, clientAuth) {
 			tracing.RecordSpanError(difcSpan, errors.New("upstream request failed"), "upstream request failed")
 			return
@@ -353,7 +345,21 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 			return
 		}
 		if !pre.EvalResult.IsAllowed() {
-			writeDIFCForbidden(w, "DIFC policy violation: response requires resource access")
+			if limited, _, _ := githubhttp.RateLimitSignal(resp); limited {
+				for _, name := range []string{
+					"X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset",
+					"X-RateLimit-Resource", "X-RateLimit-Used",
+				} {
+					if value := resp.Header.Get(name); value != "" {
+						w.Header().Set(name, value)
+					}
+				}
+				injectRetryAfterIfRateLimited(w, resp)
+				if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+					w.Header().Set("Retry-After", retryAfter)
+				}
+			}
+			h.denyResponseAccess(w, r, difcSpan, "response requires resource access")
 			return
 		}
 		guard.RunPipelinePhase6(pre, nil, s.Mode)
@@ -363,15 +369,16 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 
 	// The HTTP transport normally decodes gzip. Residual encodings cannot be
 	// inspected and must not be treated as opaque, non-JSON responses.
-	if encoding := resp.Header.Get("Content-Encoding"); encoding != "" && !strings.EqualFold(strings.TrimSpace(encoding), "identity") {
+	bodyless := resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusResetContent
+	if encoding := resp.Header.Get("Content-Encoding"); !bodyless && encoding != "" && !strings.EqualFold(strings.TrimSpace(encoding), "identity") {
 		rejectProxyRequest(w, difcSpan, http.StatusBadGateway, "bad_gateway", "unsupported upstream response encoding", nil)
 		return
 	}
 
 	// Parse the response as JSON for DIFC filtering
 	mediaType, _, mediaErr := mime.ParseMediaType(resp.Header.Get("Content-Type"))
-	isJSON := mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
-	bodyless := resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusResetContent
+	isRaw := mediaType == "application/vnd.github.raw" || mediaType == "application/vnd.github.raw+json"
+	isJSON := !isRaw && (mediaType == "application/json" || strings.HasSuffix(mediaType, "+json"))
 	opaque := graphQLBody == nil && mediaErr == nil && !isJSON
 	var responseData interface{}
 	if err := json.Unmarshal(respBody, &responseData); err != nil || opaque || bodyless {
@@ -387,7 +394,7 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 		}
 		// Supported opaque responses have no per-item labels to filter.
 		if !pre.EvalResult.IsAllowed() {
-			writeDIFCForbidden(w, "DIFC policy violation: response requires resource access")
+			h.denyResponseAccess(w, r, difcSpan, "response requires resource access")
 			return
 		}
 		guard.RunPipelinePhase6(pre, nil, s.Mode)
@@ -506,6 +513,15 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 		copyResponseHeaders(w, r, resp, h.server.githubAPIURL)
 		httputil.WriteJSONResponse(w, resp.StatusCode, json.RawMessage(filteredJSON))
 	}
+}
+
+func (h *proxyHandler) denyResponseAccess(w http.ResponseWriter, r *http.Request, span oteltrace.Span, reason string) {
+	logHandler.Printf("[DIFC] BLOCKED %s %s: %s", r.Method, h.server.logSafePath(r.URL.Path), reason)
+	logger.LogWarn("proxy", "DIFC access denied: %s %s: %s", r.Method, h.server.logSafePath(r.URL.Path), reason)
+	span.AddEvent("difc.access_denied", oteltrace.WithAttributes(attribute.String("reason", reason)))
+	deniedErr := fmt.Errorf("DIFC policy violation: %s", reason)
+	tracing.RecordSpanError(span, deniedErr, "access denied: "+reason)
+	writeDIFCForbidden(w, deniedErr.Error())
 }
 
 // passthrough forwards a request to the upstream GitHub API without DIFC filtering.
