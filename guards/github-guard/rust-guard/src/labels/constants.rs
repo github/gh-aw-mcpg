@@ -253,6 +253,8 @@ mod tests {
             "list_repository_collaborators"
         );
         assert_eq!(tool_names::SEARCH_USERS, "search_users");
+        assert_eq!(tool_names::SEARCH_ORGS, "search_orgs");
+        assert_eq!(tool_names::GRAPHQL_ORGANIZATION, "graphql_organization");
         assert_eq!(
             UI_GET_REPO_SCOPED_METHODS,
             &["labels", "milestones", "branches"]
@@ -423,6 +425,13 @@ pub mod tool_names {
     pub const LIST_PULL_REQUESTS_FF_FIELDS_PARAM: &str = "list_pull_requests_ff_fields_param";
     pub const GET_FILE_CONTENTS: &str = "get_file_contents";
     pub const GET_FILE_CONTENTS_FF_FIELDS_PARAM: &str = "get_file_contents_ff_fields_param";
+    pub const GET_REPOSITORY_TREE: &str = "get_repository_tree";
+    pub const GET_LABEL: &str = "get_label";
+    pub const LIST_LABEL: &str = "list_label";
+    pub const GET_COPILOT_SPACE: &str = "get_copilot_space";
+    pub const LIST_STARRED_REPOSITORIES: &str = "list_starred_repositories";
+    pub const SEARCH_ORGS: &str = "search_orgs";
+    pub const GRAPHQL_ORGANIZATION: &str = "graphql_organization";
     pub const GET_COMMIT: &str = "get_commit";
     pub const LIST_COMMITS: &str = "list_commits";
     pub const LIST_COMMITS_FF_FIELDS_PARAM: &str = "list_commits_ff_fields_param";

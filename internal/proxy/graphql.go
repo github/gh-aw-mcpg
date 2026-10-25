@@ -7,6 +7,8 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/util"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 var logGraphQL = logger.ForFile()
@@ -37,10 +39,6 @@ type graphqlPattern struct {
 
 // graphqlPatterns is the ordered list of GraphQL operation → tool name mappings.
 var graphqlPatterns = []graphqlPattern{
-	// Schema introspection queries (safe read-only metadata, no repo data)
-	{queryPattern: regexp.MustCompile(`(?i)__type\s*\(`), toolName: "graphql_introspection"},
-	{queryPattern: regexp.MustCompile(`(?i)__schema\b`), toolName: "graphql_introspection"},
-
 	// Issue operations (singular before plural — more specific first)
 	{queryPattern: regexp.MustCompile(`(?i)repository\s*\([^)]*\)\s*\{[^}]*\bissue\s*\(`), toolName: "issue_read"},
 	{queryPattern: regexp.MustCompile(`(?i)repository\s*\([^)]*\)\s*\{[^}]*\bissues\s*[\({]`), toolName: "list_issues"},
@@ -66,14 +64,13 @@ var graphqlPatterns = []graphqlPattern{
 	// Viewer / user profile
 	{queryPattern: regexp.MustCompile(`(?i)\bviewer\s*\{`), toolName: "get_me"},
 
-	// Organization queries
-	{queryPattern: regexp.MustCompile(`(?i)\borganization\s*\(`), toolName: "search_orgs"},
-
 	// Repository info (catch-all for repo-scoped queries)
 	{queryPattern: regexp.MustCompile(`(?i)\brepository\s*\(`), toolName: "get_file_contents"},
 
 	// Unknown GraphQL queries are blocked by the handler.
 }
+
+var graphqlOrganizationPattern = regexp.MustCompile(`(?i)\borganization\s*\(`)
 
 // ownerRepoPattern extracts owner and repo from GraphQL variables or query text.
 var (
@@ -96,16 +93,47 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 		return nil
 	}
 
-	// Match the query against known patterns
+	// These sensitive/safe classifications require parsing the top-level
+	// selection set, rather than matching arbitrary query text.
 	var toolName string
-	for _, p := range graphqlPatterns {
-		if p.namePattern != nil {
-			// Not currently used but available for operation name matching
-			continue
+	rootFields, hasRepositoryFields, operationQuery, parsedRootFields := graphqlRootFields(gql.Query, gql.OperationName)
+	if !parsedRootFields && graphqlOrganizationPattern.MatchString(gql.Query) {
+		logGraphQL.Print("unparseable organization GraphQL query, blocking request")
+		return nil
+	}
+	if parsedRootFields {
+		hasOrganizationRoot := false
+		hasFragmentRoot := false
+		if len(rootFields) == 1 && (rootFields[0] == "__type" || rootFields[0] == "__schema") {
+			toolName = "graphql_introspection"
+		} else {
+			for _, field := range rootFields {
+				switch field {
+				case "organization":
+					hasOrganizationRoot = true
+					toolName = "graphql_organization"
+				case "...":
+					hasFragmentRoot = true
+				}
+			}
 		}
-		if p.queryPattern != nil && p.queryPattern.MatchString(gql.Query) {
-			toolName = p.toolName
-			break
+		if hasFragmentRoot && !hasOrganizationRoot && graphqlOrganizationPattern.MatchString(gql.Query) {
+			logGraphQL.Print("fragment-based organization GraphQL query, blocking request")
+			return nil
+		}
+	}
+
+	// Match the query against known patterns.
+	if toolName == "" {
+		for _, p := range graphqlPatterns {
+			if p.namePattern != nil {
+				// Not currently used but available for operation name matching
+				continue
+			}
+			if p.queryPattern != nil && p.queryPattern.MatchString(gql.Query) {
+				toolName = p.toolName
+				break
+			}
 		}
 	}
 
@@ -115,7 +143,11 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 	}
 
 	// Extract owner/repo from variables
-	owner, repo := extractOwnerRepo(gql.Variables, gql.Query)
+	ownerRepoQuery := gql.Query
+	if parsedRootFields {
+		ownerRepoQuery = operationQuery
+	}
+	owner, repo := extractOwnerRepo(gql.Variables, ownerRepoQuery)
 
 	args := map[string]interface{}{}
 	if owner != "" {
@@ -123,6 +155,10 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 	}
 	if repo != "" {
 		args["repo"] = repo
+	}
+	if toolName == "graphql_organization" {
+		args["graphql_root_fields"] = rootFields
+		args["graphql_has_repository_fields"] = hasRepositoryFields
 	}
 	if toolName == "list_commits" {
 		// GraphQL history can target arbitrary refs or object expressions.
@@ -144,6 +180,119 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 		Repo:     repo,
 		Args:     args,
 	}
+}
+
+// graphqlRootFields returns the root fields of the selected query operation.
+func graphqlRootFields(query, operationName string) ([]string, bool, string, bool) {
+	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, 100000)
+	if err != nil || doc == nil || len(doc.Operations) == 0 {
+		return nil, false, "", false
+	}
+	var operation *ast.OperationDefinition
+	if operationName == "" {
+		if len(doc.Operations) != 1 {
+			return nil, false, "", false
+		}
+		operation = doc.Operations[0]
+	} else {
+		for _, candidate := range doc.Operations {
+			if candidate.Name == operationName {
+				if operation != nil {
+					return nil, false, "", false
+				}
+				operation = candidate
+			}
+		}
+	}
+	if operation == nil {
+		return nil, false, "", false
+	}
+	if operation.Operation != ast.Query {
+		return nil, false, "", false
+	}
+	operationQuery, ok := graphqlOperationText(query, operation, doc)
+	if !ok {
+		return nil, false, "", false
+	}
+
+	fields := make([]string, 0, len(operation.SelectionSet))
+	for _, selection := range operation.SelectionSet {
+		switch selection := selection.(type) {
+		case *ast.Field:
+			fields = append(fields, selection.Name)
+		default:
+			fields = append(fields, "...")
+		}
+	}
+	return fields, graphqlHasRepositoryFields(operation.SelectionSet, doc.Fragments), operationQuery, len(fields) != 0
+}
+
+func graphqlOperationText(
+	query string,
+	operation *ast.OperationDefinition,
+	doc *ast.QueryDocument,
+) (string, bool) {
+	if operation.Position == nil {
+		return "", false
+	}
+	source := []rune(query)
+	start := operation.Position.Start
+	if start < 0 || start >= len(source) {
+		return "", false
+	}
+	end := len(source)
+	for _, candidate := range doc.Operations {
+		if candidate != operation && candidate.Position != nil &&
+			candidate.Position.Start > start && candidate.Position.Start < end {
+			end = candidate.Position.Start
+		}
+	}
+	for _, fragment := range doc.Fragments {
+		if fragment.Position != nil && fragment.Position.Start > start && fragment.Position.Start < end {
+			end = fragment.Position.Start
+		}
+	}
+	return string(source[start:end]), true
+}
+
+func graphqlHasRepositoryFields(
+	selectionSet ast.SelectionSet,
+	fragments ast.FragmentDefinitionList,
+) bool {
+	fragmentsByName := make(map[string]*ast.FragmentDefinition, len(fragments))
+	for _, fragment := range fragments {
+		fragmentsByName[fragment.Name] = fragment
+	}
+	visitedFragments := make(map[string]bool, len(fragments))
+	var hasRepositoryField func(ast.SelectionSet) bool
+	hasRepositoryField = func(selections ast.SelectionSet) bool {
+		for _, selection := range selections {
+			switch selection := selection.(type) {
+			case *ast.Field:
+				if selection.Name == "repository" || selection.Name == "repositories" {
+					return true
+				}
+				if hasRepositoryField(selection.SelectionSet) {
+					return true
+				}
+			case *ast.InlineFragment:
+				if hasRepositoryField(selection.SelectionSet) {
+					return true
+				}
+			case *ast.FragmentSpread:
+				if visitedFragments[selection.Name] {
+					continue
+				}
+				visitedFragments[selection.Name] = true
+				if fragment := fragmentsByName[selection.Name]; fragment != nil &&
+					hasRepositoryField(fragment.SelectionSet) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return hasRepositoryField(selectionSet)
 }
 
 // extractOwnerRepo extracts owner and repo from GraphQL variables and query text.

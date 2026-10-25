@@ -3296,7 +3296,7 @@ mod tests {
     }
 
     // -------------------------------------------------------------------------
-    // Search: search_orgs
+    // Public organization search
     // -------------------------------------------------------------------------
 
     #[test]
@@ -3317,7 +3317,7 @@ mod tests {
         assert_eq!(
             secrecy,
             vec![] as Vec<String>,
-            "search_orgs must have public (empty) secrecy"
+            "search_orgs returns public profile fields and must not require private:user clearance"
         );
         assert_eq!(
             integrity,

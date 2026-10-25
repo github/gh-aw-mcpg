@@ -105,9 +105,9 @@ func TestMatchGraphQL_Patterns(t *testing.T) {
 			wantToolName: "get_me",
 		},
 		{
-			name:         "search_orgs organization",
+			name:         "graphql_organization organization",
 			query:        `{ organization(login:"myorg") { name } }`,
-			wantToolName: "search_orgs",
+			wantToolName: "graphql_organization",
 		},
 		{
 			name:         "get_file_contents catch-all repository",
@@ -116,7 +116,7 @@ func TestMatchGraphQL_Patterns(t *testing.T) {
 		},
 	}
 
-	assert.Len(t, tests, len(graphqlPatterns), "test table must have one entry per graphqlPattern")
+	assert.Len(t, tests, len(graphqlPatterns)+3, "test table must cover every pattern and special root-field mapping")
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -127,6 +127,107 @@ func TestMatchGraphQL_Patterns(t *testing.T) {
 			assert.Equal(t, tt.wantToolName, result.ToolName)
 		})
 	}
+}
+
+func TestMatchGraphQL_SensitiveRootFieldClassification(t *testing.T) {
+	tests := []struct {
+		name     string
+		query    string
+		wantTool string
+	}{
+		{
+			name:     "mixed introspection and repository is not safe introspection",
+			query:    `{ __schema { types { name } } repository(owner:"o", name:"r") { description } }`,
+			wantTool: "get_file_contents",
+		},
+		{
+			name:     "mixed organization and repository remains organization-sensitive",
+			query:    `{ organization(login:"org") { name } repository(owner:"o", name:"r") { description } }`,
+			wantTool: "graphql_organization",
+		},
+		{
+			name:     "organization token in a string is not a root field",
+			query:    `{ repository(owner:"o", name:"r") { description(arg:"organization(login:") } }`,
+			wantTool: "get_file_contents",
+		},
+		{
+			name:     "organization token in a comment is not a root field",
+			query:    "{ repository(owner:\"o\", name:\"r\") { description } } # organization(login:\"org\")",
+			wantTool: "get_file_contents",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := json.Marshal(GraphQLRequest{Query: tt.query})
+			require.NoError(t, err)
+			match := MatchGraphQL(body)
+			require.NotNil(t, match)
+			assert.Equal(t, tt.wantTool, match.ToolName)
+			if tt.wantTool == "graphql_organization" {
+				assert.Equal(t, []string{"organization", "repository"}, match.Args["graphql_root_fields"])
+			}
+		})
+	}
+}
+
+func TestMatchGraphQL_UnparseableOrganizationQueryFailsClosed(t *testing.T) {
+	for _, query := range []string{
+		`{ organization(login:"org") { name } } query Other { repository(owner:"o", name:"r") { description } }`,
+		`{ ... on Query { organization(login:"org") { name } } viewer { login } }`,
+	} {
+		body, err := json.Marshal(GraphQLRequest{Query: query})
+		require.NoError(t, err)
+		assert.Nil(t, MatchGraphQL(body), query)
+	}
+}
+
+func TestMatchGraphQL_OrganizationRepositoryFieldsAreParsedRecursively(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{
+			name:  "whitespace before repository arguments",
+			query: "{ organization(login: \"org\") { repositories \n (first: 10) { nodes { name } } } }",
+		},
+		{
+			name:  "repository fields inside a referenced fragment",
+			query: "fragment Repositories on Organization { repositories(first: 10) { nodes { name } } } query Org { organization(login: \"org\") { ...Repositories } }",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := json.Marshal(GraphQLRequest{Query: tt.query})
+			require.NoError(t, err)
+			match := MatchGraphQL(body)
+			require.NotNil(t, match)
+			assert.Equal(t, "graphql_organization", match.ToolName)
+			assert.Equal(t, []string{"organization"}, match.Args["graphql_root_fields"])
+			hasRepositoryFields, ok := match.Args["graphql_has_repository_fields"].(bool)
+			require.True(t, ok)
+			assert.True(t, hasRepositoryFields)
+		})
+	}
+}
+
+func TestMatchGraphQL_UsesSelectedOperationForOrganizationScope(t *testing.T) {
+	body, err := json.Marshal(GraphQLRequest{
+		OperationName: "Org",
+		Query:         `query Org { organization(login: "org") { name } } query Other { repository(owner: "wrong", name: "repo") { description } }`,
+	})
+	require.NoError(t, err)
+
+	match := MatchGraphQL(body)
+	require.NotNil(t, match)
+	assert.Equal(t, "graphql_organization", match.ToolName)
+	assert.Equal(t, []string{"organization"}, match.Args["graphql_root_fields"])
+	hasRepositoryFields, ok := match.Args["graphql_has_repository_fields"].(bool)
+	require.True(t, ok)
+	assert.False(t, hasRepositoryFields)
+	assert.NotContains(t, match.Args, "owner")
+	assert.NotContains(t, match.Args, "repo")
 }
 
 func TestMatchGraphQL_HistoryUsesConservativeRef(t *testing.T) {
