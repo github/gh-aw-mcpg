@@ -29,14 +29,14 @@ func TestAtomicWriteFile(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "state.json")
 		require.NoError(t, os.WriteFile(path, []byte("old content that is longer"), 0o644))
 
-		require.NoError(t, AtomicWriteFile(path, []byte("new"), 0o600))
+		require.NoError(t, AtomicWriteFile(path, []byte("new"), 0o640))
 
 		got, err := os.ReadFile(path)
 		require.NoError(t, err)
 		assert.Equal(t, []byte("new"), got)
 		info, err := os.Stat(path)
 		require.NoError(t, err)
-		assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+		assert.Equal(t, os.FileMode(0o640), info.Mode().Perm())
 		assert.Empty(t, tempFiles(t, filepath.Dir(path)))
 	})
 
