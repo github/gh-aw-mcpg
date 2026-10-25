@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -317,6 +318,10 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 	// Artifact ZIP downloads are streamed directly to the client after the authorization
 	// check to avoid buffering potentially large binary responses in memory via io.ReadAll.
 	if isArtifactDownload(toolName, args) {
+		if !pre.EvalResult.IsAllowed() {
+			writeDIFCForbidden(w, "DIFC policy violation: response requires resource access")
+			return
+		}
 		if !h.streamArtifactResponse(w, r, path, fwdCtx, difcSpan, fwdSpan, clientAuth) {
 			tracing.RecordSpanError(difcSpan, errors.New("upstream request failed"), "upstream request failed")
 			return
@@ -341,25 +346,53 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 		return
 	}
 
-	// For non-200 responses, pass through as-is
+	// Redirects cannot be filtered, so they require coarse authorization.
 	if resp.StatusCode >= 300 {
-		if s.enclave != nil && resp.StatusCode < 400 {
-			writeEnclaveDenied(w)
-			return
+		if resp.StatusCode < 400 {
+			if s.enclave != nil {
+				writeEnclaveDenied(w)
+				return
+			}
+			if !pre.EvalResult.IsAllowed() {
+				writeDIFCForbidden(w, "DIFC policy violation: response requires resource access")
+				return
+			}
+			guard.RunPipelinePhase6(pre, nil, s.Mode)
 		}
 		h.writeResponse(w, r, resp, respBody)
 		return
 	}
 
+	// The HTTP transport normally decodes gzip. Residual encodings cannot be
+	// inspected and must not be treated as opaque, non-JSON responses.
+	if encoding := resp.Header.Get("Content-Encoding"); encoding != "" && !strings.EqualFold(strings.TrimSpace(encoding), "identity") {
+		rejectProxyRequest(w, difcSpan, http.StatusBadGateway, "bad_gateway", "unsupported upstream response encoding", nil)
+		return
+	}
+
 	// Parse the response as JSON for DIFC filtering
+	mediaType, _, mediaErr := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+	isJSON := mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
+	bodyless := resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusResetContent
+	opaque := graphQLBody == nil && mediaErr == nil && !isJSON
 	var responseData interface{}
-	if err := json.Unmarshal(respBody, &responseData); err != nil {
+	if err := json.Unmarshal(respBody, &responseData); err != nil || opaque || bodyless {
 		if s.enclave != nil {
 			writeEnclaveDenied(w)
 			return
 		}
-		// Non-JSON response — pass through
-		logHandler.Printf("[DIFC] response is not JSON, passing through")
+		if !bodyless &&
+			(graphQLBody != nil || isJSON ||
+				(mediaErr != nil && resp.Header.Get("Content-Type") != "")) {
+			rejectProxyRequest(w, difcSpan, http.StatusBadGateway, "bad_gateway", "invalid upstream JSON response", nil)
+			return
+		}
+		// Supported opaque responses have no per-item labels to filter.
+		if !pre.EvalResult.IsAllowed() {
+			writeDIFCForbidden(w, "DIFC policy violation: response requires resource access")
+			return
+		}
+		guard.RunPipelinePhase6(pre, nil, s.Mode)
 		h.writeResponse(w, r, resp, respBody)
 		return
 	}
@@ -374,6 +407,7 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 		logHandler.Printf("[DIFC] Phase 4 failed: %v", err)
 		// On labeling failure, fall back to coarse-grained result
 		if pre.EvalResult.IsAllowed() {
+			guard.RunPipelinePhase6(pre, nil, s.Mode)
 			h.writeResponse(w, r, resp, respBody)
 		} else {
 			h.writeEmptyResponse(w, r, resp, responseData)
