@@ -48,7 +48,7 @@ safe-outputs:
   report-missing-tool:
     create-issue: true
 
-model: gpt-5.4
+model: claude-sonnet-5
 engine:
   id: copilot
   version: 1.0.98
