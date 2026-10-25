@@ -116,7 +116,7 @@ func TestMatchGraphQL_Patterns(t *testing.T) {
 		},
 	}
 
-	assert.Len(t, tests, len(graphqlPatterns), "test table must have one entry per graphqlPattern")
+	assert.Len(t, tests, len(graphqlPatterns)+3, "test table must cover every pattern and special root-field mapping")
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -126,6 +126,59 @@ func TestMatchGraphQL_Patterns(t *testing.T) {
 			require.NotNil(t, result)
 			assert.Equal(t, tt.wantToolName, result.ToolName)
 		})
+	}
+}
+
+func TestMatchGraphQL_SensitiveRootFieldClassification(t *testing.T) {
+	tests := []struct {
+		name     string
+		query    string
+		wantTool string
+	}{
+		{
+			name:     "mixed introspection and repository is not safe introspection",
+			query:    `{ __schema { types { name } } repository(owner:"o", name:"r") { description } }`,
+			wantTool: "get_file_contents",
+		},
+		{
+			name:     "mixed organization and repository remains organization-sensitive",
+			query:    `{ organization(login:"org") { name } repository(owner:"o", name:"r") { description } }`,
+			wantTool: "graphql_organization",
+		},
+		{
+			name:     "organization token in a string is not a root field",
+			query:    `{ repository(owner:"o", name:"r") { description(arg:"organization(login:") } }`,
+			wantTool: "get_file_contents",
+		},
+		{
+			name:     "organization token in a comment is not a root field",
+			query:    "{ repository(owner:\"o\", name:\"r\") { description } } # organization(login:\"org\")",
+			wantTool: "get_file_contents",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := json.Marshal(GraphQLRequest{Query: tt.query})
+			require.NoError(t, err)
+			match := MatchGraphQL(body)
+			require.NotNil(t, match)
+			assert.Equal(t, tt.wantTool, match.ToolName)
+			if tt.wantTool == "graphql_organization" {
+				assert.Equal(t, []string{"organization", "repository"}, match.Args["graphql_root_fields"])
+			}
+		})
+	}
+}
+
+func TestMatchGraphQL_UnparseableOrganizationQueryFailsClosed(t *testing.T) {
+	for _, query := range []string{
+		`{ organization(login:"org") { name } } query Other { repository(owner:"o", name:"r") { description } }`,
+		`{ ... on Query { organization(login:"org") { name } } viewer { login } }`,
+	} {
+		body, err := json.Marshal(GraphQLRequest{Query: query})
+		require.NoError(t, err)
+		assert.Nil(t, MatchGraphQL(body), query)
 	}
 }
 

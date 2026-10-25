@@ -112,6 +112,13 @@ fn get_first_non_empty_field(tool_args: &Value, field_names: &[&str]) -> String 
         .unwrap_or_default()
 }
 
+fn graphql_has_single_root_field(tool_args: &Value, expected: &str) -> bool {
+    tool_args
+        .get("graphql_root_fields")
+        .and_then(Value::as_array)
+        .is_some_and(|fields| fields.len() == 1 && fields[0].as_str() == Some(expected))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn apply_governance_labels(
     tool_args: &Value,
@@ -716,35 +723,19 @@ pub fn apply_tool_labels(
         }
 
         tool_names::GRAPHQL_ORGANIZATION => {
-            // Do not trust tool_name alone for GraphQL labeling. Re-derive likely scope
-            // from structured args first, then query text fallback.
-            let owner = get_string_field(args, field_names::OWNER).unwrap_or_default();
-            let repo = get_string_field(args, field_names::REPO).unwrap_or_default();
-
-            if !owner.is_empty() && !repo.is_empty() {
-                let repo_id = format_repo_id(&owner, &repo);
-                secrecy = private_scope_label(scope_names::REPO, Some(repo_id.as_str()));
-                baseline_scope = Cow::Owned(repo_id);
-                integrity = reader_integrity(scope_names::REPO, ctx);
+            // Root fields are parsed from the query by the proxy, and repository
+            // scope comes from its structured arguments rather than tool_name.
+            secrecy = private_user_label();
+            if graphql_has_single_root_field(tool_args, "organization") {
+                baseline_scope = Cow::Borrowed(scope_names::GITHUB);
+                integrity = project_github_label(ctx);
             } else {
-                let query = get_string_field(args, field_names::QUERY).unwrap_or_default();
-
-                // If query looks repo-scoped, prefer repo-private scoping derived from args.
-                if query.contains("repository(") || query.contains("repositories(") {
-                    if let Some((owner, repo)) = extract_repo_info_from_search_query(&query) {
-                        let repo_id = format_repo_id(&owner, &repo);
-                        secrecy = private_scope_label(scope_names::REPO, Some(repo_id.as_str()));
-                        baseline_scope = Cow::Owned(repo_id);
-                        integrity = reader_integrity(scope_names::REPO, ctx);
-                    } else {
-                        // Unknown repo details: conservative private scope.
-                        secrecy = private_scope_label(scope_names::REPO, None);
-                        baseline_scope = Cow::Borrowed(scope_names::REPO);
-                        integrity = reader_integrity(scope_names::REPO, ctx);
-                    }
+                secrecy.extend(policy_private_scope_label(&owner, &repo, repo_id, ctx));
+                if !owner.is_empty() && !repo.is_empty() {
+                    let scoped_repo_id = format_repo_id(&owner, &repo);
+                    baseline_scope = Cow::Owned(scoped_repo_id.clone());
+                    integrity = reader_integrity(&scoped_repo_id, ctx);
                 } else {
-                    // Organization/user metadata branch.
-                    secrecy = private_user_label();
                     baseline_scope = Cow::Borrowed(scope_names::GITHUB);
                     integrity = project_github_label(ctx);
                 }
@@ -2527,7 +2518,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_tool_labels_starred_repositories_and_graphql_organization_are_access_sensitive() {
+    fn apply_tool_labels_starred_repositories_are_access_sensitive() {
         let ctx = default_ctx();
         for (tool, args) in [
             (tool_names::LIST_STARRED_REPOSITORIES, serde_json::json!({})),
@@ -2535,16 +2526,73 @@ mod tests {
                 tool_names::LIST_STARRED_REPOSITORIES,
                 serde_json::json!({"username": "octocat"}),
             ),
-            (
-                tool_names::GRAPHQL_ORGANIZATION,
-                serde_json::json!({"login": "github"}),
-            ),
         ] {
             let (secrecy, integrity, _) =
                 super::apply_tool_labels(tool, &args, "", vec![], vec![], String::new(), &ctx);
             assert_eq!(secrecy, private_user_label(), "{tool}");
             assert_eq!(integrity, project_github_label(&ctx), "{tool}");
         }
+    }
+
+    #[test]
+    fn graphql_organization_requires_a_single_validated_root_field() {
+        let ctx = default_ctx();
+        let (secrecy, integrity, _) = super::apply_tool_labels(
+            tool_names::GRAPHQL_ORGANIZATION,
+            &serde_json::json!({"graphql_root_fields": ["organization"]}),
+            "",
+            vec![],
+            vec![],
+            String::new(),
+            &ctx,
+        );
+        assert_eq!(secrecy, private_user_label());
+        assert_eq!(integrity, project_github_label(&ctx));
+
+        for args in [
+            serde_json::json!({"graphql_root_fields": ["organization", "repository"]}),
+            serde_json::json!({"graphql_root_fields": ["organization", "..."]}),
+            serde_json::json!({"graphql_root_fields": ["viewer"]}),
+            serde_json::json!({}),
+        ] {
+            let (secrecy, integrity, _) = super::apply_tool_labels(
+                tool_names::GRAPHQL_ORGANIZATION,
+                &args,
+                "",
+                vec![],
+                vec![],
+                String::new(),
+                &ctx,
+            );
+            assert!(secrecy.contains(&"private:user".to_string()), "{args}");
+            assert!(secrecy.contains(&"private".to_string()), "{args}");
+            assert_eq!(integrity, project_github_label(&ctx));
+        }
+
+        let args = serde_json::json!({
+            "owner": "octocat",
+            "repo": "private-repo",
+            "graphql_root_fields": ["organization", "repository"],
+        });
+        let repo_id = "octocat/private-repo";
+        let (secrecy, integrity, _) = super::apply_tool_labels(
+            tool_names::GRAPHQL_ORGANIZATION,
+            &args,
+            "",
+            vec![],
+            vec![],
+            String::new(),
+            &ctx,
+        );
+        let mut expected_secrecy = private_user_label();
+        expected_secrecy.extend(policy_private_scope_label(
+            "octocat",
+            "private-repo",
+            repo_id,
+            &ctx,
+        ));
+        assert_eq!(secrecy, expected_secrecy);
+        assert_eq!(integrity, reader_integrity(repo_id, &ctx));
     }
 
     #[test]

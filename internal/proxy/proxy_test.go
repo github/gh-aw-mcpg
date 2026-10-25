@@ -418,7 +418,7 @@ func TestMatchGraphQL(t *testing.T) {
 		{
 			name:     "projectV2 query",
 			body:     `{"query":"query { organization(login: \"github\") { projectV2(number: 1) { title items { nodes { content { ... on Issue { title } } } } } } }"}`,
-			wantTool: "list_projects",
+			wantTool: "graphql_organization",
 		},
 		{
 			name:     "generic repository info query",
