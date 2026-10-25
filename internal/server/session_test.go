@@ -595,17 +595,7 @@ func TestSysInitHandler_Branches(t *testing.T) {
 func TestSysListServersHandler_Branches(t *testing.T) {
 	newServer := func(t *testing.T) *UnifiedServer {
 		t.Helper()
-		cfg := &config.Config{
-			Servers: map[string]*config.ServerConfig{
-				"github": {Type: "http", URL: "http://127.0.0.1:1"},
-				"slack":  {Type: "http", URL: "http://127.0.0.1:1"},
-			},
-		}
-		us, err := NewUnified(context.Background(), cfg)
-		require.NoError(t, err)
-		t.Cleanup(func() { us.Close() })
-		us.payloadDir = t.TempDir()
-		return us
+		return minimalSysHandlerServer(t, []string{"github", "slack"}, t.TempDir())
 	}
 
 	t.Run("response lists every configured server", func(t *testing.T) {
