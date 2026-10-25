@@ -252,6 +252,8 @@ For **read operations** (GET and GraphQL POST), unmatched routes are denied (fai
 
 For artifact ZIP downloads, authorization is evaluated before proxy forwarding and the response is passed through without JSON transformation. Binary bodies are returned unchanged, and redirect responses preserve headers needed by clients (for example `Location` and `Content-Disposition`).
 
+Authorized raw file responses, including `application/vnd.github.raw+json`, are returned without JSON parsing. Bodyless 204 and 205 responses do not require decoding even when an encoding header is present. Responses that cannot be filtered per item require resource-level authorization. Denials are logged and recorded as failed DIFC spans; when the upstream signals throttling, safe `X-RateLimit-*` and `Retry-After` headers are retained without forwarding the denied body or resource links.
+
 ## GraphQL Support
 
 Inbound GraphQL endpoint paths accepted by the proxy:
