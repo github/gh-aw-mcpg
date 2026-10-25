@@ -182,6 +182,36 @@ func TestMatchGraphQL_UnparseableOrganizationQueryFailsClosed(t *testing.T) {
 	}
 }
 
+func TestMatchGraphQL_OrganizationRepositoryFieldsAreParsedRecursively(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{
+			name:  "whitespace before repository arguments",
+			query: "{ organization(login: \"org\") { repositories \n (first: 10) { nodes { name } } } }",
+		},
+		{
+			name:  "repository fields inside a referenced fragment",
+			query: "fragment Repositories on Organization { repositories(first: 10) { nodes { name } } } query Org { organization(login: \"org\") { ...Repositories } }",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := json.Marshal(GraphQLRequest{Query: tt.query})
+			require.NoError(t, err)
+			match := MatchGraphQL(body)
+			require.NotNil(t, match)
+			assert.Equal(t, "graphql_organization", match.ToolName)
+			assert.Equal(t, []string{"organization"}, match.Args["graphql_root_fields"])
+			hasRepositoryFields, ok := match.Args["graphql_has_repository_fields"].(bool)
+			require.True(t, ok)
+			assert.True(t, hasRepositoryFields)
+		})
+	}
+}
+
 func TestMatchGraphQL_HistoryUsesConservativeRef(t *testing.T) {
 	tests := []struct {
 		name  string

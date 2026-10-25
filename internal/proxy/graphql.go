@@ -96,7 +96,7 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 	// These sensitive/safe classifications require parsing the top-level
 	// selection set, rather than matching arbitrary query text.
 	var toolName string
-	rootFields, parsedRootFields := graphqlRootFields(gql.Query, gql.OperationName)
+	rootFields, hasRepositoryFields, parsedRootFields := graphqlRootFields(gql.Query, gql.OperationName)
 	if !parsedRootFields && graphqlOrganizationPattern.MatchString(gql.Query) {
 		logGraphQL.Print("unparseable organization GraphQL query, blocking request")
 		return nil
@@ -153,6 +153,7 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 	}
 	if toolName == "graphql_organization" {
 		args["graphql_root_fields"] = rootFields
+		args["graphql_has_repository_fields"] = hasRepositoryFields
 	}
 	if toolName == "list_commits" {
 		// GraphQL history can target arbitrary refs or object expressions.
@@ -177,32 +178,32 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 }
 
 // graphqlRootFields returns the root fields of the selected query operation.
-func graphqlRootFields(query, operationName string) ([]string, bool) {
+func graphqlRootFields(query, operationName string) ([]string, bool, bool) {
 	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, 100000)
 	if err != nil || doc == nil || len(doc.Operations) == 0 {
-		return nil, false
+		return nil, false, false
 	}
 	var operation *ast.OperationDefinition
 	if operationName == "" {
 		if len(doc.Operations) != 1 {
-			return nil, false
+			return nil, false, false
 		}
 		operation = doc.Operations[0]
 	} else {
 		for _, candidate := range doc.Operations {
 			if candidate.Name == operationName {
 				if operation != nil {
-					return nil, false
+					return nil, false, false
 				}
 				operation = candidate
 			}
 		}
 	}
 	if operation == nil {
-		return nil, false
+		return nil, false, false
 	}
 	if operation.Operation != ast.Query {
-		return nil, false
+		return nil, false, false
 	}
 
 	fields := make([]string, 0, len(operation.SelectionSet))
@@ -214,7 +215,47 @@ func graphqlRootFields(query, operationName string) ([]string, bool) {
 			fields = append(fields, "...")
 		}
 	}
-	return fields, len(fields) != 0
+	return fields, graphqlHasRepositoryFields(operation.SelectionSet, doc.Fragments), len(fields) != 0
+}
+
+func graphqlHasRepositoryFields(
+	selectionSet ast.SelectionSet,
+	fragments ast.FragmentDefinitionList,
+) bool {
+	fragmentsByName := make(map[string]*ast.FragmentDefinition, len(fragments))
+	for _, fragment := range fragments {
+		fragmentsByName[fragment.Name] = fragment
+	}
+	visitedFragments := make(map[string]bool, len(fragments))
+	var hasRepositoryField func(ast.SelectionSet) bool
+	hasRepositoryField = func(selections ast.SelectionSet) bool {
+		for _, selection := range selections {
+			switch selection := selection.(type) {
+			case *ast.Field:
+				if selection.Name == "repository" || selection.Name == "repositories" {
+					return true
+				}
+				if hasRepositoryField(selection.SelectionSet) {
+					return true
+				}
+			case *ast.InlineFragment:
+				if hasRepositoryField(selection.SelectionSet) {
+					return true
+				}
+			case *ast.FragmentSpread:
+				if visitedFragments[selection.Name] {
+					continue
+				}
+				visitedFragments[selection.Name] = true
+				if fragment := fragmentsByName[selection.Name]; fragment != nil &&
+					hasRepositoryField(fragment.SelectionSet) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return hasRepositoryField(selectionSet)
 }
 
 // extractOwnerRepo extracts owner and repo from GraphQL variables and query text.

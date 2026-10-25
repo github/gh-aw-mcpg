@@ -119,6 +119,13 @@ fn graphql_has_single_root_field(tool_args: &Value, expected: &str) -> bool {
         .is_some_and(|fields| fields.len() == 1 && fields[0].as_str() == Some(expected))
 }
 
+fn graphql_has_repository_fields(tool_args: &Value) -> bool {
+    tool_args
+        .get("graphql_has_repository_fields")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn apply_governance_labels(
     tool_args: &Value,
@@ -726,7 +733,9 @@ pub fn apply_tool_labels(
             // Root fields are parsed from the query by the proxy, and repository
             // scope comes from its structured arguments rather than tool_name.
             secrecy = private_user_label();
-            if graphql_has_single_root_field(tool_args, "organization") {
+            if graphql_has_single_root_field(tool_args, "organization")
+                && !graphql_has_repository_fields(tool_args)
+            {
                 baseline_scope = Cow::Borrowed(scope_names::GITHUB);
                 integrity = project_github_label(ctx);
             } else {
@@ -2593,6 +2602,24 @@ mod tests {
         ));
         assert_eq!(secrecy, expected_secrecy);
         assert_eq!(integrity, reader_integrity(repo_id, &ctx));
+
+        let args = serde_json::json!({
+            "graphql_root_fields": ["organization"],
+            "graphql_has_repository_fields": true,
+        });
+        let (secrecy, integrity, _) = super::apply_tool_labels(
+            tool_names::GRAPHQL_ORGANIZATION,
+            &args,
+            "",
+            vec![],
+            vec![],
+            String::new(),
+            &ctx,
+        );
+        let mut expected_secrecy = private_user_label();
+        expected_secrecy.extend(policy_private_scope_label("", "", "", &ctx));
+        assert_eq!(secrecy, expected_secrecy);
+        assert_eq!(integrity, project_github_label(&ctx));
     }
 
     #[test]
