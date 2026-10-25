@@ -545,14 +545,13 @@ pub fn apply_tool_labels(
         tool_names::ACTIONS_LIST
         | tool_names::ACTIONS_GET
         | "get_code_quality_finding"
-        | "get_label"
+        | tool_names::GET_LABEL
         | "get_repository"
-        | "get_repository_tree"
         | "get_tag"
         | tool_names::GET_JOB_LOGS
         | "list_branches"
         | tool_names::LIST_DISCUSSION_CATEGORIES
-        | "list_label"
+        | tool_names::LIST_LABEL
         | tool_names::LIST_RELEASES
         | tool_names::LIST_RELEASES_FF_FIELDS_PARAM
         | tool_names::GET_LATEST_RELEASE
@@ -581,6 +580,13 @@ pub fn apply_tool_labels(
         }
 
         // === Content Access ===
+        tool_names::GET_REPOSITORY_TREE => {
+            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            integrity = writer_integrity(repo_id, ctx);
+            if !repo_id.is_empty() {
+                desc = format!("{}{repo_id}", desc_prefix::REPO);
+            }
+        }
         tool_names::GET_FILE_CONTENTS
         | "get_file_blame"
         | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
@@ -697,10 +703,11 @@ pub fn apply_tool_labels(
         "get_me"
         | "get_teams"
         | "get_team_members"
-        | "list_starred_repositories"
-        | "get_copilot_space"
+        | tool_names::LIST_STARRED_REPOSITORIES
+        | tool_names::GET_COPILOT_SPACE
+        | tool_names::SEARCH_ORGS
         | "list_copilot_spaces" => {
-            // User profile, org team membership, starred repos, and Copilot Spaces are all
+            // User profile, org metadata, starred repos, and Copilot Spaces are all
             // GitHub-controlled metadata that may contain PII or reveal internal org structure.
             // S = private:user
             // I = project:github (GitHub-controlled metadata)
@@ -709,12 +716,11 @@ pub fn apply_tool_labels(
             integrity = project_github_label(ctx);
         }
 
-        // === Public GitHub-controlled metadata: org profiles, advisories, docs ===
-        "search_orgs"
-        | "list_global_security_advisories"
+        // === Public GitHub-controlled metadata: advisories, docs ===
+        "list_global_security_advisories"
         | "get_global_security_advisory"
         | "github_support_docs_search" => {
-            // Public organization profiles, global CVE advisories, and GitHub docs contain no
+            // Global CVE advisories and GitHub docs contain no
             // private data but are curated/controlled by GitHub.
             // S = public (empty)
             // I = project:github (GitHub-controlled metadata)
@@ -2409,12 +2415,61 @@ mod tests {
     }
 
     #[test]
+    fn apply_tool_labels_tree_and_labels_inherit_repo_visibility() {
+        let ctx = default_ctx();
+        let repo_id = "octocat/read-metadata-test";
+        let args = serde_json::json!({"owner": "octocat", "repo": "read-metadata-test"});
+        for private in [false, true] {
+            let _guard = crate::labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            let private_secrecy = private_label("octocat", "read-metadata-test", repo_id, &ctx);
+            for tool in [
+                tool_names::GET_REPOSITORY_TREE,
+                tool_names::GET_LABEL,
+                tool_names::LIST_LABEL,
+            ] {
+                let (secrecy, integrity, desc) = super::apply_tool_labels(
+                    tool,
+                    &args,
+                    repo_id,
+                    if private {
+                        vec![]
+                    } else {
+                        private_secrecy.clone()
+                    },
+                    vec![],
+                    "original".to_string(),
+                    &ctx,
+                );
+                assert_eq!(
+                    secrecy,
+                    if private {
+                        private_secrecy.clone()
+                    } else {
+                        vec![]
+                    },
+                    "{tool} (private={private}) must inherit repository visibility",
+                );
+                assert_eq!(integrity, writer_integrity(repo_id, &ctx), "{tool}");
+                assert_eq!(
+                    desc,
+                    if tool == tool_names::GET_REPOSITORY_TREE {
+                        format!("{}{repo_id}", desc_prefix::REPO)
+                    } else {
+                        "original".to_string()
+                    },
+                    "{tool}",
+                );
+            }
+        }
+    }
+
+    #[test]
     fn apply_tool_labels_copilot_spaces_get_private_user_and_project_github_integrity() {
         let ctx = default_ctx();
         let expected_secrecy = private_user_label();
         let expected_integrity = project_github_label(&ctx);
 
-        for tool in &["get_copilot_space", "list_copilot_spaces"] {
+        for tool in &[tool_names::GET_COPILOT_SPACE, "list_copilot_spaces"] {
             let (secrecy, integrity, _) = super::apply_tool_labels(
                 tool,
                 &serde_json::json!({}),
@@ -2436,12 +2491,32 @@ mod tests {
     }
 
     #[test]
+    fn apply_tool_labels_starred_repositories_and_org_search_are_access_sensitive() {
+        let ctx = default_ctx();
+        for (tool, args) in [
+            (tool_names::LIST_STARRED_REPOSITORIES, serde_json::json!({})),
+            (
+                tool_names::LIST_STARRED_REPOSITORIES,
+                serde_json::json!({"username": "octocat"}),
+            ),
+            (
+                tool_names::SEARCH_ORGS,
+                serde_json::json!({"query": "github"}),
+            ),
+        ] {
+            let (secrecy, integrity, _) =
+                super::apply_tool_labels(tool, &args, "", vec![], vec![], String::new(), &ctx);
+            assert_eq!(secrecy, private_user_label(), "{tool}");
+            assert_eq!(integrity, project_github_label(&ctx), "{tool}");
+        }
+    }
+
+    #[test]
     fn apply_tool_labels_public_github_metadata_gets_empty_secrecy_and_project_github_integrity() {
         let ctx = default_ctx();
         let expected_integrity = project_github_label(&ctx);
 
         for tool in &[
-            "search_orgs",
             "list_global_security_advisories",
             "get_global_security_advisory",
             "github_support_docs_search",

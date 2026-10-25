@@ -3316,8 +3316,8 @@ mod tests {
 
         assert_eq!(
             secrecy,
-            vec![] as Vec<String>,
-            "search_orgs must have public (empty) secrecy"
+            private_user_label(),
+            "search_orgs must carry private:user secrecy (access-sensitive org metadata)"
         );
         assert_eq!(
             integrity,
