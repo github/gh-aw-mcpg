@@ -717,27 +717,37 @@ pub fn apply_tool_labels(
 
         tool_names::GRAPHQL_ORGANIZATION => {
             // Do not trust tool_name alone for GraphQL labeling. Re-derive likely scope
-            // from structured args (query text) and apply conservative labels.
-            let query = get_string_field(args, field_names::QUERY).unwrap_or_default();
+            // from structured args first, then query text fallback.
+            let owner = get_string_field(args, field_names::OWNER).unwrap_or_default();
+            let repo = get_string_field(args, field_names::REPO).unwrap_or_default();
 
-            // If query looks repo-scoped, prefer repo-private scoping derived from args.
-            if query.contains("repository(") || query.contains("repositories(") {
-                if let Some((owner, repo)) = extract_repo_info_from_search_query(&query) {
-                    let repo_id = format_repo_id(&owner, &repo);
-                    secrecy = private_scope_label(scope_names::REPO, Some(repo_id.as_str()));
-                    baseline_scope = Cow::Owned(repo_id);
-                    integrity = reader_integrity(scope_names::REPO, ctx);
-                } else {
-                    // Unknown repo details: conservative private scope.
-                    secrecy = private_scope_label(scope_names::REPO, None);
-                    baseline_scope = Cow::Borrowed(scope_names::REPO);
-                    integrity = reader_integrity(scope_names::REPO, ctx);
-                }
+            if !owner.is_empty() && !repo.is_empty() {
+                let repo_id = format_repo_id(&owner, &repo);
+                secrecy = private_scope_label(scope_names::REPO, Some(repo_id.as_str()));
+                baseline_scope = Cow::Owned(repo_id);
+                integrity = reader_integrity(scope_names::REPO, ctx);
             } else {
-                // Organization/user metadata branch.
-                secrecy = private_user_label();
-                baseline_scope = Cow::Borrowed(scope_names::GITHUB);
-                integrity = project_github_label(ctx);
+                let query = get_string_field(args, field_names::QUERY).unwrap_or_default();
+
+                // If query looks repo-scoped, prefer repo-private scoping derived from args.
+                if query.contains("repository(") || query.contains("repositories(") {
+                    if let Some((owner, repo)) = extract_repo_info_from_search_query(&query) {
+                        let repo_id = format_repo_id(&owner, &repo);
+                        secrecy = private_scope_label(scope_names::REPO, Some(repo_id.as_str()));
+                        baseline_scope = Cow::Owned(repo_id);
+                        integrity = reader_integrity(scope_names::REPO, ctx);
+                    } else {
+                        // Unknown repo details: conservative private scope.
+                        secrecy = private_scope_label(scope_names::REPO, None);
+                        baseline_scope = Cow::Borrowed(scope_names::REPO);
+                        integrity = reader_integrity(scope_names::REPO, ctx);
+                    }
+                } else {
+                    // Organization/user metadata branch.
+                    secrecy = private_user_label();
+                    baseline_scope = Cow::Borrowed(scope_names::GITHUB);
+                    integrity = project_github_label(ctx);
+                }
             }
         }
 
