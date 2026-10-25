@@ -67,8 +67,8 @@ var graphqlPatterns = []graphqlPattern{
 	// Viewer / user profile
 	{queryPattern: regexp.MustCompile(`(?i)\bviewer\s*\{`), toolName: "get_me"},
 
-	// Organization queries
-	{queryPattern: regexp.MustCompile(`(?i)\borganization\s*\(`), toolName: "graphql_organization"},
+	// Organization queries (root-field constrained to reduce misrouting from token injection/mixed queries)
+	{queryPattern: regexp.MustCompile(`(?is)^\s*(?:query|mutation|subscription)?\s*[A-Za-z0-9_]*\s*(?:\([^)]*\))?\s*(?:@[A-Za-z0-9_]+(?:\([^)]*\))?\s*)*\{\s*organization\s*\(`), toolName: "graphql_organization"},
 
 	// Repository info (catch-all for repo-scoped queries)
 	{queryPattern: regexp.MustCompile(`(?i)\brepository\s*\(`), toolName: "get_file_contents"},
