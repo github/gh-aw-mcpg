@@ -591,3 +591,80 @@ func TestSysInitHandler_Branches(t *testing.T) {
 		assert.Contains(t, us.getSessionKeys(), "dir-fail")
 	})
 }
+
+func TestSysListServersHandler_Branches(t *testing.T) {
+	newServer := func(t *testing.T) *UnifiedServer {
+		t.Helper()
+		cfg := &config.Config{
+			Servers: map[string]*config.ServerConfig{
+				"github": {Type: "http", URL: "http://127.0.0.1:1"},
+				"slack":  {Type: "http", URL: "http://127.0.0.1:1"},
+			},
+		}
+		us, err := NewUnified(context.Background(), cfg)
+		require.NoError(t, err)
+		t.Cleanup(func() { us.Close() })
+		us.payloadDir = t.TempDir()
+		return us
+	}
+
+	t.Run("response lists every configured server", func(t *testing.T) {
+		us := newServer(t)
+		ctx := context.WithValue(context.Background(), SessionIDContextKey, "list-content")
+
+		result, data, err := us.sysListServersHandler(ctx, &sdk.CallToolRequest{}, nil)
+
+		require.NoError(t, err)
+		assert.Nil(t, result)
+		encoded, err := json.Marshal(data)
+		require.NoError(t, err)
+		assert.Contains(t, string(encoded), "Configured MCP Servers")
+		assert.Contains(t, string(encoded), "github")
+		assert.Contains(t, string(encoded), "slack")
+	})
+
+	t.Run("existing session is reused", func(t *testing.T) {
+		us := newServer(t)
+		us.sessionMu.Lock()
+		us.sessions["existing"] = NewSession("existing", "keep-token")
+		us.sessionMu.Unlock()
+		ctx := context.WithValue(context.Background(), SessionIDContextKey, "existing")
+
+		result, data, err := us.sysListServersHandler(ctx, &sdk.CallToolRequest{}, nil)
+
+		require.NoError(t, err)
+		assert.Nil(t, result)
+		assert.NotNil(t, data)
+		us.sessionMu.RLock()
+		session := us.sessions["existing"]
+		us.sessionMu.RUnlock()
+		require.NotNil(t, session)
+		assert.Equal(t, "keep-token", session.Token)
+	})
+
+	t.Run("session directory failure is non-fatal", func(t *testing.T) {
+		us := newServer(t)
+		blocker := filepath.Join(t.TempDir(), "file")
+		require.NoError(t, os.WriteFile(blocker, []byte("x"), 0o600))
+		us.payloadDir = blocker
+		ctx := context.WithValue(context.Background(), SessionIDContextKey, "list-dir-fail")
+
+		result, data, err := us.sysListServersHandler(ctx, &sdk.CallToolRequest{}, nil)
+
+		require.NoError(t, err)
+		assert.Nil(t, result)
+		assert.NotNil(t, data)
+		assert.Contains(t, us.getSessionKeys(), "list-dir-fail")
+	})
+
+	t.Run("missing session ID falls back to default session", func(t *testing.T) {
+		us := newServer(t)
+
+		result, data, err := us.sysListServersHandler(context.Background(), &sdk.CallToolRequest{}, nil)
+
+		require.NoError(t, err)
+		assert.Nil(t, result)
+		assert.NotNil(t, data)
+		assert.Contains(t, us.getSessionKeys(), "default")
+	})
+}
