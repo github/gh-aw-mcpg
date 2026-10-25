@@ -705,15 +705,40 @@ pub fn apply_tool_labels(
         | "get_team_members"
         | tool_names::LIST_STARRED_REPOSITORIES
         | tool_names::GET_COPILOT_SPACE
-        | tool_names::GRAPHQL_ORGANIZATION
         | "list_copilot_spaces" => {
-            // User profile, organization GraphQL metadata, starred repos, and Copilot Spaces
-            // may contain PII or reveal internal org structure.
+            // User profile, starred repos, and Copilot Spaces may contain PII
+            // or reveal internal org/user structure.
             // S = private:user
             // I = project:github (GitHub-controlled metadata)
             secrecy = private_user_label();
             baseline_scope = Cow::Borrowed(scope_names::GITHUB);
             integrity = project_github_label(ctx);
+        }
+
+        tool_names::GRAPHQL_ORGANIZATION => {
+            // Do not trust tool_name alone for GraphQL labeling. Re-derive likely scope
+            // from structured args (query text) and apply conservative labels.
+            let query = get_string_field(args, field_names::QUERY).unwrap_or_default();
+
+            // If query looks repo-scoped, prefer repo-private scoping derived from args.
+            if query.contains("repository(") || query.contains("repositories(") {
+                if let Some((owner, repo)) = extract_repo_info_from_search_query(&query) {
+                    let repo_id = format_repo_id(&owner, &repo);
+                    secrecy = private_scope_label(scope_names::REPO, Some(repo_id.as_str()));
+                    baseline_scope = Cow::Owned(repo_id);
+                    integrity = reader_integrity(scope_names::REPO, ctx);
+                } else {
+                    // Unknown repo details: conservative private scope.
+                    secrecy = private_scope_label(scope_names::REPO, None);
+                    baseline_scope = Cow::Borrowed(scope_names::REPO);
+                    integrity = reader_integrity(scope_names::REPO, ctx);
+                }
+            } else {
+                // Organization/user metadata branch.
+                secrecy = private_user_label();
+                baseline_scope = Cow::Borrowed(scope_names::GITHUB);
+                integrity = project_github_label(ctx);
+            }
         }
 
         // === Public GitHub-controlled metadata: org search, advisories, docs ===
