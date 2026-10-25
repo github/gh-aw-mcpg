@@ -705,10 +705,10 @@ pub fn apply_tool_labels(
         | "get_team_members"
         | tool_names::LIST_STARRED_REPOSITORIES
         | tool_names::GET_COPILOT_SPACE
-        | tool_names::SEARCH_ORGS
+        | tool_names::GRAPHQL_ORGANIZATION
         | "list_copilot_spaces" => {
-            // User profile, org metadata, starred repos, and Copilot Spaces are all
-            // GitHub-controlled metadata that may contain PII or reveal internal org structure.
+            // User profile, organization GraphQL metadata, starred repos, and Copilot Spaces
+            // may contain PII or reveal internal org structure.
             // S = private:user
             // I = project:github (GitHub-controlled metadata)
             secrecy = private_user_label();
@@ -716,12 +716,13 @@ pub fn apply_tool_labels(
             integrity = project_github_label(ctx);
         }
 
-        // === Public GitHub-controlled metadata: advisories, docs ===
-        "list_global_security_advisories"
+        // === Public GitHub-controlled metadata: org search, advisories, docs ===
+        tool_names::SEARCH_ORGS
+        | "list_global_security_advisories"
         | "get_global_security_advisory"
         | "github_support_docs_search" => {
-            // Global CVE advisories and GitHub docs contain no
-            // private data but are curated/controlled by GitHub.
+            // Public organization search, global CVE advisories, and GitHub docs
+            // contain no private data and are controlled by GitHub.
             // S = public (empty)
             // I = project:github (GitHub-controlled metadata)
             secrecy = vec![];
@@ -2491,7 +2492,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_tool_labels_starred_repositories_and_org_search_are_access_sensitive() {
+    fn apply_tool_labels_starred_repositories_and_graphql_organization_are_access_sensitive() {
         let ctx = default_ctx();
         for (tool, args) in [
             (tool_names::LIST_STARRED_REPOSITORIES, serde_json::json!({})),
@@ -2500,8 +2501,8 @@ mod tests {
                 serde_json::json!({"username": "octocat"}),
             ),
             (
-                tool_names::SEARCH_ORGS,
-                serde_json::json!({"query": "github"}),
+                tool_names::GRAPHQL_ORGANIZATION,
+                serde_json::json!({"login": "github"}),
             ),
         ] {
             let (secrecy, integrity, _) =
@@ -2517,6 +2518,7 @@ mod tests {
         let expected_integrity = project_github_label(&ctx);
 
         for tool in &[
+            tool_names::SEARCH_ORGS,
             "list_global_security_advisories",
             "get_global_security_advisory",
             "github_support_docs_search",

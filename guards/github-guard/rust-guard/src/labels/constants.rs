@@ -253,6 +253,8 @@ mod tests {
             "list_repository_collaborators"
         );
         assert_eq!(tool_names::SEARCH_USERS, "search_users");
+        assert_eq!(tool_names::SEARCH_ORGS, "search_orgs");
+        assert_eq!(tool_names::GRAPHQL_ORGANIZATION, "graphql_organization");
         assert_eq!(
             UI_GET_REPO_SCOPED_METHODS,
             &["labels", "milestones", "branches"]
@@ -429,6 +431,7 @@ pub mod tool_names {
     pub const GET_COPILOT_SPACE: &str = "get_copilot_space";
     pub const LIST_STARRED_REPOSITORIES: &str = "list_starred_repositories";
     pub const SEARCH_ORGS: &str = "search_orgs";
+    pub const GRAPHQL_ORGANIZATION: &str = "graphql_organization";
     pub const GET_COMMIT: &str = "get_commit";
     pub const LIST_COMMITS: &str = "list_commits";
     pub const LIST_COMMITS_FF_FIELDS_PARAM: &str = "list_commits_ff_fields_param";

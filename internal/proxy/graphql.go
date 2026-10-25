@@ -67,7 +67,7 @@ var graphqlPatterns = []graphqlPattern{
 	{queryPattern: regexp.MustCompile(`(?i)\bviewer\s*\{`), toolName: "get_me"},
 
 	// Organization queries
-	{queryPattern: regexp.MustCompile(`(?i)\borganization\s*\(`), toolName: "search_orgs"},
+	{queryPattern: regexp.MustCompile(`(?i)\borganization\s*\(`), toolName: "graphql_organization"},
 
 	// Repository info (catch-all for repo-scoped queries)
 	{queryPattern: regexp.MustCompile(`(?i)\brepository\s*\(`), toolName: "get_file_contents"},

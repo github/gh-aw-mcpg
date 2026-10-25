@@ -105,9 +105,9 @@ func TestMatchGraphQL_Patterns(t *testing.T) {
 			wantToolName: "get_me",
 		},
 		{
-			name:         "search_orgs organization",
+			name:         "graphql_organization organization",
 			query:        `{ organization(login:"myorg") { name } }`,
-			wantToolName: "search_orgs",
+			wantToolName: "graphql_organization",
 		},
 		{
 			name:         "get_file_contents catch-all repository",
