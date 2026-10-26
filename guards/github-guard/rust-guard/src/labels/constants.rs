@@ -2,6 +2,33 @@
 //!
 //! This module contains all constant values used throughout the labeling system.
 
+/// GitHub author associations grouped by their initial integrity level.
+pub(crate) enum AuthorAssociation {
+    Writer,
+    Reader,
+    Unknown,
+}
+
+impl AuthorAssociation {
+    pub(crate) fn parse(raw: &str) -> Self {
+        let raw = raw.trim();
+        if ["OWNER", "MEMBER", "COLLABORATOR"]
+            .iter()
+            .any(|value| raw.eq_ignore_ascii_case(value))
+        {
+            Self::Writer
+        } else if ["CONTRIBUTOR", "FIRST_TIME_CONTRIBUTOR", "NONE"]
+            .iter()
+            .any(|value| raw.eq_ignore_ascii_case(value))
+        {
+            Self::Reader
+        } else {
+            // FIRST_TIMER intentionally receives no initial integrity, like unknown values.
+            Self::Unknown
+        }
+    }
+}
+
 /// Common label string constants to ensure consistency across the codebase
 pub mod label_constants {
     pub const NONE: &str = "none";
