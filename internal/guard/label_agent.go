@@ -24,6 +24,7 @@ func RunLabelAgentForAgent(
 	agentID string,
 	defaultMode difc.EnforcementMode,
 ) (difc.EnforcementMode, *LabelAgentResult, error) {
+	logLabelAgent.Printf("Resolving agent labels from registry: guard=%s, defaultMode=%s", g.Name(), defaultMode)
 	agentLabels := registry.GetOrCreate(agentID)
 	return RunLabelAgent(ctx, g, payload, backend, caps, agentLabels, defaultMode)
 }
@@ -42,6 +43,7 @@ func RunLabelAgentInit(
 	agentID string,
 	defaultMode difc.EnforcementMode,
 ) (difc.EnforcementMode, *LabelAgentResult, error) {
+	logLabelAgent.Printf("Initializing label agent: guard=%s, trustedBots=%d, trustedUsers=%d", g.Name(), len(trustedBots), len(trustedUsers))
 	payload := BuildLabelAgentPayload(policy, trustedBots, trustedUsers)
 	return RunLabelAgentForAgent(ctx, g, payload, backend, caps, registry, agentID, defaultMode)
 }
