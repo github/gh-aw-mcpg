@@ -73,6 +73,14 @@ func TestGraphqlRootFields(t *testing.T) {
 			wantOK:     true,
 		},
 		{
+			name:       "cyclic fragment spreads terminate and still detect repository",
+			query:      `query { ...A } fragment A on Query { ...B } fragment B on Query { ...A repository(owner:"o", name:"r") { id } }`,
+			wantFields: []string{"..."},
+			wantRepo:   true,
+			wantText:   `query { ...A } `,
+			wantOK:     true,
+		},
+		{
 			name:          "named operation selected from multiple",
 			query:         `query A { viewer { login } } query B { repository(owner:"o", name:"r") { id } }`,
 			operationName: "B",
