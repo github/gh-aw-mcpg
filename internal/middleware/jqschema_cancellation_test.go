@@ -89,12 +89,12 @@ func TestApplyToolResponseFilter_ResourceExhaustionCancellation(t *testing.T) {
 			select {
 			case got := <-done:
 				assert.Nil(t, got.value)
-				assert.ErrorIs(t, got.err, tt.wantErr)
-				assert.ErrorContains(t, got.err, "tool response filter execution failed")
+				require.ErrorIs(t, got.err, tt.wantErr)
+				require.ErrorContains(t, got.err, "tool response filter execution failed")
 				if tt.timeout == 0 && tt.cancelAfter == 0 {
-					assert.NoError(t, ctx.Err(), "default timeout must not cancel the caller")
+					require.NoError(t, ctx.Err(), "default timeout must not cancel the caller")
 				} else {
-					assert.ErrorIs(t, ctx.Err(), tt.wantErr)
+					require.ErrorIs(t, ctx.Err(), tt.wantErr)
 				}
 			case <-timer.C:
 				t.Fatal("resource-exhausting filter did not stop promptly")
