@@ -6,15 +6,16 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/sanitize"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWithEnclaveSession(t *testing.T) {
-	assert := assert.New(t)
-
 	ctx := WithEnclaveSession(context.Background())
 
-	assert.True(ctx.Value(EnclaveSessionContextKey).(bool), "WithEnclaveSession must set the marker to true")
-	assert.True(IsEnclaveSession(ctx))
+	marker, ok := ctx.Value(EnclaveSessionContextKey).(bool)
+	require.True(t, ok, "marker must be stored as a bool")
+	assert.True(t, marker, "WithEnclaveSession must set the marker to true")
+	assert.True(t, IsEnclaveSession(ctx))
 }
 
 func TestIsEnclaveSession(t *testing.T) {

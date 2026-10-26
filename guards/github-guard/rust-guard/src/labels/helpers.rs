@@ -10,8 +10,8 @@ use serde_json::Value;
 
 use super::backend::GithubMcpCallback;
 use super::constants::{
-    field_names, label_constants, method_values, scope_names, tool_names, UNKNOWN_LABEL_FALLBACK,
-    URL_FALLBACK_FIELDS,
+    field_names, label_constants, method_values, scope_names, tool_names, AuthorAssociation,
+    UNKNOWN_LABEL_FALLBACK, URL_FALLBACK_FIELDS,
 };
 
 /// Ensures the endorsement gateway-mode warning is emitted at most once per process lifetime.
@@ -1845,12 +1845,10 @@ pub(crate) fn author_association_floor_from_str(
         return vec![];
     };
 
-    if matches_any_ci(raw, &["OWNER", "MEMBER", "COLLABORATOR"]) {
-        writer_integrity(scope, ctx)
-    } else if matches_any_ci(raw, &["CONTRIBUTOR", "FIRST_TIME_CONTRIBUTOR", "NONE"]) {
-        reader_integrity(scope, ctx)
-    } else {
-        vec![] // FIRST_TIMER or any unrecognised value
+    match AuthorAssociation::parse(raw) {
+        AuthorAssociation::Writer => writer_integrity(scope, ctx),
+        AuthorAssociation::Reader => reader_integrity(scope, ctx),
+        AuthorAssociation::Unknown => vec![],
     }
 }
 
@@ -2913,6 +2911,46 @@ mod tests {
                 vec![label_constants::PRIVATE_BASE.to_string()],
                 "malformed repo ID must fail secure: {repo_id}"
             );
+        }
+    }
+
+    #[test]
+    fn test_author_association_floor_parsing() {
+        let ctx = test_ctx();
+        let scope = "owner/repo";
+        let writer = writer_integrity(scope, &ctx);
+        let reader = reader_integrity(scope, &ctx);
+        let unknown = vec![];
+
+        for (association, expected) in [
+            (Some("OWNER"), &writer),
+            (Some("MEMBER"), &writer),
+            (Some("COLLABORATOR"), &writer),
+            (Some("oWnEr"), &writer),
+            (Some("CONTRIBUTOR"), &reader),
+            (Some("FIRST_TIME_CONTRIBUTOR"), &reader),
+            (Some("NONE"), &reader),
+            (Some("fIrSt_TiMe_CoNtRiBuToR"), &reader),
+            (Some("FIRST_TIMER"), &unknown),
+            (Some("fIrSt_TiMeR"), &unknown),
+            (Some("unexpected"), &unknown),
+            (Some(""), &unknown),
+            (Some(" \t\n"), &unknown),
+            (None, &unknown),
+        ] {
+            assert_eq!(
+                &author_association_floor_from_str(scope, association, &ctx),
+                expected,
+                "association: {association:?}"
+            );
+            if let Some(raw) = association {
+                let normalized_variant = format!(" \t{}\n ", raw.to_ascii_lowercase());
+                assert_eq!(
+                    &author_association_floor_from_str(scope, Some(&normalized_variant), &ctx),
+                    expected,
+                    "association: {normalized_variant:?}"
+                );
+            }
         }
     }
 
