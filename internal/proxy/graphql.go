@@ -186,11 +186,13 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 func graphqlRootFields(query, operationName string) ([]string, bool, string, bool) {
 	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, 100000)
 	if err != nil || doc == nil || len(doc.Operations) == 0 {
+		logGraphQL.Printf("graphqlRootFields: parse failed or no operations: parseErr=%v", err != nil)
 		return nil, false, "", false
 	}
 	var operation *ast.OperationDefinition
 	if operationName == "" {
 		if len(doc.Operations) != 1 {
+			logGraphQL.Printf("graphqlRootFields: operationName empty but document has %d operations", len(doc.Operations))
 			return nil, false, "", false
 		}
 		operation = doc.Operations[0]
@@ -198,6 +200,7 @@ func graphqlRootFields(query, operationName string) ([]string, bool, string, boo
 		for _, candidate := range doc.Operations {
 			if candidate.Name == operationName {
 				if operation != nil {
+					logGraphQL.Print("graphqlRootFields: duplicate operation name in document")
 					return nil, false, "", false
 				}
 				operation = candidate
@@ -205,13 +208,16 @@ func graphqlRootFields(query, operationName string) ([]string, bool, string, boo
 		}
 	}
 	if operation == nil {
+		logGraphQL.Print("graphqlRootFields: selected operation not found")
 		return nil, false, "", false
 	}
 	if operation.Operation != ast.Query {
+		logGraphQL.Printf("graphqlRootFields: non-query operation type: %s", operation.Operation)
 		return nil, false, "", false
 	}
 	operationQuery, ok := graphqlOperationText(query, operation, doc)
 	if !ok {
+		logGraphQL.Print("graphqlRootFields: failed to extract operation text")
 		return nil, false, "", false
 	}
 
@@ -224,6 +230,7 @@ func graphqlRootFields(query, operationName string) ([]string, bool, string, boo
 			fields = append(fields, "...")
 		}
 	}
+	logGraphQL.Printf("graphqlRootFields: parsed %d root fields: %v", len(fields), fields)
 	return fields, graphqlHasRepositoryFields(operation.SelectionSet, doc.Fragments), operationQuery, len(fields) != 0
 }
 
