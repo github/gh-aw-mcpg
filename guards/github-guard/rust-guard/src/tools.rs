@@ -36,9 +36,6 @@ const WRITE_OPERATIONS: &[&str] = &[
     tool_names::DISCUSSION_COMMENT_WRITE, // creates or edits GitHub Discussion comments
     "dismiss_notification",
     tool_names::FORK_REPOSITORY,
-    tool_names::HIDE_ISSUE_COMMENT,
-    tool_names::HIDE_PULL_REQUEST_REVIEW,
-    tool_names::HIDE_PULL_REQUEST_REVIEW_COMMENT,
     tool_names::LABEL_WRITE,
     "mark_all_notifications_read",
     "projects_write",
@@ -48,10 +45,22 @@ const WRITE_OPERATIONS: &[&str] = &[
     tool_names::REMOVE_PULL_REQUEST_REVIEW_COMMENT_REACTION, // DELETE /repos/.../pulls/comments/{id}/reactions/{reaction_id}
     "request_copilot_review",
     tool_names::STAR_REPOSITORY,
+    tool_names::UNSTAR_REPOSITORY,
+];
+
+/// Upstream writes omitted from the default README catalog because they are feature-gated.
+///
+/// These are active tools, not deprecated aliases: issue comments require `issues_granular`,
+/// and PR reviews/comments require `pull_requests_granular`. Keep write and DIFC coverage.
+/// See https://github.com/github/github-mcp-server/blob/v2.0.3/pkg/github/comment_minimize.go
+const FEATURE_GATED_WRITE_OPERATIONS: &[&str] = &[
+    // Keep sorted for binary_search correctness.
+    tool_names::HIDE_ISSUE_COMMENT,
+    tool_names::HIDE_PULL_REQUEST_REVIEW,
+    tool_names::HIDE_PULL_REQUEST_REVIEW_COMMENT,
     tool_names::UNHIDE_ISSUE_COMMENT,
     tool_names::UNHIDE_PULL_REQUEST_REVIEW,
     tool_names::UNHIDE_PULL_REQUEST_REVIEW_COMMENT,
-    tool_names::UNSTAR_REPOSITORY,
 ];
 
 /// Synthetic write operations reachable through GitHub CLI but not current upstream MCP tools.
@@ -209,6 +218,7 @@ fn contains_sorted(list: &[&str], name: &str) -> bool {
 pub(crate) fn is_write_operation(tool_name: &str) -> bool {
     [
         WRITE_OPERATIONS,
+        FEATURE_GATED_WRITE_OPERATIONS,
         CLI_WRITE_OPERATIONS,
         SYNTHETIC_WRITE_OPERATIONS,
         DEPRECATED_WRITE_ALIASES,
@@ -430,9 +440,13 @@ mod tests {
         assert_eq!(tools, ["literal_tool", "wrapped_tool", "inline_tool"]);
     }
 
-    fn write_source_buckets() -> [(&'static str, &'static [&'static str]); 7] {
+    fn write_source_buckets() -> [(&'static str, &'static [&'static str]); 8] {
         [
             ("WRITE_OPERATIONS", WRITE_OPERATIONS),
+            (
+                "FEATURE_GATED_WRITE_OPERATIONS",
+                FEATURE_GATED_WRITE_OPERATIONS,
+            ),
             ("CLI_WRITE_OPERATIONS", CLI_WRITE_OPERATIONS),
             ("SYNTHETIC_WRITE_OPERATIONS", SYNTHETIC_WRITE_OPERATIONS),
             ("DEPRECATED_WRITE_ALIASES", DEPRECATED_WRITE_ALIASES),
@@ -798,7 +812,7 @@ mod tests {
     }
 
     #[test]
-    fn test_moderation_tools_are_upstream_write_operations() {
+    fn test_moderation_tools_are_feature_gated_write_operations() {
         for op in [
             "hide_issue_comment",
             "unhide_issue_comment",
@@ -808,8 +822,8 @@ mod tests {
             "unhide_pull_request_review",
         ] {
             assert!(
-                WRITE_OPERATIONS.binary_search(&op).is_ok(),
-                "{op} must be explicitly listed as an upstream write"
+                FEATURE_GATED_WRITE_OPERATIONS.binary_search(&op).is_ok(),
+                "{op} must be explicitly listed as a feature-gated upstream write"
             );
             assert!(is_write_operation(op), "{op} must be a write operation");
             assert!(!is_read_write_operation(op), "{op} must not be read-write");
@@ -1155,7 +1169,7 @@ mod tests {
     }
 
     #[test]
-    fn test_comment_moderation_operations_are_upstream_writes() {
+    fn test_comment_moderation_operations_are_not_default_upstream_writes() {
         for op in [
             "hide_issue_comment",
             "unhide_issue_comment",
@@ -1165,8 +1179,8 @@ mod tests {
             "unhide_pull_request_review",
         ] {
             assert!(
-                WRITE_OPERATIONS.binary_search(&op).is_ok(),
-                "{op} must be classified as an upstream write operation"
+                !WRITE_OPERATIONS.contains(&op) && !READ_WRITE_OPERATIONS.contains(&op),
+                "{op} must be separate from default upstream operations"
             );
             assert!(is_write_operation(op), "{op} must be a write operation");
             assert!(

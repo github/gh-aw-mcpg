@@ -81,7 +81,7 @@ Parse the README to extract every tool name listed in the toolsets section. Tool
 
 ### 2.2 Discover toolset source files (if README is insufficient)
 
-If the README doesn't have a complete or clearly structured tool list, fall back to reading source code to find all tool names:
+If the README doesn't have a complete or clearly structured tool list, fall back to reading source code to find all tool names. Also inspect upstream registration and feature-gate checks for tools omitted from the README; README absence alone does not establish that a tool is stale or unregistered.
 
 ```
 Use github get_file_contents with owner=github, repo=github-mcp-server, path=pkg/toolsets/toolsets.go, ref=main
@@ -99,7 +99,7 @@ If those paths don't exist, use `search_code` to locate tool registration patter
 Use github search_code with query=AddTool repo:github/github-mcp-server
 ```
 
-This finds all files that contain `AddTool(` calls, which is the standard Go MCP SDK pattern for registering a named tool (e.g. `s.AddTool(mcp.NewTool("tool_name", ...)`). Read the matched files to extract all registered tool names.
+This finds all files that contain `AddTool(` calls, which is the standard Go MCP SDK pattern for registering a named tool (e.g. `s.AddTool(mcp.NewTool("tool_name", ...)`). Read the matched files to extract all registered tool names, including registrations guarded by feature flags. When a tool is absent from the README, verify its registration and gate in upstream source or confirm it in upstream feature-flag documentation.
 
 ### 2.3 Build the canonical tool list
 
@@ -154,7 +154,7 @@ The goal is to build a **CLI write-operations list**: a mapping of `{cli_command
 
 A CLI write operation has a **guard coverage gap** if:
 1. It uses a mutating HTTP method (POST, PATCH, PUT, DELETE) against the GitHub API, AND
-2. There is no equivalent MCP tool name in the guard's upstream MCP buckets (`WRITE_OPERATIONS` or `READ_WRITE_OPERATIONS`), CLI buckets (`CLI_WRITE_OPERATIONS` or `CLI_READ_WRITE_OPERATIONS`), synthetic bucket (`SYNTHETIC_WRITE_OPERATIONS`), or deprecated alias buckets (`DEPRECATED_WRITE_ALIASES` or `DEPRECATED_READ_WRITE_ALIASES`), AND
+2. There is no equivalent MCP tool name in the guard's upstream MCP buckets (`WRITE_OPERATIONS`, `FEATURE_GATED_WRITE_OPERATIONS`, or `READ_WRITE_OPERATIONS`), CLI buckets (`CLI_WRITE_OPERATIONS` or `CLI_READ_WRITE_OPERATIONS`), synthetic bucket (`SYNTHETIC_WRITE_OPERATIONS`), or deprecated alias buckets (`DEPRECATED_WRITE_ALIASES` or `DEPRECATED_READ_WRITE_ALIASES`), AND
 3. The operation is not covered by a prefix pattern (`merge_*`, `delete_*`, `update_*`, `create_*`)
 
 **Important**: You are looking for *semantic equivalences*, not exact name matches. For example, `gh issue comment --edit` maps to editing an issue comment, which might map to an `edit_issue_comment` MCP tool. Check whether the guard covers the underlying GitHub API operation, not just the CLI command name.
@@ -171,6 +171,7 @@ cat guards/github-guard/rust-guard/src/tools.rs
 
 This file contains:
 - `WRITE_OPERATIONS`: upstream github-mcp-server write tools
+- `FEATURE_GATED_WRITE_OPERATIONS`: upstream write tools omitted from the default README catalog because they require a feature gate
 - `READ_WRITE_OPERATIONS`: upstream github-mcp-server read-write tools
 - `CLI_WRITE_OPERATIONS` / `CLI_READ_WRITE_OPERATIONS`: GitHub CLI-only synthetic coverage
 - `SYNTHETIC_WRITE_OPERATIONS`: guard/runtime-specific synthetic writes
@@ -190,26 +191,27 @@ This file contains the `apply_tool_labels` function with a `match tool_name { ..
 From reading the code, produce:
 
 1. **mcp_write_ops**: set of upstream MCP tool names in `WRITE_OPERATIONS`
-2. **mcp_read_write_ops**: set of upstream MCP tool names in `READ_WRITE_OPERATIONS`
-3. **cli_write_ops**: set of CLI-only synthetic names in `CLI_WRITE_OPERATIONS` and `CLI_READ_WRITE_OPERATIONS`
-4. **synthetic_write_ops**: set of guard/runtime-specific names in `SYNTHETIC_WRITE_OPERATIONS`
-5. **deprecated_aliases**: set of compatibility names in `DEPRECATED_WRITE_ALIASES` and `DEPRECATED_READ_WRITE_ALIASES`
-6. **pattern_covered**: tools from the upstream list that match any pattern (`merge_*`, `delete_*`, `update_*`, `create_*`)
-7. **label_ruled**: set of tool names with explicit match arms in `apply_tool_labels`
-8. **source_catalog**: a mapping from each guard entry to exactly one source category: upstream MCP, CLI-only, synthetic guard/runtime, or deprecated alias
+2. **mcp_feature_gated_write_ops**: set of upstream MCP tool names in `FEATURE_GATED_WRITE_OPERATIONS`
+3. **mcp_read_write_ops**: set of upstream MCP tool names in `READ_WRITE_OPERATIONS`
+4. **cli_write_ops**: set of CLI-only synthetic names in `CLI_WRITE_OPERATIONS` and `CLI_READ_WRITE_OPERATIONS`
+5. **synthetic_write_ops**: set of guard/runtime-specific names in `SYNTHETIC_WRITE_OPERATIONS`
+6. **deprecated_aliases**: set of compatibility names in `DEPRECATED_WRITE_ALIASES` and `DEPRECATED_READ_WRITE_ALIASES`
+7. **pattern_covered**: tools from the upstream list that match any pattern (`merge_*`, `delete_*`, `update_*`, `create_*`)
+8. **label_ruled**: set of tool names with explicit match arms in `apply_tool_labels`
+9. **source_catalog**: a mapping from each guard entry to exactly one source category: default upstream MCP, feature-gated upstream MCP, CLI-only, synthetic guard/runtime, or deprecated alias
 
 ## Step 5: Identify Coverage Gaps
 
 ### 5.1 MCP tool classification gaps (tools.rs)
 
 A tool has a **classification gap** if it is in the upstream MCP tool list AND:
-- It is NOT in the upstream MCP buckets (`WRITE_OPERATIONS` or `READ_WRITE_OPERATIONS`)
+- It is NOT in any upstream MCP bucket (`WRITE_OPERATIONS`, `FEATURE_GATED_WRITE_OPERATIONS`, or `READ_WRITE_OPERATIONS`)
 - It does NOT match any prefix pattern (`merge_*`, `delete_*`, `update_*`, `create_*`)
 - AND it appears to perform write or mutating operations based on its name or description (e.g., tools with verbs like "add", "set", "enable", "disable", "submit", "publish", "request", "approve", "reject", "resolve", "reopen", "close", "lock", "unlock", "pin", "unpin", "convert")
 
 For read-only tools (get, list, search, read), missing classification is expected and not a gap.
 
-For a mutating `{tool_name, method}` pair, check the registered parent `tool_name` classification and its label rule using representative arguments that include `method`. A method value is not an MCP tool name and must not be added to a tool classification bucket or treated as a standalone gap.
+For a mutating `{tool_name, method}` pair, check the registered parent `tool_name` classification and its label rule using representative arguments that include `method`. A method value is not an MCP tool name and must not be added to a tool classification bucket or treated as a standalone gap. For tools in `FEATURE_GATED_WRITE_OPERATIONS`, confirm upstream registration and the feature gate in source or feature-flag documentation; do not report them as gaps solely because they are absent from the default README catalog.
 
 ### 5.2 MCP tool labeling gaps (tool_rules.rs)
 
@@ -219,7 +221,7 @@ A tool has a **labeling gap** if it is in the upstream MCP tool list AND has no 
 
 For each write operation discovered in Step 3.4, determine if the underlying GitHub API operation has guard coverage:
 
-- If there is an equivalent MCP tool and it is already in `WRITE_OPERATIONS` / `READ_WRITE_OPERATIONS` (or covered by a pattern) → **covered, skip**.
+- If there is an equivalent MCP tool and it is already in `WRITE_OPERATIONS`, `FEATURE_GATED_WRITE_OPERATIONS`, or `READ_WRITE_OPERATIONS` (or covered by a pattern) → **covered, skip**.
 - If there is an equivalent MCP tool but it is NOT in the guard lists and not covered by any pattern → **MCP classification gap** (already captured in 5.1).
 - If there is **no equivalent MCP tool** for a CLI write command → flag as a **CLI-only gap**: the guard does not model this operation at all. Note the CLI command, the REST endpoint, and the GitHub API action it performs.
 
@@ -229,10 +231,11 @@ For CLI-only gaps, the fix is to add a new entry to `CLI_WRITE_OPERATIONS` (or `
 
 Run reverse checks for each source category:
 
-1. **Upstream MCP stale entries**: Check if any entries in the upstream MCP buckets (`WRITE_OPERATIONS` or `READ_WRITE_OPERATIONS`) are **no longer in the upstream MCP tool list**. Do not report entries from `CLI_WRITE_OPERATIONS`, `CLI_READ_WRITE_OPERATIONS`, `SYNTHETIC_WRITE_OPERATIONS`, or the deprecated alias buckets as MCP drift.
-2. **CLI bucket stale entries**: Check every entry in `CLI_WRITE_OPERATIONS` and `CLI_READ_WRITE_OPERATIONS` against the CLI write-operation mapping from Steps 3.3-3.4. Report any entry that no longer corresponds to a CLI mutating operation, has gained an upstream MCP equivalent and should move to an upstream MCP bucket, or is better represented by a prefix pattern.
-3. **Synthetic bucket stale entries**: Check every entry in `SYNTHETIC_WRITE_OPERATIONS` against local guard/runtime usage and documentation. Report any entry that is not referenced outside the inventory/tests, is no longer emitted by runtime code, or should move to a CLI or upstream MCP bucket.
-4. **Deprecated alias stale entries**: Check every entry in `DEPRECATED_WRITE_ALIASES` and `DEPRECATED_READ_WRITE_ALIASES` for an active compatibility rationale (for example, a former upstream tool name, a documented migration, or compatibility test coverage). Report any alias with no remaining compatibility purpose or whose replacement is fully covered by a non-deprecated source bucket.
+1. **Default upstream MCP stale entries**: Check entries in `WRITE_OPERATIONS` and `READ_WRITE_OPERATIONS` against the upstream MCP tool list. Do not report entries from `FEATURE_GATED_WRITE_OPERATIONS`, CLI, synthetic, or deprecated alias buckets as default-catalog MCP drift.
+2. **Feature-gated upstream MCP stale entries**: Check each `FEATURE_GATED_WRITE_OPERATIONS` entry against upstream tool registration and feature-gate source, or upstream feature-flag documentation. A tool omitted from the README is not stale if source confirms it is registered behind a feature gate. Report it only when upstream evidence no longer supports its registration or gated status.
+3. **CLI bucket stale entries**: Check every entry in `CLI_WRITE_OPERATIONS` and `CLI_READ_WRITE_OPERATIONS` against the CLI write-operation mapping from Steps 3.3-3.4. Report any entry that no longer corresponds to a CLI mutating operation, has gained an upstream MCP equivalent and should move to an upstream MCP bucket, or is better represented by a prefix pattern.
+4. **Synthetic bucket stale entries**: Check every entry in `SYNTHETIC_WRITE_OPERATIONS` against local guard/runtime usage and documentation. Report any entry that is not referenced outside the inventory/tests, is no longer emitted by runtime code, or should move to a CLI or upstream MCP bucket.
+5. **Deprecated alias stale entries**: Check every entry in `DEPRECATED_WRITE_ALIASES` and `DEPRECATED_READ_WRITE_ALIASES` for an active compatibility rationale (for example, a former upstream tool name, a documented migration, or compatibility test coverage). Report any alias with no remaining compatibility purpose or whose replacement is fully covered by a non-deprecated source bucket.
 
 Keep the finding type source-specific. For example, report an obsolete CLI-only entry as a stale CLI bucket entry, not as MCP drift.
 
@@ -277,7 +280,7 @@ The GitHub guard does not fully cover **[N]** operation(s) from the [github-mcp-
 
 - **MCP tools scanned**: [total count from github-mcp-server]
 - **CLI write commands scanned**: [total count from cli/cli]
-- **Guard-covered upstream MCP write tools (tools.rs)**: [count in WRITE_OPERATIONS + READ_WRITE_OPERATIONS]
+- **Guard-covered upstream MCP write tools (tools.rs)**: [count in WRITE_OPERATIONS + FEATURE_GATED_WRITE_OPERATIONS + READ_WRITE_OPERATIONS]
 - **Guard-covered CLI/synthetic write tools (tools.rs)**: [count in CLI_WRITE_OPERATIONS + CLI_READ_WRITE_OPERATIONS + SYNTHETIC_WRITE_OPERATIONS + deprecated alias buckets]
 - **Tools with explicit DIFC rules (tool_rules.rs)**: [count of match arms]
 - **New gaps found this run**: [N]
@@ -286,16 +289,16 @@ The GitHub guard does not fully cover **[N]** operation(s) from the [github-mcp-
 
 ## MCP Tool Classification Gaps (tools.rs)
 
-These MCP tools perform write or mutating operations but are missing from the upstream MCP buckets (`WRITE_OPERATIONS` or `READ_WRITE_OPERATIONS`) in `guards/github-guard/rust-guard/src/tools.rs`:
+These MCP tools perform write or mutating operations but are missing from all upstream MCP buckets (`WRITE_OPERATIONS`, `FEATURE_GATED_WRITE_OPERATIONS`, or `READ_WRITE_OPERATIONS`) in `guards/github-guard/rust-guard/src/tools.rs`:
 
 | Tool Name | Operation Type | Suggested Classification | Notes |
 |-----------|---------------|--------------------------|-------|
-| `tool_name` | write / read-write | `WRITE_OPERATIONS` | Brief description of what this tool does |
+| `tool_name` | write / read-write | `WRITE_OPERATIONS`, `FEATURE_GATED_WRITE_OPERATIONS`, or `READ_WRITE_OPERATIONS` | Brief description of what this tool does |
 
 ### Suggested fix for tools.rs
 
 ```rust
-// Add to WRITE_OPERATIONS or READ_WRITE_OPERATIONS as appropriate:
+// Add to WRITE_OPERATIONS, FEATURE_GATED_WRITE_OPERATIONS, or READ_WRITE_OPERATIONS as appropriate:
 pub const WRITE_OPERATIONS: &[&str] = &[
     // ... existing entries ...
     "new_tool_name_here",  // brief description
@@ -336,9 +339,17 @@ For each CLI-only gap, either:
 
 ## Stale Guard Entries (bonus)
 
-These tools are in the upstream MCP buckets (`WRITE_OPERATIONS` or `READ_WRITE_OPERATIONS`) but no longer appear in the upstream github-mcp-server tool list. Entries in the CLI/synthetic/deprecated buckets are not MCP drift and are reported in the source-specific sections below:
+These tools are in the default upstream MCP buckets (`WRITE_OPERATIONS` or `READ_WRITE_OPERATIONS`) but no longer appear in the upstream github-mcp-server tool list. Feature-gated upstream entries are checked separately against upstream registration or feature-flag documentation. Entries in the CLI/synthetic/deprecated buckets are not MCP drift and are reported in the source-specific sections below:
 
 - `stale_tool_name` — not found in upstream
+
+### Stale Feature-Gated Upstream Entries
+
+These entries are in `FEATURE_GATED_WRITE_OPERATIONS` but no longer have upstream registration or feature-flag documentation confirming their gated availability:
+
+| Guard Entry | Upstream Registration / Feature-Flag Evidence | Suggested Action |
+|-------------|-----------------------------------------------|------------------|
+| `stale_feature_gated_entry` | No registration or feature-gate evidence found | Remove or move to the correct bucket |
 
 ### Stale CLI Bucket Entries
 
