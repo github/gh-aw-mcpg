@@ -1182,6 +1182,22 @@ pub fn apply_tool_labels(
 }
 
 /// Check if a file path contains sensitive patterns.
+fn is_sensitive_path(path: &str) -> bool {
+    let path_lower = path.to_lowercase();
+    let filename = path_lower.rsplit('/').next().unwrap_or(&path_lower);
+
+    SENSITIVE_FILE_PATTERNS
+        .iter()
+        .any(|p| path_lower.ends_with(p))
+        || path_lower
+            .split('/')
+            .any(|seg| SENSITIVE_FILE_PATTERNS.iter().any(|p| seg.starts_with(*p)))
+        || SENSITIVE_FILE_KEYWORDS.iter().any(|k| filename.contains(k))
+        || SENSITIVE_PATH_PREFIXES
+            .iter()
+            .any(|prefix| path_lower.starts_with(prefix))
+}
+
 /// If sensitive, returns a private-scoped secrecy label for the given owner/repo
 /// regardless of the repository's public/private visibility — sensitive files
 /// (credentials, keys, workflow definitions) should always be restricted.
@@ -1194,21 +1210,7 @@ fn check_file_secrecy(
     repo_id: &str,
     ctx: &PolicyContext,
 ) -> Vec<String> {
-    let path_lower = path.to_lowercase();
-    let filename = path_lower.rsplit('/').next().unwrap_or(&path_lower);
-
-    let is_sensitive = SENSITIVE_FILE_PATTERNS
-        .iter()
-        .any(|p| path_lower.ends_with(p))
-        || path_lower
-            .split('/')
-            .any(|seg| SENSITIVE_FILE_PATTERNS.iter().any(|p| seg.starts_with(*p)))
-        || SENSITIVE_FILE_KEYWORDS.iter().any(|k| filename.contains(k))
-        || SENSITIVE_PATH_PREFIXES
-            .iter()
-            .any(|prefix| path_lower.starts_with(prefix));
-
-    if is_sensitive {
+    if is_sensitive_path(path) {
         policy_private_scope_label(owner, repo, repo_id, ctx)
     } else {
         default_secrecy
@@ -1239,6 +1241,37 @@ mod tests {
     }
 
     #[test]
+    fn is_sensitive_path_matches_patterns_keywords_and_prefixes() {
+        let cases = [
+            (".env", true),
+            ("deploy/config.env", true),
+            ("certs/server.pem", true),
+            (".ssh/id_rsa", true),
+            (".github/workflows/ci.yml", true),
+            ("config/secrets.json", true),
+            ("db_password.txt", true),
+            ("auth_token", true),
+            ("config/db_credentials.json", true),
+            ("src/main.rs", false),
+            ("README.md", false),
+            ("config/.ENV", true),
+            ("MY_SECRET_KEY", true),
+            ("configs/.env.local", true),
+            ("keys/id_rsa.pub", true),
+            ("configs/.env.local/settings.json", true),
+            (".GITHUB/WORKFLOWS/CI.YML", true),
+            ("secrets/main.rs", false),
+            ("src/.github/workflows/ci.yml", false),
+            (".github/workflows-backup/ci.yml", false),
+            ("", false),
+        ];
+
+        for (path, expected) in cases {
+            assert_eq!(is_sensitive_path(path), expected, "path: {path:?}");
+        }
+    }
+
+    #[test]
     fn check_file_secrecy_env_file_triggers_private() {
         let ctx = default_ctx();
         let result = check_file_secrecy(
@@ -1256,145 +1289,12 @@ mod tests {
     }
 
     #[test]
-    fn check_file_secrecy_dotenv_extension_triggers_private() {
-        let ctx = default_ctx();
-        let result = check_file_secrecy(
-            "deploy/config.env",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx)
-        );
-    }
-
-    #[test]
-    fn check_file_secrecy_pem_file_triggers_private() {
-        let ctx = default_ctx();
-        let result = check_file_secrecy(
-            "certs/server.pem",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx)
-        );
-    }
-
-    #[test]
-    fn check_file_secrecy_rsa_key_triggers_private() {
-        let ctx = default_ctx();
-        let result = check_file_secrecy(
-            ".ssh/id_rsa",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx)
-        );
-    }
-
-    #[test]
-    fn check_file_secrecy_workflow_file_triggers_private() {
-        let ctx = default_ctx();
-        let result = check_file_secrecy(
-            ".github/workflows/ci.yml",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx)
-        );
-    }
-
-    #[test]
-    fn check_file_secrecy_secrets_json_triggers_private() {
-        let ctx = default_ctx();
-        let result = check_file_secrecy(
-            "config/secrets.json",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx)
-        );
-    }
-
-    #[test]
-    fn check_file_secrecy_password_file_triggers_private() {
-        let ctx = default_ctx();
-        let result = check_file_secrecy(
-            "db_password.txt",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx)
-        );
-    }
-
-    #[test]
-    fn check_file_secrecy_token_file_triggers_private() {
-        let ctx = default_ctx();
-        let result = check_file_secrecy(
-            "auth_token",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx)
-        );
-    }
-
-    #[test]
-    fn check_file_secrecy_credential_file_triggers_private() {
-        let ctx = default_ctx();
-        let result = check_file_secrecy(
-            "config/db_credentials.json",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx)
-        );
-    }
-
-    #[test]
     fn check_file_secrecy_normal_source_file_returns_default() {
         let ctx = default_ctx();
-        let default = vec!["private:octocat/hello-world".to_string()];
+        let default = vec![
+            "private:octocat/other-repo".to_string(),
+            "private:another-owner".to_string(),
+        ];
         let result = check_file_secrecy(
             "src/main.rs",
             default.clone(),
@@ -1404,57 +1304,6 @@ mod tests {
             &ctx,
         );
         assert_eq!(result, default);
-    }
-
-    #[test]
-    fn check_file_secrecy_readme_returns_default() {
-        let ctx = default_ctx();
-        let default = vec!["private:octocat/hello-world".to_string()];
-        let result = check_file_secrecy(
-            "README.md",
-            default.clone(),
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(result, default);
-    }
-
-    #[test]
-    fn check_file_secrecy_case_insensitive_env() {
-        let ctx = default_ctx();
-        // .ENV (uppercase) should still match
-        let result = check_file_secrecy(
-            "config/.ENV",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx)
-        );
-    }
-
-    #[test]
-    fn check_file_secrecy_case_insensitive_keyword() {
-        let ctx = default_ctx();
-        // SECRET (uppercase) in filename should match keyword check
-        let result = check_file_secrecy(
-            "MY_SECRET_KEY",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx)
-        );
     }
 
     #[test]
@@ -2694,50 +2543,6 @@ mod tests {
                 "{tool}: must require writer-level user integrity",
             );
         }
-    }
-
-    // === check_file_secrecy: segment-starts-with branch coverage ===
-
-    #[test]
-    fn check_file_secrecy_segment_starting_with_env_pattern_triggers_private() {
-        let ctx = default_ctx();
-        // "configs/.env.local" — ".env.local" segment starts with ".env" pattern
-        // but does NOT end with ".env", so the ends_with check alone misses it.
-        // This exercises the segment-starts-with branch exclusively.
-        let result = check_file_secrecy(
-            "configs/.env.local",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx),
-            "segment starting with sensitive pattern must trigger private secrecy",
-        );
-    }
-
-    #[test]
-    fn check_file_secrecy_id_rsa_with_suffix_triggers_private() {
-        let ctx = default_ctx();
-        // "keys/id_rsa.pub" — "id_rsa.pub" segment starts with "id_rsa" pattern
-        // but does NOT end with "id_rsa", so the ends_with check alone misses it.
-        // This exercises the segment-starts-with branch exclusively.
-        let result = check_file_secrecy(
-            "keys/id_rsa.pub",
-            vec![],
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
-            &ctx,
-        );
-        assert_eq!(
-            result,
-            private_label("octocat", "hello-world", "octocat/hello-world", &ctx),
-            "segment starting with sensitive key pattern must trigger private secrecy",
-        );
     }
 
     #[test]
