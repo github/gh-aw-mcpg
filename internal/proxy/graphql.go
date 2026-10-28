@@ -71,6 +71,7 @@ var graphqlPatterns = []graphqlPattern{
 }
 
 var graphqlOrganizationPattern = regexp.MustCompile(`(?i)\borganization\s*\(`)
+var graphqlObjectExpressionPattern = regexp.MustCompile(`(?i)\bobject\s*\(\s*expression\s*:`)
 
 // ownerRepoPattern extracts owner and repo from GraphQL variables or query text.
 var (
@@ -163,6 +164,9 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 	if toolName == "list_commits" {
 		// GraphQL history can target arbitrary refs or object expressions.
 		args["sha"] = "graphql-history"
+	}
+	if toolName == "get_file_contents" && graphqlObjectExpressionPattern.MatchString(gql.Query) {
+		args["sha"] = "graphql-object"
 	}
 
 	// For search queries, extract the "query" argument (contains repo:owner/name)

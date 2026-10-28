@@ -86,6 +86,13 @@ This ensures DIFC flow checks work correctly without the evaluator understanding
 | Open (human author) | `S(repo)` | `unapproved` (or elevated by policy evidence) |
 | From bot | `S(repo)` | `approved + unapproved` |
 
+These PR rules describe metadata, not authorization for the proposed code.
+`pull_request_read` methods `get_files` and `get_diff` receive `none` integrity:
+they do not supply revision-bound content endorsement. PR-author trust and
+approval labels do not promote these authorless responses. See
+[PR code review and content integrity](../../../docs/CONFIGURATION.md#pr-code-review-and-content-integrity)
+for supported policy choices and the current `approved` review limitation.
+
 ### Issues and Comments
 
 | Condition | Secrecy | Integrity |
@@ -113,6 +120,18 @@ This ensures DIFC flow checks work correctly without the evaluator understanding
 |-----------|---------|-----------|
 | Sensitive path patterns | `private:<repo>` (always, even public repos) | Varies |
 | Normal files | `S(repo)` | Varies based on commit |
+
+File-content APIs fail closed at `none` for non-empty `sha` arguments and
+non-default `ref` arguments (including SHA refs and PR head/merge refs).
+`sha` takes precedence over `ref`. The existing default-branch context
+(omitted/empty revision or `ref` of `main`, `master`, `HEAD`,
+`refs/heads/main`, or `refs/heads/master`) retains `merged` integrity. Explicit
+non-default revisions now receive `none`, so workflows using
+`min-integrity: unapproved` must omit that revision to read the current default
+branch. This applies consistently to resource labels, path/default labels,
+and item labels for `get_file_contents` and its fields alias, and resource
+labels for `get_file_blame`. Arbitrary revision reads do not inherit writer
+integrity merely because the repository is accessible.
 
 **Sensitive path patterns**:
 - `.env*`, `*.key`, `*.pem`, `*secret*`, `*password*`

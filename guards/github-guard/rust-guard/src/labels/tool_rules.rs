@@ -15,8 +15,8 @@ use super::constants::{CODE_SCANNING_DEPENDABOT_ALERT_TOOLS, SECRET_SCANNING_ALE
 use super::helpers::{
     author_association_floor_from_str, blocked_integrity, elevate_via_collaborator_permission,
     ensure_integrity_baseline, extract_number_as_string, extract_repo_info_from_search_query,
-    format_repo_id, get_string_field, is_any_trusted_actor, is_blocked_user,
-    is_default_branch_commit_context, is_default_branch_ref, max_integrity, merged_integrity,
+    file_content_integrity, format_repo_id, get_string_field, is_any_trusted_actor,
+    is_blocked_user, is_default_branch_commit_context, max_integrity, merged_integrity,
     policy_private_scope_label, private_scope_label, private_user_label, project_github_label,
     reader_integrity, short_sha, split_repo_id, writer_integrity, PolicyContext, ScopeKind,
 };
@@ -609,12 +609,7 @@ pub fn apply_tool_labels(
             if let Some(path) = tool_args.get("path").and_then(|v| v.as_str()) {
                 secrecy = check_file_secrecy(path, secrecy, &owner, &repo, repo_id, ctx);
             }
-            let branch_ref = tool_args.get("ref").and_then(|v| v.as_str()).unwrap_or("");
-            integrity = if is_default_branch_ref(branch_ref) {
-                merged_integrity(repo_id, ctx)
-            } else {
-                writer_integrity(repo_id, ctx)
-            };
+            integrity = file_content_integrity(tool_args, repo_id, ctx);
         }
 
         // === Code / Commit Search ===

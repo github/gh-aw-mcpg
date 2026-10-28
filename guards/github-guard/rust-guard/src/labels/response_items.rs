@@ -426,14 +426,31 @@ pub fn label_response_items(
                 limit_items_with_log(all_items.as_slice(), tool_names::GET_FILE_CONTENTS);
             let (arg_owner, arg_repo, repo_full_name) = extract_repo_info(tool_args);
             let secrecy = repo_visibility_secrecy(&arg_owner, &arg_repo, &repo_full_name, ctx);
-            let branch_ref = tool_args.get("ref").and_then(|v| v.as_str()).unwrap_or("");
-            let file_integrity = if is_default_branch_ref(branch_ref) {
-                merged_integrity(&repo_full_name, ctx)
-            } else {
-                writer_integrity(&repo_full_name, ctx)
-            };
+            let file_integrity = file_content_integrity(tool_args, &repo_full_name, ctx);
             let secrecy_shared: SharedLabels = secrecy.into();
             let file_integrity_shared: SharedLabels = file_integrity.into();
+
+            let has_resource_text = actual_response
+                .get("content")
+                .and_then(Value::as_array)
+                .is_some_and(|content| {
+                    content.iter().any(|item| {
+                        item.get("resource")
+                            .and_then(|resource| resource.get("text"))
+                            .and_then(Value::as_str)
+                            .is_some()
+                    })
+                });
+            if items_limited.is_empty() && has_resource_text {
+                labeled_items.push(LabeledItem {
+                    data: actual_response.as_ref().clone(),
+                    labels: ResourceLabels {
+                        description: format!("file:{repo_full_name}"),
+                        secrecy: secrecy_shared.clone(),
+                        integrity: file_integrity_shared.clone(),
+                    },
+                });
+            }
 
             for &item in items_limited {
                 labeled_items.push(LabeledItem {

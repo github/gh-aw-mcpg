@@ -114,7 +114,7 @@ The GitHub CLI (`cli/cli`) exposes a rich set of GitHub API operations through i
 Read the CLI source structure to understand what command groups exist:
 
 ```
-Use github get_file_contents with owner=cli, repo=cli, path=pkg/cmd, ref=trunk
+Use github get_file_contents with owner=cli, repo=cli, path=pkg/cmd
 ```
 
 This lists the top-level command directories (e.g., `pr/`, `issue/`, `repo/`, `gist/`, `release/`, `workflow/`, `label/`, `project/`, `org/`, `secret/`, etc.).
@@ -138,7 +138,7 @@ For each command group that has write/mutating sub-commands, read the correspond
 Use `get_file_contents` to read individual command files if needed. For example:
 
 ```
-Use github get_file_contents with owner=cli, repo=cli, path=pkg/cmd/pr/merge/merge.go, ref=trunk
+Use github get_file_contents with owner=cli, repo=cli, path=pkg/cmd/pr/merge/merge.go
 ```
 
 ### 3.3 Extract GitHub API endpoints used by CLI write commands

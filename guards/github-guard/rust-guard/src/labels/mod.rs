@@ -525,6 +525,114 @@ mod tests {
     }
 
     #[test]
+    fn test_file_content_revision_integrity_is_consistent() {
+        let repo = "github/copilot";
+        let _visibility = backend::cache_repo_visibility_for_tests(repo, false);
+        let ctx = default_ctx();
+        let sha = "0123456789abcdef0123456789abcdef01234567";
+        for (revision, trusted) in [
+            (json!({}), true),
+            (json!({"ref": ""}), true),
+            (json!({"ref": "main"}), true),
+            (json!({"ref": "master"}), true),
+            (json!({"ref": "refs/heads/main"}), true),
+            (json!({"ref": "refs/heads/master"}), true),
+            (json!({"ref": "HEAD"}), true),
+            (json!({"sha": "", "ref": "main"}), true),
+            (json!({"ref": "feature/review"}), false),
+            (json!({"ref": "refs/pull/42/head"}), false),
+            (json!({"ref": "refs/pull/42/merge"}), false),
+            (json!({"ref": sha}), false),
+            (json!({"sha": sha}), false),
+            (json!({"sha": sha, "ref": "main"}), false),
+            (json!({"sha": "main"}), false),
+            (json!({"ref": null}), false),
+            (json!({"sha": null}), false),
+        ] {
+            let mut args = json!({"owner": "github", "repo": "copilot", "path": "README.md"});
+            args.as_object_mut()
+                .unwrap()
+                .extend(revision.as_object().unwrap().clone());
+            let expected = if trusted {
+                merged_integrity(repo, &ctx)
+            } else {
+                none_integrity(repo, &ctx)
+            };
+            for tool in [
+                constants::tool_names::GET_FILE_CONTENTS,
+                constants::tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM,
+                "get_file_blame",
+            ] {
+                let (_, integrity, _) =
+                    apply_tool_labels(tool, &args, repo, vec![], vec![], String::new(), &ctx);
+                assert_eq!(integrity, expected, "{tool}: {revision}");
+                if tool == "get_file_blame" {
+                    continue;
+                }
+                for data in [
+                    json!({"name": "README.md", "content": "aGVsbG8="}),
+                    json!([{"name": "README.md", "content": "aGVsbG8="}]),
+                ] {
+                    let response = json!({"content": [{
+                        "type": "text", "text": data.to_string()
+                    }]});
+                    let items = label_response_items(tool, &args, &response, &ctx);
+                    assert_eq!(items.len(), 1);
+                    assert_eq!(items[0].labels.integrity, expected, "{tool}: {revision}");
+                    if let Some(paths) = label_response_paths(tool, &args, &response, &ctx) {
+                        assert_eq!(paths.labeled_paths.len(), 1);
+                        assert_eq!(paths.labeled_paths[0].labels.integrity, expected);
+                        assert_eq!(paths.default_labels.unwrap().integrity, expected);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_pr_content_does_not_inherit_metadata_approval() {
+        let repo = "github/copilot";
+        let _visibility = backend::cache_repo_visibility_for_tests(repo, false);
+        let ctx = PolicyContext {
+            trusted_users: vec!["maintainer".to_string()],
+            approval_labels: vec!["review-approved".to_string()],
+            ..default_ctx()
+        };
+        let metadata = json!({
+            "number": 42,
+            "user": {"login": "maintainer"},
+            "author_association": "MEMBER",
+            "labels": [{"name": "review-approved"}],
+            "head": {"sha": "0123456789abcdef0123456789abcdef01234567"}
+        });
+        assert_eq!(
+            pr_integrity(&metadata, repo, false, Some(false), &ctx),
+            writer_integrity(repo, &ctx)
+        );
+        for (method, data) in [
+            (
+                "get_files",
+                json!([{"filename": "README.md", "patch": "+untrusted"}]),
+            ),
+            (
+                "get_diff",
+                json!("diff --git a/README.md b/README.md\n+untrusted"),
+            ),
+        ] {
+            let args = json!({
+                "owner": "github", "repo": "copilot", "pullNumber": 42, "method": method
+            });
+            let result = label_response_paths("pull_request_read", &args, &data, &ctx)
+                .expect("PR content must have explicit labels");
+            let expected = none_integrity(repo, &ctx);
+            assert_eq!(result.default_labels.unwrap().integrity, expected);
+            for path in result.labeled_paths {
+                assert_eq!(path.labels.integrity, expected);
+            }
+        }
+    }
+
+    #[test]
     fn test_apply_tool_labels_get_file_blame() {
         let ctx = default_ctx();
         let tool_args = json!({

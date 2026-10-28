@@ -2029,6 +2029,30 @@ pub(crate) fn is_default_branch_ref(branch_ref: &str) -> bool {
         || DEFAULT_BRANCH_NAMES
             .iter()
             .any(|n| branch_ref.eq_ignore_ascii_case(n))
+        || ["refs/heads/main", "refs/heads/master"]
+            .iter()
+            .any(|n| branch_ref.eq_ignore_ascii_case(n))
+}
+
+/// File APIs provide no author or approval proof for an arbitrary revision.
+/// A pinned SHA takes precedence over ref, including a default-branch ref.
+pub(crate) fn file_content_integrity(
+    tool_args: &Value,
+    repo_full_name: &str,
+    ctx: &PolicyContext,
+) -> Vec<String> {
+    if let Some(sha) = tool_args.get(field_names::SHA) {
+        if sha.as_str() != Some("") {
+            return none_integrity(repo_full_name, ctx);
+        }
+    }
+    match tool_args.get("ref") {
+        None => merged_integrity(repo_full_name, ctx),
+        Some(Value::String(branch_ref)) if is_default_branch_ref(branch_ref) => {
+            merged_integrity(repo_full_name, ctx)
+        }
+        _ => none_integrity(repo_full_name, ctx),
+    }
 }
 
 pub(crate) fn is_default_branch_commit_context(tool_name: &str, sha_or_ref: &str) -> bool {

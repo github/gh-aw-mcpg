@@ -189,6 +189,14 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if sha := r.URL.Query().Get("sha"); sha != "" {
 			args["sha"] = sha
 		}
+		if toolName == "get_file_contents" {
+			refs := r.URL.Query()["ref"]
+			if len(refs) == 1 {
+				args["ref"] = refs[0]
+			} else if len(refs) > 1 {
+				args["ref"] = "proxy-ambiguous-ref"
+			}
+		}
 	}
 
 	// Run the DIFC pipeline
