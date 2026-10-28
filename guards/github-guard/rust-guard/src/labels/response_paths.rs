@@ -668,12 +668,7 @@ pub fn label_response_paths(
         tool_names::GET_FILE_CONTENTS | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
             let (arg_owner, arg_repo, arg_repo_full) = extract_repo_info(tool_args);
             let secrecy = repo_visibility_secrecy(&arg_owner, &arg_repo, &arg_repo_full, ctx);
-            let branch_ref = tool_args.get("ref").and_then(|v| v.as_str()).unwrap_or("");
-            let file_integrity = if is_default_branch_ref(branch_ref) {
-                merged_integrity(&arg_repo_full, ctx)
-            } else {
-                writer_integrity(&arg_repo_full, ctx)
-            };
+            let file_integrity = file_content_integrity(tool_args, &arg_repo_full, ctx);
             // Convert to SharedLabels (Arc<Vec<_>>) first — O(1) Arc clones in the loop.
             let secrecy_shared: crate::SharedLabels = secrecy.into();
             let file_integrity_shared: crate::SharedLabels = file_integrity.into();
@@ -1505,7 +1500,7 @@ mod tests {
     }
 
     #[test]
-    fn get_file_contents_non_default_branch_gets_writer_integrity() {
+    fn get_file_contents_non_default_branch_gets_none_integrity() {
         let tool_args = json!({"owner": "octocat", "repo": "hello", "ref": "feature/my-branch"});
         let items = json!([{"name": "src/main.rs", "content": "Zm4gbWFpbigpIHt9"}]);
         let response = json!({
@@ -1520,7 +1515,7 @@ mod tests {
 
         assert_eq!(result.labeled_paths.len(), 1);
 
-        // Non-default branch → writer integrity, NOT merged integrity.
+        // A non-default branch is not evidence of trusted content provenance.
         let item_integrity = &result.labeled_paths[0].labels.integrity;
         assert!(
             !item_integrity
@@ -1528,16 +1523,13 @@ mod tests {
                 .any(|l| l.starts_with(label_constants::MERGED_PREFIX)),
             "non-default-branch file should NOT have merged integrity; got {item_integrity:?}"
         );
-        let writer_label = format!("{}octocat/hello", label_constants::WRITER_PREFIX);
-        assert!(
-            item_integrity.contains(&writer_label),
-            "non-default-branch file should have writer integrity; got {item_integrity:?}"
-        );
+        assert_eq!(*item_integrity, none_integrity("octocat/hello", &ctx()));
         let default_integrity = &result
             .default_labels
             .as_ref()
             .expect("default_labels should be set")
             .integrity;
+        assert_eq!(default_integrity, item_integrity);
         assert!(
             !default_integrity
                 .iter()

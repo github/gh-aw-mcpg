@@ -399,6 +399,48 @@ min-integrity = "unapproved"
 
 - **Meaning**: Restricts the GitHub MCP server to only access specified repositories. Tools like `get_file_contents`, `search_code`, etc. will only work on allowed repositories. Attempts to access other repositories will be denied by the guard policy.
 
+#### PR code review and content integrity
+
+PR metadata access is not authorization to read the proposed code. In particular:
+
+| Read | Content integrity |
+|---|---|
+| `pull_request_read` with `get_files` or `get_diff` | `none` (no revision-bound content endorsement) |
+| `get_file_contents` with a non-empty `sha` | `none`, even if `ref` is also `main` |
+| `get_file_contents` with a non-default `ref`, including a SHA or `refs/pull/...` | `none` |
+| File reads in the existing default-branch context (no revision, or `ref` of `main`, `master`, or `HEAD`) | `merged` |
+
+The direct-file rules also apply to `get_file_contents_ff_fields_param` and
+`get_file_blame`. A SHA identifies content; it does not prove that the content was
+approved or is reachable from the default branch. The guard does not currently
+verify that reachability for arbitrary SHA reads.
+
+**Reviewing arbitrary PR patches while retaining `min-integrity: approved` is
+not currently supported.** There is no configuration for endorsing a specific PR
+head revision. PR author membership, `trusted-users`, `approval-labels`, and an
+approved PR metadata response do not authorize the diff or file patches. A
+revision-bound approval mechanism would need to validate the exact content
+revision (and invalidate approval after a head change), while preserving
+blocked-user and refusal/demotion precedence; ordinary PR labels are not such
+a mechanism.
+
+Supported policy choices are:
+
+- **Keep `approved`**: stop on a content-integrity denial and report the review as
+  incomplete, identifying unread files/PRs. Do not fetch denied content through
+  another API, raw URL, checkout, or direct file read. A successful read in an
+  older gateway (including the reported v0.4.37 behavior) is not evidence of
+  content approval or complete review coverage.
+- **Explicitly permit untrusted input for a dedicated reviewer**: a policy owner
+  may configure `{"allow-only":{"repos":["owner/repo"],"min-integrity":"none"}}`
+  on an isolated review agent, with narrowly scoped tools and controlled output
+  handling. This is a deliberate relaxation of that reviewer's integrity floor,
+  **not** an authorization preserving the original `approved` policy. Do not
+  silently apply it to a privileged agent or treat its output as approved data.
+  Repository/secrecy restrictions and blocked-user checks still apply where
+  author identity is available; authorless patches cannot be attributed to or
+  screened by PR-author identity.
+
 ### write-sink (output servers)
 
 Marks a server as a write-only output channel. **Write-sink is required for ALL output
