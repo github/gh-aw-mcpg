@@ -550,3 +550,35 @@ func TestCallBackendPrompt_GuardFailures(t *testing.T) {
 		})
 	}
 }
+
+func TestCallBackendPrompt_UnlabeledReadWithFailedCoarseCheckIsDenied(t *testing.T) {
+	var getCount atomic.Int32
+	backend := newPromptDIFCBackend(t, "p", map[string]interface{}{
+		"messages": []map[string]interface{}{{
+			"role":    "user",
+			"content": map[string]interface{}{"type": "text", "text": "secret"},
+		}},
+	}, &getCount)
+	defer backend.Close()
+
+	// A read of a resource whose secrecy tags the agent lacks bypasses the coarse
+	// check; with no fine-grained labels the evaluation result still denies it.
+	resource := difc.NewLabeledResource("protected prompt")
+	resource.Secrecy.Label.Add("private")
+	g := &promptDIFCTestGuard{
+		mode:      difc.EnforcementStrict,
+		resource:  resource,
+		operation: difc.OperationRead,
+	}
+	us, _ := newPromptDIFCTestServer(t, backend.URL, nil, g)
+	ctx := promptCallContext("unlabeled-read-denied")
+	require.NoError(t, us.requireSession(ctx))
+
+	result, err := us.callBackendPrompt(ctx, "prompts-server", "p", nil)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Equal(t, int32(1), getCount.Load(), "read bypasses the coarse check so the backend is called")
+	assert.Equal(t, int32(1), g.labelResponse.Load())
+	assert.NotContains(t, err.Error(), "secret")
+}
