@@ -258,6 +258,20 @@ func TestMatchGraphQL_HistoryUsesConservativeRef(t *testing.T) {
 	}
 }
 
+func TestMatchGraphQL_ObjectExpressionUsesConservativeRevision(t *testing.T) {
+	for _, query := range []string{
+		`{ repository(owner:"o", name:"r") { object(expression:"abc123:README.md") { ... on Blob { text } } } }`,
+		`query File($rev: String!) { repository(owner:"o", name:"r") { object(expression:$rev) { ... on Blob { text } } } }`,
+	} {
+		body, err := json.Marshal(GraphQLRequest{Query: query})
+		require.NoError(t, err)
+		match := MatchGraphQL(body)
+		require.NotNil(t, match)
+		assert.Equal(t, "get_file_contents", match.ToolName)
+		assert.Equal(t, "graphql-object", match.Args["sha"])
+	}
+}
+
 // TestMatchGraphQL_OwnerRepoFromVariables verifies owner/repo extracted from variables.
 func TestMatchGraphQL_OwnerRepoFromVariables(t *testing.T) {
 	body, err := json.Marshal(GraphQLRequest{

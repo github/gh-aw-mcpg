@@ -2029,6 +2029,9 @@ pub(crate) fn is_default_branch_ref(branch_ref: &str) -> bool {
         || DEFAULT_BRANCH_NAMES
             .iter()
             .any(|n| branch_ref.eq_ignore_ascii_case(n))
+        || ["refs/heads/main", "refs/heads/master"]
+            .iter()
+            .any(|n| branch_ref.eq_ignore_ascii_case(n))
 }
 
 /// File APIs provide no author or approval proof for an arbitrary revision.

@@ -124,8 +124,11 @@ for supported policy choices and the current `approved` review limitation.
 File-content APIs fail closed at `none` for non-empty `sha` arguments and
 non-default `ref` arguments (including SHA refs and PR head/merge refs).
 `sha` takes precedence over `ref`. The existing default-branch context
-(omitted/empty revision or `ref` of `main`, `master`, or `HEAD`) retains `merged`
-integrity. This applies consistently to resource labels, path/default labels,
+(omitted/empty revision or `ref` of `main`, `master`, `HEAD`,
+`refs/heads/main`, or `refs/heads/master`) retains `merged` integrity. Explicit
+non-default revisions now receive `none`, so workflows using
+`min-integrity: unapproved` must omit that revision to read the current default
+branch. This applies consistently to resource labels, path/default labels,
 and item labels for `get_file_contents` and its fields alias, and resource
 labels for `get_file_blame`. Arbitrary revision reads do not inherit writer
 integrity merely because the repository is accessible.

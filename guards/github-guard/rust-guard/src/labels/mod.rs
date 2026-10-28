@@ -535,6 +535,8 @@ mod tests {
             (json!({"ref": ""}), true),
             (json!({"ref": "main"}), true),
             (json!({"ref": "master"}), true),
+            (json!({"ref": "refs/heads/main"}), true),
+            (json!({"ref": "refs/heads/master"}), true),
             (json!({"ref": "HEAD"}), true),
             (json!({"sha": "", "ref": "main"}), true),
             (json!({"ref": "feature/review"}), false),
