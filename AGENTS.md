@@ -28,8 +28,8 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 - `internal/config/` - Config parsing (TOML/JSON) with validation; the package is split across multiple files
   - `config_core.go` - Core `Config`, `GatewayConfig`, and `ServerConfig` types plus TOML loading
   - `config_stdin.go` - JSON stdin structs and stdin→internal config conversion
-  - `config_env.go`, `config_feature.go`, `config_tracing.go` - Environment- and feature-specific config helpers
-  - `validation.go`, `validation_env.go`, `validation_schema.go` - Fail-fast field, environment, and schema validation
+  - `gateway_env.go`, `config_feature.go`, `config_tracing.go` - Environment- and feature-specific config helpers
+  - `validation_gateway.go`, `validation_server.go`, `validation_env.go`, `validation_schema.go` - Fail-fast field, environment, and schema validation
   - `validation_test.go` - Comprehensive validation tests
 - `internal/delegation/` - Delegation envelope, capability, and audit logic
 - `internal/difc/` - Decentralized Information Flow Control
@@ -86,28 +86,11 @@ command = "docker"
 args = ["run", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "-e", "NO_COLOR=1", "-e", "TERM=dumb", "-i", "ghcr.io/github/github-mcp-server:latest"]
 ```
 
-**JSON** (stdin):
-```json
-{
-  "mcpServers": {
-    "github": {
-      "type": "stdio",
-      "container": "ghcr.io/github/github-mcp-server:latest",
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "",
-        "CONFIG_PATH": "${GITHUB_CONFIG_DIR}"
-      }
-    }
-  }
-}
-```
-
 **Supported Types**: `"stdio"`, `"http"` (fully supported), `"local"` (alias for stdio)
 
 **Validation Features**:
 - Environment variable expansion: `${VAR_NAME}` (fails if undefined)
 - Required fields: `container` for stdio, `url` for http
-- **Containerization Requirement**: TOML stdio servers must use `command = "docker"` per [MCP Gateway Specification Section 3.2.1](https://github.com/github/gh-aw/blob/main/docs/src/content/docs/reference/mcp-gateway.md#321-containerization-requirement)
 - **Note**: In JSON stdin format, the `command` field is not supported - stdio servers must use `container` field
 - **Note**: In JSON stdin format, `args` is optional and provides extra Docker runtime arguments inserted before the container image name
 - **Note**: In JSON stdin format, stdio servers also support optional `entrypoint`, `entrypointArgs`, and `mounts` fields; HTTP servers support optional `connectTimeout` and `toolTimeout`
@@ -268,7 +251,7 @@ This command runs the complete verification pipeline:
 1. **Format** - Auto-formats all Go code with gofmt
 2. **Build** - Ensures the project compiles successfully
 3. **Lint** - Runs go vet and gofmt checks
-4. **Test All** - Runs `go test ./...` (Go package tests) and Rust guard unit tests. Binary integration tests from `test/integration/` are run separately via `make test-integration`.
+4. **Test All** - Runs `go test ./...` (Go package tests) and Rust guard unit tests. Binary integration tests from `test/integration/` can also be run via `make test-integration`.
 
 **Requirements:**
 - **ALL failures must be fixed** before completion
@@ -356,7 +339,7 @@ logger.LogDebug("category", "Debug details: %+v", details)
 ```go
 // Using ForFile() - namespace is auto-derived from file path (RECOMMENDED)
 var logLauncher = logger.ForFile()   // in launcher/launcher.go → "launcher:launcher"
-var logValidation = logger.ForFile() // in config/validation.go → "config:validation"
+var logValidation = logger.ForFile() // in config/validation_gateway.go → "config:validation_gateway"
 var logUnified = logger.ForFile()    // in server/unified.go    → "server:unified"
 var logRouted = logger.ForFile()     // in server/routed.go     → "server:routed"
 
@@ -437,7 +420,7 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 - `MCP_GATEWAY_ALLOWONLY_SCOPE_OWNER` - AllowOnly owner scope value (sets default for `--allowonly-scope-owner`)
 - `MCP_GATEWAY_ALLOWONLY_SCOPE_REPO` - AllowOnly repo name, requires owner (sets default for `--allowonly-scope-repo`)
 - `MCP_GATEWAY_ALLOWONLY_MIN_INTEGRITY` - AllowOnly integrity level: `none`, `unapproved`, `approved`, `merged` (sets default for `--allowonly-min-integrity`)
-- `MCP_GATEWAY_FORCE_PUBLIC_REPOS` - When `true` (default), automatically forces `repos="public"` allow-only policy when `GITHUB_REPOSITORY` identifies a public repository; set to `false` to opt out. Overridden by `gateway.forcePublicRepos` in JSON stdin config.
+- `MCP_GATEWAY_FORCE_PUBLIC_REPOS` - When `true` (default), automatically forces `repos="public"` allow-only policy when `GITHUB_REPOSITORY` identifies a public repository; set to `false` to opt out.
 - `MCP_GATEWAY_DELEGATION_ENVELOPE` - Compiler-installed JSON delegation envelope bounding every delegated identity (run ID, enclave backend, allowed repositories/owners, tool policy, schema hashes, max identity TTL, expiry). See [`docs/DELEGATION.md`](docs/DELEGATION.md)
 - `MCP_GATEWAY_DELEGATION_STATE_PATH` - Path where delegated identity state is persisted and recovered at startup
 - `MCP_GATEWAY_DELEGATION_GENERATION` - Unsigned integer policy generation; persisted state from another generation is rejected (fails closed)
@@ -462,7 +445,7 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 **File Logging:**
 - Operational logs are always written to log files in the configured log directory
 - Default log directory: `/tmp/gh-aw/mcp-logs` (configurable via `--log-dir` flag or `MCP_GATEWAY_LOG_DIR` env var)
-- Falls back to stdout if log directory cannot be created
+- Falls back to stderr if log directory cannot be created
 - **Log Files Created:**
   - `mcp-gateway.log` - Unified log with all messages
   - `{serverID}.log` - Per-server logs (e.g., `github.log`, `slack.log`) for easier troubleshooting
@@ -483,14 +466,14 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 - Default payload directory: `/tmp/jq-payloads` (configurable via `--payload-dir` flag, `MCP_GATEWAY_PAYLOAD_DIR` env var, or `payload_dir` in config). The configured path must be absolute.
 - Payloads are organized by session ID: `{payload_dir}/{sessionID}/{queryID}/payload.json`
 - This allows agents to mount their session-specific subdirectory to access full payloads
-- The jq middleware returns: preview (first `PayloadPreviewSize` chars, default 500), schema, payloadPath, queryID, originalSize, truncated flag
+- The jq middleware returns: preview (first `PayloadPreviewSize` bytes, default 500), schema, payloadPath, originalSize
 
 **Understanding the payload.json File:**
 - The `payload.json` file contains the **complete original response data** in valid JSON format
 - You can read and parse this file directly using standard JSON parsing tools (e.g., `cat payload.json | jq .` or `JSON.parse(fs.readFileSync(path))`)
 - The `payloadSchema` in the metadata response shows the **structure and types** of fields (e.g., "string", "number", "boolean", "array", "object")
 - The `payloadSchema` does NOT contain the actual data values - those are only in the `payload.json` file
-- The `payloadPreview` shows the first `PayloadPreviewSize` characters (default 500) of the JSON for quick reference
+- The `payloadPreview` shows the first `PayloadPreviewSize` bytes (default 500) of the JSON for quick reference
 - To access the full data with all actual values, read the JSON file at `payloadPath`
 
 **Tools Catalog (tools.json):**
@@ -529,7 +512,6 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 ## Security Notes
 
 - **Auth**: `Authorization: <agentId>` header (plain value per spec 7.1, NOT Bearer scheme)
-- **Sessions**: Session ID extracted from `X-Agent-ID` (preferred) or Authorization header value
 - **Stdio servers**: Containerized execution only (no direct command support)
 - **mTLS**: Mutual TLS can be enabled with `--tls-cert`, `--tls-key`, and `--tls-ca` flags (or corresponding env vars) to require client certificates for all connections
 - **HMAC request signing**: Set `--hmac-secret` (or `MCP_GATEWAY_HMAC_SECRET`) to require HMAC-SHA256 signed requests; protects against replay attacks using `X-MCP-Timestamp`, `X-MCP-Nonce`, and `X-MCP-Signature` headers
@@ -559,7 +541,7 @@ go test ./internal/server/   -run TestArgumentValidationBypassCanary -v
 
 If either canary fails after an upgrade, **stop and investigate** before merging:
 - `TestMaxRetriesSentinelCanary` failure → SDK changed `MaxRetries: -1` semantics; update `streamableMaxRetries` and reconnect logic in `internal/mcp/http_transport.go`.
-- `TestArgumentValidationBypassCanary` failure → SDK added argument validation to the `AddTool` method path; switch to a different bypass mechanism and update `registerToolWithoutValidation` in `internal/server/tool_registry.go`.
+- `TestArgumentValidationBypassCanary` failure → SDK added argument validation to the `AddTool` method path; switch to a different bypass mechanism and update `registerToolWithoutValidation` in `internal/server/tool_registry_helpers.go`.
 
 ### OpenTelemetry Upgrade Process
 
