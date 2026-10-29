@@ -476,14 +476,14 @@ pub fn label_response_items(
 
             // Get owner/repo from tool_args
             let (arg_owner, arg_repo, repo_full_name) = extract_repo_info(tool_args);
-            let arg_branch = tool_args.get("sha").and_then(|v| v.as_str()).unwrap_or("");
+            let arg_branch = get_str_or(tool_args, field_names::SHA, "");
             let secrecy = repo_visibility_secrecy(&arg_owner, &arg_repo, &repo_full_name, ctx);
             let repo_private = repo_visibility_private_for_repo_id(&repo_full_name);
             let is_default_branch = is_default_branch_commit_context(tool_name, arg_branch);
             let secrecy_shared: SharedLabels = secrecy.into();
 
             for item in items_limited.iter().copied() {
-                let sha = item.get("sha").and_then(|v| v.as_str()).unwrap_or("");
+                let sha = get_str_or(item, field_names::SHA, "");
                 let short_sha = short_sha(sha);
 
                 let integrity = commit_integrity_with_visibility(

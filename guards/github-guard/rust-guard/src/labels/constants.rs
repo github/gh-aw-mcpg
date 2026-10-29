@@ -336,6 +336,7 @@ pub mod field_names {
     pub const COMMENT_NODE_ID: &str = "commentNodeID";
     pub const ID: &str = "id";
     pub const TAG_NAME: &str = "tag_name";
+    pub const NAME: &str = "name";
     pub const TYPE: &str = "type";
 }
 

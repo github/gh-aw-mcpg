@@ -16,7 +16,7 @@ use std::time::Duration;
 use super::constants::{
     field_names, tool_names, visibility_values, MEDIUM_BUFFER_SIZE, SMALL_BUFFER_SIZE,
 };
-use super::helpers::{get_author_association, is_forked_pr, is_pr_merged};
+use super::helpers::{get_author_association, get_str_or, is_forked_pr, is_pr_merged};
 
 /// Backend callback signature used for GitHub MCP tool calls.
 pub type GithubMcpCallback = fn(&str, &str, &mut [u8]) -> Result<usize, i32>;
@@ -1781,7 +1781,7 @@ fn repo_id_from_repo_object(item: &Value) -> Option<String> {
         }
     }
 
-    let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
+    let name = get_str_or(item, field_names::NAME, "");
     if name.is_empty() {
         return None;
     }
