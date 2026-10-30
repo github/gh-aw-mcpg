@@ -336,6 +336,13 @@ var routes = []route{
 		},
 	},
 	{
+		pattern:  regexp.MustCompile(`^/repos/([^/]+)/([^/]+)/actions/jobs/(\d+)/logs$`),
+		toolName: "get_job_logs",
+		extractArgs: func(m []string) map[string]interface{} {
+			return map[string]interface{}{argOwner: m[1], argRepo: m[2], "job_id": m[3]}
+		},
+	},
+	{
 		pattern:  regexp.MustCompile(`^/repos/([^/]+)/([^/]+)/actions/jobs/(\d+)$`),
 		toolName: "actions_get",
 		extractArgs: func(m []string) map[string]interface{} {

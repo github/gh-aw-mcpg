@@ -384,7 +384,7 @@ enum FallbackAction {
 
 /// Applies metadata/singleton fallback labeling when no fine-grained items exist.
 /// Returns [`FallbackAction::SkipLabeling`] when the caller should return `0`
-/// (top-level array passthrough), or [`FallbackAction::ContinueProcessing`]
+/// and use coarse resource labels, or [`FallbackAction::ContinueProcessing`]
 /// when normal output generation should continue.
 fn apply_singleton_fallback_if_needed(
     input: &LabelResponseInput,
@@ -395,6 +395,18 @@ fn apply_singleton_fallback_if_needed(
         return FallbackAction::ContinueProcessing;
     }
 
+    // Apply the conservative resource labels to the entire advisory response.
+    // This preserves the backend shape and avoids metadata integrity promotion.
+    if matches!(
+        input.tool_name.as_str(),
+        tool_names::LIST_REPOSITORY_SECURITY_ADVISORIES
+            | tool_names::LIST_ORG_REPOSITORY_SECURITY_ADVISORIES
+            | tool_names::LIST_GLOBAL_SECURITY_ADVISORIES
+            | tool_names::GET_GLOBAL_SECURITY_ADVISORY
+    ) {
+        return FallbackAction::SkipLabeling;
+    }
+
     // Extract repo info from tool args (same logic as label_resource)
     let (_, _, repo_id) = extract_repo_info(&input.tool_args);
     let baseline_scope = infer_scope_for_baseline(&input.tool_name, &input.tool_args, &repo_id);
@@ -403,9 +415,12 @@ fn apply_singleton_fallback_if_needed(
     // no repository data — pass through with approved integrity so the agent can
     // see instructional messages and empty-result confirmations.
     let actual_response = labels::extract_mcp_response(&input.tool_result);
-    let is_server_metadata = labels::is_mcp_text_wrapper(&actual_response)
-        || (labels::is_search_result_wrapper(&actual_response)
-            && labels::search_result_total_count(&actual_response) == Some(0));
+    // Log bytes are content even when their shape resembles a server message
+    // or an empty search result; the wrapper does not establish endorsement.
+    let is_server_metadata = input.tool_name != labels::constants::tool_names::GET_JOB_LOGS
+        && (labels::is_mcp_text_wrapper(&actual_response)
+            || (labels::is_search_result_wrapper(&actual_response)
+                && labels::search_result_total_count(&actual_response) == Some(0)));
 
     if is_server_metadata {
         let scope = if baseline_scope.is_empty() {
@@ -1057,7 +1072,7 @@ pub extern "C" fn label_response(
         apply_singleton_fallback_if_needed(&input, &ctx, &mut labeled_items),
         FallbackAction::SkipLabeling
     ) {
-        log_info("<<< label_response returning 0 (top-level array passthrough)");
+        log_info("<<< label_response returning 0 (using coarse resource labels)");
         return 0;
     }
 
@@ -1154,6 +1169,123 @@ mod tests {
                 on_error,
                 "{fn_name}"
             );
+        }
+    }
+
+    #[test]
+    fn security_advisory_fallback_preserves_untrusted_provenance_for_all_shapes() {
+        let ctx = PolicyContext::default();
+        let external = json!({
+            "ghsa_id": "GHSA-0000-0000-0001",
+            "summary": "Synthetic external advisory",
+            "author": {"login": "external-author"},
+            "submission": {"accepted": false},
+            "state": "triage"
+        });
+        let accepted = json!({
+            "ghsa_id": "GHSA-0000-0000-0002",
+            "summary": "Synthetic accepted advisory",
+            "author": {"login": "external-author"},
+            "submission": {"accepted": true},
+            "state": "published"
+        });
+        let maintainer = json!({
+            "ghsa_id": "GHSA-0000-0000-0003",
+            "summary": "Synthetic maintainer advisory",
+            "author": {"login": "repo-maintainer"},
+            "author_association": "OWNER",
+            "submission": {"accepted": true}
+        });
+        for (tool_name, tool_args, scope, secrecy) in [
+            (
+                tool_names::LIST_REPOSITORY_SECURITY_ADVISORIES,
+                json!({"owner": "org", "repo": "repo"}),
+                "org/repo",
+                vec!["private:org/repo".to_string()],
+            ),
+            (
+                tool_names::LIST_ORG_REPOSITORY_SECURITY_ADVISORIES,
+                json!({"org": "org"}),
+                "",
+                vec!["private".to_string()],
+            ),
+            (
+                tool_names::LIST_GLOBAL_SECURITY_ADVISORIES,
+                json!({}),
+                "github",
+                vec![],
+            ),
+            (
+                tool_names::GET_GLOBAL_SECURITY_ADVISORY,
+                json!({"ghsaId": "GHSA-0000-0000-0001"}),
+                "github",
+                vec![],
+            ),
+        ] {
+            for response in [
+                external.clone(),
+                accepted.clone(),
+                maintainer.clone(),
+                json!([maintainer, external, accepted]),
+                json!({"items": [external], "total_count": 1}),
+                // A zero-count wrapper must not promote embedded prose to metadata.
+                json!({"items": [], "total_count": 0, "summary": "Synthetic advisory"}),
+                json!([]),
+                json!("Synthetic advisory plaintext"),
+            ] {
+                for wrapped in [false, true] {
+                    let tool_result = if wrapped {
+                        json!({"content": [{"type": "text", "text": if let Some(text) = response.as_str() {
+                            text.to_string()
+                        } else {
+                            response.to_string()
+                        }}]})
+                    } else {
+                        response.clone()
+                    };
+                    let input = LabelResponseInput {
+                        tool_name: tool_name.to_string(),
+                        tool_args: tool_args.clone(),
+                        tool_result,
+                    };
+                    let paths = labels::label_response_paths(
+                        &input.tool_name,
+                        &input.tool_args,
+                        &input.tool_result,
+                        &ctx,
+                    );
+                    assert!(paths.is_none(), "{tool_name}");
+                    let mut items = labels::label_response_items(
+                        &input.tool_name,
+                        &input.tool_args,
+                        &input.tool_result,
+                        &ctx,
+                    );
+                    let action = apply_singleton_fallback_if_needed(&input, &ctx, &mut items);
+
+                    assert!(
+                        matches!(action, FallbackAction::SkipLabeling),
+                        "{tool_name}"
+                    );
+                    assert!(items.is_empty(), "{tool_name}");
+                    let (_, _, repo_id) = extract_repo_info(&tool_args);
+                    let (actual_secrecy, integrity, _) = labels::apply_tool_labels(
+                        tool_name,
+                        &tool_args,
+                        &repo_id,
+                        vec![],
+                        vec![],
+                        String::new(),
+                        &ctx,
+                    );
+                    assert_eq!(actual_secrecy, secrecy, "{tool_name}");
+                    assert_eq!(
+                        integrity,
+                        labels::none_integrity(scope, &ctx),
+                        "{tool_name}: {response}"
+                    );
+                }
+            }
         }
     }
 
@@ -1260,6 +1392,66 @@ mod tests {
         assert!(matches!(action, FallbackAction::ContinueProcessing));
         assert_eq!(labeled_items.len(), 1);
         assert_eq!(labeled_items[0].data, input.tool_result);
+    }
+
+    #[test]
+    fn job_log_fallback_never_endorses_content_as_metadata() {
+        let ctx = PolicyContext::default();
+        let repo_id = "org/log-fallback";
+        for private in [false, true] {
+            let _guard = labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            for tool_result in [
+                json!("Synthetic outsider comment."),
+                json!({"text": "Synthetic outsider comment."}),
+                json!({"content": [{"type": "text", "text": "Synthetic outsider comment."}]}),
+                json!({"content": [{"type": "text", "text": r#"{"total_count":0,"items":[]}"#}]}),
+                json!({"total_count": 0, "items": []}),
+                json!({
+                    "content": [{"type": "text", "text": "Synthetic outsider comment."}],
+                    "structuredContent": {"text": "Synthetic outsider comment."}
+                }),
+            ] {
+                let input = LabelResponseInput {
+                    tool_name: labels::constants::tool_names::GET_JOB_LOGS.to_string(),
+                    tool_args: json!({"owner": "org", "repo": "log-fallback", "job_id": 1}),
+                    tool_result,
+                };
+                assert!(labels::label_response_paths(
+                    &input.tool_name,
+                    &input.tool_args,
+                    &input.tool_result,
+                    &ctx
+                )
+                .is_none());
+                let mut items = labels::label_response_items(
+                    &input.tool_name,
+                    &input.tool_args,
+                    &input.tool_result,
+                    &ctx,
+                );
+                let action = apply_singleton_fallback_if_needed(&input, &ctx, &mut items);
+                assert!(matches!(action, FallbackAction::ContinueProcessing));
+                assert_eq!(items.len(), 1);
+                assert_eq!(items[0].data, input.tool_result);
+                assert_eq!(
+                    items[0].labels.integrity,
+                    labels::ensure_integrity_baseline(repo_id, &[], &ctx),
+                    "job-log shape must not establish endorsement: {:?}",
+                    input.tool_result
+                );
+                let expected_secrecy = if private {
+                    labels::helpers::policy_private_scope_label(
+                        "org",
+                        "log-fallback",
+                        repo_id,
+                        &ctx,
+                    )
+                } else {
+                    vec![]
+                };
+                assert_eq!(items[0].labels.secrecy, expected_secrecy);
+            }
+        }
     }
 
     #[test]
