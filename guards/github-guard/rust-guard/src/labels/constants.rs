@@ -103,6 +103,9 @@ mod tests {
         assert_eq!(field_names::ID, "id");
         assert_eq!(field_names::TAG_NAME, "tag_name");
         assert_eq!(field_names::TYPE, "type");
+        assert_eq!(field_names::VISIBILITY, "visibility");
+        assert_eq!(field_names::PATH, "path");
+        assert_eq!(field_names::TEXT, "text");
         assert_eq!(UNKNOWN_LABEL_FALLBACK, "unknown");
     }
 
@@ -329,6 +332,7 @@ pub mod field_names {
     pub const PRIVATE: &str = "private";
     pub const IS_PRIVATE: &str = "is_private";
     pub const IS_PRIVATE_CAMEL: &str = "isPrivate";
+    pub const VISIBILITY: &str = "visibility";
     pub const AUTHOR_ASSOCIATION: &str = "author_association";
     pub const AUTHOR_ASSOCIATION_CAMEL: &str = "authorAssociation";
     pub const LOGIN: &str = "login";
@@ -337,6 +341,8 @@ pub mod field_names {
     pub const ID: &str = "id";
     pub const TAG_NAME: &str = "tag_name";
     pub const NAME: &str = "name";
+    pub const PATH: &str = "path";
+    pub const TEXT: &str = "text";
     pub const TYPE: &str = "type";
 }
 

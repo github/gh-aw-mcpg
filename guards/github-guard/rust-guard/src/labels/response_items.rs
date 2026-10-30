@@ -436,7 +436,7 @@ pub fn label_response_items(
                 .is_some_and(|content| {
                     content.iter().any(|item| {
                         item.get("resource")
-                            .and_then(|resource| resource.get("text"))
+                            .and_then(|resource| resource.get(field_names::TEXT))
                             .and_then(Value::as_str)
                             .is_some()
                     })
