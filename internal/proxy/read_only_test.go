@@ -214,6 +214,40 @@ func TestReadOnlyProxyAllowsSupportedRESTAndSelectedGraphQLQuery(t *testing.T) {
 	assert.NotContains(t, requestBody, "mutation Write")
 }
 
+func TestReadOnlyProxyForwardsSelectedQueryWithoutUnselectedDescription(t *testing.T) {
+	var requestBody string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		requestBody = string(body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"__schema":{"queryType":{"name":"Query"}}}}`))
+	}))
+	defer upstream.Close()
+
+	server := &Server{
+		readOnly:     true,
+		githubAPIURL: upstream.URL,
+		httpClient:   upstream.Client(),
+	}
+	body := `{"operationName":"Read","query":"query Read { __schema { queryType { name } } } \"unused\" query Other { viewer { id } } \"\" query EmptyOther { viewer { id } }"}`
+	req := httptest.NewRequest(http.MethodPost, upstream.URL+"/graphql", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	(&proxyHandler{server: server}).ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var forwarded GraphQLRequest
+	require.NoError(t, json.Unmarshal([]byte(requestBody), &forwarded))
+	assert.Equal(t, "query Read { __schema { queryType { name } } }", forwarded.Query)
+	doc, err := parser.ParseQuery(&ast.Source{Input: forwarded.Query})
+	require.NoError(t, err)
+	assert.Len(t, doc.Operations, 1)
+}
+
 func TestReadOnlyProxyAllowsCollaboratorPermissionEnrichment(t *testing.T) {
 	var upstreamRequests atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
