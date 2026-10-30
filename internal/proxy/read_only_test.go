@@ -45,6 +45,7 @@ func TestReadOnlyProxyRejectsBeforeForwarding(t *testing.T) {
 		{"selected graphql mutation", http.MethodPost, "/graphql", `{"operationName":"Write","query":"query Read { viewer { login } } mutation Write { createIssue(input: {}) { clientMutationId } }"}`, ""},
 		{"ambiguous graphql operations", http.MethodPost, "/graphql", `{"query":"query Read { viewer { login } } mutation Write { createIssue(input: {}) { clientMutationId } }"}`, ""},
 		{"malformed graphql", http.MethodPost, "/graphql", `{"query":"query {"}`, ""},
+		{"deeply nested graphql", http.MethodPost, "/graphql", `{"query":"{` + strings.Repeat("viewer {", 10000) + "login" + strings.Repeat("}", 10001) + `"}`, ""},
 		{"duplicate graphql query field", http.MethodPost, "/graphql", `{"query":"query Read { viewer { login } }","query":"mutation { createIssue(input: {}) { clientMutationId } }"}`, ""},
 		{"unsupported graphql subscription", http.MethodPost, "/graphql", `{"query":"subscription Events { viewer { login } }"}`, ""},
 	}

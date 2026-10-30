@@ -146,7 +146,7 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 		return nil, errReadOnlyDenied
 	}
 
-	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: request.Query}, 100000)
+	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: request.Query}, graphqlTokenLimit)
 	if err != nil || doc == nil || len(doc.Operations) == 0 {
 		return nil, errReadOnlyDenied
 	}

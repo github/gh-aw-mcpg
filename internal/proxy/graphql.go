@@ -13,6 +13,8 @@ import (
 
 var logGraphQL = logger.ForFile()
 
+const graphqlTokenLimit = 100000
+
 // GraphQLRequest represents a parsed GraphQL request body.
 type GraphQLRequest struct {
 	Query         string                 `json:"query"`
@@ -188,7 +190,7 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 
 // graphqlRootFields returns the root fields of the selected query operation.
 func graphqlRootFields(query, operationName string) ([]string, bool, string, bool) {
-	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, 100000)
+	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, graphqlTokenLimit)
 	if err != nil || doc == nil || len(doc.Operations) == 0 {
 		logGraphQL.Printf("graphqlRootFields: parse failed or no operations: parseErr=%v", err != nil)
 		return nil, false, "", false
