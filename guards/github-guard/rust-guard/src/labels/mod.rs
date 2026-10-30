@@ -29,12 +29,12 @@ use std::borrow::Cow;
 use serde_json::Value;
 
 // Sub-modules
-pub mod backend;
-pub mod constants;
-pub mod helpers;
+pub(crate) mod backend;
+pub(crate) mod constants;
+pub(crate) mod helpers;
 mod response_items;
 mod response_paths;
-pub mod tool_rules;
+pub(crate) mod tool_rules;
 
 // Re-export helpers consumed by lib.rs within this crate.
 pub(crate) use helpers::{
@@ -61,36 +61,9 @@ pub(crate) use helpers::{
     secret_label,
 };
 
-// Re-export response labeling functions (wrappers that pass PolicyContext)
-pub fn apply_tool_labels(
-    tool_name: &str,
-    tool_args: &Value,
-    repo_id: &str,
-    secrecy: Vec<String>,
-    integrity: Vec<String>,
-    desc: String,
-    ctx: &helpers::PolicyContext,
-) -> (Vec<String>, Vec<String>, String) {
-    tool_rules::apply_tool_labels(tool_name, tool_args, repo_id, secrecy, integrity, desc, ctx)
-}
-
-pub fn label_response_items(
-    tool_name: &str,
-    tool_args: &Value,
-    response: &Value,
-    ctx: &helpers::PolicyContext,
-) -> Vec<crate::LabeledItem> {
-    response_items::label_response_items(tool_name, tool_args, response, ctx)
-}
-
-pub fn label_response_paths(
-    tool_name: &str,
-    tool_args: &Value,
-    response: &Value,
-    ctx: &helpers::PolicyContext,
-) -> Option<response_paths::PathLabelResult> {
-    response_paths::label_response_paths(tool_name, tool_args, response, ctx)
-}
+pub(crate) use response_items::label_response_items;
+pub(crate) use response_paths::label_response_paths;
+pub(crate) use tool_rules::apply_tool_labels;
 
 // ============================================================================
 // MCP Response Extraction
