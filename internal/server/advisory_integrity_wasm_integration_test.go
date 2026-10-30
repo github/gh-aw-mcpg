@@ -12,6 +12,7 @@ import (
 )
 
 func TestCallBackendTool_CompiledGuardAdvisoryIntegrity(t *testing.T) {
+	t.Setenv("GITHUB_REPOSITORY", "")
 	wasmPath := findCompiledGitHubGuard(t)
 	const marker = "synthetic-advisory-content"
 	external := map[string]interface{}{

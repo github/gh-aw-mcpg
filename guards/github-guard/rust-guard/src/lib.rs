@@ -1229,7 +1229,19 @@ mod tests {
                         tool_args: tool_args.clone(),
                         tool_result,
                     };
-                    let mut items = Vec::new();
+                    let paths = labels::label_response_paths(
+                        &input.tool_name,
+                        &input.tool_args,
+                        &input.tool_result,
+                        &ctx,
+                    );
+                    assert!(paths.is_none(), "{tool_name}");
+                    let mut items = labels::label_response_items(
+                        &input.tool_name,
+                        &input.tool_args,
+                        &input.tool_result,
+                        &ctx,
+                    );
                     let action = apply_singleton_fallback_if_needed(&input, &ctx, &mut items);
 
                     assert!(
