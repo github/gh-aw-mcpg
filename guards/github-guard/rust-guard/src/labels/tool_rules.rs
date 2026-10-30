@@ -606,7 +606,7 @@ pub fn apply_tool_labels(
         | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
             // File secrecy based on path patterns
-            if let Some(path) = tool_args.get("path").and_then(|v| v.as_str()) {
+            if let Some(path) = tool_args.get(field_names::PATH).and_then(|v| v.as_str()) {
                 secrecy = check_file_secrecy(path, secrecy, &owner, &repo, repo_id, ctx);
             }
             integrity = file_content_integrity(tool_args, repo_id, ctx);

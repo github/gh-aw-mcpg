@@ -28,6 +28,8 @@ use std::borrow::Cow;
 
 use serde_json::Value;
 
+use self::constants::field_names;
+
 // Sub-modules
 pub mod backend;
 pub mod constants;
@@ -127,7 +129,7 @@ pub(crate) fn extract_mcp_response(response: &Value) -> Cow<'_, Value> {
         for item in content {
             if let Some(text) = item
                 .get("resource")
-                .and_then(|resource| resource.get("text"))
+                .and_then(|resource| resource.get(field_names::TEXT))
                 .and_then(|value| value.as_str())
             {
                 if let Ok(parsed) = serde_json::from_str::<Value>(text) {
@@ -137,7 +139,7 @@ pub(crate) fn extract_mcp_response(response: &Value) -> Cow<'_, Value> {
             }
         }
         for item in content {
-            if let Some(text) = item.get("text").and_then(|v| v.as_str()) {
+            if let Some(text) = item.get(field_names::TEXT).and_then(|v| v.as_str()) {
                 crate::log_debug(&format!(
                     "extract_mcp_response: found text field, len={}",
                     text.len()

@@ -648,7 +648,7 @@ pub(crate) fn get_collaborator_permission(
 /// response isn't in that shape.
 fn mcp_wrapped_text(response: &Value) -> Option<&str> {
     super::helpers::mcp_first_content_item(response)
-        .and_then(|item| item.get("text"))
+        .and_then(|item| item.get(field_names::TEXT))
         .and_then(|v| v.as_str())
 }
 
@@ -1652,7 +1652,7 @@ fn private_flag_from_repo_object(item: &Value) -> Option<bool> {
         }
     }
 
-    if let Some(visibility) = item.get("visibility").and_then(|v| v.as_str()) {
+    if let Some(visibility) = item.get(field_names::VISIBILITY).and_then(|v| v.as_str()) {
         if visibility.eq_ignore_ascii_case(visibility_values::PRIVATE)
             || visibility.eq_ignore_ascii_case(visibility_values::INTERNAL)
         {
