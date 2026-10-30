@@ -564,6 +564,10 @@ pub mod tool_names {
     pub const LIST_ISSUE_TYPES: &str = "list_issue_types";
     pub const LIST_ISSUE_FIELDS: &str = "list_issue_fields";
     pub const LIST_REPOSITORY_SECURITY_ADVISORIES: &str = "list_repository_security_advisories";
+    pub const LIST_ORG_REPOSITORY_SECURITY_ADVISORIES: &str =
+        "list_org_repository_security_advisories";
+    pub const LIST_GLOBAL_SECURITY_ADVISORIES: &str = "list_global_security_advisories";
+    pub const GET_GLOBAL_SECURITY_ADVISORY: &str = "get_global_security_advisory";
     pub const LIST_REPOSITORY_COLLABORATORS: &str = "list_repository_collaborators";
     pub const SEARCH_USERS: &str = "search_users";
 }

@@ -3435,8 +3435,8 @@ mod tests {
         );
         assert_eq!(
             integrity,
-            project_github_label(&ctx),
-            "global advisories curated by GitHub security team — project:github integrity"
+            none_integrity("github", &ctx),
+            "public advisory prose does not establish trusted authorship"
         );
     }
 
@@ -3460,7 +3460,7 @@ mod tests {
         );
 
         assert_eq!(secrecy, vec![] as Vec<String>);
-        assert_eq!(integrity, project_github_label(&ctx));
+        assert_eq!(integrity, none_integrity("github", &ctx));
     }
 
     // -------------------------------------------------------------------------
@@ -3489,8 +3489,8 @@ mod tests {
         );
         assert_eq!(
             integrity,
-            writer_integrity("github/copilot", &ctx),
-            "repo security advisories maintained by repo security contacts — approved integrity"
+            none_integrity("github/copilot", &ctx),
+            "advisory visibility and acceptance do not establish writer provenance"
         );
     }
 
@@ -3518,7 +3518,7 @@ mod tests {
             vec!["private:github/copilot".to_string()],
             "org repo security advisories must carry private:repo secrecy"
         );
-        assert_eq!(integrity, writer_integrity("github/copilot", &ctx));
+        assert_eq!(integrity, none_integrity("github/copilot", &ctx));
     }
 
     // -------------------------------------------------------------------------

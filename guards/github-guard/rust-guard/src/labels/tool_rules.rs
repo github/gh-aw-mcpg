@@ -17,8 +17,9 @@ use super::helpers::{
     ensure_integrity_baseline, extract_number_as_string, extract_repo_info_from_search_query,
     file_content_integrity, format_repo_id, get_string_field, is_any_trusted_actor,
     is_blocked_user, is_default_branch_commit_context, max_integrity, merged_integrity,
-    policy_private_scope_label, private_scope_label, private_user_label, project_github_label,
-    reader_integrity, short_sha, split_repo_id, writer_integrity, PolicyContext, ScopeKind,
+    none_integrity, policy_private_scope_label, private_scope_label, private_user_label,
+    project_github_label, reader_integrity, short_sha, split_repo_id, writer_integrity,
+    PolicyContext, ScopeKind,
 };
 use std::borrow::Cow;
 
@@ -746,12 +747,10 @@ pub fn apply_tool_labels(
             }
         }
 
-        // === Public GitHub-controlled metadata: org search, advisories, docs ===
+        // === Public GitHub-controlled metadata: org search and docs ===
         tool_names::SEARCH_ORGS
-        | "list_global_security_advisories"
-        | "get_global_security_advisory"
         | "github_support_docs_search" => {
-            // Public organization search, global CVE advisories, and GitHub docs
+            // Public organization search and GitHub docs
             // contain no private data and are controlled by GitHub.
             // S = public (empty)
             // I = project:github (GitHub-controlled metadata)
@@ -760,14 +759,22 @@ pub fn apply_tool_labels(
             integrity = project_github_label(ctx);
         }
 
+        tool_names::LIST_GLOBAL_SECURITY_ADVISORIES | tool_names::GET_GLOBAL_SECURITY_ADVISORY => {
+            // Public advisory prose is externally authored, not GitHub-controlled metadata.
+            secrecy = vec![];
+            baseline_scope = Cow::Borrowed(scope_names::GITHUB);
+            integrity = none_integrity(scope_names::GITHUB, ctx);
+        }
+
         // === Security Advisories (repository/org-scoped) ===
-        tool_names::LIST_REPOSITORY_SECURITY_ADVISORIES | "list_org_repository_security_advisories" => {
+        tool_names::LIST_REPOSITORY_SECURITY_ADVISORIES
+        | tool_names::LIST_ORG_REPOSITORY_SECURITY_ADVISORIES => {
             // Repository/org security advisories may include draft advisories
             // with non-public vulnerability details.
             // S = private:repo — may contain embargoed vulnerability info
-            // I = approved — maintained by repo security contacts
+            // Read access, publication, and submission acceptance do not establish authorship.
             secrecy = policy_private_scope_label(&owner, &repo, repo_id, ctx);
-            integrity = writer_integrity(repo_id, ctx);
+            integrity = none_integrity(repo_id, ctx);
         }
 
         // === Repository governance and issue discovery ===
@@ -2471,12 +2478,7 @@ mod tests {
         let ctx = default_ctx();
         let expected_integrity = project_github_label(&ctx);
 
-        for tool in &[
-            tool_names::SEARCH_ORGS,
-            "list_global_security_advisories",
-            "get_global_security_advisory",
-            "github_support_docs_search",
-        ] {
+        for tool in &[tool_names::SEARCH_ORGS, "github_support_docs_search"] {
             let (secrecy, integrity, _) = super::apply_tool_labels(
                 tool,
                 &serde_json::json!({}),
@@ -2495,16 +2497,16 @@ mod tests {
     }
 
     #[test]
-    fn apply_tool_labels_repository_security_advisories_get_private_scope_and_writer_integrity() {
+    fn apply_tool_labels_repository_security_advisories_get_private_scope_and_none_integrity() {
         let ctx = default_ctx();
         let args = serde_json::json!({"owner": "octocat", "repo": "hello-world"});
         let repo_id = "octocat/hello-world";
         let expected_secrecy = private_label("octocat", "hello-world", repo_id, &ctx);
-        let expected_integrity = writer_integrity(repo_id, &ctx);
+        let expected_integrity = none_integrity(repo_id, &ctx);
 
         for tool in &[
             tool_names::LIST_REPOSITORY_SECURITY_ADVISORIES,
-            "list_org_repository_security_advisories",
+            tool_names::LIST_ORG_REPOSITORY_SECURITY_ADVISORIES,
         ] {
             let (secrecy, integrity, _) =
                 super::apply_tool_labels(tool, &args, repo_id, vec![], vec![], String::new(), &ctx);
@@ -2514,7 +2516,7 @@ mod tests {
             );
             assert_eq!(
                 integrity, expected_integrity,
-                "{tool}: expected writer-level integrity",
+                "{tool}: expected none-level integrity",
             );
         }
     }

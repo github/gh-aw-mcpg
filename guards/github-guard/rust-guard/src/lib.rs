@@ -354,7 +354,7 @@ enum FallbackAction {
 
 /// Applies metadata/singleton fallback labeling when no fine-grained items exist.
 /// Returns [`FallbackAction::SkipLabeling`] when the caller should return `0`
-/// (top-level array passthrough), or [`FallbackAction::ContinueProcessing`]
+/// and use coarse resource labels, or [`FallbackAction::ContinueProcessing`]
 /// when normal output generation should continue.
 fn apply_singleton_fallback_if_needed(
     input: &LabelResponseInput,
@@ -363,6 +363,18 @@ fn apply_singleton_fallback_if_needed(
 ) -> FallbackAction {
     if !labeled_items.is_empty() {
         return FallbackAction::ContinueProcessing;
+    }
+
+    // Apply the conservative resource labels to the entire advisory response.
+    // This preserves the backend shape and avoids metadata integrity promotion.
+    if matches!(
+        input.tool_name.as_str(),
+        tool_names::LIST_REPOSITORY_SECURITY_ADVISORIES
+            | tool_names::LIST_ORG_REPOSITORY_SECURITY_ADVISORIES
+            | tool_names::LIST_GLOBAL_SECURITY_ADVISORIES
+            | tool_names::GET_GLOBAL_SECURITY_ADVISORY
+    ) {
+        return FallbackAction::SkipLabeling;
     }
 
     // Extract repo info from tool args (same logic as label_resource)
@@ -1061,7 +1073,7 @@ pub extern "C" fn label_response(
         apply_singleton_fallback_if_needed(&input, &ctx, &mut labeled_items),
         FallbackAction::SkipLabeling
     ) {
-        log_info("<<< label_response returning 0 (top-level array passthrough)");
+        log_info("<<< label_response returning 0 (using coarse resource labels)");
         return 0;
     }
 
@@ -1140,6 +1152,111 @@ pub extern "C" fn dealloc(ptr: u32, size: u32) {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn security_advisory_fallback_preserves_untrusted_provenance_for_all_shapes() {
+        let ctx = PolicyContext::default();
+        let external = json!({
+            "ghsa_id": "GHSA-0000-0000-0001",
+            "summary": "Synthetic external advisory",
+            "author": {"login": "external-author"},
+            "submission": {"accepted": false},
+            "state": "triage"
+        });
+        let accepted = json!({
+            "ghsa_id": "GHSA-0000-0000-0002",
+            "summary": "Synthetic accepted advisory",
+            "author": {"login": "external-author"},
+            "submission": {"accepted": true},
+            "state": "published"
+        });
+        let maintainer = json!({
+            "ghsa_id": "GHSA-0000-0000-0003",
+            "summary": "Synthetic maintainer advisory",
+            "author": {"login": "repo-maintainer"},
+            "author_association": "OWNER",
+            "submission": {"accepted": true}
+        });
+        for (tool_name, tool_args, scope, secrecy) in [
+            (
+                tool_names::LIST_REPOSITORY_SECURITY_ADVISORIES,
+                json!({"owner": "org", "repo": "repo"}),
+                "org/repo",
+                vec!["private:org/repo".to_string()],
+            ),
+            (
+                tool_names::LIST_ORG_REPOSITORY_SECURITY_ADVISORIES,
+                json!({"org": "org"}),
+                "",
+                vec!["private".to_string()],
+            ),
+            (
+                tool_names::LIST_GLOBAL_SECURITY_ADVISORIES,
+                json!({}),
+                "github",
+                vec![],
+            ),
+            (
+                tool_names::GET_GLOBAL_SECURITY_ADVISORY,
+                json!({"ghsaId": "GHSA-0000-0000-0001"}),
+                "github",
+                vec![],
+            ),
+        ] {
+            for response in [
+                external.clone(),
+                accepted.clone(),
+                maintainer.clone(),
+                json!([maintainer, external, accepted]),
+                json!({"items": [external], "total_count": 1}),
+                // A zero-count wrapper must not promote embedded prose to metadata.
+                json!({"items": [], "total_count": 0, "summary": "Synthetic advisory"}),
+                json!([]),
+                json!("Synthetic advisory plaintext"),
+            ] {
+                for wrapped in [false, true] {
+                    let tool_result = if wrapped {
+                        json!({"content": [{"type": "text", "text": if let Some(text) = response.as_str() {
+                            text.to_string()
+                        } else {
+                            response.to_string()
+                        }}]})
+                    } else {
+                        response.clone()
+                    };
+                    let input = LabelResponseInput {
+                        tool_name: tool_name.to_string(),
+                        tool_args: tool_args.clone(),
+                        tool_result,
+                    };
+                    let mut items = Vec::new();
+                    let action = apply_singleton_fallback_if_needed(&input, &ctx, &mut items);
+
+                    assert!(
+                        matches!(action, FallbackAction::SkipLabeling),
+                        "{tool_name}"
+                    );
+                    assert!(items.is_empty(), "{tool_name}");
+                    let (_, _, repo_id) = extract_repo_info(&tool_args);
+                    let (actual_secrecy, integrity, _) = labels::apply_tool_labels(
+                        tool_name,
+                        &tool_args,
+                        &repo_id,
+                        vec![],
+                        vec![],
+                        String::new(),
+                        &ctx,
+                    );
+                    assert_eq!(actual_secrecy, secrecy, "{tool_name}");
+                    assert_eq!(
+                        integrity,
+                        labels::none_integrity(scope, &ctx),
+                        "{tool_name}: {response}"
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn labeled_item_from_result_preserves_data_and_labels() {

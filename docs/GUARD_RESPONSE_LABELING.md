@@ -28,6 +28,20 @@ Integrity labels prevent untrusted reads ("no read down"):
 
 **Intuition**: Integrity tags track trustworthiness. Reading untrusted data "degrades" the agent's integrity, and degraded agents cannot write to high-integrity destinations.
 
+### Security advisory provenance
+
+The GitHub guard assigns `none` integrity to repository, organization, and global
+security advisory content. Read permission, publication, and vulnerability
+submission acceptance do not prove repository-writer authorship. This conservative
+classification applies to the whole response, including mixed-author collections,
+single objects, and text fallbacks; it does not promote individual advisories based
+on their author or acceptance fields.
+
+Repository and organization advisory responses retain their private policy-scope
+secrecy labels because they may include non-public submissions or draft advisories.
+Global advisories remain public. A policy requiring `min-integrity: approved`
+withholds advisory content even when its private repository scope is authorized.
+
 ### Flow Rules Summary
 
 ```
