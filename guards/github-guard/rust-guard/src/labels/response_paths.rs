@@ -594,7 +594,7 @@ pub fn label_response_paths(
             if let Some(items) = items {
                 // Try tool_args first, fall back to extracting from first item
                 let (arg_owner, arg_repo, arg_repo_full) = extract_repo_info(tool_args);
-                let sha = tool_args.get("sha").and_then(|v| v.as_str()).unwrap_or("");
+                let sha = get_str_or(tool_args, field_names::SHA, "");
                 let default_repo = default_repo_for_items(arg_repo_full, items);
                 let default_secrecy: crate::SharedLabels =
                     repo_visibility_secrecy(&arg_owner, &arg_repo, &default_repo, ctx).into();
