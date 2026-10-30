@@ -129,7 +129,7 @@ Resource labels are coarse pre-check labels by tool call.
 | `list_commits` | if ref is default/no-ref: merged; else max(author_association floor, approved) | if ref is default/no-ref: merged; else author_association floor (response items refine per commit) |
 | `get_file_contents`, `get_file_blame` | default/no-ref: merged; otherwise approved (author floor does not usually apply to blob metadata) | default/no-ref: merged; otherwise approved |
 | `list_branches`, `list_tags`, `get_tag`, `list_releases`, `get_latest_release`, `get_release_by_tag`, `get_label`, `list_label`, `actions_get`, `actions_list`, `search_code`, `get_repository`, `search_repositories`, `get_repository_tree`, `list_discussion_categories` | approved | approved |
-| `get_job_logs` | approved | approved |
+| `get_job_logs` | none | none |
 | `list_discussions`, `get_discussion`, `get_discussion_comments` | max(author_association floor, approved) | author_association floor (user content) |
 | `list_gists`, `get_gist` | unapproved:user | unapproved:user |
 | `list_notifications`, `get_notification_details` | none | none |
@@ -160,7 +160,7 @@ Response labels are fine-grained per item and are authoritative when available.
 | Branch/tag/release metadata item (`list_branches`, `list_tags`, `get_tag`, `list_releases`, `get_latest_release`, `get_release_by_tag`) | merged if tied to default branch, otherwise approved | merged if tied to default branch, otherwise approved |
 | Label metadata (`get_label`, `list_label`) | approved | approved |
 | GitHub Actions workflow/artifact metadata (`actions_get`, `actions_list`) | approved | approved |
-| Job logs (`get_job_logs`) | approved | approved |
+| Job logs (`get_job_logs`) | none | none |
 | Security alert item | reader (none + unapproved) | reader (none + unapproved) |
 | Global security advisory (`list_global_security_advisories`, `get_global_security_advisory`) | approved:github | approved:github |
 | Repo/org security advisory (`list_repository_security_advisories`, `list_org_repository_security_advisories`) | approved | approved |
@@ -177,6 +177,11 @@ Notes:
 - For user-authored objects that include `author_association`, response labeling starts from the author-association floor and then elevates with endorsement evidence.
 - For issue/PR/commit-style response objects, helper functions enforce explicit baseline `none` when no stronger integrity is present.
 - Response labeling is authoritative and may be more precise than coarse resource labels.
+- Job-log content has baseline `none` integrity regardless of repository visibility or response
+  wrapper. Logs can contain outsider-authored comments, build output, and workflow inputs;
+  GitHub hosting the logs does not establish writer endorsement. Plain-text and empty-search-shaped
+  log responses must not receive the approved server-metadata fallback. An `approved` minimum
+  filters or denies logs; a `none` minimum permits them subject to repository secrecy clearance.
 - `pull_request_read` user-authored sub-method responses are labeled from each returned item's provenance: comments and reviews use their own author, and commits use their own commit author. File/diff content without author evidence fails closed at `none`; maintainer-controlled checks, status, and label metadata retain approved integrity.
 
 ---

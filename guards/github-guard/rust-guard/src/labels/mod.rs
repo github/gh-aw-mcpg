@@ -2590,8 +2590,8 @@ mod tests {
         );
         assert_eq!(
             integrity,
-            writer_integrity("github/copilot", &ctx),
-            "get_job_logs must have approved integrity (system-generated output)"
+            none_integrity("github/copilot", &ctx),
+            "get_job_logs must not endorse arbitrary workflow output"
         );
     }
 

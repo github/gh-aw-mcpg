@@ -164,7 +164,8 @@ The guard applies security labels to all GitHub data:
 |-----------------|---------------|
 | Public repo | `[]` (empty - anyone can read) |
 | Private repo | `["private:<owner>/<repo>"]` |
-| Job logs, secret scanning alerts, sensitive files, artifact downloads | `["private:<owner>/<repo>"]` (always, even for public repos) |
+| Job logs | Inherit repository visibility: `[]` for public repos, `["private:<owner>/<repo>"]` for private repos |
+| Secret scanning alerts, sensitive files, artifact downloads | `["private:<owner>/<repo>"]` (always, even for public repos) |
 
 ### Integrity Labels
 
@@ -173,6 +174,7 @@ Integrity labels are hierarchical: `merged > approved > unapproved > none`
 | Object Type | Condition | Integrity |
 |-------------|-----------|-----------|
 | **Repository metadata** | Always | `approved + unapproved` |
+| **Job-log content** | No content-level endorsement, including private repos | Baseline `none` |
 | **Commits** | On default branch | `merged + approved + unapproved` |
 | **Commits** | On feature branch | `unapproved` (or elevated by policy evidence) |
 | **Pull Requests** | Merged | `merged + approved + unapproved` |
@@ -186,6 +188,10 @@ Integrity labels are hierarchical: `merged > approved > unapproved > none`
 | **Secret scanning** | Alerts reference secrets | `approved + unapproved`, secrecy: `secret` |
 
 > **Note**: A "verified contributor" is a user with at least one merged PR in the repository. The guard queries the GitHub API to check this at runtime.
+
+Job logs can contain outsider-authored comments, build output, and workflow inputs.
+Neither GitHub hosting nor an MCP response wrapper endorses those bytes. Logs do not
+satisfy `min-integrity: approved`; `min-integrity: none` permits them when secrecy clearance allows.
 
 For detailed labeling rules, see [docs/LABELING.md](./docs/LABELING.md).
 
