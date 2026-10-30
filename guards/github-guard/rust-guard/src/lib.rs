@@ -220,6 +220,36 @@ fn try_write_json_output(
     }
 }
 
+fn serialize_and_write<T: Serialize>(
+    output: &T,
+    output_ptr: u32,
+    output_size: u32,
+    fn_name: &str,
+    on_error: i32,
+) -> i32 {
+    let output_json = match serde_json::to_string(output) {
+        Ok(json) => json,
+        Err(e) => {
+            log_error(&format!("    FAILED to serialize {fn_name} output: {e}"));
+            if on_error == 0 {
+                log_info("<<< label_response returning 0 (serialize error)");
+            }
+            return on_error;
+        }
+    };
+
+    log_info(&format!("    {fn_name} output_bytes={}", output_json.len()));
+    let n = try_write_json_output(&output_json, output_ptr, output_size, fn_name);
+    if n < 0 {
+        if on_error == 0 {
+            log_info("<<< label_response returning 0 (output write failed)");
+        }
+        on_error
+    } else {
+        n
+    }
+}
+
 // ============================================================================
 // Input/Output Types
 // ============================================================================
@@ -940,15 +970,7 @@ pub extern "C" fn label_agent(
         normalized_policy,
     };
 
-    let output_json = match serde_json::to_string(&output) {
-        Ok(s) => s,
-        Err(e) => {
-            log_error(&format!("    FAILED to serialize label_agent output: {e}"));
-            return -1;
-        }
-    };
-
-    try_write_json_output(&output_json, output_ptr, output_size, "label_agent")
+    serialize_and_write(&output, output_ptr, output_size, "label_agent", -1)
 }
 
 /// label_resource is called by the gateway to label a resource before access
@@ -981,16 +1003,7 @@ pub extern "C" fn label_resource(
     let ctx = get_runtime_policy_context();
     let output = build_label_resource_output(&input, &ctx);
 
-    // Serialize output
-    let output_json = match serde_json::to_string(&output) {
-        Ok(s) => s,
-        Err(e) => {
-            log_error(&format!("    FAILED to serialize output: {e}"));
-            return -1;
-        }
-    };
-
-    try_write_json_output(&output_json, output_ptr, output_size, "label_resource")
+    serialize_and_write(&output, output_ptr, output_size, "label_resource", -1)
 }
 
 /// label_response is called by the gateway to label response data
@@ -1042,24 +1055,7 @@ pub extern "C" fn label_response(
             items_path: path_result.items_path,
         };
 
-        // Serialize and return
-        let output_json = match serde_json::to_string(&output) {
-            Ok(s) => s,
-            Err(e) => {
-                log_error(&format!("    FAILED to serialize path output: {e}"));
-                log_info("<<< label_response returning 0 (serialize error)");
-                return 0;
-            }
-        };
-
-        log_info(&format!("    path_output_bytes={}", output_json.len()));
-
-        let n = try_write_json_output(&output_json, output_ptr, output_size, "label_response/path");
-        if n < 0 {
-            log_info("<<< label_response returning 0 (output write failed)");
-            return 0;
-        }
-        return n;
+        return serialize_and_write(&output, output_ptr, output_size, "label_response/path", 0);
     }
 
     // Fall back to legacy item-based labeling for singletons
@@ -1090,30 +1086,7 @@ pub extern "C" fn label_response(
         items: labeled_items,
     };
 
-    // Serialize output
-    let output_json = match serde_json::to_string(&output) {
-        Ok(s) => s,
-        Err(e) => {
-            log_error(&format!("    FAILED to serialize output: {e}"));
-            log_info("<<< label_response returning 0 (serialize error)");
-            return 0;
-        }
-    };
-
-    log_info(&format!("    output_bytes={}", output_json.len()));
-
-    let n = try_write_json_output(
-        &output_json,
-        output_ptr,
-        output_size,
-        "label_response/legacy",
-    );
-    if n < 0 {
-        log_info("<<< label_response returning 0 (output write failed)");
-        0
-    } else {
-        n
-    }
+    serialize_and_write(&output, output_ptr, output_size, "label_response/legacy", 0)
 }
 
 // ============================================================================
@@ -1155,6 +1128,49 @@ pub extern "C" fn dealloc(ptr: u32, size: u32) {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn serialize_and_write_preserves_serialization_error_codes() {
+        struct Unserializable;
+
+        impl Serialize for Unserializable {
+            fn serialize<S: Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+                Err(serde::ser::Error::custom("serialization failed"))
+            }
+        }
+
+        for (fn_name, on_error) in [
+            ("label_agent", -1),
+            ("label_resource", -1),
+            ("label_response/path", 0),
+            ("label_response/legacy", 0),
+        ] {
+            assert_eq!(
+                serialize_and_write(&Unserializable, 0, 0, fn_name, on_error),
+                on_error,
+                "{fn_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn serialize_and_write_preserves_output_write_error_codes() {
+        let output = json!({"items": []});
+        let required_size = serde_json::to_string(&output).unwrap().len() as u32;
+
+        for (fn_name, on_error) in [
+            ("label_agent", -1),
+            ("label_resource", -1),
+            ("label_response/path", 0),
+            ("label_response/legacy", 0),
+        ] {
+            assert_eq!(
+                serialize_and_write(&output, 0, required_size - 1, fn_name, on_error),
+                on_error,
+                "{fn_name}"
+            );
+        }
+    }
 
     #[test]
     fn security_advisory_fallback_preserves_untrusted_provenance_for_all_shapes() {
