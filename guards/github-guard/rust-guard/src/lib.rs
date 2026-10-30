@@ -373,9 +373,12 @@ fn apply_singleton_fallback_if_needed(
     // no repository data — pass through with approved integrity so the agent can
     // see instructional messages and empty-result confirmations.
     let actual_response = labels::extract_mcp_response(&input.tool_result);
-    let is_server_metadata = labels::is_mcp_text_wrapper(&actual_response)
-        || (labels::is_search_result_wrapper(&actual_response)
-            && labels::search_result_total_count(&actual_response) == Some(0));
+    // Log bytes are content even when their shape resembles a server message
+    // or an empty search result; the wrapper does not establish endorsement.
+    let is_server_metadata = input.tool_name != labels::constants::tool_names::GET_JOB_LOGS
+        && (labels::is_mcp_text_wrapper(&actual_response)
+            || (labels::is_search_result_wrapper(&actual_response)
+                && labels::search_result_total_count(&actual_response) == Some(0)));
 
     if is_server_metadata {
         let scope = if baseline_scope.is_empty() {
@@ -1244,6 +1247,66 @@ mod tests {
         assert!(matches!(action, FallbackAction::ContinueProcessing));
         assert_eq!(labeled_items.len(), 1);
         assert_eq!(labeled_items[0].data, input.tool_result);
+    }
+
+    #[test]
+    fn job_log_fallback_never_endorses_content_as_metadata() {
+        let ctx = PolicyContext::default();
+        let repo_id = "org/log-fallback";
+        for private in [false, true] {
+            let _guard = labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            for tool_result in [
+                json!("Synthetic outsider comment."),
+                json!({"text": "Synthetic outsider comment."}),
+                json!({"content": [{"type": "text", "text": "Synthetic outsider comment."}]}),
+                json!({"content": [{"type": "text", "text": r#"{"total_count":0,"items":[]}"#}]}),
+                json!({"total_count": 0, "items": []}),
+                json!({
+                    "content": [{"type": "text", "text": "Synthetic outsider comment."}],
+                    "structuredContent": {"text": "Synthetic outsider comment."}
+                }),
+            ] {
+                let input = LabelResponseInput {
+                    tool_name: labels::constants::tool_names::GET_JOB_LOGS.to_string(),
+                    tool_args: json!({"owner": "org", "repo": "log-fallback", "job_id": 1}),
+                    tool_result,
+                };
+                assert!(labels::label_response_paths(
+                    &input.tool_name,
+                    &input.tool_args,
+                    &input.tool_result,
+                    &ctx
+                )
+                .is_none());
+                let mut items = labels::label_response_items(
+                    &input.tool_name,
+                    &input.tool_args,
+                    &input.tool_result,
+                    &ctx,
+                );
+                let action = apply_singleton_fallback_if_needed(&input, &ctx, &mut items);
+                assert!(matches!(action, FallbackAction::ContinueProcessing));
+                assert_eq!(items.len(), 1);
+                assert_eq!(items[0].data, input.tool_result);
+                assert_eq!(
+                    items[0].labels.integrity,
+                    labels::ensure_integrity_baseline(repo_id, &[], &ctx),
+                    "job-log shape must not establish endorsement: {:?}",
+                    input.tool_result
+                );
+                let expected_secrecy = if private {
+                    labels::helpers::policy_private_scope_label(
+                        "org",
+                        "log-fallback",
+                        repo_id,
+                        &ctx,
+                    )
+                } else {
+                    vec![]
+                };
+                assert_eq!(items[0].labels.secrecy, expected_secrecy);
+            }
+        }
     }
 
     #[test]

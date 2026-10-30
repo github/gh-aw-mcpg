@@ -223,6 +223,12 @@ func TestMatchRoute(t *testing.T) {
 			wantArgs: map[string]interface{}{"owner": "org", "repo": "repo", "method": "list_workflow_jobs", "resource_id": "100"},
 		},
 		{
+			name:     "get job logs",
+			path:     "/repos/org/repo/actions/jobs/99/logs",
+			wantTool: "get_job_logs",
+			wantArgs: map[string]interface{}{"owner": "org", "repo": "repo", "job_id": "99"},
+		},
+		{
 			name:     "get run logs",
 			path:     "/repos/org/repo/actions/runs/100/logs",
 			wantTool: "get_job_logs",

@@ -554,6 +554,13 @@ pub fn apply_tool_labels(
             }
         }
 
+        // Job logs can embed outsider-authored text, build output, and workflow inputs.
+        // Repository visibility controls secrecy, not endorsement of those bytes.
+        tool_names::GET_JOB_LOGS => {
+            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            integrity = vec![];
+        }
+
         // === Actions reads, code quality findings, and other repo-scoped resources ===
         // S = inherits from repo visibility; I = writer
         tool_names::ACTIONS_LIST
@@ -562,7 +569,6 @@ pub fn apply_tool_labels(
         | tool_names::GET_LABEL
         | "get_repository"
         | "get_tag"
-        | tool_names::GET_JOB_LOGS
         | "list_branches"
         | tool_names::LIST_DISCUSSION_CATEGORIES
         | tool_names::LIST_LABEL
@@ -2143,8 +2149,8 @@ mod tests {
         );
         assert_eq!(
             integrity,
-            writer_integrity(repo_id, &ctx),
-            "get_job_logs: expected writer-level integrity",
+            none_integrity(repo_id, &ctx),
+            "get_job_logs: expected baseline integrity without content endorsement",
         );
     }
 
@@ -2171,8 +2177,8 @@ mod tests {
         );
         assert_eq!(
             integrity,
-            writer_integrity(repo_id, &ctx),
-            "get_job_logs: expected writer-level integrity",
+            none_integrity(repo_id, &ctx),
+            "get_job_logs: private visibility must not endorse log content",
         );
     }
 

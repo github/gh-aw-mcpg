@@ -27,12 +27,16 @@ Secrecy labels constrain **information release** (confidentiality).
 
 **Flow Rule**: Data can only be consumed by agents with *equal or higher* secrecy clearance.
 
-> **Note on sensitive resources**: Some resources (job logs, secret scanning alerts, workflow files,
+> **Note on sensitive resources**: Some resources (secret scanning alerts, workflow files,
 > sensitive credential files, artifact downloads) are always assigned at least `private:owner/repo`
 > secrecy even for **public** repositories. This reflects that those resources may embed actual
 > credential values or sensitive operational data regardless of the repository's visibility setting.
 > The owner/repo scope means an agent must have matching clearance — e.g. via an `allow-only` policy
 > scoped to that repository — before the data can flow.
+
+Job logs inherit repository-visibility secrecy: public logs have empty secrecy and private
+logs require repository clearance. Their content remains at baseline `none` integrity
+because log output can include text without repository-writer endorsement.
 
 ### Integrity Labels
 

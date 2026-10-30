@@ -62,7 +62,7 @@ pub extern "C" fn dealloc(ptr: u32, size: u32) { ... }
 | Public repository | `[]` (empty) |
 | Private repository | `["private:owner/repo"]` |
 | Secret scanning alerts | `["private:owner/repo"]` (always, even for public repos) |
-| Job logs | `["private:owner/repo"]` (always, even for public repos) |
+| Job logs | Repository visibility: `[]` for public repos, `["private:owner/repo"]` for private repos |
 | Sensitive/credential files | `["private:owner/repo"]` (always, even for public repos) |
 | Artifact downloads | `["private:owner/repo"]` (always, even for public repos) |
 | User notifications | `["private:user"]` |
@@ -72,6 +72,7 @@ pub extern "C" fn dealloc(ptr: u32, size: u32) { ... }
 | Object Type | Condition | Integrity |
 |-------------|-----------|-----------|
 | Repository metadata | Always | `["unapproved:X", "approved:X"]` |
+| Job-log content | No content-level endorsement, including private repos | Baseline `none:X` |
 | Merged PRs | `merged = true` | `["unapproved:X", "approved:X", "merged:X"]` |
 | Open PRs | `merged = false` | `["unapproved:X"]` (or elevated by policy evidence) |
 | Default branch commits | `sha` is main/master | `["unapproved:X", "approved:X", "merged:X"]` |

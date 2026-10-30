@@ -67,7 +67,8 @@ The guard implements a principled labeling scheme:
 **Secrecy Labels:**
 - Public repos: `[]` (empty)
 - Private repos: `["private:owner/repo"]`
-- Sensitive resources (job logs, secret scanning alerts, workflow files, artifacts): `["private:owner/repo"]` (always, even for public repos)
+- Job logs: inherit repository visibility (`[]` for public repos, `["private:owner/repo"]` for private repos)
+- Sensitive resources (secret scanning alerts, workflow files, artifacts): `["private:owner/repo"]` (always, even for public repos)
 - User data: `["private:user"]`
 
 **Integrity Labels:**
@@ -75,6 +76,9 @@ The guard implements a principled labeling scheme:
 - Writer level: `["unapproved:X", "approved:X"]`
 - Reader level: `["unapproved:X"]`
 - Untrusted: `[]` (empty)
+
+Job-log content receives explicit baseline `none` integrity, including in the singleton
+response fallback. Plain-text or search-shaped log output is not approved server metadata.
 
 ### Response Labeling
 
