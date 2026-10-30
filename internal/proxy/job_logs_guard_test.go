@@ -30,7 +30,8 @@ func jobLogsUpstream(t *testing.T, private bool) *httptest.Server {
 			assert.NoError(t, json.NewEncoder(w).Encode(repo))
 		case "/search/repositories":
 			assert.NoError(t, json.NewEncoder(w).Encode(map[string]any{"total_count": 1, "items": []any{repo}}))
-		case "/repos/testorg/testrepo/actions/runs/1/logs",
+		case "/repos/testorg/testrepo/actions/jobs/1/logs",
+			"/repos/testorg/testrepo/actions/runs/1/logs",
 			"/repos/testorg/testrepo/actions/runs/1/attempts/1/logs":
 			switch r.URL.Query().Get("format") {
 			case "redirect":
@@ -38,6 +39,8 @@ func jobLogsUpstream(t *testing.T, private bool) *httptest.Server {
 				w.WriteHeader(http.StatusFound)
 			case "json":
 				assert.NoError(t, json.NewEncoder(w).Encode(map[string]any{"text": outsiderLogText}))
+			case "array":
+				assert.NoError(t, json.NewEncoder(w).Encode([]any{outsiderLogText}))
 			default:
 				w.Header().Set("Content-Type", "text/plain")
 				_, err := w.Write([]byte(outsiderLogText))
@@ -158,10 +161,11 @@ func TestHandlerJobLogsRealGuardIntegrity(t *testing.T) {
 				}
 				t.Cleanup(func() { assert.NoError(t, s.guard.(*guard.WasmGuard).Close(context.Background())) })
 				for _, path := range []string{
+					"/repos/testorg/testrepo/actions/jobs/1/logs",
 					"/repos/testorg/testrepo/actions/runs/1/logs",
 					"/repos/testorg/testrepo/actions/runs/1/attempts/1/logs",
 				} {
-					for _, format := range []string{"text", "redirect", "json"} {
+					for _, format := range []string{"text", "redirect", "json", "array"} {
 						t.Run(path+"/"+format, func(t *testing.T) {
 							req := httptest.NewRequest(http.MethodGet, path+"?format="+format, nil)
 							w := httptest.NewRecorder()
@@ -169,8 +173,10 @@ func TestHandlerJobLogsRealGuardIntegrity(t *testing.T) {
 							if minimum == "approved" {
 								assert.NotContains(t, w.Body.String(), outsiderLogText)
 								assert.Empty(t, w.Header().Get("Location"))
-								if format != "json" {
+								if format == "text" || format == "redirect" {
 									assert.Equal(t, http.StatusForbidden, w.Code)
+								} else {
+									assert.Equal(t, http.StatusOK, w.Code)
 								}
 							} else if format == "redirect" {
 								assert.Equal(t, http.StatusFound, w.Code)

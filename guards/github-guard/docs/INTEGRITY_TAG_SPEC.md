@@ -182,6 +182,8 @@ Notes:
   GitHub hosting the logs does not establish writer endorsement. Plain-text and empty-search-shaped
   log responses must not receive the approved server-metadata fallback. An `approved` minimum
   filters or denies logs; a `none` minimum permits them subject to repository secrecy clearance.
+  The REST proxy maps job, run, and run-attempt log endpoints to `get_job_logs` so opaque
+  responses and redirects use the same baseline integrity.
 - `pull_request_read` user-authored sub-method responses are labeled from each returned item's provenance: comments and reviews use their own author, and commits use their own commit author. File/diff content without author evidence fails closed at `none`; maintainer-controlled checks, status, and label metadata retain approved integrity.
 
 ---
