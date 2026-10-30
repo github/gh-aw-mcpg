@@ -115,6 +115,8 @@ func TestGraphqlRootFields(t *testing.T) {
 			wantOK:        true,
 		},
 		{name: "parse error", query: `query {`},
+		{name: "deeply nested fields", query: "{" + strings.Repeat("viewer {", 10000) + "login" + strings.Repeat("}", 10001)},
+		{name: "deeply nested inline fragments", query: "{" + strings.Repeat("... on Query {", 10000) + "id" + strings.Repeat("}", 10001)},
 		{name: "empty query", query: ``},
 		{name: "fragment only document has no operations", query: `fragment F on X { a }`},
 		{name: "multiple operations without operationName", query: `query A { a } query B { b }`},
@@ -140,7 +142,7 @@ func TestGraphqlRootFields(t *testing.T) {
 }
 
 func TestGraphqlRootFields_TokenLimit(t *testing.T) {
-	query := "{ a(x: [" + strings.Repeat("1,", 100001) + "1]) }"
+	query := "{ a(x: [" + strings.Repeat("1,", graphqlTokenLimit+1) + "1]) }"
 	fields, hasRepo, text, ok := graphqlRootFields(query, "")
 	require.False(t, ok)
 	assert.Nil(t, fields)

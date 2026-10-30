@@ -14,6 +14,7 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/restroute"
 	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/lexer"
 	"github.com/vektah/gqlparser/v2/parser"
 )
 
@@ -146,7 +147,7 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 		return nil, errReadOnlyDenied
 	}
 
-	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: request.Query}, 100000)
+	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: request.Query}, graphqlTokenLimit)
 	if err != nil || doc == nil || len(doc.Operations) == 0 {
 		return nil, errReadOnlyDenied
 	}
@@ -172,6 +173,32 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 	}
 
 	runes := []rune(request.Query)
+	definitionStarts := make(map[int]int, len(doc.Operations)+len(doc.Fragments))
+	for _, operation := range doc.Operations {
+		definitionStarts[operation.Position.Start] = operation.Position.Start
+	}
+	for _, fragment := range doc.Fragments {
+		definitionStarts[fragment.Position.Start] = fragment.Position.Start
+	}
+	tokenLexer := lexer.New(&ast.Source{Input: request.Query})
+	var previousToken lexer.Token
+	for {
+		token, err := tokenLexer.ReadToken()
+		if err != nil {
+			return nil, errReadOnlyDenied
+		}
+		if _, isDefinition := definitionStarts[token.Pos.Start]; isDefinition &&
+			(previousToken.Kind == lexer.String || previousToken.Kind == lexer.BlockString) {
+			definitionStarts[token.Pos.Start] = previousToken.Pos.Start
+		}
+		if token.Kind != lexer.Comment {
+			previousToken = token
+		}
+		if token.Kind == lexer.EOF {
+			break
+		}
+	}
+
 	type definition struct {
 		start    int
 		fragment *ast.FragmentDefinition
@@ -179,14 +206,14 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 	definitions := make([]definition, 0, len(doc.Operations)+len(doc.Fragments))
 	fragments := make(map[string]*ast.FragmentDefinition, len(doc.Fragments))
 	for _, operation := range doc.Operations {
-		definitions = append(definitions, definition{start: operation.Position.Start})
+		definitions = append(definitions, definition{start: definitionStarts[operation.Position.Start]})
 	}
 	for _, fragment := range doc.Fragments {
 		if _, duplicate := fragments[fragment.Name]; duplicate {
 			return nil, errReadOnlyDenied
 		}
 		fragments[fragment.Name] = fragment
-		definitions = append(definitions, definition{start: fragment.Position.Start, fragment: fragment})
+		definitions = append(definitions, definition{start: definitionStarts[fragment.Position.Start], fragment: fragment})
 	}
 	sort.Slice(definitions, func(i, j int) bool { return definitions[i].start < definitions[j].start })
 
