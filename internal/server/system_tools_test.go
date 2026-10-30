@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -312,4 +313,45 @@ func TestSysInitHandler_EnsureSessionDirectoryFailure(t *testing.T) {
 	require.NoError(err)
 	assert.Nil(t, result)
 	require.NotNil(t, data)
+}
+
+func TestSysHandlers_SessionDirectoryFailureIsNonFatal(t *testing.T) {
+	// A regular file used as payloadDir makes session directory creation fail.
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0o600))
+
+	tests := []struct {
+		name string
+		call func(us *UnifiedServer, ctx context.Context) (*sdk.CallToolResult, interface{}, error)
+		want string
+	}{
+		{
+			name: "sys_init still succeeds",
+			call: func(us *UnifiedServer, ctx context.Context) (*sdk.CallToolResult, interface{}, error) {
+				return us.sysInitHandler(ctx, &sdk.CallToolRequest{}, nil)
+			},
+			want: "MCPG initialized",
+		},
+		{
+			name: "sys_list_servers still succeeds",
+			call: func(us *UnifiedServer, ctx context.Context) (*sdk.CallToolResult, interface{}, error) {
+				return us.sysListServersHandler(ctx, &sdk.CallToolRequest{}, nil)
+			},
+			want: "github",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			us := minimalSysHandlerServer(t, []string{"github"}, blocker)
+			result, data, err := tt.call(us, ctxWithSession("sess-fail"))
+			require.NoError(t, err)
+			assert.Nil(t, result)
+			require.NotNil(t, data)
+			assert.Contains(t, validateToolContent(t, data), tt.want)
+			us.sessionMu.RLock()
+			_, ok := us.sessions["sess-fail"]
+			us.sessionMu.RUnlock()
+			assert.True(t, ok, "session should be registered despite directory failure")
+		})
+	}
 }
