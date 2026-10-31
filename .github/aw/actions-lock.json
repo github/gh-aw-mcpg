@@ -115,11 +115,6 @@
       "version": "v1.0.1",
       "sha": "221ba4f4319de6b8e809d1a15528b3ae6a818aa5"
     },
-    "github/gh-aw-actions/setup@v1.0.1": {
-      "repo": "github/gh-aw-actions/setup",
-      "version": "v1.0.1",
-      "sha": "221ba4f4319de6b8e809d1a15528b3ae6a818aa5"
-    },
     "haskell-actions/setup@v2.12.1": {
       "repo": "haskell-actions/setup",
       "version": "v2.12.1",
@@ -130,18 +125,13 @@
       "version": "v2.2.0",
       "sha": "0c5077e51419868618aeaa5fe8019c62421857d6"
     },
-    "ruby/setup-ruby@v1.335.0": {
+    "ruby/setup-ruby@v1.336.0": {
       "repo": "ruby/setup-ruby",
-      "version": "v1.335.0",
-      "sha": "7f797815d8adceb1c412e7abefdd1ab4abc47a5f"
+      "version": "v1.336.0",
+      "sha": "de492cf36cbab201753d720ce4f4e336cd688c94"
     }
   },
   "containers": {
-    "alpine:latest": {
-      "image": "alpine:latest",
-      "digest": "sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659",
-      "pinned_image": "alpine:latest@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659"
-    },
     "ghcr.io/github/gh-aw-firewall/agent:0.27.44": {
       "image": "ghcr.io/github/gh-aw-firewall/agent:0.27.44",
       "digest": "sha256:0d727725c737b58c7bdf51f640cffb928385ec46517e0917c7f1a02f1bada8b4",
