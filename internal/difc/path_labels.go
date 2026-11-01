@@ -107,19 +107,21 @@ func unwrapMCPResponse(data interface{}) (interface{}, bool) {
 	}
 
 	text := mcpresult.ExtractTextContent(dataMap)
-	if text == "" {
-		return data, false
+	if text != "" {
+		// Try to parse the text as JSON
+		var inner interface{}
+		if err := json.Unmarshal([]byte(text), &inner); err == nil {
+			logPathLabels.Print("unwrapMCPResponse: detected MCP-wrapped response, unwrapping inner JSON")
+			return inner, true
+		}
 	}
 
-	// Try to parse the text as JSON
-	var inner interface{}
-	if err := json.Unmarshal([]byte(text), &inner); err != nil {
-		// Not valid JSON, return original
-		return data, false
+	if structured, ok := dataMap["structuredContent"]; ok {
+		logPathLabels.Print("unwrapMCPResponse: detected structuredContent response")
+		return structured, true
 	}
 
-	logPathLabels.Print("unwrapMCPResponse: detected MCP-wrapped response, unwrapping inner JSON")
-	return inner, true
+	return data, false
 }
 
 // resolve applies path labels to the original data
@@ -353,8 +355,56 @@ func (p *PathLabeledData) ToCollectionLabeledData() *CollectionLabeledData {
 	}
 	logPathLabels.Printf("ToCollectionLabeledData: converting %d items", len(p.resolvedItems))
 	return &CollectionLabeledData{
-		Items: p.resolvedItems,
+		Items:            p.resolvedItems,
+		OriginalData:     p.UnwrappedData,
+		ItemsPath:        p.PathLabels.ItemsPath,
+		PreserveEnvelope: p.PathLabels.ItemsPath != "",
 	}
+}
+
+func replaceCollectionAtPath(data interface{}, path string, replacement []interface{}) (interface{}, error) {
+	parts := splitJSONPointer(path)
+	if len(parts) == 0 {
+		return replacement, nil
+	}
+
+	current := data
+	for _, part := range parts[:len(parts)-1] {
+		switch value := current.(type) {
+		case map[string]interface{}:
+			next, ok := value[part]
+			if !ok {
+				return nil, fmt.Errorf("items_path %q not found in response", path)
+			}
+			current = next
+		case []interface{}:
+			index, err := strconv.Atoi(part)
+			if err != nil || index < 0 || index >= len(value) {
+				return nil, fmt.Errorf("invalid array index %q in items_path %q", part, path)
+			}
+			current = value[index]
+		default:
+			return nil, fmt.Errorf("cannot navigate items_path %q at %q", path, part)
+		}
+	}
+
+	last := parts[len(parts)-1]
+	switch value := current.(type) {
+	case map[string]interface{}:
+		if _, ok := value[last]; !ok {
+			return nil, fmt.Errorf("items_path %q not found in response", path)
+		}
+		value[last] = replacement
+	case []interface{}:
+		index, err := strconv.Atoi(last)
+		if err != nil || index < 0 || index >= len(value) {
+			return nil, fmt.Errorf("invalid array index %q in items_path %q", last, path)
+		}
+		value[index] = replacement
+	default:
+		return nil, fmt.Errorf("cannot replace items_path %q", path)
+	}
+	return data, nil
 }
 
 // ParsePathLabels parses a JSON response from a guard into PathLabels

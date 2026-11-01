@@ -1917,6 +1917,39 @@ mod tests {
     }
 
     #[test]
+    fn structured_only_review_threads_are_labeled() {
+        let policy = PolicyContext {
+            trusted_users: vec!["bot".to_string()],
+            ..Default::default()
+        };
+        let response = json!({
+            "content": [],
+            "structuredContent": {
+                "pageInfo": {"hasNextPage": true, "endCursor": "cursor"},
+                "totalCount": 1,
+                "review_threads": [
+                    {"id": "PRRT_ok", "comments": [{"author": "bot"}]}
+                ]
+            }
+        });
+        let args = json!({
+            "owner": "octocat", "repo": "hello-world", "pullNumber": 1,
+            "method": "get_review_comments"
+        });
+
+        let result = label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy)
+            .expect("structured review threads should be labeled");
+
+        assert_eq!(result.items_path, Some("/review_threads"));
+        assert_eq!(result.labeled_paths.len(), 1);
+        assert_eq!(result.labeled_paths[0].path, "/review_threads/0");
+        assert_ne!(
+            result.labeled_paths[0].labels.integrity,
+            none_integrity("octocat/hello-world", &policy)
+        );
+    }
+
+    #[test]
     fn pull_request_subresources_use_item_provenance_or_method_default() {
         let policy = PolicyContext {
             trusted_users: vec!["dual-listed".to_string()],

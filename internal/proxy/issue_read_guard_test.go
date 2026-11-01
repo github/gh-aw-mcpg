@@ -105,3 +105,91 @@ func TestIssueReadTrustedBotApprovedIntegrity(t *testing.T) {
 		})
 	}
 }
+
+func TestPullRequestReadReviewThreadsPreservePagination(t *testing.T) {
+	wasmPath := findGuardWasm(t)
+	upstream := labelsUpstream(t, nil)
+	t.Cleanup(upstream.Close)
+	backend := &restBackendCaller{server: &Server{
+		githubAPIURL: upstream.URL,
+		httpClient:   upstream.Client(),
+	}}
+
+	ctx := context.Background()
+	g, err := guard.NewWasmGuard(ctx, "github", wasmPath, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, g.Close(ctx)) })
+	agent, err := g.LabelAgent(ctx,
+		`{"allow-only":{"repos":"public","min-integrity":"approved","trusted-users":["github-actions[bot]"]}}`,
+		backend, nil,
+	)
+	require.NoError(t, err)
+	labels := difc.NewAgentLabels("test-agent")
+	_, err = guard.ApplyLabelAgentResult(agent, labels, difc.EnforcementFilter)
+	require.NoError(t, err)
+
+	ctx = guard.SetRequestStateInContext(ctx, map[string]any{
+		"tool_args": map[string]any{
+			"owner": "testorg", "repo": "testrepo", "pullNumber": 42,
+			"method": "get_review_comments",
+		},
+	})
+	result := map[string]any{
+		"content": []any{},
+		"structuredContent": map[string]any{
+			"totalCount": 2,
+			"pageInfo": map[string]any{
+				"hasNextPage": true,
+				"endCursor":   "cursor-2",
+			},
+			"review_threads": []any{
+				map[string]any{
+					"id": "PRRT_trusted",
+					"comments": []any{map[string]any{
+						"author": "github-actions[bot]",
+						"body":   "Trusted review comment.",
+					}},
+				},
+				map[string]any{
+					"id": "PRRT_external",
+					"comments": []any{map[string]any{
+						"author": "external",
+						"body":   "Untrusted review comment.",
+					}},
+				},
+			},
+		},
+	}
+	labeled, err := g.LabelResponse(ctx, "pull_request_read", result, backend, nil)
+	require.NoError(t, err)
+	require.NotNil(t, labeled)
+
+	filtered, err := difc.FilterAndConvertLabeledData(
+		difc.NewEvaluator(), labels.Secrecy, labels.Integrity,
+		difc.OperationRead, labeled, difc.EnforcementFilter,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, filtered.Filtered)
+	assert.Equal(t, 1, filtered.Filtered.GetFilteredCount())
+	assert.Equal(t, 1, filtered.Filtered.GetAccessibleCount())
+
+	response, ok := filtered.FinalResult.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 2, response["totalCount"])
+	assert.Equal(t, map[string]any{
+		"hasNextPage": true,
+		"endCursor":   "cursor-2",
+	}, response["pageInfo"])
+	threads, ok := response["review_threads"].([]any)
+	require.True(t, ok)
+	require.Len(t, threads, 1)
+	thread, ok := threads[0].(map[string]any)
+	require.True(t, ok)
+	comments, ok := thread["comments"].([]any)
+	require.True(t, ok)
+	require.Len(t, comments, 1)
+	comment, ok := comments[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Trusted review comment.", comment["body"])
+	assert.NotEqual(t, "Untrusted review comment.", comment["body"])
+}
