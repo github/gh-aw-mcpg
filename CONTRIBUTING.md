@@ -118,6 +118,24 @@ make help            # Show all available targets
 
 Use `make release patch|minor|major` to trigger the automated release workflow.
 
+#### Compiling the Release Workflow
+
+When editing `.github/workflows/release.md`, regenerate its lock using remote,
+SHA-pinned gh-aw actions:
+
+```bash
+gh aw compile release --action-mode release --action-tag 5fec33b64e8f9159001970542a8357293ca5b09a
+```
+
+This pins the gh-aw runtime used by the release workflow. Update the SHA deliberately
+when upgrading that runtime. Do not use development action mode (`./actions/...`)
+in this repository: the activation job checks out this repository after setup,
+which removes locally checked-out gh-aw action definitions before their post hooks
+run. Remote action definitions are stored outside the repository checkout.
+
+`go test . -run TestReleaseWorkflowUsesPinnedRemoteActions` checks the generated
+lock for this regression. Compilation does not execute or dispatch the release.
+
 #### Rust Guard Tests
 Run Rust guard unit tests (requires `cargo`):
 ```bash
