@@ -1,6 +1,9 @@
 package difc
 
-import "github.com/github/gh-aw-mcpg/internal/logger"
+import (
+	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/util"
+)
 
 var logResource = logger.ForFile()
 
@@ -72,7 +75,10 @@ func (s *SimpleLabeledData) ToResult() (interface{}, error) {
 
 // CollectionLabeledData represents a collection where each item has its own labels
 type CollectionLabeledData struct {
-	Items []LabeledItem
+	Items            []LabeledItem
+	OriginalData     interface{}
+	ItemsPath        string
+	PreserveEnvelope bool
 }
 
 // LabeledItem represents a single item in a collection with its labels
@@ -92,7 +98,11 @@ func (c *CollectionLabeledData) Overall() *LabeledResource {
 
 func (c *CollectionLabeledData) ToResult() (interface{}, error) {
 	logResource.Printf("CollectionLabeledData.ToResult: returning %d items", len(c.Items))
-	return itemsToResult(c.Items), nil
+	result := itemsToResult(c.Items)
+	if c.PreserveEnvelope {
+		return replaceCollectionAtPath(util.DeepCloneJSON(c.OriginalData), c.ItemsPath, result)
+	}
+	return result, nil
 }
 
 // FilteredItemDetail pairs a filtered item with the reason it was denied
@@ -104,10 +114,13 @@ type FilteredItemDetail struct {
 
 // FilteredCollectionLabeledData represents a collection with some items filtered out
 type FilteredCollectionLabeledData struct {
-	Accessible   []LabeledItem
-	Filtered     []FilteredItemDetail
-	TotalCount   int
-	FilterReason string
+	Accessible       []LabeledItem
+	Filtered         []FilteredItemDetail
+	TotalCount       int
+	FilterReason     string
+	OriginalData     interface{}
+	ItemsPath        string
+	PreserveEnvelope bool
 }
 
 func (f *FilteredCollectionLabeledData) Overall() *LabeledResource {
@@ -142,7 +155,11 @@ func aggregateLabels(items []LabeledItem, emptyDescription, description string) 
 
 func (f *FilteredCollectionLabeledData) ToResult() (interface{}, error) {
 	logResource.Printf("FilteredCollectionLabeledData.ToResult: returning %d accessible items (filter_reason=%s)", len(f.Accessible), f.FilterReason)
-	return itemsToResult(f.Accessible), nil
+	result := itemsToResult(f.Accessible)
+	if f.PreserveEnvelope {
+		return replaceCollectionAtPath(util.DeepCloneJSON(f.OriginalData), f.ItemsPath, result)
+	}
+	return result, nil
 }
 
 func itemsToResult(items []LabeledItem) []interface{} {

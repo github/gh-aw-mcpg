@@ -1749,7 +1749,7 @@ pub(crate) fn merged_integrity(scope: &str, ctx: &PolicyContext) -> Vec<String> 
     )
 }
 
-fn integrity_rank(scope: &str, labels: &[String], ctx: &PolicyContext) -> u8 {
+pub(crate) fn integrity_rank(scope: &str, labels: &[String], ctx: &PolicyContext) -> u8 {
     integrity_rank_normalized(&normalize_scope(scope, ctx), labels)
 }
 
@@ -1863,6 +1863,10 @@ pub(crate) fn extract_author_login(item: &Value) -> &str {
     // Commits use author.login
     let login = get_nested_str(item, "author", field_names::LOGIN);
     if !login.is_empty() {
+        return login;
+    }
+    // Minimal MCP responses (e.g. review thread comments) give the login as a plain string.
+    if let Some(login) = item.get("author").and_then(Value::as_str) {
         return login;
     }
     // GraphQL pull-request commit connections wrap the commit object.

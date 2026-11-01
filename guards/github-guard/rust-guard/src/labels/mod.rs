@@ -129,6 +129,11 @@ pub(crate) fn extract_mcp_response(response: &Value) -> Cow<'_, Value> {
         crate::log_debug("extract_mcp_response: no content array found");
     }
 
+    if let Some(structured) = response.get("structuredContent") {
+        crate::log_debug("extract_mcp_response: using structuredContent");
+        return Cow::Borrowed(structured);
+    }
+
     // If we can't extract from MCP wrapper, return the original response
     // (it might already be unwrapped or in a different format)
     crate::log_debug("extract_mcp_response: using response as-is");

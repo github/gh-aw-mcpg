@@ -407,10 +407,13 @@ func (e *Evaluator) FilterCollection(
 	// on every list-returning tool response (issues, PRs, commits, etc.) that passes
 	// through this hot path. Filtered starts empty since denials are the exception.
 	filtered := &FilteredCollectionLabeledData{
-		Accessible:   make([]LabeledItem, 0, len(collection.Items)),
-		Filtered:     []FilteredItemDetail{},
-		TotalCount:   len(collection.Items),
-		FilterReason: "DIFC policy",
+		Accessible:       make([]LabeledItem, 0, len(collection.Items)),
+		Filtered:         []FilteredItemDetail{},
+		TotalCount:       len(collection.Items),
+		FilterReason:     "DIFC policy",
+		OriginalData:     collection.OriginalData,
+		ItemsPath:        collection.ItemsPath,
+		PreserveEnvelope: collection.PreserveEnvelope,
 	}
 
 	for _, item := range collection.Items {
