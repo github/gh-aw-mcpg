@@ -36,6 +36,10 @@ type PathLabels struct {
 	// ItemsPath specifies where the collection items are located (e.g., "/items", "" for root array)
 	// This helps the gateway understand the structure for filtering
 	ItemsPath string `json:"items_path,omitempty"`
+
+	// ItemsPaths identifies multiple collection arrays using exact JSON Pointers.
+	// Unlike ItemsPath, this format preserves the enclosing response structure.
+	ItemsPaths []string `json:"items_paths,omitempty"`
 }
 
 // PathLabel associates a JSON Pointer path with DIFC labels
@@ -108,7 +112,7 @@ func unwrapMCPResponse(data interface{}) (interface{}, bool) {
 
 	text := mcpresult.ExtractTextContent(dataMap)
 	if text != "" {
-		// Try to parse the text as JSON
+		// Try to parse the text as JSON.
 		var inner interface{}
 		if err := json.Unmarshal([]byte(text), &inner); err == nil {
 			logPathLabels.Print("unwrapMCPResponse: detected MCP-wrapped response, unwrapping inner JSON")
@@ -116,11 +120,10 @@ func unwrapMCPResponse(data interface{}) (interface{}, bool) {
 		}
 	}
 
-	if structured, ok := dataMap["structuredContent"]; ok {
+	if structured, ok := dataMap["structuredContent"]; ok && structured != nil {
 		logPathLabels.Print("unwrapMCPResponse: detected structuredContent response")
 		return structured, true
 	}
-
 	return data, false
 }
 
@@ -128,6 +131,10 @@ func unwrapMCPResponse(data interface{}) (interface{}, bool) {
 func (p *PathLabeledData) resolve() error {
 	if p.resolved {
 		return nil
+	}
+
+	if p.PathLabels.ItemsPaths != nil {
+		return p.resolveCollections()
 	}
 
 	// Get the items array from the original data
@@ -183,7 +190,11 @@ func (p *PathLabeledData) resolve() error {
 // based on ItemsPath. It is an internal helper for path resolution; callers that
 // need typed resolved items should use GetItems instead.
 func (p *PathLabeledData) extractRawItems() ([]interface{}, error) {
-	if p.PathLabels.ItemsPath == "" {
+	return p.extractItemsAtPath(p.PathLabels.ItemsPath)
+}
+
+func (p *PathLabeledData) extractItemsAtPath(itemsPath string) ([]interface{}, error) {
+	if itemsPath == "" {
 		// Root-level array
 		if arr, ok := p.UnwrappedData.([]interface{}); ok {
 			logPathLabels.Printf("extractRawItems: found root-level array with %d items", len(arr))
@@ -194,12 +205,12 @@ func (p *PathLabeledData) extractRawItems() ([]interface{}, error) {
 	}
 
 	// Navigate to the items path using UnwrappedData (which may have been extracted from MCP wrapper)
-	logPathLabels.Printf("extractRawItems: navigating to items at path=%s", p.PathLabels.ItemsPath)
+	logPathLabels.Printf("extractRawItems: navigating to items at path=%s", itemsPath)
 	current := p.UnwrappedData
-	parts := splitJSONPointer(p.PathLabels.ItemsPath)
+	parts := splitJSONPointer(itemsPath)
 
 	for _, part := range parts {
-		if part == "" {
+		if part == "" && p.PathLabels.ItemsPaths == nil {
 			continue
 		}
 
@@ -208,28 +219,31 @@ func (p *PathLabeledData) extractRawItems() ([]interface{}, error) {
 			var ok bool
 			current, ok = v[part]
 			if !ok {
-				return nil, fmt.Errorf("path %q not found in response", p.PathLabels.ItemsPath)
+				return nil, fmt.Errorf("path %q not found in response", itemsPath)
 			}
 		case []interface{}:
 			idx, err := strconv.Atoi(part)
 			if err != nil {
-				return nil, fmt.Errorf("expected array index at %q, got %q", p.PathLabels.ItemsPath, part)
+				return nil, fmt.Errorf("expected array index at %q, got %q", itemsPath, part)
 			}
 			if idx < 0 || idx >= len(v) {
 				return nil, fmt.Errorf("array index %d out of bounds", idx)
 			}
+			if p.PathLabels.ItemsPaths != nil && part != strconv.Itoa(idx) {
+				return nil, fmt.Errorf("non-canonical array index %q", part)
+			}
 			current = v[idx]
 		default:
-			return nil, fmt.Errorf("cannot navigate path %q: unexpected type at %q", p.PathLabels.ItemsPath, part)
+			return nil, fmt.Errorf("cannot navigate path %q: unexpected type at %q", itemsPath, part)
 		}
 	}
 
 	if arr, ok := current.([]interface{}); ok {
-		logPathLabels.Printf("extractRawItems: found %d items at path=%s", len(arr), p.PathLabels.ItemsPath)
+		logPathLabels.Printf("extractRawItems: found %d items at path=%s", len(arr), itemsPath)
 		return arr, nil
 	}
 
-	return nil, fmt.Errorf("items_path %q does not point to an array", p.PathLabels.ItemsPath)
+	return nil, fmt.Errorf("items_path %q does not point to an array", itemsPath)
 }
 
 // extractIndexFromPath extracts the array index from a JSON Pointer path
@@ -354,12 +368,16 @@ func (p *PathLabeledData) ToCollectionLabeledData() *CollectionLabeledData {
 		_ = p.resolve()
 	}
 	logPathLabels.Printf("ToCollectionLabeledData: converting %d items", len(p.resolvedItems))
-	return &CollectionLabeledData{
+	collection := &CollectionLabeledData{
 		Items:            p.resolvedItems,
 		OriginalData:     p.UnwrappedData,
 		ItemsPath:        p.PathLabels.ItemsPath,
 		PreserveEnvelope: p.PathLabels.ItemsPath != "",
 	}
+	if p.PathLabels.ItemsPaths != nil {
+		collection.Rebuild = p.rebuildCollections
+	}
+	return collection
 }
 
 func replaceCollectionAtPath(data interface{}, path string, replacement []interface{}) (interface{}, error) {

@@ -129,7 +129,10 @@ pub(crate) fn extract_mcp_response(response: &Value) -> Cow<'_, Value> {
         crate::log_debug("extract_mcp_response: no content array found");
     }
 
-    if let Some(structured) = response.get("structuredContent") {
+    if let Some(structured) = response
+        .get("structuredContent")
+        .filter(|value| !value.is_null())
+    {
         crate::log_debug("extract_mcp_response: using structuredContent");
         return Cow::Borrowed(structured);
     }

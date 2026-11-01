@@ -79,12 +79,16 @@ type CollectionLabeledData struct {
 	OriginalData     interface{}
 	ItemsPath        string
 	PreserveEnvelope bool
+
+	// Rebuild preserves response envelopes when filtering nested collections.
+	Rebuild func([]FilteredItemDetail) (interface{}, error)
 }
 
 // LabeledItem represents a single item in a collection with its labels
 type LabeledItem struct {
 	Data   interface{}
 	Labels *LabeledResource
+	path   string
 }
 
 func (c *CollectionLabeledData) Overall() *LabeledResource {

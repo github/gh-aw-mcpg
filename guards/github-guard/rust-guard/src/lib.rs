@@ -343,6 +343,8 @@ struct PathLabeledOutput {
     default_labels: Option<ResourceLabels>,
     #[serde(skip_serializing_if = "Option::is_none")]
     items_path: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    items_paths: Option<Vec<String>>,
 }
 
 /// Labeled item for legacy response format (used for singletons)
@@ -1053,6 +1055,7 @@ pub extern "C" fn label_response(
             labeled_paths: path_result.labeled_paths,
             default_labels: path_result.default_labels,
             items_path: path_result.items_path,
+            items_paths: path_result.items_paths,
         };
 
         return serialize_and_write(&output, output_ptr, output_size, "label_response/path", 0);

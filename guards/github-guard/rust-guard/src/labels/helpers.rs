@@ -1865,9 +1865,11 @@ pub(crate) fn extract_author_login(item: &Value) -> &str {
     if !login.is_empty() {
         return login;
     }
-    // Minimal MCP responses (e.g. review thread comments) give the login as a plain string.
+    // Minimal review comments represent the author as a login string.
     if let Some(login) = item.get("author").and_then(Value::as_str) {
-        return login;
+        if !login.is_empty() {
+            return login;
+        }
     }
     // GraphQL pull-request commit connections wrap the commit object.
     item.get("commit")
