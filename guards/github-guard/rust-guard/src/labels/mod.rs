@@ -133,6 +133,7 @@ pub(crate) fn extract_mcp_response(response: &Value) -> Cow<'_, Value> {
         .get("structuredContent")
         .filter(|value| !value.is_null())
     {
+        crate::log_debug("extract_mcp_response: using structuredContent");
         return Cow::Borrowed(structured);
     }
 
@@ -3508,24 +3509,34 @@ mod tests {
     #[test]
     fn test_apply_tool_labels_list_org_repo_security_advisories() {
         let ctx = default_ctx();
-        let tool_args = json!({ "owner": "github", "repo": "copilot" });
+        for (tool_args, repo_id, expected_secrecy) in [
+            (
+                json!({ "owner": "github", "repo": "copilot" }),
+                "github/copilot",
+                vec!["private:github/copilot".to_string()],
+            ),
+            (json!({ "org": "github" }), "", vec!["private".to_string()]),
+        ] {
+            let (secrecy, integrity, _desc) = apply_tool_labels(
+                tool_names::LIST_ORG_REPOSITORY_SECURITY_ADVISORIES,
+                &tool_args,
+                repo_id,
+                vec![],
+                writer_integrity(repo_id, &ctx),
+                String::new(),
+                &ctx,
+            );
 
-        let (secrecy, integrity, _desc) = apply_tool_labels(
-            "list_org_repository_security_advisories",
-            &tool_args,
-            "github/copilot",
-            vec![],
-            vec![],
-            String::new(),
-            &ctx,
-        );
-
-        assert_eq!(
-            secrecy,
-            vec!["private:github/copilot".to_string()],
-            "org repo security advisories must carry private:repo secrecy"
-        );
-        assert_eq!(integrity, none_integrity("github/copilot", &ctx));
+            assert_eq!(
+                secrecy, expected_secrecy,
+                "org repo security advisories must carry private secrecy: {tool_args}"
+            );
+            assert_eq!(
+                integrity,
+                none_integrity(repo_id, &ctx),
+                "advisory read access must not confer writer integrity: {tool_args}"
+            );
+        }
     }
 
     // -------------------------------------------------------------------------

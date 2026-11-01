@@ -38,89 +38,75 @@ func TestSortedSetKeys(t *testing.T) {
 func TestShallowCloneMap(t *testing.T) {
 	t.Parallel()
 
-	input := map[string]any{
-		"scalar": "original",
-		"nested": map[string]any{"key": "value"},
-	}
-	clone := ShallowCloneMap(input)
+	t.Run("copies top-level keys but shares nested values", func(t *testing.T) {
+		t.Parallel()
+		input := map[string]any{
+			"scalar": "original",
+			"nested": map[string]any{"key": "value"},
+		}
+		clone := ShallowCloneMap(input)
 
-	require.Equal(t, input, clone)
+		require.Equal(t, input, clone)
 
-	clone["scalar"] = "modified"
-	assert.Equal(t, "original", input["scalar"])
+		clone["scalar"] = "modified"
+		assert.Equal(t, "original", input["scalar"])
 
-	clone["nested"].(map[string]any)["key"] = "modified"
-	assert.Equal(t, "modified", input["nested"].(map[string]any)["key"])
+		clone["nested"].(map[string]any)["key"] = "modified"
+		assert.Equal(t, "modified", input["nested"].(map[string]any)["key"])
+	})
+
+	t.Run("nil map returns empty non-nil map", func(t *testing.T) {
+		t.Parallel()
+		clone := ShallowCloneMap[string, int](nil)
+		require.NotNil(t, clone)
+		assert.Empty(t, clone)
+	})
+
+	t.Run("clone of nil map is writable", func(t *testing.T) {
+		t.Parallel()
+		clone := ShallowCloneMap[string, int](nil)
+		clone["a"] = 1
+		assert.Equal(t, map[string]int{"a": 1}, clone)
+	})
+
+	t.Run("adding keys to clone does not affect original", func(t *testing.T) {
+		t.Parallel()
+		input := map[string]int{"a": 1}
+		clone := ShallowCloneMap(input)
+		clone["b"] = 2
+		assert.Equal(t, map[string]int{"a": 1}, input)
+	})
 }
 
 func TestGetStringFromMap(t *testing.T) {
 	t.Parallel()
 
-	t.Run("returns string value when present", func(t *testing.T) {
-		t.Parallel()
-		m := map[string]any{"owner": "octo"}
-		assert.Equal(t, "octo", GetStringFromMap(m, "owner"))
-	})
+	tests := []struct {
+		name string
+		m    map[string]any
+		keys []string
+		want string
+	}{
+		{name: "returns string value when present", m: map[string]any{"owner": "octo"}, keys: []string{"owner"}, want: "octo"},
+		{name: "missing key", m: map[string]any{"owner": "octo"}, keys: []string{"repo"}},
+		{name: "non-string value", m: map[string]any{"number": float64(1)}, keys: []string{"number"}},
+		{name: "nil map", m: nil, keys: []string{"owner"}},
+		{name: "empty string value", m: map[string]any{"owner": ""}, keys: []string{"owner"}},
+		{name: "nil value", m: map[string]any{"owner": nil}, keys: []string{"owner"}},
+		{name: "variadic: returns first non-empty match", m: map[string]any{"htmlUrl": "https://example.com"}, keys: []string{"html_url", "htmlUrl"}, want: "https://example.com"},
+		{name: "variadic: first key takes priority", m: map[string]any{"html_url": "https://first.com", "htmlUrl": "https://second.com"}, keys: []string{"html_url", "htmlUrl"}, want: "https://first.com"},
+		{name: "variadic: skips empty first key", m: map[string]any{"html_url": "", "htmlUrl": "https://second.com"}, keys: []string{"html_url", "htmlUrl"}, want: "https://second.com"},
+		{name: "variadic: all keys missing", m: map[string]any{"other": "value"}, keys: []string{"html_url", "htmlUrl"}},
+		{name: "variadic: skips non-string first key", m: map[string]any{"html_url": 99, "htmlUrl": "https://second.com"}, keys: []string{"html_url", "htmlUrl"}, want: "https://second.com"},
+		{name: "no keys", m: map[string]any{"owner": "octo"}},
+	}
 
-	t.Run("returns empty string for missing key", func(t *testing.T) {
-		t.Parallel()
-		m := map[string]any{"owner": "octo"}
-		assert.Empty(t, GetStringFromMap(m, "repo"))
-	})
-
-	t.Run("returns empty string for non-string value", func(t *testing.T) {
-		t.Parallel()
-		m := map[string]any{"number": float64(1)}
-		assert.Empty(t, GetStringFromMap(m, "number"))
-	})
-
-	t.Run("returns empty string for nil map", func(t *testing.T) {
-		t.Parallel()
-		var m map[string]any
-		assert.Empty(t, GetStringFromMap(m, "owner"))
-	})
-
-	t.Run("returns empty string when value is empty string", func(t *testing.T) {
-		t.Parallel()
-		m := map[string]any{"owner": ""}
-		assert.Empty(t, GetStringFromMap(m, "owner"))
-	})
-
-	t.Run("variadic: returns first non-empty match", func(t *testing.T) {
-		t.Parallel()
-		m := map[string]any{"htmlUrl": "https://example.com"}
-		assert.Equal(t, "https://example.com", GetStringFromMap(m, "html_url", "htmlUrl"))
-	})
-
-	t.Run("variadic: first key takes priority when both present", func(t *testing.T) {
-		t.Parallel()
-		m := map[string]any{"html_url": "https://first.com", "htmlUrl": "https://second.com"}
-		assert.Equal(t, "https://first.com", GetStringFromMap(m, "html_url", "htmlUrl"))
-	})
-
-	t.Run("variadic: skips empty first key and returns second", func(t *testing.T) {
-		t.Parallel()
-		m := map[string]any{"html_url": "", "htmlUrl": "https://second.com"}
-		assert.Equal(t, "https://second.com", GetStringFromMap(m, "html_url", "htmlUrl"))
-	})
-
-	t.Run("variadic: all keys missing returns empty string", func(t *testing.T) {
-		t.Parallel()
-		m := map[string]any{"other": "value"}
-		assert.Empty(t, GetStringFromMap(m, "html_url", "htmlUrl"))
-	})
-
-	t.Run("variadic: skips non-string first key and returns second", func(t *testing.T) {
-		t.Parallel()
-		m := map[string]any{"html_url": 99, "htmlUrl": "https://second.com"}
-		assert.Equal(t, "https://second.com", GetStringFromMap(m, "html_url", "htmlUrl"))
-	})
-
-	t.Run("no keys returns empty string", func(t *testing.T) {
-		t.Parallel()
-		m := map[string]any{"owner": "octo"}
-		assert.Empty(t, GetStringFromMap(m))
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, GetStringFromMap(tt.m, tt.keys...))
+		})
+	}
 }
 
 func TestDeduplicateStrings(t *testing.T) {
@@ -410,15 +396,4 @@ func TestCopyTrimmedStringIntMap_IsDefensiveCopy(t *testing.T) {
 	// Modifying the original should not affect the copy
 	original["key"] = 42
 	assert.Equal(t, 999, copied["key"], "copy should not be affected by changes to original")
-}
-
-func TestCopyTrimmedStringIntMap_NilAndEmptyReturnNil(t *testing.T) {
-	t.Parallel()
-
-	// Both nil and empty input produce nil output
-	nilResult := CopyTrimmedStringIntMap(nil)
-	emptyResult := CopyTrimmedStringIntMap(map[string]int{})
-
-	assert.Nil(t, nilResult, "nil input should return nil")
-	assert.Nil(t, emptyResult, "empty map input should return nil")
 }

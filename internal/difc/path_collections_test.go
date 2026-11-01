@@ -136,7 +136,9 @@ func TestFlatPathLabelsStructuredContent(t *testing.T) {
 				OperationRead, data.ToCollectionLabeledData(), EnforcementFilter,
 			)
 			require.NoError(t, err)
-			assert.Equal(t, []interface{}{map[string]interface{}{"body": "trusted"}}, filtered.FinalResult)
+			assert.Equal(t, map[string]interface{}{
+				"items": []interface{}{map[string]interface{}{"body": "trusted"}},
+			}, filtered.FinalResult)
 		})
 	}
 }

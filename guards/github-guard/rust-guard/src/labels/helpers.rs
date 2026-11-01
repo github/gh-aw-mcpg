@@ -1749,7 +1749,7 @@ pub(crate) fn merged_integrity(scope: &str, ctx: &PolicyContext) -> Vec<String> 
     )
 }
 
-fn integrity_rank(scope: &str, labels: &[String], ctx: &PolicyContext) -> u8 {
+pub(crate) fn integrity_rank(scope: &str, labels: &[String], ctx: &PolicyContext) -> u8 {
     integrity_rank_normalized(&normalize_scope(scope, ctx), labels)
 }
 
