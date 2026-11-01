@@ -3,6 +3,13 @@
 # Default target
 .DEFAULT_GOAL := help
 
+# Preserve dev-only maintenance jobs while loading runtime actions outside root checkouts.
+.PHONY: compile-workflows
+compile-workflows:
+	gh aw compile --action-mode dev
+	gh aw compile release --action-mode release --action-tag 5fec33b64e8f9159001970542a8357293ca5b09a
+	go run ./scripts/pin-workflow-actions
+
 # Binary name
 BINARY_NAME=awmg
 

@@ -33,14 +33,16 @@ Use the GitHub API to check for the latest release of `github/gh-aw`:
 **CRITICAL**: Before compiling, you must run the upgrade command to ensure all support files are updated:
 
 ```bash
-gh aw upgrade
+gh aw upgrade --no-compile
+make compile-workflows
 ```
 
 This command will:
 - Update all agent and prompt files to the latest templates
 - Apply automatic codemods to fix deprecated fields in all workflows
 - Update GitHub Actions versions in `.github/aw/actions-lock.json`
-- Compile all `.md` workflow files in `.github/workflows/`
+- Leave compilation to `make compile-workflows`, which compiles all `.md` workflows
+  in development mode and normalizes runtime actions to the repository's immutable pin
 - Generate or update corresponding `.lock.yml` files
 - Report any compilation errors or warnings
 
@@ -53,10 +55,14 @@ This command will:
 If you only need to recompile without upgrading (e.g., after manual workflow edits), use:
 
 ```bash
-gh aw compile
+make compile-workflows
 ```
 
-However, for the nightly maintenance workflow, **always use `gh aw upgrade`** to keep everything current.
+For nightly maintenance, always run `gh aw upgrade --no-compile` followed by
+`make compile-workflows`. Never publish raw development-mode locks. The normalizer
+preserves maintenance jobs and MCP declarations while replacing local setup actions
+and correcting gh-aw source builds; see CONTRIBUTING.md. Treat a normalization
+failure as a compilation failure, and do not publish partially normalized files.
 
 ### 4. Check for Changes
 
@@ -99,11 +105,11 @@ This PR upgrades all workflows to the latest gh-aw release, including agent file
 
 ### Upgrade Process
 
-This upgrade ran `gh aw upgrade` which performed:
+This upgrade ran `gh aw upgrade --no-compile` followed by `make compile-workflows`:
 1. ✅ Updated agent and prompt files to latest templates
 2. ✅ Applied automatic codemods to fix deprecated fields
 3. ✅ Updated GitHub Actions versions in `.github/aw/actions-lock.json`
-4. ✅ Compiled all workflows to generate/update `.lock.yml` files
+4. ✅ Compiled and normalized all workflows and generated maintenance using the repository's pinned runtime
 
 ### Updated Files
 
@@ -186,7 +192,7 @@ Status: {SUCCESS|CHANGES_DETECTED|ERRORS}
 
 ## Best Practices
 
-- Always run `gh aw upgrade` instead of just `gh aw compile` to ensure all support files are updated
+- Always run `gh aw upgrade --no-compile` and then `make compile-workflows` to update support files and preserve pinned runtime loading
 - The upgrade command automatically applies codemods to fix deprecated syntax
 - Use clear, descriptive commit messages and PR descriptions
 - Include specific details about what changed and why (agent files, codemods, compilations)

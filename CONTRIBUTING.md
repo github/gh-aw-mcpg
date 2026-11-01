@@ -118,23 +118,49 @@ make help            # Show all available targets
 
 Use `make release patch|minor|major` to trigger the automated release workflow.
 
-#### Compiling the Release Workflow
+#### Compiling Agentic Workflows
 
-When editing `.github/workflows/release.md`, regenerate its lock using remote,
-SHA-pinned gh-aw actions:
+After editing workflow frontmatter, regenerate all agentic locks and maintenance:
 
 ```bash
-gh aw compile release --action-mode release --action-tag 5fec33b64e8f9159001970542a8357293ca5b09a
+make compile-workflows
 ```
 
-This pins the gh-aw runtime used by the release workflow. Update the SHA deliberately
-when upgrading that runtime. Do not use development action mode (`./actions/...`)
-in this repository: the activation job checks out this repository after setup,
-which removes locally checked-out gh-aw action definitions before their post hooks
-run. Remote action definitions are stored outside the repository checkout.
+This runs `gh aw compile --action-mode dev`, regenerates Release with its existing
+release-mode pin, then runs the repository-local Go normalizer in
+`scripts/pin-workflow-actions`. Go and the installed gh-aw CLI are required.
+The normalizer uses YAML node locations to change only recognized runtime-loading
+and gh-aw source-build steps, preserving unrelated generated YAML byte-for-byte.
+It validates every input before writing, rejects unknown shapes, and is idempotent.
 
-`go test . -run TestReleaseWorkflowUsesPinnedRemoteActions` checks the generated
-lock for this regression. Compilation does not execute or dispatch the release.
+Runtime setup is pinned to `github/gh-aw` commit
+`5fec33b64e8f9159001970542a8357293ca5b09a`, matching the existing release fix.
+Actions caches remote definitions outside the repository checkout, so later root
+checkouts cannot delete post hooks. Maintenance-only checkouts of this repository's
+nonexistent `actions` folder and obsolete `actions/setup` sparse entries are removed.
+Generated gh-aw source builds use the same immutable commit in
+`$RUNNER_TEMP/gh-aw-runtime`, not this gateway repository; the source and binary survive
+root checkout cleanup and are not added to repository artifacts.
+
+Development-mode generation is intentional: release-mode generation currently
+removes the maintenance push trigger, compile and secret-validation jobs, and changes
+the AW MCP declarations. Passing the runtime SHA as `--action-tag` also emits an
+invalid `gh-aw-actions/setup-cli` ref and CLI release version. The normalization
+step preserves those jobs and declarations without relying on that broken installer.
+Do not publish raw development-mode output or hand-edit locks. When upgrading the
+runtime, deliberately update `runtimeSHA` in the normalizer and review generated changes.
+Remove this workaround only once the compiler preserves these behaviors itself.
+
+The nightly upgrader must use `gh aw upgrade --no-compile`, followed by this target;
+the normalized maintenance compile job also runs the normalizer before drift detection.
+For a targeted recompile, run `gh aw compile <workflow> --action-mode dev` and then
+`go run ./scripts/pin-workflow-actions` from the repository root. For Release, retain
+`gh aw compile release --action-mode release --action-tag 5fec33b64e8f9159001970542a8357293ca5b09a`
+instead, so its already-fixed job permissions and metadata do not change.
+
+`go test . ./scripts/pin-workflow-actions -run 'PinnedRemoteActions|Normalize'`
+checks every authored workflow's lock, maintenance, transformation preservation,
+idempotence and unknown-shape rejection. Compilation does not execute or dispatch workflows.
 
 #### Rust Guard Tests
 Run Rust guard unit tests (requires `cargo`):
