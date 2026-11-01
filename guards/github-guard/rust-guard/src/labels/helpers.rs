@@ -1865,6 +1865,12 @@ pub(crate) fn extract_author_login(item: &Value) -> &str {
     if !login.is_empty() {
         return login;
     }
+    // Minimal review comments represent the author as a login string.
+    if let Some(login) = item.get("author").and_then(Value::as_str) {
+        if !login.is_empty() {
+            return login;
+        }
+    }
     // GraphQL pull-request commit connections wrap the commit object.
     item.get("commit")
         .and_then(|commit| commit.get("author"))

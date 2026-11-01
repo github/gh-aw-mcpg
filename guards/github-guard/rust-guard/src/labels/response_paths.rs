@@ -8,7 +8,8 @@
 //! in the response, rather than cloning the entire data.
 
 use super::constants::{
-    desc_default, desc_prefix, field_names, scope_names, tool_names, UNKNOWN_LABEL_FALLBACK,
+    desc_default, desc_prefix, field_names, scope_names, tool_names, MAX_ITEMS_PER_RESPONSE,
+    UNKNOWN_LABEL_FALLBACK,
 };
 use super::extract_mcp_response;
 use super::helpers::*;
@@ -21,6 +22,7 @@ pub struct PathLabelResult {
     pub labeled_paths: Vec<crate::PathLabel>,
     pub default_labels: Option<crate::ResourceLabels>,
     pub items_path: Option<&'static str>,
+    pub items_paths: Option<Vec<String>>,
 }
 
 fn default_repo_for_items(arg_repo_full: String, items: &[Value]) -> String {
@@ -72,6 +74,44 @@ fn label_author_items(
     description: &str,
     ctx: &PolicyContext,
 ) -> Option<PathLabelResult> {
+    if tool_name == tool_names::PULL_REQUEST_READ
+        && dispatched_method(tool_args) == "get_review_comments"
+    {
+        if let Some(threads) = actual_response
+            .get("review_threads")
+            .and_then(Value::as_array)
+        {
+            let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+            let mut labeled_paths = Vec::new();
+            let mut items_paths = Vec::new();
+            for (thread_index, thread) in threads.iter().enumerate() {
+                // Unknown thread shapes must still fall back to the coarse decision.
+                let comments = thread.get("comments")?.as_array()?;
+                let path = format!("/review_threads/{thread_index}/comments");
+                items_paths.push(path.clone());
+                let remaining = MAX_ITEMS_PER_RESPONSE.saturating_sub(labeled_paths.len());
+                for (index, item) in limit_items_with_log(comments, tool_name)
+                    .iter()
+                    .take(remaining)
+                    .enumerate()
+                {
+                    let mut label = author_item_label(item, &repo_full, description, &secrecy, ctx);
+                    label.path = format!("{path}/{index}");
+                    labeled_paths.push(label);
+                }
+            }
+            return Some(PathLabelResult {
+                labeled_paths,
+                default_labels: Some(repo_default_labels(
+                    description,
+                    secrecy,
+                    none_integrity(&repo_full, ctx),
+                )),
+                items_path: None,
+                items_paths: Some(items_paths),
+            });
+        }
+    }
     let (items, items_path) = extract_items_array(actual_response);
     let items = items?;
     let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
@@ -80,24 +120,9 @@ fn label_author_items(
         .iter()
         .enumerate()
         .map(|(index, item)| {
-            let id = item
-                .get(field_names::ID)
-                .and_then(|value| {
-                    value
-                        .as_i64()
-                        .map(|number| number.to_string())
-                        .or_else(|| value.as_str().map(str::to_string))
-                })
-                .unwrap_or_else(|| UNKNOWN_LABEL_FALLBACK.to_string());
-            crate::PathLabel {
-                path: make_item_path(items_path, index),
-                labels: crate::ResourceLabels {
-                    description: format!("{description}:{repo_full}#{id}"),
-                    secrecy: secrecy.clone(),
-                    integrity: user_authored_integrity(item, &repo_full, description, &id, ctx)
-                        .into(),
-                },
-            }
+            let mut label = author_item_label(item, &repo_full, description, &secrecy, ctx);
+            label.path = make_item_path(items_path, index);
+            label
         })
         .collect();
 
@@ -109,7 +134,34 @@ fn label_author_items(
             none_integrity(&repo_full, ctx),
         )),
         items_path: (!items_path.is_empty()).then_some(items_path),
+        items_paths: None,
     })
+}
+
+fn author_item_label(
+    item: &Value,
+    repo_full: &str,
+    description: &str,
+    secrecy: &crate::SharedLabels,
+    ctx: &PolicyContext,
+) -> crate::PathLabel {
+    let id = item
+        .get(field_names::ID)
+        .and_then(|value| {
+            value
+                .as_i64()
+                .map(|number| number.to_string())
+                .or_else(|| value.as_str().map(str::to_string))
+        })
+        .unwrap_or_else(|| UNKNOWN_LABEL_FALLBACK.to_string());
+    crate::PathLabel {
+        path: String::new(),
+        labels: crate::ResourceLabels {
+            description: format!("{description}:{repo_full}#{id}"),
+            secrecy: secrecy.clone(),
+            integrity: user_authored_integrity(item, repo_full, description, &id, ctx).into(),
+        },
+    }
 }
 
 struct RepoItemsContext<'a> {
@@ -227,6 +279,7 @@ pub fn label_response_paths(
                         integrity,
                     }),
                     items_path: (!items_path.is_empty()).then_some(items_path),
+                    items_paths: None,
                 });
             }
         }
@@ -290,6 +343,7 @@ pub fn label_response_paths(
                         "repositories" => "/repositories",
                         _ => "/items",
                     }),
+                    items_paths: None,
                 });
             }
         }
@@ -350,6 +404,7 @@ pub fn label_response_paths(
                             none_integrity(&repo_full, ctx),
                         )),
                         items_path: (!items_path.is_empty()).then_some(items_path),
+                        items_paths: None,
                     });
                 }
             } else if tool_name == tool_names::PULL_REQUEST_READ
@@ -381,6 +436,7 @@ pub fn label_response_paths(
                         none_integrity(&repo_full, ctx),
                     )),
                     items_path: (!items_path.is_empty()).then_some(items_path),
+                    items_paths: None,
                 });
             } else if tool_name == tool_names::PULL_REQUEST_READ
                 && matches!(method, "get_check_runs" | "get_status")
@@ -411,6 +467,7 @@ pub fn label_response_paths(
                         writer_integrity(&repo_full, ctx),
                     )),
                     items_path: (!items_path.is_empty()).then_some(items_path),
+                    items_paths: None,
                 });
             } else if let Some(repo_item_ctx) = resolve_repo_item_context(
                 tool_name,
@@ -474,6 +531,7 @@ pub fn label_response_paths(
                     }),
                     items_path: (!repo_item_ctx.items_path.is_empty())
                         .then_some(repo_item_ctx.items_path),
+                    items_paths: None,
                 });
             }
         }
@@ -521,6 +579,7 @@ pub fn label_response_paths(
                         writer_integrity(&repo_full, ctx),
                     )),
                     items_path: (!items_path.is_empty()).then_some(items_path),
+                    items_paths: None,
                 });
             } else if skip_issue_read_per_item_labeling(tool_name, method) {
                 // Fall through — use resource-level labels
@@ -583,6 +642,7 @@ pub fn label_response_paths(
                     }),
                     items_path: (!repo_item_ctx.items_path.is_empty())
                         .then_some(repo_item_ctx.items_path),
+                    items_paths: None,
                 });
             }
         }
@@ -660,6 +720,7 @@ pub fn label_response_paths(
                         .into(),
                     }),
                     items_path: None, // Root array
+                    items_paths: None,
                 });
             }
         }
@@ -696,6 +757,7 @@ pub fn label_response_paths(
                         integrity: file_integrity_shared,
                     }),
                     items_path: None,
+                    items_paths: None,
                 });
             }
         }
@@ -757,6 +819,7 @@ pub fn label_response_paths(
                         integrity: default_merged_shared,
                     }),
                     items_path: None, // Root array
+                    items_paths: None,
                 });
             }
         }
@@ -793,6 +856,7 @@ pub fn label_response_paths(
                         integrity: empty_integrity,
                     }),
                     items_path: None, // Root array
+                    items_paths: None,
                 });
             }
         }
@@ -831,6 +895,7 @@ pub fn label_response_paths(
                         integrity: gist_integrity,
                     }),
                     items_path: None, // Root array
+                    items_paths: None,
                 });
             }
         }
@@ -905,6 +970,7 @@ pub fn label_response_paths(
                         integrity: writer_integrity(&arg_owner, ctx).into(),
                     }),
                     items_path: (!items_path.is_empty()).then_some(items_path),
+                    items_paths: None,
                 });
             }
         }
@@ -1800,6 +1866,124 @@ mod tests {
     }
 
     #[test]
+    fn nested_review_threads_label_each_comment_author() {
+        let policy = PolicyContext {
+            trusted_bots: vec!["github-actions".to_string()],
+            trusted_users: vec!["blocked-owner".to_string()],
+            blocked_users: vec!["blocked-owner".to_string()],
+            ..Default::default()
+        };
+        let args = json!({
+            "owner": "octocat", "repo": "hello-world", "pullNumber": 1,
+            "method": "get_review_comments"
+        });
+        let response = json!({
+            "pageInfo": {"hasNextPage": true, "endCursor": "next"},
+            "totalCount": 2,
+            "review_threads": [
+                {
+                    "id": "thread-1", "is_resolved": true, "is_outdated": true,
+                    "total_count": 3,
+                    "comments": [
+                        {"id": 1, "author": "github-actions"},
+                        {"id": 2, "author": {"login": "owner"}, "author_association": "OWNER"},
+                        {"id": 3, "author": "external", "author_association": "NONE"}
+                    ]
+                },
+                {
+                    "id": "thread-2", "is_resolved": false, "is_outdated": false,
+                    "comments": [{"id": 4, "author": "blocked-owner", "author_association": "OWNER"}]
+                },
+                {"id": "empty-thread", "comments": []}
+            ]
+        });
+        for wrapped in [
+            response.clone(),
+            json!({"content": [{"type": "text", "text": response.to_string()}]}),
+            json!({"structuredContent": response}),
+        ] {
+            let result =
+                label_response_paths(tool_names::PULL_REQUEST_READ, &args, &wrapped, &policy)
+                    .expect("nested review comments should be labeled");
+            assert_eq!(
+                result.items_paths,
+                Some(vec![
+                    "/review_threads/0/comments".to_string(),
+                    "/review_threads/1/comments".to_string(),
+                    "/review_threads/2/comments".to_string(),
+                ])
+            );
+            assert_eq!(result.labeled_paths.len(), 4);
+            for (index, expected) in [
+                writer_integrity("octocat/hello-world", &policy),
+                writer_integrity("octocat/hello-world", &policy),
+                reader_integrity("octocat/hello-world", &policy),
+                blocked_integrity("octocat/hello-world", &policy),
+            ]
+            .iter()
+            .enumerate()
+            {
+                assert_eq!(&result.labeled_paths[index].labels.integrity, expected);
+            }
+            assert_eq!(result.labeled_paths[0].path, "/review_threads/0/comments/0");
+            assert_eq!(result.labeled_paths[2].path, "/review_threads/0/comments/2");
+            assert_eq!(result.labeled_paths[3].path, "/review_threads/1/comments/0");
+            assert_eq!(
+                result.default_labels.unwrap().integrity,
+                none_integrity("octocat/hello-world", &policy)
+            );
+        }
+    }
+
+    #[test]
+    fn nested_review_threads_keep_global_label_limit() {
+        let policy = PolicyContext {
+            trusted_bots: vec!["workflow-bot".to_string()],
+            ..Default::default()
+        };
+        let comments = vec![json!({"author": "workflow-bot"}); MAX_ITEMS_PER_RESPONSE];
+        let response = json!({"review_threads": [
+            {"comments": comments}, {"comments": comments}
+        ]});
+        let args = json!({
+            "owner": "octocat", "repo": "hello-world", "method": "get_review_comments"
+        });
+        let result = label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy)
+            .expect("nested comments should be labeled");
+        assert_eq!(result.labeled_paths.len(), MAX_ITEMS_PER_RESPONSE);
+        assert_eq!(
+            result.items_paths.unwrap(),
+            vec!["/review_threads/0/comments", "/review_threads/1/comments"]
+        );
+        assert_eq!(
+            result.default_labels.unwrap().integrity,
+            none_integrity("octocat/hello-world", &policy),
+            "comments beyond the limit must still have conservative defaults"
+        );
+    }
+
+    #[test]
+    fn unknown_review_thread_shapes_have_no_path_labels() {
+        let args = json!({
+            "owner": "octocat", "repo": "hello-world", "pullNumber": 1,
+            "method": "get_review_comments"
+        });
+        for response in [
+            json!({"unknown_threads": []}),
+            json!({"review_threads": [{"comments": null}]}),
+            json!({"review_threads": [{"comments": []}, {"id": "missing-comments"}]}),
+        ] {
+            assert!(label_response_paths(
+                tool_names::PULL_REQUEST_READ,
+                &args,
+                &response,
+                &PolicyContext::default()
+            )
+            .is_none());
+        }
+    }
+
+    #[test]
     fn pull_request_subresources_use_item_provenance_or_method_default() {
         let policy = PolicyContext {
             trusted_users: vec!["dual-listed".to_string()],
@@ -1832,6 +2016,12 @@ mod tests {
             (
                 "get_review_comments",
                 json!({"review_comments": [user_item.clone()]}),
+                "/review_comments/0",
+            ),
+            ("get_review_comments", json!([user_item.clone()]), "/0"),
+            (
+                "get_review_comments",
+                json!({"structuredContent": {"review_comments": [user_item.clone()]}}),
                 "/review_comments/0",
             ),
         ] {

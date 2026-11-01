@@ -240,6 +240,22 @@ Apply different labels to specific items in a collection. Return JSON with this 
 | `labeled_paths[].labels.integrity` | string[] | Integrity tags |
 | `default_labels` | object | Labels for items not explicitly listed (optional) |
 | `items_path` | string | JSON Pointer to the collection (e.g., `/items`, `""` for root array) |
+| `items_paths` | array of strings | Exact JSON Pointers to multiple nested collections; preserves the response envelope instead of returning a flat array |
+
+For nested review threads, the GitHub guard returns `items_paths` such as
+`["/review_threads/0/comments", "/review_threads/1/comments"]`, with a separate
+label for each comment path (for example, `/review_threads/0/comments/0`).
+Every comment is checked independently; comments without explicit path labels
+receive `default_labels`. Filtering removes denied comments while preserving
+thread state, counts, and pagination metadata. MCP text and `structuredContent`
+are rebuilt from the same filtered data, so neither retains an unfiltered copy.
+Strict mode still rejects the whole response if any comment is denied.
+
+Review-comment authors may be login strings or user objects. The guard uses
+each comment's own author association, trusted-actor configuration, and supported
+backend collaborator-permission metadata; it does not inherit trust from the
+thread or pull request. Unknown response shapes retain conservative fallback
+labeling or the coarse access decision.
 
 ### 3. SimpleLabeledData (Go Guards Only)
 

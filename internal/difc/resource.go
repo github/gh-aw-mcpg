@@ -73,12 +73,16 @@ func (s *SimpleLabeledData) ToResult() (interface{}, error) {
 // CollectionLabeledData represents a collection where each item has its own labels
 type CollectionLabeledData struct {
 	Items []LabeledItem
+
+	// Rebuild preserves response envelopes when filtering nested collections.
+	Rebuild func([]FilteredItemDetail) (interface{}, error)
 }
 
 // LabeledItem represents a single item in a collection with its labels
 type LabeledItem struct {
 	Data   interface{}
 	Labels *LabeledResource
+	path   string
 }
 
 func (c *CollectionLabeledData) Overall() *LabeledResource {

@@ -118,6 +118,12 @@ func FilterAndConvertLabeledData(
 			return nil, err
 		}
 		result.FinalResult = finalResult
+		if collection.Rebuild != nil {
+			result.FinalResult, err = collection.Rebuild(filtered.Filtered)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return result, nil
 	}
 
