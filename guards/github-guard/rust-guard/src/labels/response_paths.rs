@@ -72,6 +72,18 @@ fn label_author_items(
     description: &str,
     ctx: &PolicyContext,
 ) -> Option<PathLabelResult> {
+    if let Some(threads) = actual_response
+        .get("review_threads")
+        .and_then(Value::as_array)
+    {
+        return Some(label_review_threads(
+            tool_name,
+            tool_args,
+            threads,
+            description,
+            ctx,
+        ));
+    }
     let (items, items_path) = extract_items_array(actual_response);
     let items = items?;
     let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
@@ -110,6 +122,70 @@ fn label_author_items(
         )),
         items_path: (!items_path.is_empty()).then_some(items_path),
     })
+}
+
+/// Label `review_threads[]` entries from `pull_request_read(get_review_comments)`.
+///
+/// The gateway resolves labels per element of a single collection, so each thread
+/// gets the lowest integrity among its comments; a thread with a low-integrity
+/// comment is therefore restricted as a whole. Threads without comments fall back
+/// to the none-level default.
+fn label_review_threads(
+    tool_name: &str,
+    tool_args: &Value,
+    threads: &[Value],
+    description: &str,
+    ctx: &PolicyContext,
+) -> PathLabelResult {
+    let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+    let limited_threads = limit_items_with_log(threads, tool_name);
+    let labeled_paths = limited_threads
+        .iter()
+        .enumerate()
+        .map(|(index, thread)| {
+            let id = thread
+                .get(field_names::ID)
+                .and_then(Value::as_str)
+                .unwrap_or(UNKNOWN_LABEL_FALLBACK);
+            let comments = thread
+                .get("comments")
+                .and_then(Value::as_array)
+                .map(Vec::as_slice)
+                .unwrap_or_default();
+            let integrity = comments
+                .iter()
+                .enumerate()
+                .map(|(i, comment)| {
+                    user_authored_integrity(
+                        comment,
+                        &repo_full,
+                        description,
+                        &format!("{id}/{i}"),
+                        ctx,
+                    )
+                })
+                .min_by_key(|labels| integrity_rank(&repo_full, labels, ctx))
+                .unwrap_or_else(|| none_integrity(&repo_full, ctx));
+            crate::PathLabel {
+                path: make_item_path("/review_threads", index),
+                labels: crate::ResourceLabels {
+                    description: format!("{description}:{repo_full}#{id}"),
+                    secrecy: secrecy.clone(),
+                    integrity: integrity.into(),
+                },
+            }
+        })
+        .collect();
+
+    PathLabelResult {
+        labeled_paths,
+        default_labels: Some(repo_default_labels(
+            description,
+            secrecy,
+            none_integrity(&repo_full, ctx),
+        )),
+        items_path: Some("/review_threads"),
+    }
 }
 
 struct RepoItemsContext<'a> {
@@ -1797,6 +1873,47 @@ mod tests {
                 "blocked-users must win over trusted/OWNER evidence for {tool}"
             );
         }
+    }
+
+    #[test]
+    fn review_threads_use_lowest_comment_integrity() {
+        let policy = PolicyContext {
+            trusted_users: vec!["bot".to_string()],
+            blocked_users: vec!["evil".to_string()],
+            ..Default::default()
+        };
+        let repo = "octocat/hello-world";
+        let response = json!({
+            "pageInfo": {"hasNextPage": false},
+            "totalCount": 2,
+            "review_threads": [
+                {"id": "PRRT_ok", "is_resolved": true, "comments": [
+                    {"author": "bot", "path": "a.ts"},
+                    {"author": "bot", "path": "a.ts"}
+                ]},
+                {"id": "PRRT_mixed", "is_outdated": true, "comments": [
+                    {"author": "bot", "path": "a.ts"},
+                    {"author": "evil", "path": "a.ts"}
+                ]}
+            ]
+        });
+        let args = json!({
+            "owner": "octocat", "repo": "hello-world", "pullNumber": 1,
+            "method": "get_review_comments"
+        });
+        let result = label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy)
+            .expect("review threads should be labeled");
+        assert_eq!(result.items_path, Some("/review_threads"));
+        assert_eq!(result.labeled_paths[0].path, "/review_threads/0");
+        assert_eq!(result.labeled_paths[1].path, "/review_threads/1");
+        assert_ne!(
+            result.labeled_paths[0].labels.integrity,
+            blocked_integrity(repo, &policy)
+        );
+        assert_eq!(
+            result.labeled_paths[1].labels.integrity,
+            blocked_integrity(repo, &policy)
+        );
     }
 
     #[test]
