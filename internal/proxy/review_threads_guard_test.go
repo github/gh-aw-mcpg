@@ -143,14 +143,14 @@ func TestReviewThreadsRealGuard(t *testing.T) {
 					var envelope map[string]interface{}
 					require.NoError(t, json.Unmarshal(unwrapped, &envelope))
 					assert.Equal(t, map[string]interface{}{"hasNextPage": true, "endCursor": "next"}, envelope["pageInfo"])
-					assert.Equal(t, float64(2), envelope["totalCount"])
+					assert.InDelta(t, float64(2), envelope["totalCount"], 0)
 					threads := envelope["review_threads"].([]interface{})
 					require.Len(t, threads, 2)
 					first := threads[0].(map[string]interface{})
 					assert.Equal(t, "thread-1", first["id"])
 					assert.True(t, first["is_resolved"].(bool))
 					assert.True(t, first["is_outdated"].(bool))
-					assert.Equal(t, float64(3), first["total_count"])
+					assert.InDelta(t, float64(3), first["total_count"], 0)
 				})
 			}
 			if tc.wantFineGrain {
