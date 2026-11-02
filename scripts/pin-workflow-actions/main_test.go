@@ -128,7 +128,7 @@ func TestNormalizeMaintenanceBuildAndCompilation(t *testing.T) {
 `
 	output, err := normalize([]byte(input), true)
 	require.NoError(t, err)
-	assert.Contains(t, string(output), "make -C \"$runtime\" build")
+	assert.Contains(t, string(output), "GOTOOLCHAIN=auto make -C \"$runtime\" build")
 	assert.Contains(t, string(output), "git -C \"$runtime\" fetch --depth=1 origin "+runtimeSHA)
 	assert.Contains(t, string(output), `runtime="${RUNNER_TEMP}/gh-aw-runtime"`)
 	assert.Contains(t, string(output), "go run ./scripts/pin-workflow-actions")
@@ -143,6 +143,25 @@ func TestNormalizeMaintenanceBuildAndCompilation(t *testing.T) {
 
 func TestNormalizeAWToolSourceBuild(t *testing.T) {
 	input := fixture + `
+      - name: Build gh-aw CLI
+        run: |
+          echo "Building gh-aw CLI for linux/amd64..."
+          mkdir -p dist
+          VERSION=$(git describe --tags --always --dirty)
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -ldflags "-s -w -X main.version=${VERSION}" \
+            -o dist/gh-aw-linux-amd64 \
+            ./cmd/gh-aw
+          # Copy binary to root for direct execution in user-defined steps
+          cp dist/gh-aw-linux-amd64 ./gh-aw
+          chmod +x ./gh-aw
+          echo "✓ Built gh-aw CLI successfully"
+      - name: Build gh-aw Docker image
+        uses: docker/build-push-action@0123456789012345678901234567890123456789
+        with:
+          context: .
+          build-args: |
+            BINARY=dist/gh-aw-linux-amd64
       - name: Build and install gh-aw CLI from source
         run: |
           gh extension remove aw || true
@@ -154,12 +173,19 @@ func TestNormalizeAWToolSourceBuild(t *testing.T) {
 `
 	output, err := normalize([]byte(input), false)
 	require.NoError(t, err)
-	assert.Contains(t, string(output), `gh extension install "$runtime" --force`)
+	assert.Contains(t, string(output), `GOTOOLCHAIN=auto go -C "$runtime" build \`)
+	assert.Contains(t, string(output), "./cmd/gh-aw")
+	assert.Contains(t, string(output), "context: ${{ runner.temp }}/gh-aw-runtime")
+	assert.Contains(t, string(output), `gh extension install . --force`)
+	assert.Contains(t, string(output), `cp "$runtime/gh-aw" "${RUNNER_TEMP}/gh-aw/bin/gh-aw"`)
+	assert.NotContains(t, string(output), `gh extension install "$runtime"`)
 	assert.Contains(t, string(output), "GH_TOKEN: ${{ github.token }}")
 	assert.Contains(t, string(output), `"container":"localhost/gh-aw:dev"`)
 	again, err := normalize(output, false)
 	require.NoError(t, err)
 	assert.Equal(t, output, again)
+	_, err = normalize([]byte(strings.Replace(input, "context: .", "context: /tmp", 1)), false)
+	assert.ErrorContains(t, err, "unexpected gh-aw Docker build context")
 }
 
 func TestNormalizeManifest(t *testing.T) {
@@ -248,11 +274,18 @@ func TestRepositoryNormalizationPreservesControls(t *testing.T) {
 						env["GH_AW_CMD_PREFIX"] = "${{ runner.temp }}/gh-aw-runtime/gh-aw"
 					}
 					switch name {
-					case "Build gh-aw", "Build and install gh-aw CLI from source":
+					case "Build gh-aw", "Build gh-aw CLI", "Build and install gh-aw CLI from source":
 						assert.Contains(t, newStep["run"], runtimeSHA)
 						assert.Contains(t, newStep["run"], `runtime="${RUNNER_TEMP}/gh-aw-runtime"`)
+						if name == "Build and install gh-aw CLI from source" {
+							assert.Contains(t, newStep["run"], `gh extension install . --force`)
+							assert.Contains(t, newStep["run"], `cp "$runtime/gh-aw" "${RUNNER_TEMP}/gh-aw/bin/gh-aw"`)
+						}
 						delete(step, "run")
 						delete(newStep, "run")
+					case "Build gh-aw Docker image":
+						options := step["with"].(map[string]any)
+						options["context"] = "${{ runner.temp }}/gh-aw-runtime"
 					case "Compile workflows", "Pre-compile validation":
 						assert.Contains(t, newStep["run"], "compile --action-mode dev")
 						delete(step, "run")

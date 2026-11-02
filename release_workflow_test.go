@@ -48,6 +48,9 @@ func assertWorkflowUsesPinnedRemoteActions(t *testing.T, name string) {
 	require.True(t, ok, "runtime.Caller should resolve this test file path")
 	content, err := os.ReadFile(filepath.Join(filepath.Dir(thisFile), ".github", "workflows", name))
 	require.NoError(t, err)
+	runtimeSHABytes, err := os.ReadFile(filepath.Join(filepath.Dir(thisFile), "scripts", "pin-workflow-actions", "runtime-sha.txt"))
+	require.NoError(t, err)
+	runtimeSHA := strings.TrimSpace(string(runtimeSHABytes))
 
 	workflow := string(content)
 	actionPattern := regexp.MustCompile(`(?m)^\s+uses:\s+(\S+)`)
@@ -59,7 +62,7 @@ func assertWorkflowUsesPinnedRemoteActions(t *testing.T, name string) {
 			"local gh-aw action definitions are removed by the repository checkout before post-job cleanup")
 		if strings.HasPrefix(action, "github/gh-aw/actions/") {
 			assert.Regexp(t, pinnedActionPattern, action, "gh-aw runtime actions must use immutable remote references")
-			assert.Equal(t, "github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a", action,
+			assert.Equal(t, "github/gh-aw/actions/setup@"+runtimeSHA, action,
 				"runtime changes require deliberate review")
 		}
 		if strings.HasPrefix(action, "github/gh-aw/actions/setup@") {
@@ -79,5 +82,17 @@ func assertWorkflowUsesPinnedRemoteActions(t *testing.T, name string) {
 			assert.Contains(t, workflow, "\n  "+job+":\n", "dev-only maintenance jobs must be preserved")
 		}
 		assert.Contains(t, workflow, "  push:\n    branches:\n      - main\n")
+	}
+	if name == "smoke-allowonly.lock.yml" || name == "smoke-proxy-github-script.lock.yml" {
+		assert.Contains(t, workflow, `go -C "$runtime" build \`,
+			"the CLI must be built from the verified gh-aw source checkout")
+		assert.Contains(t, workflow, "./cmd/gh-aw",
+			"the CLI build target must be from the gh-aw source tree")
+		assert.Contains(t, workflow, "context: ${{ runner.temp }}/gh-aw-runtime",
+			"the Docker image must use the verified gh-aw source checkout")
+		assert.Contains(t, workflow, `gh extension install . --force`,
+			"the extension must be installed from a local checkout named gh-aw")
+		assert.Contains(t, workflow, `cp "$runtime/gh-aw" "${RUNNER_TEMP}/gh-aw/bin/gh-aw"`,
+			"the MCP binary helper must find the installed CLI")
 	}
 }

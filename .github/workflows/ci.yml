@@ -35,6 +35,9 @@ jobs:
       - name: Verify dependencies
         run: go mod verify
 
+      - name: Test generated workflow pins and normalization
+        run: go test . ./scripts/pin-workflow-actions -run 'Test(ReleaseWorkflow|AgenticWorkflows|Normalize|RepositoryNormalization)'
+
       - name: Run unit tests with coverage
         run: |
           make test-ci

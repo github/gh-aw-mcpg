@@ -30,25 +30,8 @@ jobs:
           go-version: '1.26.10'
           cache: false
 
-      - name: Clone gh-aw repository
-        run: |
-          cd /tmp
-          rm -rf gh-aw
-          git clone https://github.com/github/gh-aw.git
-          echo "✓ Cloned gh-aw repository"
-
-      - name: Build gh-aw compiler
-        run: |
-          cd /tmp/gh-aw
-          make build
-          ./gh-aw --version
-          echo "✓ Built gh-aw compiler: $(./gh-aw --version)"
-
-      - name: Compile smoke-copilot workflow
-        run: |
-          cd ${{ github.workspace }}
-          /tmp/gh-aw/gh-aw compile smoke-copilot
-          echo "✓ Compiled smoke-copilot.md to smoke-copilot.lock.yml"
+      - name: Compile and normalize smoke-copilot workflow
+        run: make compile-workflows WORKFLOW=smoke-copilot
 
       - name: Check for changes
         id: check_changes
@@ -66,19 +49,19 @@ jobs:
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: 'chore: rebuild smoke-copilot workflow with latest gh-aw compiler'
+          commit-message: 'chore: rebuild smoke-copilot workflow with pinned gh-aw compiler'
           branch: automated/rebuild-smoke-copilot
           delete-branch: true
           title: 'chore: Rebuild smoke-copilot workflow'
           body: |
             ## Automated Workflow Rebuild
             
-            This PR updates the `smoke-copilot.lock.yml` file by recompiling it from the source `smoke-copilot.md` using the latest gh-aw compiler.
+            This PR updates the `smoke-copilot.lock.yml` file by recompiling it from `smoke-copilot.md` using the pinned gh-aw compiler and repository normalizer.
             
             ### Changes
-            - Cloned and built gh-aw from https://github.com/github/gh-aw
-            - Recompiled `.github/workflows/smoke-copilot.md` using `gh-aw compile smoke-copilot`
-            - Updated `.github/workflows/smoke-copilot.lock.yml` with the latest compilation
+            - Built gh-aw from the immutable runtime source pin
+            - Recompiled and normalized `.github/workflows/smoke-copilot.md`
+            - Updated `.github/workflows/smoke-copilot.lock.yml` with the generated compilation
             
             ### Verification
             - The gh-aw-mcpg container reference should be present in the compiled workflow

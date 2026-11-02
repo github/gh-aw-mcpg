@@ -247,7 +247,7 @@ jobs:
           git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
           git -C "$runtime" checkout --detach FETCH_HEAD
           test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
-          make -C "$runtime" build
+          GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Run operation
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -413,7 +413,7 @@ jobs:
           git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
           git -C "$runtime" checkout --detach FETCH_HEAD
           test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
-          make -C "$runtime" build
+          GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Create missing labels
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -477,7 +477,7 @@ jobs:
           git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
           git -C "$runtime" checkout --detach FETCH_HEAD
           test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
-          make -C "$runtime" build
+          GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Restore activity report logs cache
         id: activity_report_logs_cache
@@ -598,7 +598,7 @@ jobs:
           git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
           git -C "$runtime" checkout --detach FETCH_HEAD
           test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
-          make -C "$runtime" build
+          GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Restore forecast report logs cache
         id: forecast_report_logs_cache
@@ -751,7 +751,7 @@ jobs:
           git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
           git -C "$runtime" checkout --detach FETCH_HEAD
           test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
-          make -C "$runtime" build
+          GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Validate workflows and file issue on findings
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -799,7 +799,7 @@ jobs:
           git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
           git -C "$runtime" checkout --detach FETCH_HEAD
           test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
-          make -C "$runtime" build
+          GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Pre-compile validation
         run: |

@@ -5,9 +5,24 @@
 
 # Preserve dev-only maintenance jobs while loading runtime actions outside root checkouts.
 .PHONY: compile-workflows
+GH_AW_RUNTIME_SHA := $(shell cat scripts/pin-workflow-actions/runtime-sha.txt)
 compile-workflows:
-	gh aw compile --action-mode dev
-	gh aw compile release --action-mode release --action-tag 5fec33b64e8f9159001970542a8357293ca5b09a
+	@set -eu; \
+	runtime="$$(mktemp -d "$${RUNNER_TEMP:-/tmp}/gh-aw-runtime.XXXXXX")"; \
+	trap 'rm -rf "$$runtime"' EXIT; \
+	git init "$$runtime"; \
+	git -C "$$runtime" remote add origin https://github.com/github/gh-aw.git; \
+	git -C "$$runtime" fetch --depth=1 origin "$(GH_AW_RUNTIME_SHA)"; \
+	git -C "$$runtime" checkout --detach FETCH_HEAD; \
+	test "$$(git -C "$$runtime" rev-parse HEAD)" = "$(GH_AW_RUNTIME_SHA)"; \
+	GOTOOLCHAIN=auto make -C "$$runtime" build; \
+	if [ -n "$(WORKFLOW)" ]; then \
+		case "$(WORKFLOW)" in *[!a-zA-Z0-9_-]*|'') echo "Invalid WORKFLOW name" >&2; exit 1 ;; esac; \
+		"$$runtime/gh-aw" compile "$(WORKFLOW)" --action-mode dev; \
+	else \
+		"$$runtime/gh-aw" compile --action-mode dev; \
+		"$$runtime/gh-aw" compile release --action-mode release --action-tag "$(GH_AW_RUNTIME_SHA)"; \
+	fi; \
 	go run ./scripts/pin-workflow-actions
 
 # Binary name

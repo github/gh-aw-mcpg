@@ -2,6 +2,7 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,10 +13,23 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-const runtimeSHA = "5fec33b64e8f9159001970542a8357293ca5b09a"
-const setupAction = "github/gh-aw/actions/setup@" + runtimeSHA
+//go:embed runtime-sha.txt
+var runtimeSHAFile string
 
-const buildCLI = `runtime="${RUNNER_TEMP}/gh-aw-runtime"
+var runtimeSHA = strings.TrimSpace(runtimeSHAFile)
+var setupAction = "github/gh-aw/actions/setup@" + runtimeSHA
+
+var buildCLI = `runtime="${RUNNER_TEMP}/gh-aw-runtime"
+test ! -e "$runtime"
+git init "$runtime"
+git -C "$runtime" remote add origin https://github.com/github/gh-aw.git
+git -C "$runtime" fetch --depth=1 origin ` + runtimeSHA + `
+git -C "$runtime" checkout --detach FETCH_HEAD
+test "$(git -C "$runtime" rev-parse HEAD)" = "` + runtimeSHA + `"
+GOTOOLCHAIN=auto make -C "$runtime" build
+`
+
+var buildCLILegacy = `runtime="${RUNNER_TEMP}/gh-aw-runtime"
 test ! -e "$runtime"
 git init "$runtime"
 git -C "$runtime" remote add origin https://github.com/github/gh-aw.git
@@ -24,6 +38,60 @@ git -C "$runtime" checkout --detach FETCH_HEAD
 test "$(git -C "$runtime" rev-parse HEAD)" = "` + runtimeSHA + `"
 make -C "$runtime" build
 `
+
+const buildAWCLI = `echo "Building gh-aw CLI for linux/amd64..."
+mkdir -p "$runtime/dist"
+VERSION=$(git -C "$runtime" describe --tags --always --dirty)
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=auto go -C "$runtime" build \
+  -ldflags "-s -w -X main.version=${VERSION}" \
+  -o "$runtime/dist/gh-aw-linux-amd64" \
+  ./cmd/gh-aw
+# Copy binary to root for direct execution in user-defined steps
+cp "$runtime/dist/gh-aw-linux-amd64" ./gh-aw
+chmod +x ./gh-aw
+echo "✓ Built gh-aw CLI successfully"
+`
+
+var installAWCLI = `runtime="${RUNNER_TEMP}/gh-aw-runtime"
+test "$(git -C "$runtime" rev-parse HEAD)" = "` + runtimeSHA + `"
+extension="${RUNNER_TEMP}/gh-aw-extension/gh-aw"
+mkdir -p "$extension"
+cp "$runtime/gh-aw" "$extension/gh-aw"
+(cd "$extension" && gh extension install . --force)
+mkdir -p "${RUNNER_TEMP}/gh-aw/bin"
+cp "$runtime/gh-aw" "${RUNNER_TEMP}/gh-aw/bin/gh-aw"
+gh aw version
+`
+
+const buildAWCLILegacy = `echo "Building gh-aw CLI for linux/amd64..."
+mkdir -p dist
+VERSION=$(git describe --tags --always --dirty)
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+  -ldflags "-s -w -X main.version=${VERSION}" \
+  -o dist/gh-aw-linux-amd64 \
+  ./cmd/gh-aw
+# Copy binary to root for direct execution in user-defined steps
+cp dist/gh-aw-linux-amd64 ./gh-aw
+chmod +x ./gh-aw
+echo "✓ Built gh-aw CLI successfully"
+`
+
+const installAWCLILegacy = `gh extension remove aw || true
+make build
+gh extension install .
+gh aw version
+`
+
+var installAWCLINormalized = buildCLI + `gh extension install "$runtime" --force
+gh aw version
+`
+
+var installAWCLINormalizedLegacy = buildCLILegacy + `gh extension install "$runtime" --force
+gh aw version
+`
+
+var buildAWCLINormalizedLegacy = buildCLILegacy + strings.Replace(
+	buildAWCLI, "GOTOOLCHAIN=auto go -C", "go -C", 1)
 
 type edit struct {
 	start, end int
@@ -199,14 +267,45 @@ func normalize(content []byte, maintenance bool) ([]byte, error) {
 				}
 			}
 			if maintenance && name == "Build gh-aw" {
-				if err := replaceRun(field(step, "run"), "make build", buildCLI); err != nil {
+				run := field(step, "run")
+				expected := "make build"
+				if run != nil && run.Value == buildCLILegacy {
+					expected = buildCLILegacy
+				}
+				if err := replaceRun(run, expected, buildCLI); err != nil {
 					return nil, err
 				}
 			}
+			if !maintenance && name == "Build gh-aw CLI" {
+				run := field(step, "run")
+				expected := buildAWCLILegacy
+				if run != nil && run.Value == buildAWCLINormalizedLegacy {
+					expected = buildAWCLINormalizedLegacy
+				}
+				if err := replaceRun(run, expected, buildCLI+buildAWCLI); err != nil {
+					return nil, err
+				}
+			}
+			if !maintenance && name == "Build gh-aw Docker image" {
+				context := field(field(step, "with"), "context")
+				switch {
+				case context != nil && context.Value == ".":
+					if err := replaceScalar(context, "${{ runner.temp }}/gh-aw-runtime"); err != nil {
+						return nil, err
+					}
+				case context == nil || context.Value != "${{ runner.temp }}/gh-aw-runtime":
+					return nil, fmt.Errorf("%s: unexpected gh-aw Docker build context", jobID)
+				}
+			}
 			if !maintenance && name == "Build and install gh-aw CLI from source" {
-				expected := "gh extension remove aw || true\nmake build\ngh extension install .\ngh aw version\n"
-				replacement := buildCLI + "gh extension install \"$runtime\" --force\ngh aw version\n"
-				if err := replaceRun(field(step, "run"), expected, replacement); err != nil {
+				run := field(step, "run")
+				expected := installAWCLILegacy
+				if run != nil && run.Value == installAWCLINormalized {
+					expected = installAWCLINormalized
+				} else if run != nil && run.Value == installAWCLINormalizedLegacy {
+					expected = installAWCLINormalizedLegacy
+				}
+				if err := replaceRun(run, expected, installAWCLI); err != nil {
 					return nil, err
 				}
 			}

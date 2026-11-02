@@ -126,15 +126,19 @@ After editing workflow frontmatter, regenerate all agentic locks and maintenance
 make compile-workflows
 ```
 
-This runs `gh aw compile --action-mode dev`, regenerates Release with its existing
-release-mode pin, then runs the repository-local Go normalizer in
-`scripts/pin-workflow-actions`. Go and the installed gh-aw CLI are required.
+This fetches and builds gh-aw at the repository's immutable runtime pin in a
+temporary directory, runs its compiler in development mode, regenerates Release
+with its existing release-mode pin, then runs the repository-local Go normalizer
+in `scripts/pin-workflow-actions`. Go and Git are required; the installed gh-aw
+CLI is not used. The pinned compiler selects its required Go version with
+`GOTOOLCHAIN=auto`.
 The normalizer uses YAML node locations to change only recognized runtime-loading
 and gh-aw source-build steps, preserving unrelated generated YAML byte-for-byte.
 It validates every input before writing, rejects unknown shapes, and is idempotent.
 
-Runtime setup is pinned to `github/gh-aw` commit
-`5fec33b64e8f9159001970542a8357293ca5b09a`, matching the existing release fix.
+Runtime setup is pinned to the `github/gh-aw` SHA recorded in
+`scripts/pin-workflow-actions/runtime-sha.txt`, matching
+the existing release fix. The Makefile and regression tests read this shared pin.
 Actions caches remote definitions outside the repository checkout, so later root
 checkouts cannot delete post hooks. Maintenance-only checkouts of this repository's
 nonexistent `actions` folder and obsolete `actions/setup` sparse entries are removed.
@@ -148,17 +152,22 @@ the AW MCP declarations. Passing the runtime SHA as `--action-tag` also emits an
 invalid `gh-aw-actions/setup-cli` ref and CLI release version. The normalization
 step preserves those jobs and declarations without relying on that broken installer.
 Do not publish raw development-mode output or hand-edit locks. When upgrading the
-runtime, deliberately update `runtimeSHA` in the normalizer and review generated changes.
+runtime, deliberately update `runtime-sha.txt`, regenerate all workflows, and
+review the generated changes.
 Remove this workaround only once the compiler preserves these behaviors itself.
 
 The nightly upgrader must use `gh aw upgrade --no-compile`, followed by this target;
 the normalized maintenance compile job also runs the normalizer before drift detection.
-For a targeted recompile, run `gh aw compile <workflow> --action-mode dev` and then
-`go run ./scripts/pin-workflow-actions` from the repository root. For Release, retain
-`gh aw compile release --action-mode release --action-tag 5fec33b64e8f9159001970542a8357293ca5b09a`
-instead, so its already-fixed job permissions and metadata do not change.
+For a targeted recompile, run `make compile-workflows WORKFLOW=<workflow>`; it uses
+the same pinned compiler and normalizer without recompiling unrelated workflows.
+The `rebuild-smoke-copilot` and `rebuild-smoke-long-session` workflows use this
+target, and CI runs the generated-lock pin and normalizer regressions.
 
-`go test . ./scripts/pin-workflow-actions -run 'PinnedRemoteActions|Normalize'`
+The nightly workflow allows Go downloads for the normalizer's YAML dependency
+and the pinned compiler's Go toolchain; keep `go` in its `network.allowed` list
+so a cold cache does not block generation.
+
+`go test . ./scripts/pin-workflow-actions -run 'Test(ReleaseWorkflow|AgenticWorkflows|Normalize|RepositoryNormalization)'`
 checks every authored workflow's lock, maintenance, transformation preservation,
 idempotence and unknown-shape rejection. Compilation does not execute or dispatch workflows.
 
