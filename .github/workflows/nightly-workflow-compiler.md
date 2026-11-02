@@ -12,6 +12,7 @@ permissions:
 network:
   allowed:
     - defaults
+    - go
 tools:
   github:
     toolsets: [default]

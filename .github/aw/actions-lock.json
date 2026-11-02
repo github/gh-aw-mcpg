@@ -115,11 +115,6 @@
       "version": "v1.0.1",
       "sha": "221ba4f4319de6b8e809d1a15528b3ae6a818aa5"
     },
-    "github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a": {
-      "repo": "github/gh-aw/actions/setup",
-      "version": "5fec33b64e8f9159001970542a8357293ca5b09a",
-      "sha": "5fec33b64e8f9159001970542a8357293ca5b09a"
-    },
     "haskell-actions/setup@v2.12.1": {
       "repo": "haskell-actions/setup",
       "version": "v2.12.1",
