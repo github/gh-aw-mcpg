@@ -44,7 +44,7 @@
 #   - docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
 #   - docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 #   - docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
-#   - github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+#   - github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a # 5fec33b64e8f9159001970542a8357293ca5b09a
 #
 # Container images used:
 #   - ghcr.io/github/gh-aw-firewall/agent:0.29.0@sha256:b14bd399376180b5649a9324be3b50fbfc82bfe8f0c80045840416b5a4e65b96
@@ -129,7 +129,7 @@ jobs:
     steps:
       - name: Setup Scripts
         id: setup
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a # 5fec33b64e8f9159001970542a8357293ca5b09a
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
           job-name: ${{ github.job }}
@@ -481,7 +481,7 @@ jobs:
     steps:
       - name: Setup Scripts
         id: setup
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a # 5fec33b64e8f9159001970542a8357293ca5b09a
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
           job-name: ${{ github.job }}
@@ -1297,7 +1297,7 @@ jobs:
     steps:
       - name: Setup Scripts
         id: setup
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a # 5fec33b64e8f9159001970542a8357293ca5b09a
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
           job-name: ${{ github.job }}
@@ -1791,7 +1791,7 @@ jobs:
     steps:
       - name: Setup Scripts
         id: setup
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a # 5fec33b64e8f9159001970542a8357293ca5b09a
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
           job-name: ${{ github.job }}
@@ -1973,7 +1973,7 @@ jobs:
     steps:
       - name: Setup Scripts
         id: setup
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a # 5fec33b64e8f9159001970542a8357293ca5b09a
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
           job-name: ${{ github.job }}
