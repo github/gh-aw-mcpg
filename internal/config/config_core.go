@@ -452,10 +452,9 @@ func (cfg *Config) EnsureGatewayDefaults() {
 //   - servers[0].<name>[1].guard_policies[2].<policy>[3].<key>[4+]  (len ≥ 5)
 //   - guards[0].<name>[1].config[2].<key>[3+]                       (len ≥ 4)
 //
-// This manual walk over MetaData.Undecoded() exists because
-// toml.Decoder.SetStrict(true) enforces strict mode for the entire document
-// and cannot be scoped to only the statically-typed fields, so it would
-// reject the dynamic map[string]interface{} sections above. If a future
+// BurntSushi/toml v1.6.0 has no Decoder.SetStrict method. MetaData.Undecoded()
+// includes nested keys decoded into empty interfaces, so this manual walk
+// exempts the dynamic map[string]interface{} sections above. If a future
 // BurntSushi/toml release adds a selective/per-field strict mode (or an
 // allow-list hook), this function can likely be removed in favor of it. See
 // https://github.com/BurntSushi/toml for release notes.
@@ -490,7 +489,7 @@ func isDynamicTOMLPath(key toml.Key) bool {
 //
 //	var perr toml.ParseError
 //	if errors.As(err, &perr) {
-//		fmt.Println(perr.Position())
+//		fmt.Println(perr.Position.Line, perr.Position.Col)
 //	}
 //
 // Example usage with TOML 1.1 multi-line arrays:
@@ -533,14 +532,10 @@ func LoadFromFile(path string) (*Config, error) {
 	// in the Config struct. Per spec §4.3.1, the gateway MUST reject configurations
 	// containing unrecognized fields with an informative error message.
 	//
-	// Design note: Decoder.SetStrict(true) (available since v1.6.0) would
-	// automatically reject unknown fields, but cannot be used here because the
-	// config contains map[string]interface{} sections (guard_policies,
-	// guards.*.config) that accept arbitrary nested keys by design.
-	// SetStrict(true) would treat those dynamic keys as unknown fields and
-	// reject valid configurations. The manual Undecoded() + isDynamicTOMLPath
-	// approach enforces strictness for typed struct fields while exempting the
-	// flexible map sections.
+	// Undecoded() also includes nested keys in map[string]interface{} sections
+	// (guard_policies, guards.*.config) that accept arbitrary keys by design.
+	// isDynamicTOMLPath exempts these keys while retaining strictness for
+	// statically-typed fields.
 	undecoded := md.Undecoded()
 	logConfig.Printf("Checking %d undecoded TOML keys against allowed fields", len(undecoded))
 	var unknownKeys []toml.Key
