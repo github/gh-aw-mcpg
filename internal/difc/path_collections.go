@@ -5,9 +5,14 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
+var logPathCollections = logger.ForFile()
+
 func (p *PathLabeledData) resolveCollections() error {
+	logPathCollections.Printf("Resolving collections: itemsPaths=%d, labeledPaths=%d", len(p.PathLabels.ItemsPaths), len(p.PathLabels.LabeledPaths))
 	labels := make(map[string]*PathLabelEntry, len(p.PathLabels.LabeledPaths))
 	for _, label := range p.PathLabels.LabeledPaths {
 		entry := label.Labels
@@ -35,10 +40,12 @@ func (p *PathLabeledData) resolveCollections() error {
 		if err != nil {
 			return err
 		}
+		logPathCollections.Printf("Extracted %d items at collection path %s", len(items), path)
 		for index, item := range items {
 			itemPath := path + "/" + strconv.Itoa(index)
 			entry := labels[itemPath]
 			if entry == nil {
+				logPathCollections.Printf("No explicit labels for %s, using default labels", itemPath)
 				entry = p.PathLabels.DefaultLabels
 			}
 			if entry == nil {
@@ -50,10 +57,12 @@ func (p *PathLabeledData) resolveCollections() error {
 		}
 	}
 	p.resolved = true
+	logPathCollections.Printf("Resolved %d collection items", len(p.resolvedItems))
 	return nil
 }
 
 func (p *PathLabeledData) rebuildCollections(filtered []FilteredItemDetail) (interface{}, error) {
+	logPathCollections.Printf("Rebuilding collections: filtered=%d, mcpWrapped=%t", len(filtered), p.IsMCPWrapped)
 	denied := make(map[string]bool, len(filtered))
 	for _, detail := range filtered {
 		denied[detail.Item.path] = true
