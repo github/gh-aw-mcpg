@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -583,6 +584,87 @@ allowed_repos = ["owner/repo"]
 	assert.Equal(t, "/path/to/guard.wasm", guard.Path)
 	assert.Equal(t, "strict", guard.Config["level"])
 	assert.Equal(t, []interface{}{"owner/repo"}, guard.Config["allowed_repos"])
+}
+
+func TestTOMLUndecodedDynamicPathsCanary(t *testing.T) {
+	tests := []struct {
+		name     string
+		section  string
+		prefix   toml.Key
+		suffixes []toml.Key
+	}{
+		{
+			name:    "server guard policies",
+			section: "servers.myservice.guard_policies.custom",
+			prefix:  toml.Key{"servers", "myservice", "guard_policies", "custom"},
+			suffixes: []toml.Key{
+				{"level"}, {"nested"}, {"nested", "enabled"},
+				{"rules"}, {"rules", "name"},
+				{"rules"}, {"rules", "name"},
+			},
+		},
+		{
+			name:    "guard config",
+			section: "guards.myfence.config",
+			prefix:  toml.Key{"guards", "myfence", "config"},
+			suffixes: []toml.Key{
+				{"nested", "enabled"}, {"rules", "name"}, {"rules", "name"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			content := validHTTPServerTOML + `
+[guards.myfence]
+type = "noop"
+` + fmt.Sprintf(`
+[%s]
+level = "strict"
+[%s.nested]
+enabled = true
+[[%s.rules]]
+name = "first"
+[[%s.rules]]
+name = "second"
+`, tt.section, tt.section, tt.section, tt.section)
+
+			var cfg Config
+			md, err := toml.NewDecoder(strings.NewReader(content)).Decode(&cfg)
+			require.NoError(t, err)
+
+			// Array-of-table keys have no indices and repeat for each element.
+			var expected []toml.Key
+			for _, suffix := range tt.suffixes {
+				expected = append(expected, append(append(toml.Key{}, tt.prefix...), suffix...))
+			}
+			assert.Equal(t, expected, md.Undecoded())
+			for _, key := range md.Undecoded() {
+				assert.True(t, isDynamicTOMLPath(key), "dynamic key %v must be exempt", key)
+			}
+
+			loaded, err := LoadFromFile(writeTempTOML(t, content))
+			require.NoError(t, err)
+			require.NotNil(t, loaded)
+
+			content += `
+[servers.myservice.auth]
+audence = "typo"
+`
+			md, err = toml.NewDecoder(strings.NewReader(content)).Decode(&cfg)
+			require.NoError(t, err)
+			var unknown []toml.Key
+			for _, key := range md.Undecoded() {
+				if !isDynamicTOMLPath(key) {
+					unknown = append(unknown, key)
+				}
+			}
+			assert.Equal(t, []toml.Key{{"servers", "myservice", "auth", "audence"}}, unknown)
+
+			loaded, err = LoadFromFile(writeTempTOML(t, content))
+			assert.Nil(t, loaded)
+			require.ErrorContains(t, err, "unrecognized field(s): servers.myservice.auth.audence")
+		})
+	}
 }
 
 // TestLoadFromFile_TrustedBotsEmptyArray verifies that an explicitly set but
