@@ -306,9 +306,8 @@ func TestLoadStore_FailsClosedOnDuplicateLiveAndTerminalInvocationKeys(t *testin
 	assert.Empty(t, reloaded.byBearer, "no bearer may be indexed when recovery fails closed")
 	assert.Empty(t, reloaded.byInvocation, "no invocation tombstone may be indexed when recovery fails closed")
 
-	if _, err := reloaded.AuthorizeExecutor("dlgbearer_live", "github/gh-aw", "issue_read"); err == nil {
-		t.Fatal("the live half of a duplicate pair must not remain an authorized orphan bearer")
-	}
+	_, err = reloaded.AuthorizeExecutor("dlgbearer_live", "github/gh-aw", "issue_read")
+	assert.Error(t, err, "the live half of a duplicate pair must not remain an authorized orphan bearer")
 }
 
 func TestLoadStore_FailsClosedWhenUniqueDynamicSchemaHashesExceedEnvelopeBound(t *testing.T) {
