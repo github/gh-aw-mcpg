@@ -240,8 +240,7 @@ func TestMarkdownLoggerCodeBlocks(t *testing.T) {
 }
 
 func TestMarkdownLoggerFallback(t *testing.T) {
-	// Use a non-writable directory
-	logDir := "/root/nonexistent/directory"
+	logDir := blockedLogDir(t)
 	fileName := "test.md"
 
 	// Initialize the logger - should not fail, but use fallback
@@ -253,9 +252,7 @@ func TestMarkdownLoggerFallback(t *testing.T) {
 	useFallback := globalMarkdownLogger.useFallback
 	globalMarkdownMu.RUnlock()
 
-	if !useFallback {
-		t.Logf("Logger initialized without fallback (may have permissions)")
-	}
+	assert.True(t, useFallback)
 
 	// Should not panic when logging
 	LogInfoToMarkdown("test", "This should not crash")

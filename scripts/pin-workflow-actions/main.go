@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -18,6 +19,7 @@ var runtimeSHAFile string
 
 var runtimeSHA = strings.TrimSpace(runtimeSHAFile)
 var setupAction = "github/gh-aw/actions/setup@" + runtimeSHA
+var publishedSetupAction = regexp.MustCompile(`^github/gh-aw-actions/setup@[a-f0-9]{40}$`)
 
 var buildCLI = `runtime="${RUNNER_TEMP}/gh-aw-runtime"
 test ! -e "$runtime"
@@ -146,6 +148,24 @@ func normalize(content []byte, maintenance bool) ([]byte, error) {
 	jobs := field(document.Content[0], "jobs")
 	if jobs == nil || jobs.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("expected workflow jobs mapping")
+	}
+	publishedSetupCount := 0
+	for j := 0; j < len(jobs.Content); j += 2 {
+		steps := field(jobs.Content[j+1], "steps")
+		if steps == nil {
+			continue
+		}
+		if steps.Kind != yaml.SequenceNode {
+			return nil, fmt.Errorf("%s: expected steps sequence", jobs.Content[j].Value)
+		}
+		for _, step := range steps.Content {
+			if publishedSetupAction.MatchString(value(step, "uses")) {
+				publishedSetupCount++
+			}
+		}
+	}
+	if publishedSetupCount > 0 {
+		return content, nil
 	}
 	lines := strings.SplitAfter(string(content), "\n")
 	var edits []edit

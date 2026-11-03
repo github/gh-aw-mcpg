@@ -135,8 +135,7 @@ func TestServerFileLoggerConcurrentAccess(t *testing.T) {
 }
 
 func TestServerFileLoggerFallback(t *testing.T) {
-	// Use a non-writable directory to trigger fallback
-	logDir := "/root/nonexistent/directory"
+	logDir := blockedLogDir(t)
 
 	// Initialize the logger - should not fail, but use fallback
 	err := InitServerFileLogger(logDir)
@@ -462,9 +461,8 @@ func TestServerFileLoggerLog_SyncError(t *testing.T) {
 // TestServerFileLoggerGetOrCreate_FileCreationError verifies that getOrCreateLogger handles
 // file creation failures gracefully, falling back to the debug logger.
 func TestServerFileLoggerGetOrCreate_FileCreationError(t *testing.T) {
-	// Use a non-existent non-writable path to force os.OpenFile to fail.
 	sfl := &ServerFileLogger{
-		logDir:      "/nonexistent/path/that/does/not/exist",
+		logDir:      blockedLogDir(t),
 		loggers:     make(map[string]*log.Logger),
 		files:       make(map[string]*os.File),
 		useFallback: false, // not in fallback mode; will attempt to create files

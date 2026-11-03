@@ -279,7 +279,7 @@ jobs:
           echo "✓ Version: $RELEASE_TAG"
 
       - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f  # v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30  # v2.0.1
         with:
           target: wasm32-wasip1
 

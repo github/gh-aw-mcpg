@@ -55,6 +55,7 @@ func assertWorkflowUsesPinnedRemoteActions(t *testing.T, name string) {
 	workflow := string(content)
 	actionPattern := regexp.MustCompile(`(?m)^\s+uses:\s+(\S+)`)
 	pinnedActionPattern := regexp.MustCompile(`^github/gh-aw/actions/[^@]+@[a-f0-9]{40}$`)
+	pinnedReleaseActionPattern := regexp.MustCompile(`^github/gh-aw-actions/[^@]+@[a-f0-9]{40}$`)
 	setupCount := 0
 	for _, match := range actionPattern.FindAllStringSubmatch(workflow, -1) {
 		action := match[1]
@@ -65,7 +66,12 @@ func assertWorkflowUsesPinnedRemoteActions(t *testing.T, name string) {
 			assert.Equal(t, "github/gh-aw/actions/setup@"+runtimeSHA, action,
 				"runtime changes require deliberate review")
 		}
-		if strings.HasPrefix(action, "github/gh-aw/actions/setup@") {
+		if strings.HasPrefix(action, "github/gh-aw-actions/") {
+			assert.Regexp(t, pinnedReleaseActionPattern, action,
+				"published gh-aw actions must use immutable remote references")
+		}
+		if strings.HasPrefix(action, "github/gh-aw/actions/setup@") ||
+			strings.HasPrefix(action, "github/gh-aw-actions/setup@") {
 			setupCount++
 		}
 	}
@@ -73,17 +79,19 @@ func assertWorkflowUsesPinnedRemoteActions(t *testing.T, name string) {
 	assert.NotRegexp(t, `(?m)^\s+repository:\s+github/gh-aw\s*$`, workflow,
 		"remote runtime actions must not require replacing the workflow repository with a gh-aw checkout")
 	if name == "agentics-maintenance.yml" {
-		assert.Contains(t, workflow, "go run ./scripts/pin-workflow-actions")
 		assert.NotContains(t, workflow, "./gh-aw compile")
 		assert.NotContains(t, workflow, "run: make build")
-		assert.Contains(t, workflow, `runtime="${RUNNER_TEMP}/gh-aw-runtime"`)
-		for _, job := range []string{"compile-workflows", "secret-validation", "run_operation", "create_labels",
-			"activity_report", "forecast_report", "validate_workflows"} {
+		assert.NotContains(t, workflow, `runtime="${RUNNER_TEMP}/gh-aw-runtime"`)
+		assert.Contains(t, workflow, "uses: github/gh-aw-actions/setup-cli@")
+		assert.Contains(t, workflow, "GH_AW_CMD_PREFIX: gh aw")
+		for _, job := range []string{"run_operation", "create_labels", "activity_report", "forecast_report",
+			"validate_workflows"} {
 			assert.Contains(t, workflow, "\n  "+job+":\n", "dev-only maintenance jobs must be preserved")
 		}
-		assert.Contains(t, workflow, "  push:\n    branches:\n      - main\n")
+		assert.NotContains(t, workflow, "  push:\n    branches:\n      - main\n")
 	}
-	if name == "smoke-allowonly.lock.yml" || name == "smoke-proxy-github-script.lock.yml" {
+	if (name == "smoke-allowonly.lock.yml" || name == "smoke-proxy-github-script.lock.yml") &&
+		strings.Contains(workflow, "Build gh-aw CLI") {
 		assert.Contains(t, workflow, `go -C "$runtime" build \`,
 			"the CLI must be built from the verified gh-aw source checkout")
 		assert.Contains(t, workflow, "./cmd/gh-aw",

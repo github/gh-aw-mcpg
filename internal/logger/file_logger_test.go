@@ -28,7 +28,7 @@ func TestInitFileLogger(t *testing.T) {
 }
 
 func TestFileLoggerFallback(t *testing.T) {
-	logDir := "/root/nonexistent/directory"
+	logDir := blockedLogDir(t)
 	fileName := "test.log"
 
 	err := InitFileLogger(logDir, fileName)
@@ -40,9 +40,7 @@ func TestFileLoggerFallback(t *testing.T) {
 	globalLoggerMu.RUnlock()
 
 	require.NotNil(t, logger, "Logger should be initialized even in fallback mode")
-	if !logger.useFallback {
-		t.Logf("Logger initialized without fallback (system may have root access)")
-	}
+	assert.True(t, logger.useFallback)
 }
 
 func TestFileLoggerLogging(t *testing.T) {
@@ -222,7 +220,7 @@ func TestFileLogger_GetWriter(t *testing.T) {
 	})
 
 	t.Run("fallback logger returns stderr", func(t *testing.T) {
-		err := InitFileLogger("/root/nonexistent/directory", "test.log")
+		err := InitFileLogger(blockedLogDir(t), "test.log")
 		require.NoError(t, err)
 		defer CloseAllLoggers()
 
@@ -231,12 +229,9 @@ func TestFileLogger_GetWriter(t *testing.T) {
 		globalLoggerMu.RUnlock()
 
 		require.NotNil(t, logger)
-		if logger.useFallback {
-			w := logger.GetWriter()
-			assert.Equal(t, os.Stderr, w, "Fallback logger GetWriter should return os.Stderr")
-		} else {
-			t.Skip("System has permissions to write to /root; cannot test fallback path")
-		}
+		require.True(t, logger.useFallback)
+		w := logger.GetWriter()
+		assert.Equal(t, os.Stderr, w, "Fallback logger GetWriter should return os.Stderr")
 	})
 
 	t.Run("GetWriter implements io.Writer interface", func(t *testing.T) {

@@ -90,6 +90,18 @@ func TestNormalizePreservesWorkflowBehavior(t *testing.T) {
 	assert.Equal(t, output, again, "normalization must be byte-idempotent")
 }
 
+func TestNormalizePreservesPublishedReleaseOutput(t *testing.T) {
+	published := strings.Replace(
+		fixture,
+		"./actions/setup",
+		"github/gh-aw-actions/setup@0123456789012345678901234567890123456789",
+		1,
+	)
+	output, err := normalize([]byte(published), false)
+	require.NoError(t, err)
+	assert.Equal(t, published, string(output))
+}
+
 func TestNormalizeRejectsUnknownShapes(t *testing.T) {
 	for name, input := range map[string]string{
 		"unknown local action": strings.ReplaceAll(fixture, "./actions/setup", "./actions/other"),
@@ -237,6 +249,10 @@ func TestRepositoryNormalizationPreservesControls(t *testing.T) {
 			require.NoError(t, err)
 			output, err := normalize(content, filepath.Base(path) == "agentics-maintenance.yml")
 			require.NoError(t, err)
+			if strings.Contains(string(content), "github/gh-aw-actions/setup@") {
+				assert.Equal(t, content, output, "published release output must remain unchanged")
+				return
+			}
 			before, after := decoded(t, content), decoded(t, output)
 			oldJobs := before["jobs"].(map[string]any)
 			newJobs := after["jobs"].(map[string]any)

@@ -13,6 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func blockedLogDir(t *testing.T) string {
+	t.Helper()
+	blocker := filepath.Join(t.TempDir(), "not-a-directory")
+	require.NoError(t, os.WriteFile(blocker, []byte("content"), 0o644))
+	return filepath.Join(blocker, "logs")
+}
+
 func TestCloseLogFile_NilFile(t *testing.T) {
 	var mu sync.Mutex
 	err := closeLogFile(nil, &mu, "test")
@@ -302,20 +309,15 @@ func TestInitLogFile_InvalidDirectory(t *testing.T) {
 func TestInitLogFile_UnwritableDirectory(t *testing.T) {
 	assert := assert.New(t)
 
-	// Use a non-writable directory path
-	// On most systems, /root or similar paths are not writable by regular users
-	logDir := "/root/nonexistent/directory"
+	logDir := blockedLogDir(t)
 	fileName := "test.log"
 
 	file, err := initLogFile(logDir, fileName, os.O_APPEND)
-	if err == nil {
+	if file != nil {
 		file.Close()
-		// If we succeeded, we might have unexpected permissions
-		// This is OK - just skip the test
-		t.Skip("Test requires non-writable directory, but directory was writable")
 	}
 
-	// Verify error message includes "failed to create log directory"
+	require.Error(t, err)
 	assert.ErrorContains(err, "failed to create log directory", "Error should mention directory creation failure")
 }
 
@@ -430,8 +432,7 @@ func TestInitLogger_FileLoggerFallback(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 
-	// Use a non-writable directory to trigger error
-	logDir := "/root/nonexistent/directory"
+	logDir := blockedLogDir(t)
 	fileName := "test.log"
 
 	errorHandlerCalled := false
@@ -515,8 +516,7 @@ func TestInitLogger_JSONLLoggerError(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 
-	// Use a non-writable directory to trigger error
-	logDir := "/root/nonexistent/directory"
+	logDir := blockedLogDir(t)
 	fileName := "test.jsonl"
 
 	errorHandlerCalled := false
@@ -595,8 +595,7 @@ func TestInitLogger_MarkdownLoggerFallback(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 
-	// Use a non-writable directory to trigger error
-	logDir := "/root/nonexistent/directory"
+	logDir := blockedLogDir(t)
 	fileName := "test.md"
 
 	errorHandlerCalled := false
