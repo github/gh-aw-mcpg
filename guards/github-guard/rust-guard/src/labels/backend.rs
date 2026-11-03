@@ -74,20 +74,51 @@ fn call_backend_with_retry(
     }
 }
 
-fn repo_visibility_cache() -> &'static Mutex<HashMap<String, bool>> {
-    static CACHE: OnceLock<Mutex<HashMap<String, bool>>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+struct StaticCache<V>(OnceLock<Mutex<HashMap<String, V>>>);
+
+impl<V: Clone> StaticCache<V> {
+    const fn new() -> Self {
+        Self(OnceLock::new())
+    }
+
+    fn get(&self, key: &str) -> Option<V> {
+        self.0
+            .get_or_init(Default::default)
+            .lock()
+            .ok()?
+            .get(key)
+            .cloned()
+    }
+
+    fn set(&self, key: &str, value: &V) {
+        if let Ok(mut cache) = self.0.get_or_init(Default::default).lock() {
+            cache.insert(key.to_string(), value.clone());
+        }
+    }
+
+    #[cfg(test)]
+    fn clear(&self) {
+        if let Ok(mut cache) = self.0.get_or_init(Default::default).lock() {
+            cache.clear();
+        }
+    }
+
+    #[cfg(test)]
+    fn remove(&self, key: &str) {
+        if let Ok(mut cache) = self.0.get_or_init(Default::default).lock() {
+            cache.remove(key);
+        }
+    }
 }
+
+static REPO_VISIBILITY: StaticCache<bool> = StaticCache::new();
 
 /// Cache for collaborator permission lookups keyed by "owner/repo:username" (all lowercase).
 /// This is a process-wide static cache that persists across requests. Because the WASM guard
 /// is instantiated per-request in the gateway, entries accumulate over the process lifetime.
 /// All key components (owner, repo, username) are lowercased since GitHub treats them as
 /// case-insensitive.
-fn collaborator_permission_cache() -> &'static Mutex<HashMap<String, Option<String>>> {
-    static CACHE: OnceLock<Mutex<HashMap<String, Option<String>>>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
+static COLLAB_PERMISSION: StaticCache<Option<String>> = StaticCache::new();
 
 enum CachedPermission {
     Miss,
@@ -95,17 +126,13 @@ enum CachedPermission {
 }
 
 fn get_cached_collaborator_permission(key: &str) -> CachedPermission {
-    collaborator_permission_cache()
-        .lock()
-        .ok()
-        .and_then(|cache| cache.get(key).cloned())
+    COLLAB_PERMISSION
+        .get(key)
         .map_or(CachedPermission::Miss, CachedPermission::Known)
 }
 
-fn set_cached_collaborator_permission(key: &str, permission: Option<String>) {
-    if let Ok(mut cache) = collaborator_permission_cache().lock() {
-        cache.insert(key.to_string(), permission);
-    }
+fn set_cached_collaborator_permission(key: &str, permission: &Option<String>) {
+    COLLAB_PERMISSION.set(key, permission);
 }
 
 fn get_cached_repo_visibility(repo_id: &str) -> Option<bool> {
@@ -114,16 +141,11 @@ fn get_cached_repo_visibility(repo_id: &str) -> Option<bool> {
         return Some(is_private);
     }
 
-    repo_visibility_cache()
-        .lock()
-        .ok()
-        .and_then(|cache| cache.get(repo_id).copied())
+    REPO_VISIBILITY.get(repo_id)
 }
 
 fn set_cached_repo_visibility(repo_id: &str, is_private: bool) {
-    if let Ok(mut cache) = repo_visibility_cache().lock() {
-        cache.insert(repo_id.to_string(), is_private);
-    }
+    REPO_VISIBILITY.set(repo_id, &is_private);
 }
 
 #[cfg(test)]
@@ -195,9 +217,7 @@ pub(crate) fn cache_repo_visibility_for_tests(
 
 #[cfg(test)]
 pub(crate) fn clear_repo_visibility_cache_for_tests() {
-    if let Ok(mut cache) = repo_visibility_cache().lock() {
-        cache.clear();
-    }
+    REPO_VISIBILITY.clear();
 }
 
 #[derive(Debug, Clone)]
@@ -575,7 +595,7 @@ pub(crate) fn get_collaborator_permission_with_callback(
             crate::log_warn(&format!(
                 "get_collaborator_permission: empty response for {owner}/{repo} user {username}"
             ));
-            set_cached_collaborator_permission(&cache_key, None);
+            set_cached_collaborator_permission(&cache_key, &None);
             return None;
         }
         None => {
@@ -626,7 +646,7 @@ pub(crate) fn get_collaborator_permission_with_callback(
         "get_collaborator_permission: {owner}/{repo} user {username} → permission={permission:?} login={login:?}"
     ));
 
-    set_cached_collaborator_permission(&cache_key, permission.clone());
+    set_cached_collaborator_permission(&cache_key, &permission);
 
     Some(CollaboratorPermission {
         permission,
@@ -699,6 +719,49 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
+    fn test_static_cache_values_and_clear() {
+        let cache = StaticCache::new();
+        assert_eq!(cache.get("repo"), None);
+        cache.set("repo", &false);
+        assert_eq!(cache.get("repo"), Some(false));
+        cache.set("repo", &true);
+        assert_eq!(cache.get("repo"), Some(true));
+        cache.clear();
+        assert_eq!(cache.get("repo"), None);
+
+        let cache = StaticCache::new();
+        let mut permission = Some("write".to_string());
+        cache.set("user", &permission);
+        permission.as_mut().unwrap().clear();
+        let mut cached = cache.get("user").unwrap();
+        assert_eq!(cached.as_deref(), Some("write"));
+        cached.as_mut().unwrap().clear();
+        assert_eq!(cache.get("user"), Some(Some("write".to_string())));
+        cache.set("user", &None);
+        assert_eq!(cache.get("user"), Some(None));
+        cache.remove("user");
+        assert_eq!(cache.get("user"), None);
+    }
+
+    #[test]
+    fn test_static_cache_poisoned_lock() {
+        let cache = StaticCache::new();
+        cache.set("repo", &true);
+        let result = std::panic::catch_unwind(|| {
+            let _guard = cache.0.get().unwrap().lock().unwrap();
+            panic!("poison cache lock");
+        });
+        assert!(result.is_err());
+
+        assert_eq!(cache.get("repo"), None);
+        cache.set("repo", &false);
+        cache.clear();
+        cache.remove("repo");
+        let guard = cache.0.get().unwrap().lock().unwrap_err().into_inner();
+        assert_eq!(guard.get("repo"), Some(&true));
+    }
+
+    #[test]
     fn test_visibility_str() {
         assert_eq!(visibility_str(true), "private");
         assert_eq!(visibility_str(false), "public");
@@ -757,9 +820,7 @@ mod tests {
 
     // Tolerates a poisoned mutex so one panicking test doesn't cascade into others.
     fn clear_cached_collaborator_permission(key: &str) {
-        if let Ok(mut cache) = collaborator_permission_cache().lock() {
-            cache.remove(key);
-        }
+        COLLAB_PERMISSION.remove(key);
     }
 
     #[test]
@@ -770,13 +831,13 @@ mod tests {
             CachedPermission::Miss
         ));
 
-        set_cached_collaborator_permission(key, None);
+        set_cached_collaborator_permission(key, &None);
         assert!(matches!(
             get_cached_collaborator_permission(key),
             CachedPermission::Known(None)
         ));
 
-        set_cached_collaborator_permission(key, Some("write".to_string()));
+        set_cached_collaborator_permission(key, &Some("write".to_string()));
         match get_cached_collaborator_permission(key) {
             CachedPermission::Known(permission) => {
                 assert_eq!(permission.as_deref(), Some("write"));
@@ -795,7 +856,7 @@ mod tests {
 
         for permission in [Some("admin".to_string()), None] {
             let key = "cache-hits-owner/repo:user";
-            set_cached_collaborator_permission(key, permission.clone());
+            set_cached_collaborator_permission(key, &permission);
 
             let result = get_collaborator_permission_with_callback(
                 unexpected_callback,
