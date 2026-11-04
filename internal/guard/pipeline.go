@@ -12,6 +12,8 @@ import (
 
 var logPipeline = logger.ForFile()
 
+const issueArtifactWriteToolName = "issue_artifact_write"
+
 // PipelineInput holds the shared inputs used across DIFC pipeline phases 0–2, 4, and 6.
 // Both the HTTP proxy and the MCP unified server populate this struct and pass it to
 // the shared phase helpers, providing their context-specific Phase 3 and Phase 5 logic
@@ -162,7 +164,8 @@ func RunPipelinePrePhases(ctx context.Context, in PipelineInput) (context.Contex
 //
 // The ctx must carry the request state set by RunPipelinePrePhases (tool args for the guard).
 func RunPipelinePhase4(ctx context.Context, in PipelineInput, pre *PipelinePreResult, responseData interface{}) (difc.LabeledData, error) {
-	if !difc.ShouldCallLabelResponse(pre.Operation, in.EnforcementMode) {
+	if !difc.ShouldCallLabelResponse(pre.Operation, in.EnforcementMode) &&
+		in.ToolName != issueArtifactWriteToolName {
 		logPipeline.Printf("[DIFC] Phase 4: skipping LabelResponse for %s operation in %s mode",
 			pre.Operation, in.EnforcementMode)
 		return nil, nil

@@ -438,6 +438,8 @@ pub mod tool_names {
     pub const PULL_REQUEST_READ: &str = "pull_request_read";
     pub const GET_PULL_REQUEST: &str = "get_pull_request";
     pub const ISSUE_READ: &str = "issue_read";
+    pub const ISSUE_ARTIFACT_READ: &str = "issue_artifact_read";
+    pub const ISSUE_ARTIFACT_WRITE: &str = "issue_artifact_write";
     pub const GET_ISSUE: &str = "get_issue";
     pub const CLOSE_ISSUE: &str = "close_issue";
     pub const REOPEN_ISSUE: &str = "reopen_issue";

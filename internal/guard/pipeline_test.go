@@ -185,6 +185,18 @@ func TestRunPipelinePhase4_CallsLabelResponseForReadOperation(t *testing.T) {
 	assert.Equal(t, expectedLabeled, labeled)
 }
 
+func TestRunPipelinePhase4_CallsLabelResponseForIssueArtifactWriteInStrictMode(t *testing.T) {
+	expectedLabeled := &difc.CollectionLabeledData{}
+	g := &pipelineGuard{labelResponseData: expectedLabeled}
+	in := newPipelineInput(g, difc.OperationReadWrite, difc.EnforcementStrict)
+	in.ToolName = issueArtifactWriteToolName
+	pre := &PipelinePreResult{Operation: difc.OperationReadWrite}
+
+	labeled, err := RunPipelinePhase4(context.Background(), in, pre, "response-data")
+	require.NoError(t, err)
+	assert.Equal(t, expectedLabeled, labeled)
+}
+
 func TestRunPipelinePhase4_ReturnsErrorOnLabelResponseFailure(t *testing.T) {
 	labelErr := errors.New("response labeling failed")
 	g := &pipelineGuard{labelResponseErr: labelErr}

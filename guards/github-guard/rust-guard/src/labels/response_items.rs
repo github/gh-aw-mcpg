@@ -111,6 +111,26 @@ pub fn label_response_items(
             }
         }
 
+        tool_names::ISSUE_ARTIFACT_READ | tool_names::ISSUE_ARTIFACT_WRITE => {
+            let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+            let integrity = if repo_visibility_private_for_repo_id(&repo_full) == Some(true) {
+                writer_integrity(&repo_full, ctx)
+            } else {
+                vec![]
+            };
+            let items = extract_items_slice(&actual_response, "artifacts");
+            for item in limit_items_with_log(items, tool_name) {
+                labeled_items.push(LabeledItem {
+                    data: item.clone(),
+                    labels: ResourceLabels {
+                        description: format!("issue-artifact:{repo_full}"),
+                        secrecy: secrecy.clone(),
+                        integrity: integrity.clone().into(),
+                    },
+                });
+            }
+        }
+
         // === Security alerts - always private and reader-level ===
         tool_names::LIST_SECRET_SCANNING_ALERTS
         | tool_names::GET_SECRET_SCANNING_ALERT
@@ -605,6 +625,36 @@ mod tests {
 
     fn default_ctx() -> PolicyContext {
         PolicyContext::default()
+    }
+
+    #[test]
+    fn issue_artifact_update_response_uses_conservative_integrity() {
+        let ctx = default_ctx();
+        let args = json!({
+            "owner": "octocat",
+            "repo": "issue-artifact-labels",
+            "method": "update",
+            "issue_number": 42,
+            "name": "artifact"
+        });
+        let response = json!({"name": "artifact", "body": "existing artifact content"});
+
+        for private in [false, true] {
+            let repo_id = "octocat/issue-artifact-labels";
+            let _visibility =
+                super::super::backend::cache_repo_visibility_for_tests(repo_id, private);
+            let items =
+                label_response_items(tool_names::ISSUE_ARTIFACT_WRITE, &args, &response, &ctx);
+
+            assert_eq!(items.len(), 1);
+            let integrity: Vec<String> = items[0].labels.integrity.iter().cloned().collect();
+            let expected = if private {
+                writer_integrity(repo_id, &ctx)
+            } else {
+                vec![]
+            };
+            assert_eq!(integrity, expected, "private={private}");
+        }
     }
 
     /// Unknown tool names fall through to `_ => {}` and return an empty vec.
