@@ -163,6 +163,7 @@ const READ_WRITE_OPERATIONS: &[&str] = &[
     "create_pull_request_review",      // POST /repos/.../pulls/{number}/reviews
     "custom_properties_write",         // updates repository/org custom properties
     "delete_pending_pull_request_review", // DELETE /repos/.../pulls/{number}/reviews/{id}
+    tool_names::ISSUE_ARTIFACT_WRITE, // creates, updates, or deletes issue artifacts
     "issue_dependency_write", // GraphQL addBlockedBy/removeBlockedBy after resolving issue IDs
     "issue_dependency_write_ff_issue_dependencies", // current upstream feature-flagged issue dependency mutation
     "issue_write",
@@ -751,6 +752,14 @@ mod tests {
             !is_write_operation(op),
             "{op} should not be in WRITE_OPERATIONS (it is in READ_WRITE_OPERATIONS)"
         );
+    }
+
+    #[test]
+    fn test_issue_artifact_operation_classification() {
+        assert!(is_read_write_operation("issue_artifact_write"));
+        assert!(!is_write_operation("issue_artifact_write"));
+        assert!(!is_read_write_operation("issue_artifact_read"));
+        assert!(!is_write_operation("issue_artifact_read"));
     }
 
     #[test]

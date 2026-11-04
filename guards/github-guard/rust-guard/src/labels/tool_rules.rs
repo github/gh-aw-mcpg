@@ -338,6 +338,27 @@ pub fn apply_tool_labels(
                 apply_issue_read_enrichment(&owner, &repo, repo_id, tool_args, desc, integrity, true, ctx);
         }
 
+        tool_names::ISSUE_ARTIFACT_READ | tool_names::ISSUE_ARTIFACT_WRITE => {
+            if !owner.is_empty() && !repo.is_empty() {
+                if let Some(issue_num) =
+                    extract_number_as_string(tool_args, field_names::ISSUE_NUMBER)
+                {
+                    desc = format!(
+                        "{}{}#{}",
+                        desc_prefix::ISSUE,
+                        format_repo_id(&owner, &repo),
+                        issue_num
+                    );
+                }
+            }
+            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            integrity = if tool_name == tool_names::ISSUE_ARTIFACT_READ {
+                reader_integrity(repo_id, ctx)
+            } else {
+                writer_integrity(repo_id, ctx)
+            };
+        }
+
         // === Issue dependency / pin / unpin writes (repo-scoped write) ===
         // S = S(repo); I = writer
         "issue_dependency_write"
@@ -1666,6 +1687,65 @@ mod tests {
             issue_dependency_read_labels, issue_read_labels,
             "issue_dependency_read must match issue_read labels and description"
         );
+    }
+
+    #[test]
+    fn apply_tool_labels_issue_artifacts_are_repo_scoped() {
+        let ctx = default_ctx();
+        let repo_id = "octocat/issue-artifact-labels";
+        for private in [false, true] {
+            let _guard =
+                super::super::backend::cache_repo_visibility_for_tests(repo_id, private);
+            let expected_secrecy = if private {
+                private_label("octocat", "issue-artifact-labels", repo_id, &ctx)
+            } else {
+                vec![]
+            };
+            for (tool, methods, expected_integrity) in [
+                (
+                    "issue_artifact_read",
+                    &["list", "get"][..],
+                    reader_integrity(repo_id, &ctx),
+                ),
+                (
+                    "issue_artifact_write",
+                    &["create", "update", "delete"][..],
+                    writer_integrity(repo_id, &ctx),
+                ),
+            ] {
+                for method in methods {
+                    for issue_number in [
+                        serde_json::json!(42),
+                        serde_json::json!("42"),
+                        Value::Null,
+                    ] {
+                        let mut args = serde_json::json!({
+                            "owner": "octocat",
+                            "repo": "issue-artifact-labels",
+                            "method": method,
+                        });
+                        let expected_desc = if issue_number.is_null() {
+                            "artifact fallback"
+                        } else {
+                            args["issue_number"] = issue_number;
+                            "issue:octocat/issue-artifact-labels#42"
+                        };
+                        let (secrecy, integrity, desc) = super::apply_tool_labels(
+                            tool,
+                            &args,
+                            repo_id,
+                            vec!["private:stale".to_string()],
+                            vec![],
+                            "artifact fallback".to_string(),
+                            &ctx,
+                        );
+                        assert_eq!(secrecy, expected_secrecy, "{tool}/{method}: secrecy");
+                        assert_eq!(integrity, expected_integrity, "{tool}/{method}: integrity");
+                        assert_eq!(desc, expected_desc, "{tool}/{method}: description");
+                    }
+                }
+            }
+        }
     }
 
     #[test]
