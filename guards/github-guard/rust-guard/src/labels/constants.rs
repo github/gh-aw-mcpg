@@ -220,6 +220,11 @@ mod tests {
         assert_eq!(tool_names::UPDATE_CODESPACE, "update_codespace");
         assert_eq!(tool_names::DELETE_CODESPACE, "delete_codespace");
         assert_eq!(tool_names::STOP_CODESPACE, "stop_codespace");
+        assert_eq!(tool_names::REBUILD_CODESPACE, "rebuild_codespace");
+        assert_eq!(
+            tool_names::UPDATE_CODESPACE_PORT_VISIBILITY,
+            "update_codespace_port_visibility"
+        );
         assert_eq!(tool_names::DELETE_GIST, "delete_gist");
         assert_eq!(tool_names::RENAME_GIST, "rename_gist");
         assert_eq!(tool_names::ADD_DEPLOY_KEY, "add_deploy_key");
@@ -519,6 +524,8 @@ pub mod tool_names {
     pub const UPDATE_CODESPACE: &str = "update_codespace";
     pub const DELETE_CODESPACE: &str = "delete_codespace";
     pub const STOP_CODESPACE: &str = "stop_codespace";
+    pub const REBUILD_CODESPACE: &str = "rebuild_codespace";
+    pub const UPDATE_CODESPACE_PORT_VISIBILITY: &str = "update_codespace_port_visibility";
     pub const ADD_DEPLOY_KEY: &str = "add_deploy_key";
     pub const DELETE_DEPLOY_KEY: &str = "delete_deploy_key";
     pub const LIST_PROJECT_ITEMS: &str = "list_project_items";
