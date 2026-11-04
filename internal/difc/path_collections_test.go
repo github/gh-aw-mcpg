@@ -181,3 +181,20 @@ func TestPathCollectionsParentAccess(t *testing.T) {
 		})
 	}
 }
+
+func TestPathCollectionsOverallIntersectsIntegrity(t *testing.T) {
+	const fixture = `{"data":{"pullRequest":{"number":42,"reviews":{"nodes":[{"body":"unapproved"}]}}}}`
+	var original interface{}
+	require.NoError(t, json.Unmarshal([]byte(fixture), &original))
+
+	data, err := NewPathLabeledData(original, &PathLabels{
+		ItemsPaths: []string{"/data/pullRequest/reviews/nodes"},
+		LabeledPaths: []PathLabel{
+			{Path: "/data/pullRequest", Labels: PathLabelEntry{Integrity: []string{"none:public", "unapproved:public", "approved:public"}}},
+			{Path: "/data/pullRequest/reviews/nodes/0", Labels: PathLabelEntry{Integrity: []string{"none:public", "unapproved:public"}}},
+		},
+	})
+	require.NoError(t, err)
+
+	assert.ElementsMatch(t, []Tag{"none:public", "unapproved:public"}, data.Overall().Integrity.Label.GetTags())
+}

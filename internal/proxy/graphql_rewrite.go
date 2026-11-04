@@ -225,6 +225,9 @@ func injectPRGuardFields(query string) string {
 		if parent && hasField("number") == nil {
 			missing = append(missing, "number")
 		}
+		if parent && hasField("merged") == nil {
+			missing = append(missing, "merged")
+		}
 		if len(missing) > 0 {
 			offset := selections[0].GetPosition().Start
 			if spreadStart, ok := spreadStarts[offset]; ok {

@@ -215,7 +215,7 @@ func TestInjectGuardFieldsScopesPullRequestFields(t *testing.T) {
 	rewritten := InjectGuardFields(body, "pull_request_read")
 	var request GraphQLRequest
 	require.NoError(t, json.Unmarshal(rewritten, &request))
-	assert.Contains(t, request.Query, "author{login},authorAssociation,number,title")
+	assert.Contains(t, request.Query, "author{login},authorAssociation,number,merged,title")
 	assert.Equal(t, rewritten, InjectGuardFields(rewritten, "pull_request_read"), "injection must be idempotent")
 }
 

@@ -276,6 +276,15 @@ func (e *Evaluator) evaluateRead(
 
 	result := newEmptyEvaluationResult()
 
+	for _, tag := range resource.Integrity.Label.GetTags() {
+		if strings.HasPrefix(string(tag), "blocked:") {
+			result.Decision = AccessDeny
+			result.Reason = fmt.Sprintf("Resource '%s' is explicitly blocked.", resource.Description)
+			result.hardDeny = true
+			return result
+		}
+	}
+
 	// For reads: resource integrity must flow to agent (trust check)
 	// Agent must trust the resource (resource has all integrity tags agent requires)
 	integrityOk, integrityMissingTags := resource.Integrity.CheckFlow(agentIntegrity)

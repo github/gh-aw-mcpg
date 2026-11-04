@@ -342,10 +342,16 @@ func (p *PathLabeledData) Overall() *LabeledResource {
 	}
 
 	overall := NewLabeledResource("path-labeled collection")
+	hasIntegrity := false
 	for _, item := range p.resolvedItems {
 		if item.Labels != nil {
 			overall.Secrecy.Label.Union(item.Labels.Secrecy.Label)
-			overall.Integrity.Label.Union(item.Labels.Integrity.Label)
+			if !hasIntegrity {
+				overall.Integrity.Label.Union(item.Labels.Integrity.Label)
+				hasIntegrity = true
+			} else {
+				overall.Integrity.Label.Intersect(item.Labels.Integrity.Label)
+			}
 		}
 	}
 

@@ -422,7 +422,7 @@ func TestPathLabeledData_ToResult_MCPWrapped(t *testing.T) {
 
 // TestPathLabeledData_OverallUnion verifies that Overall() takes the union of
 // secrecy and integrity labels across all resolved items.
-func TestPathLabeledData_OverallUnion(t *testing.T) {
+func TestPathLabeledData_OverallIntegrityIntersection(t *testing.T) {
 	originalDataJSON := `{"items": [{"id": 1}, {"id": 2}, {"id": 3}]}`
 	var originalData interface{}
 	require.NoError(t, json.Unmarshal([]byte(originalDataJSON), &originalData))
@@ -446,10 +446,8 @@ func TestPathLabeledData_OverallUnion(t *testing.T) {
 	assert.True(t, overall.Secrecy.Label.Contains(Tag("public")))
 	assert.True(t, overall.Secrecy.Label.Contains(Tag("confidential")))
 
-	// Overall integrity should be union: {low, high, medium}
-	assert.True(t, overall.Integrity.Label.Contains(Tag("low")))
-	assert.True(t, overall.Integrity.Label.Contains(Tag("high")))
-	assert.True(t, overall.Integrity.Label.Contains(Tag("medium")))
+	// No integrity tag is shared by every returned item.
+	assert.Empty(t, overall.Integrity.Label.GetTags())
 }
 
 // TestResolve_SkipsNonMatchingLabeledPaths verifies that labeled paths that do
