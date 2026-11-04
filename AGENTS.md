@@ -535,9 +535,14 @@ checks this policy through an SDK client session.
 JSON-RPC frames already use the SDK's `DefaultMaxLineLength` (16 MiB), matching
 the gateway's HTTP `MaxEventSize` limit. No custom transport is needed.
 No `MCPGODEBUG` settings were found in the repository during this review.
-Before v1.9.x, recheck deployment environments for `plaintextstatefulrejection`
-and `blockingcancelnotify` (removed in v1.9.0), and exercise launcher shutdown
-tests against the changed asynchronous cancellation-notification behavior.
+Before v1.9.x, recheck deployment environments for all `MCPGODEBUG` options
+scheduled for removal in v1.9.0, including those added in v1.7.0:
+`customresnotfounderrcode`, `hintomitempty`, `allowsessionsinstateless`,
+`nomethodnotfoundcodeinerror`, `noprotocolerrorbody`, `nowrapinvalidparams`,
+`disablecompleteparamsvalidation`, `plaintextstatefulrejection`, and
+`blockingcancelnotify`. Asynchronous cancellation notification is already the
+v1.8.0 default; re-run launcher shutdown tests to check for reliance on the
+`blockingcancelnotify=1` opt-out before it is removed.
 
 Before upgrading `github.com/modelcontextprotocol/go-sdk`, verify the two canary tests still pass:
 
