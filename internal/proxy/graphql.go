@@ -144,6 +144,10 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 		logGraphQL.Printf("no GraphQL pattern match for query: %.100s", gql.Query)
 		return nil
 	}
+	if toolName == "pull_request_read" && hasAliasedPRResource(gql.Query) {
+		logGraphQL.Print("aliased PR fields cannot be labeled safely, blocking request")
+		return nil
+	}
 
 	// Extract owner/repo from variables
 	ownerRepoQuery := gql.Query
@@ -186,6 +190,43 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 		Repo:     repo,
 		Args:     args,
 	}
+}
+
+func hasAliasedPRResource(query string) bool {
+	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, graphqlTokenLimit)
+	if err != nil {
+		return true
+	}
+	var check func(ast.SelectionSet) bool
+	check = func(selections ast.SelectionSet) bool {
+		for _, selection := range selections {
+			switch field := selection.(type) {
+			case *ast.Field:
+				if field.Alias != "" && field.Alias != field.Name {
+					return true
+				}
+				if check(field.SelectionSet) {
+					return true
+				}
+			case *ast.InlineFragment:
+				if check(field.SelectionSet) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	for _, operation := range doc.Operations {
+		if check(operation.SelectionSet) {
+			return true
+		}
+	}
+	for _, fragment := range doc.Fragments {
+		if check(fragment.SelectionSet) {
+			return true
+		}
+	}
+	return false
 }
 
 // graphqlRootFields returns the root fields of the selected query operation.

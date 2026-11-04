@@ -257,6 +257,18 @@ backend collaborator-permission metadata; it does not inherit trust from the
 thread or pull request. Unknown response shapes retain conservative fallback
 labeling or the coarse access decision.
 
+For composite GraphQL PR reads, `labeled_paths` also labels the enclosing PR
+object independently of its review and comment collections. In `items_paths`
+mode, explicit paths outside collection items gate whole subtrees: a denied
+object becomes `null`, even when its children would be accessible. Denied
+reviews/comments are removed at their exact array paths; an empty connection
+does not discard authorized PR metadata, other connections, or pagination.
+The proxy uses this exact-path reconstruction instead of replacing the first
+`nodes` array. Only supported PR metadata subtrees inherit parent authorization;
+other nested resources (for example linked issues or commit message content)
+and unclassified sibling resources are denied. GraphQL aliases in PR reads are
+rejected rather than silently bypassing child filtering.
+
 ### 3. SimpleLabeledData (Go Guards Only)
 
 For native Go guards, return a `SimpleLabeledData` struct to override resource labels:

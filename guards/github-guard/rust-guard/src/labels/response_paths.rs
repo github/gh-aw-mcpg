@@ -164,6 +164,322 @@ fn author_item_label(
     }
 }
 
+fn label_graphql_pull_request(
+    tool_args: &Value,
+    response: &Value,
+    ctx: &PolicyContext,
+) -> Option<PathLabelResult> {
+    let parent_path = "/data/repository/pullRequest";
+    let parent = response.pointer(parent_path)?.as_object()?;
+    let parent_value = response.pointer(parent_path)?;
+    let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+    let number = extract_resource_number(parent_value, "pr", &repo_full);
+    let private = repo_visibility_private_for_repo_id(&repo_full).unwrap_or(false);
+    let mut parent_labels = crate::ResourceLabels {
+        description: format!("{}{}#{}", desc_prefix::PR, repo_full, number),
+        secrecy: secrecy.clone(),
+        integrity: pr_integrity(
+            parent_value,
+            &repo_full,
+            private,
+            is_forked_pr(parent_value),
+            ctx,
+        )
+        .into(),
+    };
+    let mut labeled_paths = Vec::new();
+    let mut items_paths = Vec::new();
+    let mut valid = true;
+    for field in ["reviews", "comments"] {
+        if let Some(connection) = parent.get(field).filter(|value| !value.is_null()) {
+            let connection_valid = label_graphql_author_connection(
+                connection,
+                &format!("{parent_path}/{field}"),
+                &repo_full,
+                &secrecy,
+                ctx,
+                &mut labeled_paths,
+                &mut items_paths,
+            );
+            valid &= connection_valid;
+        }
+    }
+    if let Some(threads) = parent.get("reviewThreads").filter(|value| !value.is_null()) {
+        let mut found = false;
+        valid &= graphql_connection_shape_valid(threads);
+        for (key, node_key) in [("nodes", ""), ("edges", "/node")] {
+            if let Some(nodes) = threads.get(key).and_then(Value::as_array) {
+                found = true;
+                for (index, thread) in nodes.iter().enumerate() {
+                    let thread_path =
+                        format!("{parent_path}/reviewThreads/{key}/{index}{node_key}");
+                    let thread = if node_key.is_empty() {
+                        thread
+                    } else {
+                        match thread.get("node") {
+                            Some(node) if node.is_object() => node,
+                            _ => {
+                                valid = false;
+                                continue;
+                            }
+                        }
+                    };
+                    let Some(fields) = thread.as_object() else {
+                        valid = false;
+                        continue;
+                    };
+                    for (field, value) in fields {
+                        if field != "comments" && (value.is_object() || value.is_array()) {
+                            let field = field.replace('~', "~0").replace('/', "~1");
+                            labeled_paths.push(crate::PathLabel {
+                                path: format!("{thread_path}/{field}"),
+                                labels: repo_default_labels(
+                                    "unclassified-graphql-resource",
+                                    secrecy.clone(),
+                                    blocked_integrity(&repo_full, ctx),
+                                ),
+                            });
+                        }
+                    }
+                    if let Some(comments) = thread.get("comments").filter(|value| !value.is_null())
+                    {
+                        valid &= label_graphql_author_connection(
+                            comments,
+                            &format!(
+                                "{parent_path}/reviewThreads/{key}/{index}{node_key}/comments"
+                            ),
+                            &repo_full,
+                            &secrecy,
+                            ctx,
+                            &mut labeled_paths,
+                            &mut items_paths,
+                        );
+                    }
+                }
+            }
+        }
+        valid &= found || graphql_connection_metadata_only(threads);
+    }
+    // Unknown nested shapes must not fall through to a coarser PR label.
+    if !valid {
+        parent_labels.integrity = blocked_integrity(&repo_full, ctx).into();
+    }
+    for (field, value) in parent {
+        if !value.is_object() && !value.is_array() {
+            continue;
+        }
+        let metadata_fields: &[&str] = match field.as_str() {
+            "reviews" | "comments" | "reviewThreads" => continue,
+            "author" => &["login", "id", "__typename"],
+            "headRepository" | "baseRepository" | "repository" => &[
+                "nameWithOwner",
+                "name",
+                "id",
+                "url",
+                "isPrivate",
+                "__typename",
+            ],
+            "labels" => &[
+                "nodes",
+                "edges",
+                "node",
+                "cursor",
+                "pageInfo",
+                "hasNextPage",
+                "hasPreviousPage",
+                "startCursor",
+                "endCursor",
+                "totalCount",
+                "name",
+                "id",
+                "color",
+                "description",
+                "__typename",
+            ],
+            "commits" => &[
+                "nodes",
+                "edges",
+                "node",
+                "cursor",
+                "pageInfo",
+                "hasNextPage",
+                "hasPreviousPage",
+                "startCursor",
+                "endCursor",
+                "totalCount",
+                "commit",
+                "oid",
+                "committedDate",
+                "__typename",
+            ],
+            _ => &[],
+        };
+        if metadata_fields.is_empty() || !graphql_metadata_only(value, metadata_fields) {
+            let field = field.replace('~', "~0").replace('/', "~1");
+            labeled_paths.push(crate::PathLabel {
+                path: format!("{parent_path}/{field}"),
+                labels: repo_default_labels(
+                    "unclassified-graphql-resource",
+                    secrecy.clone(),
+                    blocked_integrity(&repo_full, ctx),
+                ),
+            });
+        }
+    }
+    labeled_paths.push(crate::PathLabel {
+        path: parent_path.to_string(),
+        labels: parent_labels,
+    });
+    // This route only authorizes the PR subtree, not other GraphQL roots/resources.
+    for (path, allowed) in [("/data", "repository"), ("/data/repository", "pullRequest")] {
+        if let Some(fields) = response.pointer(path).and_then(Value::as_object) {
+            for key in fields.keys().filter(|key| key.as_str() != allowed) {
+                let key = key.replace('~', "~0").replace('/', "~1");
+                labeled_paths.push(crate::PathLabel {
+                    path: format!("{path}/{key}"),
+                    labels: repo_default_labels(
+                        "unclassified-graphql-resource",
+                        secrecy.clone(),
+                        blocked_integrity(&repo_full, ctx),
+                    ),
+                });
+            }
+        }
+    }
+    Some(PathLabelResult {
+        labeled_paths,
+        default_labels: Some(repo_default_labels(
+            "pull-request-content",
+            secrecy,
+            blocked_integrity(&repo_full, ctx),
+        )),
+        items_path: None,
+        items_paths: Some(items_paths),
+    })
+}
+
+fn graphql_connection_shape_valid(connection: &Value) -> bool {
+    let Some(fields) = connection.as_object() else {
+        return false;
+    };
+    fields.iter().all(|(key, value)| match key.as_str() {
+        "nodes" | "edges" => value.is_array(),
+        "totalCount" => value.as_u64().is_some(),
+        "pageInfo" => graphql_page_info_valid(value),
+        "__typename" => value.as_str().is_some(),
+        _ => false,
+    })
+}
+
+fn graphql_page_info_valid(page_info: &Value) -> bool {
+    let Some(fields) = page_info.as_object() else {
+        return false;
+    };
+    fields.iter().all(|(key, value)| match key.as_str() {
+        "hasNextPage" | "hasPreviousPage" => value.is_boolean(),
+        "startCursor" | "endCursor" => value.is_null() || value.as_str().is_some(),
+        "__typename" => value.as_str().is_some(),
+        _ => false,
+    })
+}
+
+fn graphql_connection_metadata_only(connection: &Value) -> bool {
+    graphql_connection_shape_valid(connection)
+        && connection.as_object().is_some_and(|fields| {
+            !fields.is_empty()
+                && fields
+                    .keys()
+                    .all(|key| matches!(key.as_str(), "totalCount" | "pageInfo" | "__typename"))
+        })
+}
+
+fn graphql_metadata_only(value: &Value, allowed_fields: &[&str]) -> bool {
+    match value {
+        Value::Object(fields) => fields.iter().all(|(key, value)| {
+            allowed_fields.contains(&key.as_str()) && graphql_metadata_only(value, allowed_fields)
+        }),
+        Value::Array(items) => items
+            .iter()
+            .all(|item| graphql_metadata_only(item, allowed_fields)),
+        _ => true,
+    }
+}
+
+fn label_graphql_author_connection(
+    connection: &Value,
+    path: &str,
+    repo_full: &str,
+    secrecy: &crate::SharedLabels,
+    ctx: &PolicyContext,
+    labeled_paths: &mut Vec<crate::PathLabel>,
+    items_paths: &mut Vec<String>,
+) -> bool {
+    let mut found = false;
+    let shape_valid = graphql_connection_shape_valid(connection);
+    for key in ["nodes", "edges"] {
+        if let Some(items) = connection.get(key).and_then(Value::as_array) {
+            found = true;
+            let path = format!("{path}/{key}");
+            items_paths.push(path.clone());
+            let remaining = MAX_ITEMS_PER_RESPONSE.saturating_sub(labeled_paths.len() + 1);
+            for (index, item) in items.iter().take(remaining).enumerate() {
+                let author_item = if key == "edges" {
+                    match item.get("node").filter(|node| node.is_object()) {
+                        Some(node) => node,
+                        None => return false,
+                    }
+                } else {
+                    item
+                };
+                if !author_item.is_object() {
+                    return false;
+                }
+                let own_author = own_author_fields(author_item);
+                let mut label = author_item_label(&own_author, repo_full, "review", secrecy, ctx);
+                label.path = format!("{path}/{index}");
+                labeled_paths.push(label);
+                if let Some(fields) = author_item.as_object() {
+                    for (field, value) in fields {
+                        if !value.is_object() && !value.is_array() {
+                            continue;
+                        }
+                        let allowed_fields: &[&str] = match field.as_str() {
+                            "author" => &["login", "id", "__typename"],
+                            "commit" => &["oid", "committedDate", "__typename"],
+                            _ => &[],
+                        };
+                        if allowed_fields.is_empty()
+                            || !graphql_metadata_only(value, allowed_fields)
+                        {
+                            let node_key = if key == "edges" { "/node" } else { "" };
+                            let field = field.replace('~', "~0").replace('/', "~1");
+                            labeled_paths.push(crate::PathLabel {
+                                path: format!("{path}/{index}{node_key}/{field}"),
+                                labels: repo_default_labels(
+                                    "unclassified-graphql-resource",
+                                    secrecy.clone(),
+                                    blocked_integrity(repo_full, ctx),
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    shape_valid && (found || graphql_connection_metadata_only(connection))
+}
+
+fn own_author_fields(item: &Value) -> Value {
+    let mut fields = serde_json::Map::new();
+    for field in ["id", "author", "authorAssociation", "author_association"] {
+        if let Some(value) = item.get(field) {
+            fields.insert(field.to_string(), value.clone());
+        }
+    }
+    Value::Object(fields)
+}
+
 struct RepoItemsContext<'a> {
     limited_items: &'a [Value],
     items_path: &'static str,
@@ -356,6 +672,11 @@ pub fn label_response_paths(
         | tool_names::PULL_REQUEST_READ
         | tool_names::GET_PULL_REQUEST => {
             let method = dispatched_method(tool_args);
+            if tool_name == tool_names::PULL_REQUEST_READ && matches!(method, "" | "get") {
+                if let Some(result) = label_graphql_pull_request(tool_args, &actual_response, ctx) {
+                    return Some(result);
+                }
+            }
             if tool_name == tool_names::PULL_REQUEST_READ
                 && matches!(
                     method,
@@ -990,6 +1311,169 @@ mod tests {
 
     fn ctx() -> PolicyContext {
         PolicyContext::default()
+    }
+
+    #[test]
+    fn graphql_composite_pr_labels_parent_and_nested_authors_independently() {
+        let response: Value = serde_json::from_str(include_str!(
+            "../../../../../internal/proxy/testdata/graphql_pr_reviews.json"
+        ))
+        .unwrap();
+        let args = json!({"owner": "testorg", "repo": "testrepo"});
+        let policy = ctx();
+        let result =
+            label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy).unwrap();
+        assert!(result.items_path.is_none());
+        assert_eq!(
+            result.items_paths.unwrap(),
+            vec![
+                "/data/repository/pullRequest/reviews/nodes",
+                "/data/repository/pullRequest/reviewThreads/nodes/0/comments/nodes",
+            ]
+        );
+        let parent = result.labeled_paths.last().unwrap();
+        assert_eq!(parent.path, "/data/repository/pullRequest");
+        assert_eq!(parent.labels.description, "pr:testorg/testrepo#42");
+        assert_eq!(
+            parent.labels.integrity,
+            writer_integrity("testorg/testrepo", &policy)
+        );
+        assert_eq!(
+            result.labeled_paths[0].labels.integrity,
+            reader_integrity("testorg/testrepo", &policy),
+        );
+        assert_eq!(
+            result.labeled_paths[1].labels.integrity,
+            writer_integrity("testorg/testrepo", &policy),
+        );
+        assert_eq!(
+            result.default_labels.unwrap().integrity,
+            blocked_integrity("testorg/testrepo", &policy),
+        );
+    }
+
+    #[test]
+    fn graphql_composite_pr_accepts_metadata_only_connections() {
+        let args = json!({"owner": "testorg", "repo": "testrepo"});
+        let response = json!({"data":{"repository":{"pullRequest":{
+            "number": 42,
+            "authorAssociation": "MEMBER",
+            "reviews": {"totalCount": 0},
+            "reviewThreads": {"pageInfo": {
+                "hasNextPage": false,
+                "hasPreviousPage": false,
+                "startCursor": null,
+                "endCursor": null
+            }}
+        }}}});
+
+        let result =
+            label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &ctx()).unwrap();
+
+        assert!(result.items_paths.unwrap().is_empty());
+        assert_eq!(
+            result.labeled_paths.last().unwrap().labels.integrity,
+            writer_integrity("testorg/testrepo", &ctx())
+        );
+    }
+
+    #[test]
+    fn graphql_composite_pr_overflow_defaults_to_blocked_integrity() {
+        let args = json!({"owner": "testorg", "repo": "testrepo"});
+        let reviews = vec![
+            json!({"author": {"login": "member"}, "authorAssociation": "MEMBER"});
+            MAX_ITEMS_PER_RESPONSE - 1
+        ];
+        let comments = json!([{
+            "author": {"login": "blocked"},
+            "authorAssociation": "MEMBER",
+            "replyTo": {"body": "must not survive overflow"}
+        }]);
+        let response = json!({"data":{"repository":{"pullRequest":{
+            "number": 42,
+            "authorAssociation": "MEMBER",
+            "reviews": {"nodes": reviews},
+            "comments": {"nodes": comments}
+        }}}});
+        let mut policy = ctx();
+        policy.blocked_users = vec!["blocked".to_string()];
+
+        let result =
+            label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy).unwrap();
+
+        assert!(!result
+            .labeled_paths
+            .iter()
+            .any(|label| { label.path == "/data/repository/pullRequest/comments/nodes/0" }));
+        assert_eq!(
+            result.default_labels.unwrap().integrity,
+            blocked_integrity("testorg/testrepo", &policy)
+        );
+    }
+
+    #[test]
+    fn graphql_review_author_does_not_fall_back_to_commit_author() {
+        let args = json!({"owner": "testorg", "repo": "testrepo"});
+        let response = json!({"data":{"repository":{"pullRequest":{
+            "number": 42,
+            "authorAssociation": "MEMBER",
+            "reviews": {"nodes": [{
+                "id": "review-1",
+                "author": null,
+                "authorAssociation": "CONTRIBUTOR",
+                "commit": {"author": {"user": {"login": "trusted-bot"}}}
+            }]}
+        }}}});
+        let policy = PolicyContext {
+            trusted_bots: vec!["trusted-bot".to_string()],
+            ..Default::default()
+        };
+
+        let result =
+            label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy).unwrap();
+
+        assert_eq!(
+            result.labeled_paths[0].labels.integrity,
+            reader_integrity("testorg/testrepo", &policy)
+        );
+    }
+
+    #[test]
+    fn graphql_composite_pr_merged_parent_gets_merged_integrity() {
+        let args = json!({"owner": "testorg", "repo": "testrepo"});
+        let response = json!({"data":{"repository":{"pullRequest":{
+            "number": 42,
+            "authorAssociation": "CONTRIBUTOR",
+            "merged": true,
+            "state": "MERGED",
+            "title": "Merged pull request"
+        }}}});
+
+        let result =
+            label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &ctx()).unwrap();
+
+        assert_eq!(
+            result.labeled_paths.last().unwrap().labels.integrity,
+            merged_integrity("testorg/testrepo", &ctx())
+        );
+    }
+
+    #[test]
+    fn graphql_composite_pr_unknown_connections_fail_closed() {
+        let args = json!({"owner": "testorg", "repo": "testrepo"});
+        let policy = ctx();
+        for connection in [json!({"unexpected": "content"}), json!({"nodes": {}})] {
+            let response = json!({"data":{"repository":{"pullRequest":{
+                "number": 42, "authorAssociation": "MEMBER", "reviews": connection
+            }}}});
+            let result =
+                label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy)
+                    .unwrap();
+            assert_eq!(
+                result.labeled_paths.last().unwrap().labels.integrity,
+                blocked_integrity("testorg/testrepo", &policy)
+            );
+        }
     }
 
     #[test]

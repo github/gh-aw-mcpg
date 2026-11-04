@@ -905,6 +905,24 @@ func TestEvaluator_PropagateMode_Read(t *testing.T) {
 		assert.False(t, result.RequiresPropagation(), "Should NOT require propagation when labels match")
 		assert.Equal(t, AccessAllow, result.Decision)
 	})
+
+	t.Run("blocked integrity is a hard denial in propagate mode", func(t *testing.T) {
+		eval := NewEvaluatorWithMode(EnforcementPropagate)
+		resource := NewLabeledResource("unclassified GraphQL subtree")
+		resource.Integrity.Label.Add("blocked:owner/repo")
+
+		result := eval.Evaluate(
+			NewSecrecyLabel(),
+			NewIntegrityLabel("approved:owner/repo"),
+			resource,
+			OperationRead,
+		)
+
+		assert.False(t, result.IsAllowed())
+		assert.Equal(t, AccessDeny, result.Decision)
+		assert.True(t, result.hardDeny)
+		assert.Empty(t, result.IntegrityToDrop)
+	})
 }
 
 // TestEvaluator_PropagateMode_Write tests that writes are still blocked in propagate mode

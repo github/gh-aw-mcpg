@@ -86,6 +86,21 @@ func TestInjectGuardFields_HandlesIssues(t *testing.T) {
 	assert.Contains(t, gql.Query, "authorAssociation")
 }
 
+func TestInjectGuardFields_PullRequestReadInjectsMergedParent(t *testing.T) {
+	query := `query { repository(owner:"o", name:"r") { pullRequest(number: 1) { state title } } }`
+	body, _ := json.Marshal(GraphQLRequest{Query: query})
+
+	result := InjectGuardFields(body, "pull_request_read")
+
+	var gql GraphQLRequest
+	require.NoError(t, json.Unmarshal(result, &gql))
+	assert.Contains(t, gql.Query, "merged")
+	assert.Contains(t, gql.Query, "authorAssociation")
+	assert.Contains(t, gql.Query, "number")
+	assert.Contains(t, gql.Query, "state")
+	assert.Contains(t, gql.Query, "title")
+}
+
 func TestInjectGuardFields_InjectsIntoInlineFragment(t *testing.T) {
 	// Search queries use union types with inline fragments; fields must go
 	// inside the inline fragment, not directly on the nodes level.
@@ -246,6 +261,7 @@ func TestInjectGuardFields_PullRequestRead(t *testing.T) {
 	require.NoError(t, json.Unmarshal(result, &gql))
 	assert.Contains(t, gql.Query, "author{login}")
 	assert.Contains(t, gql.Query, "authorAssociation")
+	assert.Contains(t, gql.Query, "merged")
 }
 
 func TestInjectGuardFields_SkipsAssigneesNodes(t *testing.T) {
@@ -266,9 +282,8 @@ func TestInjectGuardFields_SkipsAssigneesNodes(t *testing.T) {
 
 	var gql GraphQLRequest
 	require.NoError(t, json.Unmarshal(result, &gql))
-	// authorAssociation should NOT be injected because the only nodes block
-	// is assignees.nodes which returns User objects.
-	assert.NotContains(t, gql.Query, "authorAssociation",
+	assert.Contains(t, gql.Query, "authorAssociation", "the PR itself requires authorAssociation")
+	assert.Contains(t, gql.Query, `assignees(first: 100) { nodes { login } }`,
 		"authorAssociation must not be injected into assignees.nodes (User type)")
 }
 
@@ -294,7 +309,7 @@ func TestInjectGuardFields_MixedNodesBlocks(t *testing.T) {
 	// Verify injection is in comments.nodes, not assignees.nodes
 	assert.Contains(t, gql.Query, `assignees(first: 10) { nodes { login } }`,
 		"assignees.nodes should remain unmodified")
-	assert.Contains(t, gql.Query, `comments(first: 10) { nodes {author{login},authorAssociation,`,
+	assert.Contains(t, gql.Query, `comments(first: 10) { nodes { author{login},authorAssociation,`,
 		"comments.nodes should have injected fields")
 }
 

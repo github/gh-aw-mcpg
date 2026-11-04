@@ -3,9 +3,13 @@ package proxy
 import (
 	"encoding/json"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/lexer"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 var logGraphQLRewrite = logger.ForFile()
@@ -121,6 +125,19 @@ func InjectGuardFields(body []byte, toolName string) []byte {
 		return body
 	}
 
+	if toolName == "pull_request_read" {
+		modified := injectPRGuardFields(gql.Query)
+		if modified == gql.Query {
+			return body
+		}
+		gql.Query = modified
+		out, err := json.Marshal(gql)
+		if err != nil {
+			return body
+		}
+		return out
+	}
+
 	if gql.Query == "" || allFieldsPresent(gql.Query, fields) {
 		logGraphQLRewrite.Printf("Guard fields already present for tool=%s, skipping injection", toolName)
 		return body
@@ -142,6 +159,127 @@ func InjectGuardFields(body []byte, toolName string) []byte {
 		return body
 	}
 	return out
+}
+
+// injectPRGuardFields checks each resource selection independently: a nested
+// review's author fields must not satisfy the enclosing PR's requirements.
+func injectPRGuardFields(query string) string {
+	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, graphqlTokenLimit)
+	if err != nil {
+		return query
+	}
+	spreadStarts := make(map[int]int)
+	tokenLexer := lexer.New(&ast.Source{Input: query})
+	var previous lexer.Token
+	for {
+		token, err := tokenLexer.ReadToken()
+		if err != nil {
+			return query
+		}
+		if token.Kind == lexer.EOF {
+			break
+		}
+		if token.Kind != lexer.Comment {
+			if previous.Kind == lexer.Spread {
+				spreadStarts[token.Pos.Start] = previous.Pos.Start
+			}
+			previous = token
+		}
+	}
+	type insertion struct {
+		offset int
+		text   string
+	}
+	var insertions []insertion
+	inserted := make(map[int]bool)
+	addFields := func(selections ast.SelectionSet, parent bool) {
+		if len(selections) == 0 {
+			return
+		}
+		hasField := func(name string) *ast.Field {
+			for _, selection := range selections {
+				if field, ok := selection.(*ast.Field); ok && field.Name == name &&
+					(field.Alias == "" || field.Alias == name) && len(field.Directives) == 0 {
+					return field
+				}
+			}
+			return nil
+		}
+		var missing []string
+		author := hasField("author")
+		hasLogin := false
+		if author != nil {
+			for _, selection := range author.SelectionSet {
+				if field, ok := selection.(*ast.Field); ok && field.Name == "login" &&
+					(field.Alias == "" || field.Alias == "login") && len(field.Directives) == 0 {
+					hasLogin = true
+				}
+			}
+		}
+		if !hasLogin {
+			missing = append(missing, "author{login}")
+		}
+		if hasField("authorAssociation") == nil {
+			missing = append(missing, "authorAssociation")
+		}
+		if parent && hasField("number") == nil {
+			missing = append(missing, "number")
+		}
+		if parent && hasField("merged") == nil {
+			missing = append(missing, "merged")
+		}
+		if len(missing) > 0 {
+			offset := selections[0].GetPosition().Start
+			if spreadStart, ok := spreadStarts[offset]; ok {
+				offset = spreadStart
+			}
+			if inserted[offset] {
+				return
+			}
+			inserted[offset] = true
+			insertions = append(insertions, insertion{
+				offset: offset,
+				text:   strings.Join(missing, ",") + ",",
+			})
+		}
+	}
+	var walk func(ast.SelectionSet, string)
+	visitedFragments := make(map[string]bool)
+	walk = func(selections ast.SelectionSet, parent string) {
+		for _, selection := range selections {
+			switch field := selection.(type) {
+			case *ast.Field:
+				if field.Name == "pullRequest" {
+					addFields(field.SelectionSet, true)
+				} else if (field.Name == "nodes" || field.Name == "node") &&
+					(parent == "reviews" || parent == "comments") {
+					addFields(field.SelectionSet, false)
+				}
+				nextParent := field.Name
+				if field.Name == "edges" {
+					nextParent = parent
+				}
+				walk(field.SelectionSet, nextParent)
+			case *ast.InlineFragment:
+				walk(field.SelectionSet, parent)
+			case *ast.FragmentSpread:
+				key := field.Name + ":" + parent
+				if fragment := doc.Fragments.ForName(field.Name); fragment != nil && !visitedFragments[key] {
+					visitedFragments[key] = true
+					walk(fragment.SelectionSet, parent)
+				}
+			}
+		}
+	}
+	for _, operation := range doc.Operations {
+		walk(operation.SelectionSet, "")
+	}
+	sort.Slice(insertions, func(i, j int) bool { return insertions[i].offset > insertions[j].offset })
+	source := []rune(query)
+	for _, edit := range insertions {
+		source = append(source[:edit.offset], append([]rune(edit.text), source[edit.offset:]...)...)
+	}
+	return string(source)
 }
 
 // injectFieldsIntoQuery adds the given fields into the GraphQL query's node

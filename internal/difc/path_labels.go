@@ -204,7 +204,18 @@ func (p *PathLabeledData) extractItemsAtPath(itemsPath string) ([]interface{}, e
 		return nil, nil
 	}
 
-	// Navigate to the items path using UnwrappedData (which may have been extracted from MCP wrapper)
+	current, err := p.extractValueAtPath(itemsPath)
+	if err != nil {
+		return nil, err
+	}
+	if arr, ok := current.([]interface{}); ok {
+		logPathLabels.Printf("extractRawItems: found %d items at path=%s", len(arr), itemsPath)
+		return arr, nil
+	}
+	return nil, fmt.Errorf("items_path %q does not point to an array", itemsPath)
+}
+
+func (p *PathLabeledData) extractValueAtPath(itemsPath string) (interface{}, error) {
 	logPathLabels.Printf("extractRawItems: navigating to items at path=%s", itemsPath)
 	current := p.UnwrappedData
 	parts := splitJSONPointer(itemsPath)
@@ -238,12 +249,7 @@ func (p *PathLabeledData) extractItemsAtPath(itemsPath string) ([]interface{}, e
 		}
 	}
 
-	if arr, ok := current.([]interface{}); ok {
-		logPathLabels.Printf("extractRawItems: found %d items at path=%s", len(arr), itemsPath)
-		return arr, nil
-	}
-
-	return nil, fmt.Errorf("items_path %q does not point to an array", itemsPath)
+	return current, nil
 }
 
 // extractIndexFromPath extracts the array index from a JSON Pointer path
@@ -336,10 +342,16 @@ func (p *PathLabeledData) Overall() *LabeledResource {
 	}
 
 	overall := NewLabeledResource("path-labeled collection")
+	hasIntegrity := false
 	for _, item := range p.resolvedItems {
 		if item.Labels != nil {
 			overall.Secrecy.Label.Union(item.Labels.Secrecy.Label)
-			overall.Integrity.Label.Union(item.Labels.Integrity.Label)
+			if !hasIntegrity {
+				overall.Integrity.Label.Union(item.Labels.Integrity.Label)
+				hasIntegrity = true
+			} else {
+				overall.Integrity.Label.Intersect(item.Labels.Integrity.Label)
+			}
 		}
 	}
 

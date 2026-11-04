@@ -1,0 +1,44 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "number": 42,
+        "state": "OPEN",
+        "isDraft": false,
+        "headRefOid": "abc123",
+        "headRefName": "feature",
+        "baseRefName": "main",
+        "headRepository": {"nameWithOwner": "testorg/testrepo"},
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "CLEAN",
+        "createdAt": "2026-11-04T17:00:00Z",
+        "updatedAt": "2026-11-04T18:00:00Z",
+        "author": {"login": "maintainer"},
+        "authorAssociation": "MEMBER",
+        "labels": {"pageInfo": {"hasNextPage": false}, "nodes": [{"name": "bug"}]},
+        "commits": {"pageInfo": {"hasNextPage": false}, "nodes": [{"commit": {"committedDate": "2026-11-04T17:00:00Z"}}]},
+        "reviewThreads": {
+          "pageInfo": {"hasNextPage": false},
+          "nodes": [{
+            "id": "thread1",
+            "isResolved": false,
+            "comments": {
+              "pageInfo": {"hasNextPage": true},
+              "nodes": [
+                {"id": "comment1", "author": {"login": "external"}, "authorAssociation": "NONE", "body": "denied comment"},
+                {"id": "comment2", "author": {"login": "maintainer"}, "authorAssociation": "MEMBER", "body": "allowed comment"}
+              ]
+            }
+          }]
+        },
+        "reviews": {
+          "pageInfo": {"hasNextPage": true},
+          "nodes": [
+            {"id": "review1", "author": {"login": "external"}, "authorAssociation": "NONE", "state": "COMMENTED", "submittedAt": "2026-11-04T18:00:00Z", "commit": {"oid": "abc123"}},
+            {"id": "review2", "author": {"login": "maintainer"}, "authorAssociation": "MEMBER", "state": "APPROVED", "submittedAt": "2026-11-04T18:00:00Z", "commit": {"oid": "abc123"}}
+          ]
+        }
+      }
+    }
+  }
+}
