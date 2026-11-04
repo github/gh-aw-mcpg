@@ -55,8 +55,28 @@ func TestAtomicWriteFile(t *testing.T) {
 
 		err := AtomicWriteFile(path, []byte("data"), 0o600)
 
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to write temp file")
+		require.ErrorContains(t, err, "failed to write temp file")
+		assert.ErrorIs(t, err, os.ErrNotExist)
+	})
+
+	t.Run("fails when parent path is a regular file", func(t *testing.T) {
+		parent := filepath.Join(t.TempDir(), "file")
+		require.NoError(t, os.WriteFile(parent, []byte("x"), 0o600))
+
+		err := AtomicWriteFile(filepath.Join(parent, "state.json"), []byte("data"), 0o600)
+
+		require.ErrorContains(t, err, "failed to write temp file")
+	})
+
+	t.Run("leaves existing destination directory intact when rename fails", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "state.json")
+		require.NoError(t, os.Mkdir(path, 0o755))
+
+		require.Error(t, AtomicWriteFile(path, []byte("data"), 0o600))
+
+		info, err := os.Stat(path)
+		require.NoError(t, err)
+		assert.True(t, info.IsDir())
 	})
 
 	t.Run("cleans up when rename fails", func(t *testing.T) {
@@ -65,8 +85,7 @@ func TestAtomicWriteFile(t *testing.T) {
 
 		err := AtomicWriteFile(path, []byte("data"), 0o600)
 
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to rename temp file")
+		require.ErrorContains(t, err, "failed to rename temp file")
 		assert.Empty(t, tempFiles(t, filepath.Dir(path)))
 	})
 }
@@ -85,8 +104,7 @@ func TestRemoveTempFile(t *testing.T) {
 
 		err := removeTempFile(path)
 
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to remove temp file")
+		require.ErrorContains(t, err, "failed to remove temp file")
 	})
 }
 
@@ -105,7 +123,7 @@ func TestSyncParentDir(t *testing.T) {
 		err := syncParentDir(filePath)
 
 		require.Error(t, err)
-		assert.True(t, os.IsNotExist(err), "expected a not-exist error, got %v", err)
+		assert.ErrorIs(t, err, os.ErrNotExist)
 	})
 }
 
