@@ -164,6 +164,138 @@ fn author_item_label(
     }
 }
 
+fn label_graphql_pull_request(
+    tool_args: &Value,
+    response: &Value,
+    ctx: &PolicyContext,
+) -> Option<PathLabelResult> {
+    let parent_path = "/data/repository/pullRequest";
+    let parent = response.pointer(parent_path)?.as_object()?;
+    let parent_value = response.pointer(parent_path)?;
+    let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+    let number = extract_resource_number(parent_value, "pr", &repo_full);
+    let private = repo_visibility_private_for_repo_id(&repo_full).unwrap_or(false);
+    let mut parent_labels = crate::ResourceLabels {
+        description: format!("{}{}#{}", desc_prefix::PR, repo_full, number),
+        secrecy: secrecy.clone(),
+        integrity: pr_integrity(
+            parent_value,
+            &repo_full,
+            private,
+            is_forked_pr(parent_value),
+            ctx,
+        )
+        .into(),
+    };
+    let mut labeled_paths = Vec::new();
+    let mut items_paths = Vec::new();
+    let mut valid = true;
+    for field in ["reviews", "comments"] {
+        if let Some(connection) = parent.get(field).filter(|value| !value.is_null()) {
+            valid &= label_graphql_author_connection(
+                connection,
+                &format!("{parent_path}/{field}"),
+                &repo_full,
+                &secrecy,
+                ctx,
+                &mut labeled_paths,
+                &mut items_paths,
+            );
+        }
+    }
+    if let Some(threads) = parent.get("reviewThreads").filter(|value| !value.is_null()) {
+        let mut found = false;
+        for (key, node_key) in [("nodes", ""), ("edges", "/node")] {
+            if let Some(nodes) = threads.get(key).and_then(Value::as_array) {
+                found = true;
+                for (index, thread) in nodes.iter().enumerate() {
+                    let thread = if node_key.is_empty() {
+                        thread
+                    } else {
+                        &thread["node"]
+                    };
+                    if let Some(comments) = thread.get("comments").filter(|value| !value.is_null())
+                    {
+                        valid &= label_graphql_author_connection(
+                            comments,
+                            &format!(
+                                "{parent_path}/reviewThreads/{key}/{index}{node_key}/comments"
+                            ),
+                            &repo_full,
+                            &secrecy,
+                            ctx,
+                            &mut labeled_paths,
+                            &mut items_paths,
+                        );
+                    }
+                }
+            }
+        }
+        valid &= found;
+    }
+    // Unknown nested shapes must not fall through to a coarser PR label.
+    if !valid {
+        parent_labels.integrity = blocked_integrity(&repo_full, ctx).into();
+    }
+    labeled_paths.push(crate::PathLabel {
+        path: parent_path.to_string(),
+        labels: parent_labels,
+    });
+    // This route only authorizes the PR subtree, not other GraphQL roots/resources.
+    for (path, allowed) in [("/data", "repository"), ("/data/repository", "pullRequest")] {
+        if let Some(fields) = response.pointer(path).and_then(Value::as_object) {
+            for key in fields.keys().filter(|key| key.as_str() != allowed) {
+                let key = key.replace('~', "~0").replace('/', "~1");
+                labeled_paths.push(crate::PathLabel {
+                    path: format!("{path}/{key}"),
+                    labels: repo_default_labels(
+                        "unclassified-graphql-resource",
+                        secrecy.clone(),
+                        blocked_integrity(&repo_full, ctx),
+                    ),
+                });
+            }
+        }
+    }
+    Some(PathLabelResult {
+        labeled_paths,
+        default_labels: Some(repo_default_labels(
+            "pull-request-content",
+            secrecy,
+            none_integrity(&repo_full, ctx),
+        )),
+        items_path: None,
+        items_paths: Some(items_paths),
+    })
+}
+
+fn label_graphql_author_connection(
+    connection: &Value,
+    path: &str,
+    repo_full: &str,
+    secrecy: &crate::SharedLabels,
+    ctx: &PolicyContext,
+    labeled_paths: &mut Vec<crate::PathLabel>,
+    items_paths: &mut Vec<String>,
+) -> bool {
+    let mut found = false;
+    for key in ["nodes", "edges"] {
+        if let Some(items) = connection.get(key).and_then(Value::as_array) {
+            found = true;
+            let path = format!("{path}/{key}");
+            items_paths.push(path.clone());
+            let remaining = MAX_ITEMS_PER_RESPONSE.saturating_sub(labeled_paths.len() + 1);
+            for (index, item) in items.iter().take(remaining).enumerate() {
+                let author_item = if key == "edges" { &item["node"] } else { item };
+                let mut label = author_item_label(author_item, repo_full, "review", secrecy, ctx);
+                label.path = format!("{path}/{index}");
+                labeled_paths.push(label);
+            }
+        }
+    }
+    found
+}
+
 struct RepoItemsContext<'a> {
     limited_items: &'a [Value],
     items_path: &'static str,
@@ -356,6 +488,11 @@ pub fn label_response_paths(
         | tool_names::PULL_REQUEST_READ
         | tool_names::GET_PULL_REQUEST => {
             let method = dispatched_method(tool_args);
+            if tool_name == tool_names::PULL_REQUEST_READ && matches!(method, "" | "get") {
+                if let Some(result) = label_graphql_pull_request(tool_args, &actual_response, ctx) {
+                    return Some(result);
+                }
+            }
             if tool_name == tool_names::PULL_REQUEST_READ
                 && matches!(
                     method,
@@ -990,6 +1127,63 @@ mod tests {
 
     fn ctx() -> PolicyContext {
         PolicyContext::default()
+    }
+
+    #[test]
+    fn graphql_composite_pr_labels_parent_and_nested_authors_independently() {
+        let response: Value = serde_json::from_str(include_str!(
+            "../../../../../internal/proxy/testdata/graphql_pr_reviews.json"
+        ))
+        .unwrap();
+        let args = json!({"owner": "testorg", "repo": "testrepo"});
+        let policy = ctx();
+        let result =
+            label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy).unwrap();
+        assert!(result.items_path.is_none());
+        assert_eq!(
+            result.items_paths.unwrap(),
+            vec![
+                "/data/repository/pullRequest/reviews/nodes",
+                "/data/repository/pullRequest/reviewThreads/nodes/0/comments/nodes",
+            ]
+        );
+        let parent = result.labeled_paths.last().unwrap();
+        assert_eq!(parent.path, "/data/repository/pullRequest");
+        assert_eq!(parent.labels.description, "pr:testorg/testrepo#42");
+        assert_eq!(
+            parent.labels.integrity,
+            writer_integrity("testorg/testrepo", &policy)
+        );
+        assert_eq!(
+            result.labeled_paths[0].labels.integrity,
+            reader_integrity("testorg/testrepo", &policy),
+        );
+        assert_eq!(
+            result.labeled_paths[1].labels.integrity,
+            writer_integrity("testorg/testrepo", &policy),
+        );
+        assert_eq!(
+            result.default_labels.unwrap().integrity,
+            none_integrity("testorg/testrepo", &policy),
+        );
+    }
+
+    #[test]
+    fn graphql_composite_pr_unknown_connections_fail_closed() {
+        let args = json!({"owner": "testorg", "repo": "testrepo"});
+        let policy = ctx();
+        for connection in [json!({"unexpected": "content"}), json!({"nodes": {}})] {
+            let response = json!({"data":{"repository":{"pullRequest":{
+                "number": 42, "authorAssociation": "MEMBER", "reviews": connection
+            }}}});
+            let result =
+                label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy)
+                    .unwrap();
+            assert_eq!(
+                result.labeled_paths.last().unwrap().labels.integrity,
+                blocked_integrity("testorg/testrepo", &policy)
+            );
+        }
     }
 
     #[test]

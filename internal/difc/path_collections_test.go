@@ -123,6 +123,7 @@ func TestFlatPathLabelsStructuredContent(t *testing.T) {
 			if format == "both" {
 				response["content"] = []interface{}{map[string]interface{}{"type": "text", "text": text}}
 			}
+
 			data, err := NewPathLabeledData(response, &PathLabels{
 				ItemsPath: "/items",
 				LabeledPaths: []PathLabel{
@@ -139,6 +140,44 @@ func TestFlatPathLabelsStructuredContent(t *testing.T) {
 			assert.Equal(t, map[string]interface{}{
 				"items": []interface{}{map[string]interface{}{"body": "trusted"}},
 			}, filtered.FinalResult)
+		})
+	}
+}
+
+func TestPathCollectionsParentAccess(t *testing.T) {
+	for _, parentAllowed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "denied parent", true: "allowed parent"}[parentAllowed], func(t *testing.T) {
+			const fixture = `{"data":{"pullRequest":{"number":42,"reviews":{"nodes":[{"id":"allowed"},{"id":"denied"}]}}}}`
+			var original interface{}
+			require.NoError(t, json.Unmarshal([]byte(fixture), &original))
+			parentIntegrity := []string{"none:public"}
+			if parentAllowed {
+				parentIntegrity = []string{"approved:public"}
+			}
+			data, err := NewPathLabeledData(original, &PathLabels{
+				ItemsPaths:    []string{"/data/pullRequest/reviews/nodes"},
+				DefaultLabels: &PathLabelEntry{Integrity: []string{"none:public"}},
+				LabeledPaths: []PathLabel{
+					{Path: "/data/pullRequest", Labels: PathLabelEntry{Integrity: parentIntegrity}},
+					{Path: "/data/pullRequest/reviews/nodes/0", Labels: PathLabelEntry{Integrity: []string{"approved:public"}}},
+				},
+			})
+			require.NoError(t, err)
+			result, err := FilterAndConvertLabeledData(
+				NewEvaluator(), NewSecrecyLabel(), NewIntegrityLabel("approved:public"),
+				OperationRead, data.ToCollectionLabeledData(), EnforcementFilter,
+			)
+			require.NoError(t, err)
+			got, err := json.Marshal(result.FinalResult)
+			require.NoError(t, err)
+			if parentAllowed {
+				assert.JSONEq(t, `{"data":{"pullRequest":{"number":42,"reviews":{"nodes":[{"id":"allowed"}]}}}}`, string(got))
+			} else {
+				assert.JSONEq(t, `{"data":{"pullRequest":null}}`, string(got))
+			}
+			unchanged, err := json.Marshal(original)
+			require.NoError(t, err)
+			assert.JSONEq(t, fixture, string(unchanged))
 		})
 	}
 }

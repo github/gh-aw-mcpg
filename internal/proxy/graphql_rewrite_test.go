@@ -266,9 +266,8 @@ func TestInjectGuardFields_SkipsAssigneesNodes(t *testing.T) {
 
 	var gql GraphQLRequest
 	require.NoError(t, json.Unmarshal(result, &gql))
-	// authorAssociation should NOT be injected because the only nodes block
-	// is assignees.nodes which returns User objects.
-	assert.NotContains(t, gql.Query, "authorAssociation",
+	assert.Contains(t, gql.Query, "authorAssociation", "the PR itself requires authorAssociation")
+	assert.Contains(t, gql.Query, `assignees(first: 100) { nodes { login } }`,
 		"authorAssociation must not be injected into assignees.nodes (User type)")
 }
 
@@ -294,7 +293,7 @@ func TestInjectGuardFields_MixedNodesBlocks(t *testing.T) {
 	// Verify injection is in comments.nodes, not assignees.nodes
 	assert.Contains(t, gql.Query, `assignees(first: 10) { nodes { login } }`,
 		"assignees.nodes should remain unmodified")
-	assert.Contains(t, gql.Query, `comments(first: 10) { nodes {author{login},authorAssociation,`,
+	assert.Contains(t, gql.Query, `comments(first: 10) { nodes { author{login},authorAssociation,`,
 		"comments.nodes should have injected fields")
 }
 

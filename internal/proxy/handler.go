@@ -472,7 +472,9 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 
 			// For GraphQL: if nothing was filtered, return original response body
 			// to preserve the exact response format (ToResult transforms the structure)
-			if graphQLBody != nil && filtered.GetFilteredCount() == 0 {
+			if collection, ok := labeledData.(*difc.CollectionLabeledData); graphQLBody != nil && ok && collection.Rebuild != nil {
+				finalData = filterResult.FinalResult
+			} else if graphQLBody != nil && filtered.GetFilteredCount() == 0 {
 				useOriginalBody = true
 			} else if graphQLBody != nil {
 				// GraphQL with filtered items: reconstruct the response with only accessible items

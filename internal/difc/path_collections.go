@@ -15,6 +15,13 @@ func (p *PathLabeledData) resolveCollections() error {
 	logPathCollections.Printf("Resolving collections: itemsPaths=%d, labeledPaths=%d", len(p.PathLabels.ItemsPaths), len(p.PathLabels.LabeledPaths))
 	labels := make(map[string]*PathLabelEntry, len(p.PathLabels.LabeledPaths))
 	for _, label := range p.PathLabels.LabeledPaths {
+		canonical := ""
+		for _, part := range splitJSONPointer(label.Path) {
+			canonical += "/" + escapeJSONPointerToken(part)
+		}
+		if canonical != label.Path || labels[label.Path] != nil {
+			return fmt.Errorf("invalid or duplicate label path %q", label.Path)
+		}
 		entry := label.Labels
 		labels[label.Path] = &entry
 	}
@@ -54,7 +61,21 @@ func (p *PathLabeledData) resolveCollections() error {
 			p.resolvedItems = append(p.resolvedItems, LabeledItem{
 				Data: item, Labels: p.pathEntryToResource(entry), path: itemPath,
 			})
+			delete(labels, itemPath)
 		}
+	}
+	// Explicit subtree labels gate enclosing resources independently of their collections.
+	for _, label := range p.PathLabels.LabeledPaths {
+		if _, ok := labels[label.Path]; !ok {
+			continue
+		}
+		current, err := p.extractValueAtPath(label.Path)
+		if err != nil {
+			return err
+		}
+		p.resolvedItems = append(p.resolvedItems, LabeledItem{
+			Data: current, Labels: p.pathEntryToResource(&label.Labels), path: label.Path,
+		})
 	}
 	p.resolved = true
 	logPathCollections.Printf("Resolved %d collection items", len(p.resolvedItems))
@@ -93,6 +114,9 @@ func (p *PathLabeledData) rebuildCollections(filtered []FilteredItemDetail) (int
 }
 
 func pruneJSONPaths(value interface{}, path string, denied map[string]bool) interface{} {
+	if denied[path] {
+		return nil
+	}
 	switch value := value.(type) {
 	case map[string]interface{}:
 		result := make(map[string]interface{}, len(value))
