@@ -714,9 +714,8 @@ pub fn apply_tool_labels(
         | "manage_repository_notification_subscription" => {
             // These operations change notification/subscription state for the authenticated user.
             // S = private:user; I = writer(user)
-            secrecy = private_user_label();
+            (secrecy, integrity) = user_writer_labels(ctx);
             baseline_scope = Cow::Borrowed(scope_names::USER);
-            integrity = writer_integrity(scope_names::USER, ctx);
         }
 
         // === Private GitHub-controlled metadata (user-associated): PII/org-structure sensitive ===
