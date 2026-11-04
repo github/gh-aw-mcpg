@@ -85,6 +85,60 @@ func TestNewHTTPServer(t *testing.T) {
 	}
 }
 
+func TestNewSDKServer_PrivateCacheScope(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	server := newSDKServer("cache-scope-test", logTransport)
+	for _, scope := range []string{"", "public", "private"} {
+		server.AddResource(&sdk.Resource{URI: "test://" + scope, Name: "resource"},
+			func(_ context.Context, req *sdk.ReadResourceRequest) (*sdk.ReadResourceResult, error) {
+				return &sdk.ReadResourceResult{
+					Cacheable: sdk.Cacheable{TTLMs: 9000, CacheScope: scope},
+					Contents:  []*sdk.ResourceContents{{URI: req.Params.URI, Text: "content"}},
+				}, nil
+			})
+	}
+
+	serverTransport, clientTransport := sdk.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, serverTransport, nil)
+	require.NoError(t, err)
+	defer serverSession.Close()
+	client := sdk.NewClient(&sdk.Implementation{Name: "test-client", Version: "1.0"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer session.Close()
+
+	for _, tt := range []struct {
+		name string
+		call func() (sdk.CacheableResult, error)
+	}{
+		{"tools/list", func() (sdk.CacheableResult, error) { return session.ListTools(ctx, nil) }},
+		{"prompts/list", func() (sdk.CacheableResult, error) { return session.ListPrompts(ctx, nil) }},
+		{"resources/list", func() (sdk.CacheableResult, error) { return session.ListResources(ctx, nil) }},
+		{"resources/templates/list", func() (sdk.CacheableResult, error) { return session.ListResourceTemplates(ctx, nil) }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := tt.call()
+			require.NoError(t, err)
+			assert.Equal(t, "private", result.GetCacheScope())
+			assert.Zero(t, result.GetTTLMs(), "default TTL must remain unchanged")
+		})
+	}
+
+	for _, scope := range []string{"", "public", "private"} {
+		t.Run("resources/read/"+scope, func(t *testing.T) {
+			uri := "test://" + scope
+			result, err := session.ReadResource(ctx, &sdk.ReadResourceParams{URI: uri})
+			require.NoError(t, err)
+			assert.Equal(t, "private", result.CacheScope)
+			assert.Equal(t, 9000, result.TTLMs, "backend TTL must remain unchanged")
+			require.Len(t, result.Contents, 1)
+			assert.Equal(t, uri, result.Contents[0].URI)
+			assert.Equal(t, "content", result.Contents[0].Text)
+		})
+	}
+}
+
 // TestBuildMCPHTTPServer_ReturnsServerWithCorrectAddr verifies that buildMCPHTTPServer
 // returns an http.Server bound to the requested address.
 func TestBuildMCPHTTPServer_ReturnsServerWithCorrectAddr(t *testing.T) {
