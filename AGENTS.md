@@ -525,6 +525,25 @@ logger in `internal/server/middleware.go`. Re-run the canaries below when evalua
 or any other SDK upgrade, and keep tracking upstream for a supported argument-validation
 bypass (see `internal/server/tool_registry_helpers.go`).
 
+The 2026-11-04 review keeps v1.8.0 pinned and applies `ServerOptions.SetCacheable`
+in `newSDKServer`: all cacheable list/read results use `cacheScope: "private"`,
+including backend results marked public, because visibility may depend on identity
+or DIFC labels. TTL hints are preserved. `TestNewSDKServer_PrivateCacheScope`
+checks this policy through an SDK client session.
+
+`CommandTransport` does not expose `MaxLineLength` in v1.8.0, but its inbound
+JSON-RPC frames already use the SDK's `DefaultMaxLineLength` (16 MiB), matching
+the gateway's HTTP `MaxEventSize` limit. No custom transport is needed.
+No `MCPGODEBUG` settings were found in the repository during this review.
+Before v1.9.x, recheck deployment environments for all `MCPGODEBUG` options
+scheduled for removal in v1.9.0, including those added in v1.7.0:
+`customresnotfounderrcode`, `hintomitempty`, `allowsessionsinstateless`,
+`nomethodnotfoundcodeinerror`, `noprotocolerrorbody`, `nowrapinvalidparams`,
+`disablecompleteparamsvalidation`, `plaintextstatefulrejection`, and
+`blockingcancelnotify`. Asynchronous cancellation notification is already the
+v1.8.0 default; re-run launcher shutdown tests to check for reliance on the
+`blockingcancelnotify=1` opt-out before it is removed.
+
 Before upgrading `github.com/modelcontextprotocol/go-sdk`, verify the two canary tests still pass:
 
 | Test | File | Guards |

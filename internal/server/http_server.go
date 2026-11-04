@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -53,6 +54,10 @@ func newSDKServer(name string, log *logger.Logger) *sdk.Server {
 	}, &sdk.ServerOptions{
 		Logger:                    logger.NewSlogLoggerWithHandler(log),
 		SupportedProtocolVersions: supportedProtocolVersions(),
+		SetCacheable: func(_ context.Context, _ sdk.Request, c *sdk.Cacheable) {
+			// Results may be filtered per identity or DIFC labels, even if a backend marks them public.
+			c.CacheScope = "private"
+		},
 	})
 }
 
