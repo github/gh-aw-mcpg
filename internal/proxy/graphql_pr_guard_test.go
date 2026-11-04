@@ -14,6 +14,8 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/guard"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 func TestGraphQLPullRequestNestedReviews(t *testing.T) {
@@ -28,6 +30,8 @@ func TestGraphQLPullRequestNestedReviews(t *testing.T) {
 		empty        bool
 		edges        bool
 		siblings     bool
+		nested       bool
+		commitBody   bool
 	}{
 		{name: "all reviews filtered", allFiltered: true},
 		{name: "partially filtered"},
@@ -36,6 +40,8 @@ func TestGraphQLPullRequestNestedReviews(t *testing.T) {
 		{name: "empty reviews", empty: true},
 		{name: "review edges", edges: true},
 		{name: "unclassified siblings", siblings: true},
+		{name: "unclassified linked issues with all reviews denied", nested: true, allFiltered: true},
+		{name: "commit content is not PR metadata", commitBody: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var original map[string]any
@@ -62,6 +68,14 @@ func TestGraphQLPullRequestNestedReviews(t *testing.T) {
 				data := original["data"].(map[string]any)
 				data["viewer"] = map[string]any{"login": "not-authorized"}
 				data["repository"].(map[string]any)["issue"] = map[string]any{"body": "not-authorized"}
+			}
+			if tc.nested {
+				pr["closingIssuesReferences"] = map[string]any{
+					"nodes": []any{map[string]any{"body": "not-authorized", "authorAssociation": "NONE"}},
+				}
+			}
+			if tc.commitBody {
+				pr["commits"].(map[string]any)["nodes"].([]any)[0].(map[string]any)["commit"].(map[string]any)["message"] = "not-authorized"
 			}
 			if tc.parentDenied {
 				pr["author"] = map[string]any{"login": "external"}
@@ -138,6 +152,12 @@ func TestGraphQLPullRequestNestedReviews(t *testing.T) {
 				return
 			}
 			actual := repository["pullRequest"].(map[string]any)
+			if tc.nested {
+				pr["closingIssuesReferences"] = nil
+			}
+			if tc.commitBody {
+				pr["commits"] = nil
+			}
 			expectedReviews := []any{}
 			if !tc.allFiltered && !tc.empty {
 				expectedReviews = reviews[collectionKey].([]any)[1:]
@@ -148,6 +168,7 @@ func TestGraphQLPullRequestNestedReviews(t *testing.T) {
 			assert.Equal(t, pr, actual, "only denied reviews/comments may change; PR metadata and other nodes must survive")
 			assert.NotContains(t, w.Body.String(), "denied comment")
 			assert.NotContains(t, w.Body.String(), "review1")
+			assert.NotContains(t, w.Body.String(), "not-authorized")
 			if tc.siblings {
 				assert.Nil(t, got["data"].(map[string]any)["viewer"])
 				assert.Nil(t, repository["issue"])
@@ -158,7 +179,7 @@ func TestGraphQLPullRequestNestedReviews(t *testing.T) {
 }
 
 func TestGraphQLPullRequestRejectsAliasedResources(t *testing.T) {
-	for _, field := range []string{"repository", "pullRequest", "reviews", "reviewThreads", "comments", "nodes", "edges", "node"} {
+	for _, field := range []string{"repository", "pullRequest", "reviews", "reviewThreads", "comments", "nodes", "edges", "node", "body"} {
 		t.Run(field, func(t *testing.T) {
 			query := `query{repository(owner:"o",name:"r"){pullRequest(number:1){
 				reviews{nodes{author{login}} edges{node{author{login}}}}
@@ -166,6 +187,9 @@ func TestGraphQLPullRequestRejectsAliasedResources(t *testing.T) {
 			}}}`
 			query = strings.Replace(query, field+"{", "alias:"+field+"{", 1)
 			query = strings.Replace(query, field+"(", "alias:"+field+"(", 1)
+			if field == "body" {
+				query = strings.Replace(query, "body", "oid:body", 1)
+			}
 			body, err := json.Marshal(GraphQLRequest{Query: query})
 			require.NoError(t, err)
 			assert.Nil(t, MatchGraphQL(body), "aliases must not bypass exact-path filtering")
@@ -184,4 +208,31 @@ func TestInjectGuardFieldsScopesPullRequestFields(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rewritten, &request))
 	assert.Contains(t, request.Query, "author{login},authorAssociation,number,title")
 	assert.Equal(t, rewritten, InjectGuardFields(rewritten, "pull_request_read"), "injection must be idempotent")
+}
+
+func TestInjectGuardFieldsFollowsReviewFragments(t *testing.T) {
+	for _, selection := range []string{
+		`nodes{...Review}`,
+		`...Reviews`,
+		`... # comment between spread and fragment
+			Reviews`,
+	} {
+		t.Run(selection, func(t *testing.T) {
+			query := `query{repository(owner:"o",name:"r"){pullRequest(number:42){
+				reviews{` + selection + `}
+			}}}
+			fragment Reviews on PullRequestReviewConnection{nodes{...Review}}
+			fragment Review on PullRequestReview{body}`
+			body, err := json.Marshal(GraphQLRequest{Query: query})
+			require.NoError(t, err)
+			rewritten := InjectGuardFields(body, "pull_request_read")
+			var request GraphQLRequest
+			require.NoError(t, json.Unmarshal(rewritten, &request))
+			_, err = parser.ParseQuery(&ast.Source{Input: request.Query})
+			require.NoError(t, err, "rewritten fragment queries must remain valid GraphQL")
+			assert.Contains(t, request.Query, "nodes{author{login},authorAssociation,...Review}")
+			assert.Equal(t, 2, strings.Count(request.Query, "authorAssociation"), "parent and review fields are injected once")
+			assert.Equal(t, rewritten, InjectGuardFields(rewritten, "pull_request_read"))
+		})
+	}
 }

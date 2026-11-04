@@ -264,8 +264,10 @@ object becomes `null`, even when its children would be accessible. Denied
 reviews/comments are removed at their exact array paths; an empty connection
 does not discard authorized PR metadata, other connections, or pagination.
 The proxy uses this exact-path reconstruction instead of replacing the first
-`nodes` array. Unclassified sibling resources are denied, and aliases on resource
-or connection paths are rejected rather than silently bypassing child filtering.
+`nodes` array. Only supported PR metadata subtrees inherit parent authorization;
+other nested resources (for example linked issues or commit message content)
+and unclassified sibling resources are denied. GraphQL aliases in PR reads are
+rejected rather than silently bypassing child filtering.
 
 ### 3. SimpleLabeledData (Go Guards Only)
 

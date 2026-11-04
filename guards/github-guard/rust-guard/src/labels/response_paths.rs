@@ -237,6 +237,68 @@ fn label_graphql_pull_request(
     if !valid {
         parent_labels.integrity = blocked_integrity(&repo_full, ctx).into();
     }
+    for (field, value) in parent {
+        if !value.is_object() && !value.is_array() {
+            continue;
+        }
+        let metadata_fields: &[&str] = match field.as_str() {
+            "reviews" | "comments" | "reviewThreads" => continue,
+            "author" => &["login", "id", "__typename"],
+            "headRepository" | "baseRepository" | "repository" => &[
+                "nameWithOwner",
+                "name",
+                "id",
+                "url",
+                "isPrivate",
+                "__typename",
+            ],
+            "labels" => &[
+                "nodes",
+                "edges",
+                "node",
+                "cursor",
+                "pageInfo",
+                "hasNextPage",
+                "hasPreviousPage",
+                "startCursor",
+                "endCursor",
+                "totalCount",
+                "name",
+                "id",
+                "color",
+                "description",
+                "__typename",
+            ],
+            "commits" => &[
+                "nodes",
+                "edges",
+                "node",
+                "cursor",
+                "pageInfo",
+                "hasNextPage",
+                "hasPreviousPage",
+                "startCursor",
+                "endCursor",
+                "totalCount",
+                "commit",
+                "oid",
+                "committedDate",
+                "__typename",
+            ],
+            _ => &[],
+        };
+        if metadata_fields.is_empty() || !graphql_metadata_only(value, metadata_fields) {
+            let field = field.replace('~', "~0").replace('/', "~1");
+            labeled_paths.push(crate::PathLabel {
+                path: format!("{parent_path}/{field}"),
+                labels: repo_default_labels(
+                    "unclassified-graphql-resource",
+                    secrecy.clone(),
+                    blocked_integrity(&repo_full, ctx),
+                ),
+            });
+        }
+    }
     labeled_paths.push(crate::PathLabel {
         path: parent_path.to_string(),
         labels: parent_labels,
@@ -267,6 +329,18 @@ fn label_graphql_pull_request(
         items_path: None,
         items_paths: Some(items_paths),
     })
+}
+
+fn graphql_metadata_only(value: &Value, allowed_fields: &[&str]) -> bool {
+    match value {
+        Value::Object(fields) => fields.iter().all(|(key, value)| {
+            allowed_fields.contains(&key.as_str()) && graphql_metadata_only(value, allowed_fields)
+        }),
+        Value::Array(items) => items
+            .iter()
+            .all(|item| graphql_metadata_only(item, allowed_fields)),
+        _ => true,
+    }
 }
 
 fn label_graphql_author_connection(

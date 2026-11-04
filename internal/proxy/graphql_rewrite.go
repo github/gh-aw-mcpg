@@ -8,6 +8,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/lexer"
 	"github.com/vektah/gqlparser/v2/parser"
 )
 
@@ -167,11 +168,30 @@ func injectPRGuardFields(query string) string {
 	if err != nil {
 		return query
 	}
+	spreadStarts := make(map[int]int)
+	tokenLexer := lexer.New(&ast.Source{Input: query})
+	var previous lexer.Token
+	for {
+		token, err := tokenLexer.ReadToken()
+		if err != nil {
+			return query
+		}
+		if token.Kind == lexer.EOF {
+			break
+		}
+		if token.Kind != lexer.Comment {
+			if previous.Kind == lexer.Spread {
+				spreadStarts[token.Pos.Start] = previous.Pos.Start
+			}
+			previous = token
+		}
+	}
 	type insertion struct {
 		offset int
 		text   string
 	}
 	var insertions []insertion
+	inserted := make(map[int]bool)
 	addFields := func(selections ast.SelectionSet, parent bool) {
 		if len(selections) == 0 {
 			return
@@ -206,13 +226,22 @@ func injectPRGuardFields(query string) string {
 			missing = append(missing, "number")
 		}
 		if len(missing) > 0 {
+			offset := selections[0].GetPosition().Start
+			if spreadStart, ok := spreadStarts[offset]; ok {
+				offset = spreadStart
+			}
+			if inserted[offset] {
+				return
+			}
+			inserted[offset] = true
 			insertions = append(insertions, insertion{
-				offset: selections[0].GetPosition().Start,
+				offset: offset,
 				text:   strings.Join(missing, ",") + ",",
 			})
 		}
 	}
 	var walk func(ast.SelectionSet, string)
+	visitedFragments := make(map[string]bool)
 	walk = func(selections ast.SelectionSet, parent string) {
 		for _, selection := range selections {
 			switch field := selection.(type) {
@@ -230,14 +259,17 @@ func injectPRGuardFields(query string) string {
 				walk(field.SelectionSet, nextParent)
 			case *ast.InlineFragment:
 				walk(field.SelectionSet, parent)
+			case *ast.FragmentSpread:
+				key := field.Name + ":" + parent
+				if fragment := doc.Fragments.ForName(field.Name); fragment != nil && !visitedFragments[key] {
+					visitedFragments[key] = true
+					walk(fragment.SelectionSet, parent)
+				}
 			}
 		}
 	}
 	for _, operation := range doc.Operations {
 		walk(operation.SelectionSet, "")
-	}
-	for _, fragment := range doc.Fragments {
-		walk(fragment.SelectionSet, "")
 	}
 	sort.Slice(insertions, func(i, j int) bool { return insertions[i].offset > insertions[j].offset })
 	source := []rune(query)

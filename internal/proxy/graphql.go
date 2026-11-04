@@ -145,7 +145,7 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 		return nil
 	}
 	if toolName == "pull_request_read" && hasAliasedPRResource(gql.Query) {
-		logGraphQL.Print("aliased PR resource paths cannot be labeled safely, blocking request")
+		logGraphQL.Print("aliased PR fields cannot be labeled safely, blocking request")
 		return nil
 	}
 
@@ -202,11 +202,8 @@ func hasAliasedPRResource(query string) bool {
 		for _, selection := range selections {
 			switch field := selection.(type) {
 			case *ast.Field:
-				switch field.Name {
-				case "repository", "pullRequest", "reviews", "reviewThreads", "comments", "nodes", "edges", "node":
-					if field.Alias != "" && field.Alias != field.Name {
-						return true
-					}
+				if field.Alias != "" && field.Alias != field.Name {
+					return true
 				}
 				if check(field.SelectionSet) {
 					return true
