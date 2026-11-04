@@ -353,7 +353,7 @@ pub fn apply_tool_labels(
             }
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
             integrity = if tool_name == tool_names::ISSUE_ARTIFACT_READ {
-                reader_integrity(repo_id, ctx)
+                private_writer_integrity(repo_id, repo_private, ctx)
             } else {
                 writer_integrity(repo_id, ctx)
             };
@@ -1703,12 +1703,16 @@ mod tests {
             };
             for (tool, methods, expected_integrity) in [
                 (
-                    "issue_artifact_read",
+                    tool_names::ISSUE_ARTIFACT_READ,
                     &["list", "get"][..],
-                    reader_integrity(repo_id, &ctx),
+                    if private {
+                        writer_integrity(repo_id, &ctx)
+                    } else {
+                        none_integrity(repo_id, &ctx)
+                    },
                 ),
                 (
-                    "issue_artifact_write",
+                    tool_names::ISSUE_ARTIFACT_WRITE,
                     &["create", "update", "delete"][..],
                     writer_integrity(repo_id, &ctx),
                 ),
