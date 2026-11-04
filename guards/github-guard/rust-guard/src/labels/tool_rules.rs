@@ -23,6 +23,10 @@ use super::helpers::{
 };
 use std::borrow::Cow;
 
+fn user_writer_labels(ctx: &PolicyContext) -> (Vec<String>, Vec<String>) {
+    (private_user_label(), writer_integrity(scope_names::USER, ctx))
+}
+
 fn apply_repo_visibility_secrecy(
     owner: &str,
     repo: &str,
@@ -1070,22 +1074,27 @@ pub fn apply_tool_labels(
             integrity = writer_integrity(repo_id, ctx);
         }
 
-        // === User SSH/GPG key management (account-scoped writes) ===
-        // Pre-emptive synthetic guard entries for CLI-only operations:
-        //   `gh ssh-key add`  → POST /user/keys and /user/ssh_signing_keys
-        //   `gh ssh-key delete` → DELETE /user/keys/{id}
-        //   `gh gpg-key add`  → POST /user/gpg_keys
-        //   `gh gpg-key delete` → DELETE /user/gpg_keys/{id}
-        // Managing auth/signing keys is a high-risk account-level write operation.
-        // S = private:user (user-account-scoped sensitive data)
-        // I = writer(user) (requires authenticated account write access)
+        // === Account-scoped writes: S = private:user; I = writer(user) ===
+        // SSH/GPG keys manage sensitive account authentication/signing state.
+        // Stars change authenticated-user affinity state; gists may be secret.
+        // Codespaces expose repo content, dev-environment metadata, and billed compute.
+        // Includes pre-emptive synthetic entries for CLI-only key and lifecycle writes.
         tool_names::ADD_GPG_KEY
         | tool_names::ADD_SSH_KEY
         | tool_names::DELETE_GPG_KEY
-        | tool_names::DELETE_SSH_KEY => {
-            secrecy = private_user_label();
+        | tool_names::DELETE_SSH_KEY
+        | tool_names::STAR_REPOSITORY
+        | tool_names::UNSTAR_REPOSITORY
+        | tool_names::DELETE_GIST
+        | tool_names::RENAME_GIST
+        | tool_names::CREATE_CODESPACE
+        | tool_names::UPDATE_CODESPACE
+        | tool_names::DELETE_CODESPACE
+        | tool_names::STOP_CODESPACE
+        | tool_names::REBUILD_CODESPACE
+        | tool_names::UPDATE_CODESPACE_PORT_VISIBILITY => {
+            (secrecy, integrity) = user_writer_labels(ctx);
             baseline_scope = Cow::Borrowed(scope_names::USER);
-            integrity = writer_integrity(scope_names::USER, ctx);
         }
 
         // === Scope-sensitive secret / variable writes ===
@@ -1118,9 +1127,8 @@ pub fn apply_tool_labels(
                 // Only secrets have a user-scoped CLI write path (`/user/codespaces/secrets`).
                 // Actions variables are repo/org/environment scoped, so variable writes do not
                 // fall back to `private:user`.
-                secrecy = private_user_label();
+                (secrecy, integrity) = user_writer_labels(ctx);
                 baseline_scope = Cow::Borrowed(scope_names::USER);
-                integrity = writer_integrity(scope_names::USER, ctx);
             }
         }
 
@@ -1133,48 +1141,6 @@ pub fn apply_tool_labels(
             secrecy = vec![];
             baseline_scope = Cow::Borrowed(scope_names::GITHUB);
             integrity = writer_integrity(scope_names::GITHUB, ctx);
-        }
-
-        // === Star/unstar operations (account-scoped writes) ===
-        tool_names::STAR_REPOSITORY | tool_names::UNSTAR_REPOSITORY => {
-            // Starring changes authenticated-user affinity state.
-            // S = private:user; I = writer(user)
-            secrecy = private_user_label();
-            baseline_scope = Cow::Borrowed(scope_names::USER);
-            integrity = writer_integrity(scope_names::USER, ctx);
-        }
-
-        // === Gist writes (pre-emptive) ===
-        tool_names::DELETE_GIST | tool_names::RENAME_GIST => {
-            // Gist writes target user-scoped content.
-            // Conservatively treat gists as private/user-scoped, consistent with
-            // other gist operations that may target secret gists.
-            // S = private_user; I = writer(user)
-            secrecy = private_user_label();
-            baseline_scope = Cow::Borrowed(scope_names::USER);
-            integrity = writer_integrity(scope_names::USER, ctx);
-        }
-
-        // === Codespaces lifecycle management (account-scoped writes) ===
-        // Pre-emptive synthetic guard entries for CLI-only Codespaces lifecycle operations:
-        //   `gh codespace create` → POST /user/codespaces
-        //   `gh codespace edit`   → PATCH /user/codespaces/{codespace_name}
-        //   `gh codespace delete` → DELETE /user/codespaces/{name} or /orgs/{org}/members/{user}/codespaces/{name}
-        //   `gh codespace stop`   → POST /user|/orgs/.../codespaces/.../stop
-        //   `gh codespace rebuild` → Codespaces session RebuildContainer RPC
-        //   `gh codespace ports visibility` → Codespaces session UpdatePortVisibility RPC
-        // Codespaces expose repository content, dev-environment metadata, and user/org-billed
-        // compute state. Treat conservatively as private user-scoped writes.
-        // S = private:user; I = writer(user)
-        tool_names::CREATE_CODESPACE
-        | tool_names::UPDATE_CODESPACE
-        | tool_names::DELETE_CODESPACE
-        | tool_names::STOP_CODESPACE
-        | "rebuild_codespace"
-        | "update_codespace_port_visibility" => {
-            secrecy = private_user_label();
-            baseline_scope = Cow::Borrowed(scope_names::USER);
-            integrity = writer_integrity(scope_names::USER, ctx);
         }
 
         _ => {
@@ -1191,7 +1157,11 @@ pub fn apply_tool_labels(
 
 /// Check if a file path contains sensitive patterns.
 fn is_sensitive_path(path: &str) -> bool {
-    let path_lower = path.to_lowercase();
+    let path_lower = if path.is_ascii() && !path.bytes().any(|b| b.is_ascii_uppercase()) {
+        Cow::Borrowed(path)
+    } else {
+        Cow::Owned(path.to_lowercase())
+    };
     let filename = path_lower.rsplit('/').next().unwrap_or(&path_lower);
 
     SENSITIVE_FILE_PATTERNS
@@ -1252,11 +1222,16 @@ mod tests {
     fn is_sensitive_path_matches_patterns_keywords_and_prefixes() {
         let cases = [
             (".env", true),
+            (".ENV", true),
             ("deploy/config.env", true),
             ("certs/server.pem", true),
             (".ssh/id_rsa", true),
             (".github/workflows/ci.yml", true),
             ("config/secrets.json", true),
+            ("Config/Secrets.JSON", true),
+            ("配置/Secrets.JSON", true),
+            ("配置/main.rs", false),
+            ("auth_toKen", true),
             ("db_password.txt", true),
             ("auth_token", true),
             ("config/db_credentials.json", true),
@@ -2787,9 +2762,9 @@ mod tests {
     }
 
     #[test]
-    fn apply_tool_labels_user_key_management_is_user_private_write() {
+    fn apply_tool_labels_account_writes_ignore_repo_scope_and_inherited_labels() {
         let ctx = default_ctx();
-        let args = serde_json::json!({});
+        let args = serde_json::json!({"owner": "octocat", "repo": "hello-world"});
         let expected_secrecy = private_user_label();
         let expected_integrity = writer_integrity(scope_names::USER, &ctx);
 
@@ -2798,9 +2773,26 @@ mod tests {
             tool_names::ADD_SSH_KEY,
             tool_names::DELETE_GPG_KEY,
             tool_names::DELETE_SSH_KEY,
+            tool_names::STAR_REPOSITORY,
+            tool_names::UNSTAR_REPOSITORY,
+            tool_names::DELETE_GIST,
+            tool_names::RENAME_GIST,
+            tool_names::CREATE_CODESPACE,
+            tool_names::UPDATE_CODESPACE,
+            tool_names::DELETE_CODESPACE,
+            tool_names::STOP_CODESPACE,
+            tool_names::REBUILD_CODESPACE,
+            tool_names::UPDATE_CODESPACE_PORT_VISIBILITY,
         ] {
-            let (secrecy, integrity, _) =
-                super::apply_tool_labels(tool, &args, "", vec![], vec![], String::new(), &ctx);
+            let (secrecy, integrity, _) = super::apply_tool_labels(
+                tool,
+                &args,
+                "octocat/hello-world",
+                vec!["private:octocat/hello-world".to_string()],
+                writer_integrity("octocat/hello-world", &ctx),
+                String::new(),
+                &ctx,
+            );
             assert_eq!(
                 secrecy, expected_secrecy,
                 "{tool}: must be user-private (secrecy = private:user)",
@@ -2820,12 +2812,12 @@ mod tests {
         let expected_integrity = writer_integrity(scope_names::USER, &ctx);
 
         for tool in &[
-            "create_codespace",
-            "update_codespace",
-            "delete_codespace",
-            "stop_codespace",
-            "rebuild_codespace",
-            "update_codespace_port_visibility",
+            tool_names::CREATE_CODESPACE,
+            tool_names::UPDATE_CODESPACE,
+            tool_names::DELETE_CODESPACE,
+            tool_names::STOP_CODESPACE,
+            tool_names::REBUILD_CODESPACE,
+            tool_names::UPDATE_CODESPACE_PORT_VISIBILITY,
         ] {
             let (secrecy, integrity, _) =
                 super::apply_tool_labels(tool, &args, "", vec![], vec![], String::new(), &ctx);
