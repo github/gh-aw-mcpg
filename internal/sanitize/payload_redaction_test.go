@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -66,6 +67,31 @@ func TestRedactedPayloadRenderings(t *testing.T) {
 	// recover a payload drawn from a small candidate set by hashing guesses.
 	plain := sha256.Sum256(payload)
 	assert.NotContains(text, hex.EncodeToString(plain[:])[:16])
+}
+
+func TestKeyedDigest(t *testing.T) {
+	t.Run("same value yields same token and different values differ", func(t *testing.T) {
+		a := KeyedDigest("owner/repo")
+		assert.Equal(t, a, KeyedDigest("owner/repo"))
+		assert.NotEqual(t, a, KeyedDigest("owner/other"))
+	})
+
+	t.Run("token is prefixed and does not leak the value", func(t *testing.T) {
+		got := KeyedDigest("secret-repo-name")
+		assert.True(t, strings.HasPrefix(got, digestPrefix))
+		assert.NotContains(t, got, "secret-repo-name")
+		assert.Len(t, got, len(digestPrefix)+redactedPayloadDigestLen)
+	})
+
+	t.Run("fails closed when the digest key is unavailable", func(t *testing.T) {
+		payloadDigestKey() // ensure the Once has fired so the override sticks
+		original := digestKey
+		digestKey = nil
+		t.Cleanup(func() { digestKey = original })
+
+		assert.Equal(t, digestPrefix+"unavailable", KeyedDigest("owner/repo"))
+		assert.Equal(t, "(none)", KeyedDigest(""), "empty values still render as none")
+	})
 }
 
 func TestKeyedDigestEmptyValue(t *testing.T) {
