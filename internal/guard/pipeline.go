@@ -79,8 +79,10 @@ func (e *PipelineAccessDenied) Error() string {
 func HandlePrePhaseError(err error) (*PipelineAccessDenied, error) {
 	var denied *PipelineAccessDenied
 	if !errors.As(err, &denied) {
+		logPipeline.Printf("[DIFC] HandlePrePhaseError: error is not an access denial, hasErr=%v", err != nil)
 		return nil, nil
 	}
+	logPipeline.Print("[DIFC] HandlePrePhaseError: coarse-grained access denial detected, formatting violation error")
 	return denied, difc.FormatViolationError(
 		denied.EvalResult,
 		denied.AgentLabels.Secrecy,
@@ -170,6 +172,7 @@ func RunPipelinePhase4(ctx context.Context, in PipelineInput, pre *PipelinePreRe
 		logPipeline.Printf("[DIFC] Phase 4 failed: %v", err)
 		return nil, fmt.Errorf("response labeling failed: %w", err)
 	}
+	logPipeline.Printf("[DIFC] Phase 4: LabelResponse completed, hasLabeledData=%v", labeledData != nil)
 	return labeledData, nil
 }
 
@@ -183,6 +186,7 @@ func RunPipelinePhase4(ctx context.Context, in PipelineInput, pre *PipelinePreRe
 //     was skipped or unavailable.
 func RunPipelinePhase6(pre *PipelinePreResult, labeledData difc.LabeledData, enforcementMode difc.EnforcementMode) {
 	if !difc.ShouldAccumulateReadLabels(pre.Operation, enforcementMode) {
+		logPipeline.Printf("[DIFC] Phase 6: skipping label accumulation for %s operation in %s mode", pre.Operation, enforcementMode)
 		return
 	}
 	if labeledData != nil {
