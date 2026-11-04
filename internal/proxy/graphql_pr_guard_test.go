@@ -32,6 +32,7 @@ func TestGraphQLPullRequestNestedReviews(t *testing.T) {
 		siblings     bool
 		nested       bool
 		commitBody   bool
+		replyTo      bool
 	}{
 		{name: "all reviews filtered", allFiltered: true},
 		{name: "partially filtered"},
@@ -42,6 +43,7 @@ func TestGraphQLPullRequestNestedReviews(t *testing.T) {
 		{name: "unclassified siblings", siblings: true},
 		{name: "unclassified linked issues with all reviews denied", nested: true, allFiltered: true},
 		{name: "commit content is not PR metadata", commitBody: true},
+		{name: "allowed reply cannot expose denied comment", replyTo: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var original map[string]any
@@ -76,6 +78,10 @@ func TestGraphQLPullRequestNestedReviews(t *testing.T) {
 			}
 			if tc.commitBody {
 				pr["commits"].(map[string]any)["nodes"].([]any)[0].(map[string]any)["commit"].(map[string]any)["message"] = "not-authorized"
+			}
+			if tc.replyTo {
+				comments := pr["reviewThreads"].(map[string]any)["nodes"].([]any)[0].(map[string]any)["comments"].(map[string]any)["nodes"].([]any)
+				comments[1].(map[string]any)["replyTo"] = comments[0]
 			}
 			if tc.parentDenied {
 				pr["author"] = map[string]any{"login": "external"}
@@ -165,6 +171,9 @@ func TestGraphQLPullRequestNestedReviews(t *testing.T) {
 			reviews[collectionKey] = expectedReviews
 			comments := pr["reviewThreads"].(map[string]any)["nodes"].([]any)[0].(map[string]any)["comments"].(map[string]any)
 			comments["nodes"] = comments["nodes"].([]any)[1:]
+			if tc.replyTo {
+				comments["nodes"].([]any)[0].(map[string]any)["replyTo"] = nil
+			}
 			assert.Equal(t, pr, actual, "only denied reviews/comments may change; PR metadata and other nodes must survive")
 			assert.NotContains(t, w.Body.String(), "denied comment")
 			assert.NotContains(t, w.Body.String(), "review1")

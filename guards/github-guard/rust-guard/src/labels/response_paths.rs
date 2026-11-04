@@ -209,11 +209,28 @@ fn label_graphql_pull_request(
             if let Some(nodes) = threads.get(key).and_then(Value::as_array) {
                 found = true;
                 for (index, thread) in nodes.iter().enumerate() {
+                    let thread_path =
+                        format!("{parent_path}/reviewThreads/{key}/{index}{node_key}");
                     let thread = if node_key.is_empty() {
                         thread
                     } else {
                         &thread["node"]
                     };
+                    if let Some(fields) = thread.as_object() {
+                        for (field, value) in fields {
+                            if field != "comments" && (value.is_object() || value.is_array()) {
+                                let field = field.replace('~', "~0").replace('/', "~1");
+                                labeled_paths.push(crate::PathLabel {
+                                    path: format!("{thread_path}/{field}"),
+                                    labels: repo_default_labels(
+                                        "unclassified-graphql-resource",
+                                        secrecy.clone(),
+                                        blocked_integrity(&repo_full, ctx),
+                                    ),
+                                });
+                            }
+                        }
+                    }
                     if let Some(comments) = thread.get("comments").filter(|value| !value.is_null())
                     {
                         valid &= label_graphql_author_connection(
@@ -364,6 +381,32 @@ fn label_graphql_author_connection(
                 let mut label = author_item_label(author_item, repo_full, "review", secrecy, ctx);
                 label.path = format!("{path}/{index}");
                 labeled_paths.push(label);
+                if let Some(fields) = author_item.as_object() {
+                    for (field, value) in fields {
+                        if !value.is_object() && !value.is_array() {
+                            continue;
+                        }
+                        let allowed_fields: &[&str] = match field.as_str() {
+                            "author" => &["login", "id", "__typename"],
+                            "commit" => &["oid", "committedDate", "__typename"],
+                            _ => &[],
+                        };
+                        if allowed_fields.is_empty()
+                            || !graphql_metadata_only(value, allowed_fields)
+                        {
+                            let node_key = if key == "edges" { "/node" } else { "" };
+                            let field = field.replace('~', "~0").replace('/', "~1");
+                            labeled_paths.push(crate::PathLabel {
+                                path: format!("{path}/{index}{node_key}/{field}"),
+                                labels: repo_default_labels(
+                                    "unclassified-graphql-resource",
+                                    secrecy.clone(),
+                                    blocked_integrity(repo_full, ctx),
+                                ),
+                            });
+                        }
+                    }
+                }
             }
         }
     }
