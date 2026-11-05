@@ -474,6 +474,7 @@ pub mod tool_names {
     pub const SEARCH_ORGS: &str = "search_orgs";
     pub const GRAPHQL_ORGANIZATION: &str = "graphql_organization";
     pub const GET_COMMIT: &str = "get_commit";
+    pub const SEARCH_COMMITS: &str = "search_commits";
     pub const LIST_COMMITS: &str = "list_commits";
     pub const LIST_COMMITS_FF_FIELDS_PARAM: &str = "list_commits_ff_fields_param";
     pub const LIST_RELEASES: &str = "list_releases";

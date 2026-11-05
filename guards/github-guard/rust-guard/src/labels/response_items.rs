@@ -282,6 +282,26 @@ pub fn label_response_items(
                         },
                     });
                 }
+            } else if tool_name == tool_names::PULL_REQUEST_READ
+                && matches!(method, "get_files" | "get_diff")
+            {
+                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+                let integrity: SharedLabels =
+                    pull_request_content_integrity(tool_args, &repo_full, ctx).into();
+                let (items, _) = extract_items_array(&actual_response);
+                let items = items
+                    .map(Vec::as_slice)
+                    .unwrap_or_else(|| std::slice::from_ref(actual_response.as_ref()));
+                for item in limit_items_with_log(items, tool_name) {
+                    labeled_items.push(LabeledItem {
+                        data: item.clone(),
+                        labels: ResourceLabels {
+                            description: "pull-request-content".to_string(),
+                            secrecy: secrecy.clone(),
+                            integrity: integrity.clone(),
+                        },
+                    });
+                }
             } else if is_non_get_read_sub_method(tool_name, tool_names::PULL_REQUEST_READ, method) {
                 // Path labeling supplies conservative defaults for the remaining
                 // dispatched methods.
@@ -484,6 +504,37 @@ pub fn label_response_items(
             }
         }
 
+        tool_names::SEARCH_COMMITS => {
+            let (_, _, repo_full) = extract_repo_scope_with_query_fallback(tool_args);
+            let (items, _) = extract_items_array(&actual_response);
+            if let Some(items) = items {
+                for item in limit_items_with_log(items, tool_name) {
+                    let item_repo = extract_repo_from_item(item);
+                    let repo = if item_repo.is_empty() {
+                        &repo_full
+                    } else {
+                        &item_repo
+                    };
+                    labeled_items.push(LabeledItem {
+                        data: item.clone(),
+                        labels: ResourceLabels {
+                            description: format!(
+                                "commit:{repo}@{}",
+                                short_sha(get_str_or(item, field_names::SHA, ""))
+                            ),
+                            secrecy: repo_visibility_secrecy_for_repo_id(repo, ctx).into(),
+                            integrity: if author_denied(extract_author_login(item), ctx) {
+                                blocked_integrity(repo, ctx)
+                            } else {
+                                writer_integrity(repo, ctx)
+                            }
+                            .into(),
+                        },
+                    });
+                }
+            }
+        }
+
         // === Commits - label by branch (default branch = merged) ===
         tool_names::LIST_COMMITS
         | tool_names::LIST_COMMITS_FF_FIELDS_PARAM
@@ -592,9 +643,7 @@ pub fn label_response_items(
             let (arg_owner, arg_repo, repo_full_name) = extract_repo_info(tool_args);
             let secrecy = repo_visibility_secrecy(&arg_owner, &arg_repo, &repo_full_name, ctx);
 
-            let release_integrity = merged_integrity(&repo_full_name, ctx);
             let secrecy_shared: SharedLabels = secrecy.into();
-            let release_integrity_shared: SharedLabels = release_integrity.into();
             for item in items_limited.iter().copied() {
                 let tag = get_str_or(item, field_names::TAG_NAME, UNKNOWN_LABEL_FALLBACK);
 
@@ -604,7 +653,7 @@ pub fn label_response_items(
                     labels: ResourceLabels {
                         description: format!("{}{}@{}", desc_prefix::RELEASE, repo_full_name, tag),
                         secrecy: secrecy_shared.clone(),
-                        integrity: release_integrity_shared.clone(),
+                        integrity: release_integrity(item, &repo_full_name, ctx).into(),
                     },
                 });
             }

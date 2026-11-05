@@ -16,7 +16,10 @@ use std::time::Duration;
 use super::constants::{
     field_names, tool_names, visibility_values, MEDIUM_BUFFER_SIZE, SMALL_BUFFER_SIZE,
 };
-use super::helpers::{get_author_association, get_str_or, is_forked_pr, is_pr_merged};
+use super::helpers::{
+    extract_author_login, extract_graphql_single_object, get_author_association, get_str_or,
+    is_forked_pr, is_pr_merged,
+};
 
 /// Backend callback signature used for GitHub MCP tool calls.
 pub type GithubMcpCallback = fn(&str, &str, &mut [u8]) -> Result<usize, i32>;
@@ -445,18 +448,20 @@ pub(crate) fn get_pull_request_facts_with_callback(
     let response_str = std::str::from_utf8(&result).ok()?;
     let response = serde_json::from_str::<Value>(response_str).ok()?;
     let pr = super::extract_mcp_response(&response);
+    let pr = extract_graphql_single_object(&pr)
+        .or_else(|| pr.get("pull_request"))
+        .unwrap_or(&pr);
 
-    let is_forked = is_forked_pr(&pr);
+    let is_forked = is_forked_pr(pr);
 
-    let is_merged = is_pr_merged(&pr);
+    let is_merged = is_pr_merged(pr);
 
-    let author_association = get_author_association(&pr).map(String::from);
+    let author_association = get_author_association(pr).map(String::from);
 
-    let author_login = pr
-        .get("user")
-        .and_then(|u| u.get(field_names::LOGIN))
-        .and_then(|v| v.as_str())
-        .map(String::from);
+    let author_login = match extract_author_login(pr) {
+        "" => None,
+        login => Some(login.to_string()),
+    };
 
     Some(PullRequestFacts {
         author_association,
