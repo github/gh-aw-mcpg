@@ -96,4 +96,12 @@ func TestAPIReadRequestsRemainReadOnly(t *testing.T) {
 	var forwarded GraphQLRequest
 	require.NoError(t, json.Unmarshal([]byte(forwardedBody), &forwarded))
 	assert.Equal(t, "query Read { __schema { queryType { name } } }", forwarded.Query)
+
+	body = `{"operationName":null,"query":"{ __schema { queryType { name } } }"}`
+	req = httptest.NewRequest(http.MethodPost, "/graphql", strings.NewReader(body))
+	recorder = httptest.NewRecorder()
+	(&proxyHandler{server: server}).ServeHTTP(recorder, req)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	require.NoError(t, json.Unmarshal([]byte(forwardedBody), &forwarded))
+	assert.Contains(t, forwarded.Query, "__schema")
 }

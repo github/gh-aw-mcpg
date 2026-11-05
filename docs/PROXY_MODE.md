@@ -95,12 +95,12 @@ query and its referenced fragments are forwarded. GET requests retain their
 existing read handling. `--read-only` additionally restricts unsupported REST
 routes and request shapes as described above.
 
-The guard also recognizes the synthetic `github_api_write` operation for
-integrations that provide a trusted repository (`owner` and `repo`) or
-organization (`owner`, `org`, `org_name`, `organization`, or `organization_name`)
-scope. It requires scoped writer integrity and conservative private secrecy;
-missing scope is blocked. This identifier does not enable arbitrary writes in
-the HTTP proxy or provide enforcement for CLI traffic that bypasses the proxy.
+The guard recognizes the synthetic `github_api_write` operation but always
+blocks it: scope alone cannot establish the operation-specific policy required
+to safely authorize arbitrary writes. It has public destination secrecy so that
+private data cannot flow into an unclassified write. Use named, guard-covered
+write tools instead. This identifier does not provide enforcement for CLI
+traffic that bypasses the proxy.
 
 ## Single-use enclave profile (`issues-read-v1`)
 

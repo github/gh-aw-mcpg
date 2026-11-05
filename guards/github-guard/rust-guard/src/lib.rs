@@ -637,11 +637,11 @@ fn build_label_resource_output(
     let baseline_scope = infer_scope_for_baseline(&input.tool_name, &input.tool_args, &repo_id);
     let final_integrity = labels::ensure_integrity_baseline(&baseline_scope, &final_integrity, ctx);
 
-    // Blocked tools and unscoped API writes: override integrity to blocked_integrity so the
+    // Blocked tools and generic API writes: override integrity to blocked_integrity so the
     // DIFC evaluator always denies them.  This must happen after ensure_integrity_baseline
     // because that helper would otherwise raise blocked-level tags to none-level.
     let final_integrity = if tools::is_blocked_tool(&input.tool_name)
-        || (input.tool_name == tool_names::GITHUB_API_WRITE && baseline_scope.is_empty())
+        || input.tool_name == tool_names::GITHUB_API_WRITE
     {
         log_info(&format!(
             "    tool '{}' is unconditionally blocked — overriding integrity to blocked",
@@ -2034,42 +2034,18 @@ mod tests {
     }
 
     #[test]
-    fn github_api_write_labels_explicit_scopes_and_blocks_missing_scope() {
+    fn github_api_write_is_blocked_for_all_scopes_and_has_public_secrecy() {
         let ctx = PolicyContext::default();
-        let repo_id = "octocat/api-write-test";
-        let _guard = labels::backend::cache_repo_visibility_for_tests(repo_id, false);
-        let mut cases = vec![(
+        let cases = [
             json!({"owner": "octocat", "repo": "api-write-test"}),
-            labels::private_scope_label(repo_id),
-            labels::writer_integrity(repo_id, &ctx),
-        )];
-        for field in [
-            "owner",
-            "org",
-            "org_name",
-            "organization",
-            "organization_name",
-        ] {
-            cases.push((
-                json!({field: "octocat"}),
-                labels::private_scope_label("octocat"),
-                labels::writer_integrity("octocat", &ctx),
-            ));
-        }
-        for args in [
+            json!({"org": "octocat"}),
             json!({}),
             json!({"repo": "api-write-test"}),
             json!({"owner": null, "repo": "api-write-test"}),
             json!({"org": 123}),
-        ] {
-            cases.push((
-                args,
-                vec!["private".to_string()],
-                blocked_integrity(scope_names::GLOBAL, &ctx),
-            ));
-        }
+        ];
 
-        for (tool_args, secrecy, integrity) in cases {
+        for tool_args in cases {
             let output = build_label_resource_output(
                 &LabelResourceInput {
                     tool_name: tool_names::GITHUB_API_WRITE.to_string(),
@@ -2077,9 +2053,19 @@ mod tests {
                 },
                 &ctx,
             );
+            let (_, _, repo_id) = extract_repo_info(&tool_args);
+            let blocked_scope = if repo_id.is_empty() {
+                scope_names::GLOBAL
+            } else {
+                repo_id.as_str()
+            };
             assert_eq!(output.operation, "write", "{tool_args}");
-            assert_eq!(output.resource.secrecy, secrecy, "{tool_args}");
-            assert_eq!(output.resource.integrity, integrity, "{tool_args}");
+            assert!(output.resource.secrecy.is_empty(), "{tool_args}");
+            assert_eq!(
+                output.resource.integrity,
+                blocked_integrity(blocked_scope, &ctx),
+                "{tool_args}"
+            );
         }
     }
 

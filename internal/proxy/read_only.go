@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
@@ -121,8 +120,12 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 		case "query":
 			err = decoder.Decode(&request.Query)
 		case "operationName":
-			operationNamePresent = true
-			err = decoder.Decode(&request.OperationName)
+			var operationName *string
+			err = decoder.Decode(&operationName)
+			if operationName != nil {
+				operationNamePresent = true
+				request.OperationName = *operationName
+			}
 		case "variables":
 			err = decoder.Decode(&request.Variables)
 		default:
@@ -182,6 +185,7 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 	}
 	tokenLexer := lexer.New(&ast.Source{Input: request.Query})
 	var previousToken lexer.Token
+	orderedDefinitionPositions := make([]int, 0, len(definitionStarts))
 	for {
 		token, err := tokenLexer.ReadToken()
 		if err != nil {
@@ -190,6 +194,9 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 		if _, isDefinition := definitionStarts[token.Pos.Start]; isDefinition &&
 			(previousToken.Kind == lexer.String || previousToken.Kind == lexer.BlockString) {
 			definitionStarts[token.Pos.Start] = previousToken.Pos.Start
+		}
+		if _, isDefinition := definitionStarts[token.Pos.Start]; isDefinition {
+			orderedDefinitionPositions = append(orderedDefinitionPositions, token.Pos.Start)
 		}
 		if token.Kind != lexer.Comment {
 			previousToken = token
@@ -201,33 +208,54 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 
 	type definition struct {
 		start    int
+		end      int
 		fragment *ast.FragmentDefinition
 	}
-	definitions := make([]definition, 0, len(doc.Operations)+len(doc.Fragments))
+	definitionsByPosition := make(map[int]definition, len(doc.Operations)+len(doc.Fragments))
 	fragments := make(map[string]*ast.FragmentDefinition, len(doc.Fragments))
 	for _, operation := range doc.Operations {
-		definitions = append(definitions, definition{start: definitionStarts[operation.Position.Start]})
+		definitionsByPosition[operation.Position.Start] = definition{start: definitionStarts[operation.Position.Start]}
 	}
 	for _, fragment := range doc.Fragments {
 		if _, duplicate := fragments[fragment.Name]; duplicate {
 			return nil, errReadOnlyDenied
 		}
 		fragments[fragment.Name] = fragment
-		definitions = append(definitions, definition{start: definitionStarts[fragment.Position.Start], fragment: fragment})
+		definitionsByPosition[fragment.Position.Start] = definition{
+			start:    definitionStarts[fragment.Position.Start],
+			fragment: fragment,
+		}
 	}
-	sort.Slice(definitions, func(i, j int) bool { return definitions[i].start < definitions[j].start })
+	definitions := make([]definition, 0, len(definitionsByPosition))
+	for _, position := range orderedDefinitionPositions {
+		item, ok := definitionsByPosition[position]
+		if !ok {
+			return nil, errReadOnlyDenied
+		}
+		definitions = append(definitions, item)
+	}
+	if len(definitions) != len(definitionsByPosition) {
+		return nil, errReadOnlyDenied
+	}
 
+	definitionEnds := make(map[int]int, len(definitions))
+	for i := range definitions {
+		definitions[i].end = len(runes)
+		if i+1 < len(definitions) {
+			definitions[i].end = definitions[i+1].start
+		}
+		definitionEnds[definitions[i].start] = definitions[i].end
+	}
 	definitionSource := func(start int) string {
-		end := len(runes)
-		for _, item := range definitions {
-			if item.start > start && item.start < end {
-				end = item.start
-			}
+		end, ok := definitionEnds[start]
+		if !ok {
+			return ""
 		}
 		return strings.TrimSpace(string(runes[start:end]))
 	}
-	selectedQuery := definitionSource(selected.Position.Start)
-	if selectedQuery == "" {
+	var selectedQuery strings.Builder
+	selectedQuery.WriteString(definitionSource(definitionStarts[selected.Position.Start]))
+	if selectedQuery.Len() == 0 {
 		return nil, errReadOnlyDenied
 	}
 
@@ -267,14 +295,17 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 
 	for _, item := range definitions {
 		if item.fragment != nil && referenced[item.fragment.Name] {
-			selectedQuery += "\n" + definitionSource(item.start)
+			selectedQuery.WriteByte('\n')
+			selectedQuery.WriteString(definitionSource(item.start))
 		}
 	}
-	if selectedQuery == "" {
+	if selectedQuery.Len() == 0 {
 		return nil, errReadOnlyDenied
 	}
-	selectedQuery = strings.TrimSpace(selectedQuery)
-	selectedBody, err := json.Marshal(GraphQLRequest{Query: selectedQuery, Variables: request.Variables})
+	selectedBody, err := json.Marshal(GraphQLRequest{
+		Query:     strings.TrimSpace(selectedQuery.String()),
+		Variables: request.Variables,
+	})
 	if err != nil {
 		return nil, errReadOnlyDenied
 	}

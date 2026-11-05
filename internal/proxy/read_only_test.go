@@ -469,6 +469,16 @@ func TestSelectReadOnlyGraphQLOperation_Allows(t *testing.T) {
 		assert.Empty(t, got.OperationName, "selected request must not carry operationName")
 	})
 
+	t.Run("null operationName is omitted for a single query", func(t *testing.T) {
+		selected, err := selectReadOnlyGraphQLOperation([]byte(`{"query":"{ viewer { login } }","operationName":null}`))
+		require.NoError(t, err)
+
+		var got GraphQLRequest
+		require.NoError(t, json.Unmarshal(selected, &got))
+		assert.Contains(t, got.Query, "viewer")
+		assert.Empty(t, got.OperationName)
+	})
+
 	t.Run("fragments reached via inline fragments and nested fields are kept", func(t *testing.T) {
 		query := `query Read { viewer { ... on User { ...inner } } }
 fragment inner on User { repositories { nodes { ...leaf } } }
