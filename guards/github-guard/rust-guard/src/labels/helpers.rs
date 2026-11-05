@@ -1368,33 +1368,15 @@ pub(crate) fn extract_repo_from_github_url(url: &str) -> Option<String> {
 /// repository_url, html_url, and url.
 /// Returns empty string if no repo info found
 pub(crate) fn extract_repo_from_item(item: &Value) -> String {
-    // Direct full_name (repositories)
-    if let Some(name) = item.get(field_names::FULL_NAME).and_then(|v| v.as_str()) {
-        return name.to_string();
-    }
-    // repository.full_name (issues, PRs with repo info)
-    if let Some(name) = item
+    let direct = item.get(field_names::FULL_NAME).and_then(Value::as_str);
+    let nested = item
         .get("repository")
         .and_then(|r| r.get(field_names::FULL_NAME))
-        .and_then(|v| v.as_str())
-    {
-        return name.to_string();
-    }
-    // base.repo.full_name (pull requests)
-    if let Some(name) = item
-        .get("base")
-        .and_then(|b| b.get("repo"))
-        .and_then(|r| r.get(field_names::FULL_NAME))
-        .and_then(|v| v.as_str())
-    {
-        return name.to_string();
-    }
-    // head.repo.full_name (pull requests)
-    if let Some(name) = item
-        .get("head")
-        .and_then(|h| h.get("repo"))
-        .and_then(|r| r.get(field_names::FULL_NAME))
-        .and_then(|v| v.as_str())
+        .and_then(Value::as_str);
+    if let Some(name) = direct
+        .or(nested)
+        .or_else(|| pr_side_full_name(item, "base"))
+        .or_else(|| pr_side_full_name(item, "head"))
     {
         return name.to_string();
     }
@@ -3534,6 +3516,31 @@ mod tests {
             "repository": { "full_name": "loser/repo" }
         });
         assert_eq!(extract_repo_from_item(&item), "winner/repo");
+    }
+
+    #[test]
+    fn test_extract_repo_from_item_lookup_order() {
+        let mut item = serde_json::json!({
+            "full_name": "direct/repo",
+            "repository": { "full_name": "nested/repo" },
+            "base": { "repo": { "full_name": "base/repo" } },
+            "head": { "repo": { "full_name": "head/repo" } },
+            "repository_url": "https://api.github.com/repos/url/repo"
+        });
+
+        for (field, expected) in [
+            ("full_name", "direct/repo"),
+            ("repository", "nested/repo"),
+            ("base", "base/repo"),
+            ("head", "head/repo"),
+        ] {
+            assert_eq!(extract_repo_from_item(&item), expected);
+            item[field] = Value::Null;
+        }
+        assert_eq!(extract_repo_from_item(&item), "url/repo");
+
+        item["full_name"] = serde_json::json!("");
+        assert_eq!(extract_repo_from_item(&item), "");
     }
 
     #[test]

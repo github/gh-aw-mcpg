@@ -15,7 +15,7 @@ use super::constants::{CODE_SCANNING_DEPENDABOT_ALERT_TOOLS, SECRET_SCANNING_ALE
 use super::helpers::{
     author_association_floor_from_str, blocked_integrity, elevate_via_collaborator_permission,
     ensure_integrity_baseline, extract_number_as_string, extract_repo_info_from_search_query,
-    file_content_integrity, format_repo_id, get_string_field, is_any_trusted_actor,
+    file_content_integrity, format_repo_id, get_str_or, get_string_field, is_any_trusted_actor,
     is_blocked_user, is_default_branch_commit_context, max_integrity, merged_integrity,
     none_integrity, policy_private_scope_label, private_scope_label, private_user_label,
     project_github_label, reader_integrity, short_sha, split_repo_id, writer_integrity,
@@ -103,18 +103,12 @@ fn resolve_search_scope(tool_args: &Value, owner: &str, repo: &str) -> (String, 
 /// equivalent scope information under several field names (for example `org`,
 /// `organization`, or `org_name`). The first field that exists and is a non-empty string is
 /// returned; otherwise this returns an empty string.
-fn get_first_non_empty_field(tool_args: &Value, field_names: &[&str]) -> String {
+fn get_first_non_empty_field<'a>(tool_args: &'a Value, field_names: &[&str]) -> &'a str {
     field_names
         .iter()
-        .find_map(|field_name| {
-            let value = get_string_field(tool_args, field_name);
-            if value.is_empty() {
-                None
-            } else {
-                Some(value)
-            }
-        })
-        .unwrap_or_default()
+        .map(|field_name| get_str_or(tool_args, field_name, ""))
+        .find(|value| !value.is_empty())
+        .unwrap_or("")
 }
 
 fn graphql_has_single_root_field(tool_args: &Value, expected: &str) -> bool {
@@ -142,10 +136,10 @@ fn apply_governance_labels(
     baseline_scope: &mut Cow<'_, str>,
     ctx: &PolicyContext,
 ) {
-    let scope = match get_string_field(tool_args, "level").as_str() {
+    let scope = match get_str_or(tool_args, "level", "") {
         "organization" => get_first_non_empty_field(tool_args, ORG_FIELD_ALIASES),
         "enterprise" => get_first_non_empty_field(tool_args, &["enterprise", "enterprise_name"]),
-        _ => String::new(),
+        _ => "",
     };
 
     if scope.is_empty() {
@@ -153,9 +147,9 @@ fn apply_governance_labels(
             apply_repo_visibility_secrecy(owner, repo, repo_id, std::mem::take(secrecy), ctx);
         *integrity = writer_integrity(repo_id, ctx);
     } else {
-        *secrecy = private_scope_label(&scope);
-        *integrity = writer_integrity(&scope, ctx);
-        *baseline_scope = Cow::Owned(scope);
+        *secrecy = private_scope_label(scope);
+        *integrity = writer_integrity(scope, ctx);
+        *baseline_scope = Cow::Owned(scope.to_string());
     }
 }
 
@@ -1131,18 +1125,18 @@ pub fn apply_tool_labels(
             let org = if !explicit_org.is_empty() {
                 explicit_org
             } else if repo.is_empty() {
-                owner.clone()
+                owner.as_str()
             } else {
-                String::new()
+                ""
             };
 
             if !owner.is_empty() && !repo.is_empty() {
                 secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
                 integrity = writer_integrity(repo_id, ctx);
             } else if !org.is_empty() {
-                secrecy = private_scope_label(&org);
-                integrity = writer_integrity(&org, ctx);
-                baseline_scope = Cow::Owned(org);
+                secrecy = private_scope_label(org);
+                integrity = writer_integrity(org, ctx);
+                baseline_scope = Cow::Owned(org.to_string());
             } else if matches!(tool_name, tool_names::SET_SECRET | tool_names::DELETE_SECRET) {
                 // Only secrets have a user-scoped CLI write path (`/user/codespaces/secrets`).
                 // Actions variables are repo/org/environment scoped, so variable writes do not
@@ -1222,6 +1216,41 @@ mod tests {
 
     fn default_ctx() -> PolicyContext {
         PolicyContext::default()
+    }
+
+    #[test]
+    fn get_first_non_empty_field_borrows_first_non_empty_string() {
+        for (args, expected_field) in [
+            (serde_json::json!({}), None),
+            (serde_json::json!({"first": "", "second": ""}), None),
+            (serde_json::json!({"second": "fallback"}), Some("second")),
+            (
+                serde_json::json!({"first": null, "second": "fallback"}),
+                Some("second"),
+            ),
+            (
+                serde_json::json!({"first": 42, "second": "fallback"}),
+                Some("second"),
+            ),
+            (
+                serde_json::json!({"first": "", "second": "fallback"}),
+                Some("second"),
+            ),
+            (
+                serde_json::json!({"first": "preferred", "second": "fallback"}),
+                Some("first"),
+            ),
+        ] {
+            let result = get_first_non_empty_field(&args, &["first", "second"]);
+            if let Some(field) = expected_field {
+                let expected = args[field].as_str().unwrap();
+                assert_eq!(result, expected);
+                assert!(std::ptr::eq(result, expected));
+            } else {
+                assert_eq!(result, "");
+            }
+        }
+        assert_eq!(get_first_non_empty_field(&serde_json::json!({}), &[]), "");
     }
 
     /// Tools routed through `apply_governance_labels` (repo/org/enterprise-scoped
