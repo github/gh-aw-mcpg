@@ -105,6 +105,7 @@ const CLI_WRITE_OPERATIONS: &[&str] = &[
     "edit_repository",           // gh repo edit — can change visibility, security settings
     tool_names::ENABLE_WORKFLOW, // gh workflow enable
     tool_names::FORCE_CANCEL_WORKFLOW_RUN, // gh run cancel --force — force-cancels a workflow run
+    tool_names::GITHUB_API_WRITE, // gh api — arbitrary REST/GraphQL writes, including implicit POST
     "link_project", // gh project link — links a Projects v2 board to a repository or team
     tool_names::LOCK_ISSUE, // gh issue lock
     "lock_pull_request", // gh pr lock
@@ -760,6 +761,15 @@ mod tests {
         assert!(!is_write_operation("issue_artifact_write"));
         assert!(!is_read_write_operation("issue_artifact_read"));
         assert!(!is_write_operation("issue_artifact_read"));
+    }
+
+    #[test]
+    fn test_github_api_write_is_cli_write_operation() {
+        assert!(CLI_WRITE_OPERATIONS
+            .binary_search(&tool_names::GITHUB_API_WRITE)
+            .is_ok());
+        assert!(is_write_operation(tool_names::GITHUB_API_WRITE));
+        assert!(!is_read_write_operation(tool_names::GITHUB_API_WRITE));
     }
 
     #[test]

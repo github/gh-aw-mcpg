@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -14,6 +15,20 @@ import (
 var logGraphQL = logger.ForFile()
 
 const graphqlTokenLimit = 100000
+
+func hasGraphQLQueryOverride(rawQuery string) bool {
+	values, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return true
+	}
+	for key := range values {
+		switch strings.ToLower(key) {
+		case "query", "operationname", "variables", "extensions":
+			return true
+		}
+	}
+	return false
+}
 
 // GraphQLRequest represents a parsed GraphQL request body.
 type GraphQLRequest struct {

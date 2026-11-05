@@ -1146,6 +1146,14 @@ pub fn apply_tool_labels(
             }
         }
 
+        // === Arbitrary API writes: no operation-specific classification is available ===
+        tool_names::GITHUB_API_WRITE => {
+            // A scope alone cannot prove which operations are being performed or
+            // preserve named-tool restrictions. Do not label generic writes as safe.
+            secrecy = vec![];
+            integrity = vec![];
+        }
+
         // === Dynamic toolset enablement (capability expansion) ===
         tool_names::ENABLE_TOOLSET => {
             // Enabling a toolset expands the agent's runtime capability set.
