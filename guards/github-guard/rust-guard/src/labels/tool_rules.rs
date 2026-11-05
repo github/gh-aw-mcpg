@@ -1146,6 +1146,33 @@ pub fn apply_tool_labels(
             }
         }
 
+        // === Arbitrary API writes: require an explicit repository or organization scope ===
+        // For trusted synthetic callers; the HTTP proxy rejects unclassified writes before dispatch.
+        tool_names::GITHUB_API_WRITE => {
+            let explicit_org = get_first_non_empty_field(tool_args, ORG_FIELD_ALIASES);
+            let org = if !explicit_org.is_empty() {
+                explicit_org
+            } else if repo.is_empty() {
+                owner.as_str()
+            } else {
+                ""
+            };
+
+            if !owner.is_empty() && !repo.is_empty() {
+                // Generic endpoints may change access-sensitive state even in public repos.
+                secrecy = policy_private_scope_label(&owner, &repo, repo_id, ctx);
+                integrity = writer_integrity(repo_id, ctx);
+            } else if !org.is_empty() {
+                secrecy = private_scope_label(org);
+                integrity = writer_integrity(org, ctx);
+                baseline_scope = Cow::Owned(org.to_string());
+            } else {
+                // label_resource blocks unscoped API writes after baseline enforcement.
+                secrecy = policy_private_scope_label("", "", "", ctx);
+                integrity = vec![];
+            }
+        }
+
         // === Dynamic toolset enablement (capability expansion) ===
         tool_names::ENABLE_TOOLSET => {
             // Enabling a toolset expands the agent's runtime capability set.

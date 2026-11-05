@@ -85,8 +85,22 @@ gh CLI  →  awmg proxy (localhost:8443, TLS)  →  api.github.com
 5. The response is filtered per-item based on secrecy/integrity labels; top-level REST arrays that have no per-item guard schema (for example, issue comment list endpoints) are passed through unchanged after the coarse policy check
 6. The filtered response is returned to the client
 
-By default, write operations (PUT, POST, DELETE, PATCH) pass through
-unmodified. With `--read-only`, they are rejected before forwarding.
+Unclassified write operations (PUT, POST, DELETE, PATCH), including `gh api`'s
+implicit POST when request fields are supplied, are rejected before forwarding
+with `github_api_write_denied`. The proxy cannot safely derive the complete
+scope of an arbitrary API mutation and does not observe shell command names.
+GraphQL POSTs must select a valid query; mutations, subscriptions, malformed or
+ambiguous requests, and URL query overrides are rejected. Only the selected
+query and its referenced fragments are forwarded. GET requests retain their
+existing read handling. `--read-only` additionally restricts unsupported REST
+routes and request shapes as described above.
+
+The guard also recognizes the synthetic `github_api_write` operation for
+integrations that provide a trusted repository (`owner` and `repo`) or
+organization (`owner`, `org`, `org_name`, `organization`, or `organization_name`)
+scope. It requires scoped writer integrity and conservative private secrecy;
+missing scope is blocked. This identifier does not enable arbitrary writes in
+the HTTP proxy or provide enforcement for CLI traffic that bypasses the proxy.
 
 ## Single-use enclave profile (`issues-read-v1`)
 
@@ -248,7 +262,10 @@ Supported path families include:
 | `/repos/:owner/:repo/...` (fallback) | `get_file_contents` |
 | ... | See `internal/proxy/router.go` for the complete regex list and precedence |
 
-For **read operations** (GET and GraphQL POST), unmatched routes are denied (fail-closed) to avoid accidental unfiltered data exposure. For **write operations** (non-read methods), requests pass through unchanged.
+For **read operations** (GET and validated GraphQL queries), the existing route
+mapping applies. Unrecognized GraphQL operations fail closed; unrecognized REST
+GET endpoints retain their empty-label passthrough unless `--read-only` is set.
+Unclassified **write operations** are rejected before forwarding.
 
 For artifact ZIP downloads, authorization is evaluated before proxy forwarding and the response is passed through without JSON transformation. Binary bodies are returned unchanged, and redirect responses preserve headers needed by clients (for example `Location` and `Content-Disposition`).
 
@@ -393,4 +410,4 @@ and the security model.
 ## Known Limitations
 
 - **GraphQL nested filtering**: Deeply nested GraphQL response structures depend on guard support for item-level labeling.
-- **Read-only filtering**: Without `--read-only`, writes pass through unmodified. When enabled, only supported GET REST routes and structurally validated GraphQL queries are allowed; unsupported or ambiguous requests fail closed.
+- **Unclassified API writes**: Arbitrary REST and GraphQL mutations are rejected; use named, guard-covered MCP write tools instead. `--read-only` additionally rejects unsupported REST reads and unsafe request shapes.

@@ -120,12 +120,13 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only filter read operations (GET + GraphQL POST to /graphql)
+	// Arbitrary API writes have no trusted operation/scope mapping. Fail closed
+	// rather than forwarding them outside the guard pipeline.
 	isGraphQL := IsGraphQLPath(rawPath)
 	isRead := r.Method == http.MethodGet || (r.Method == http.MethodPost && isGraphQL)
-	if !isRead {
-		// Pass through write operations unmodified
-		h.passthrough(w, r, fullPath)
+	if !isRead || (isGraphQL && (r.Method != http.MethodPost || hasGraphQLQueryOverride(r.URL.RawQuery))) {
+		rejectProxyRequest(w, oteltrace.SpanFromContext(r.Context()), http.StatusForbidden,
+			"github_api_write_denied", "access denied: unclassified GitHub API write", nil)
 		return
 	}
 
@@ -141,6 +142,13 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Body.Close()
 		if err != nil {
 			rejectProxyRequest(w, oteltrace.SpanFromContext(r.Context()), http.StatusBadRequest, "bad_request", "failed to read request body", err)
+			return
+		}
+
+		graphQLBody, err = selectReadOnlyGraphQLOperation(graphQLBody)
+		if err != nil {
+			rejectProxyRequest(w, oteltrace.SpanFromContext(r.Context()), http.StatusForbidden,
+				"github_api_write_denied", "access denied: unclassified GitHub API write", nil)
 			return
 		}
 

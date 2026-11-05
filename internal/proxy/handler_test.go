@@ -165,11 +165,15 @@ func TestServeHTTP_MetadataPassthroughAllowlist(t *testing.T) {
 
 // ─── ServeHTTP: write operations (non-GraphQL POST/PUT/DELETE/PATCH) ─────────
 
-func TestServeHTTP_WriteOperationsPassthrough(t *testing.T) {
+func TestServeHTTP_WriteOperationsDenied(t *testing.T) {
 	methods := []string{http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch}
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
-			upstream := mockUpstream(t, http.StatusCreated, map[string]interface{}{"id": 1})
+			upstreamCalls := 0
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				upstreamCalls++
+				w.WriteHeader(http.StatusCreated)
+			}))
 			defer upstream.Close()
 
 			s := newTestServer(t, upstream.URL)
@@ -180,8 +184,9 @@ func TestServeHTTP_WriteOperationsPassthrough(t *testing.T) {
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, req)
 
-			// Non-read requests must be forwarded (passthrough), not blocked
-			assert.Equal(t, http.StatusCreated, w.Code)
+			assert.Equal(t, http.StatusForbidden, w.Code)
+			assert.Contains(t, w.Body.String(), "github_api_write_denied")
+			assert.Zero(t, upstreamCalls)
 		})
 	}
 }

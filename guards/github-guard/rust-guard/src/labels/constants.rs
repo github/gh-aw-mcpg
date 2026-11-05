@@ -250,6 +250,7 @@ mod tests {
         assert_eq!(tool_names::DELETE_SECRET, "delete_secret");
         assert_eq!(tool_names::SET_VARIABLE, "set_variable");
         assert_eq!(tool_names::DELETE_VARIABLE, "delete_variable");
+        assert_eq!(tool_names::GITHUB_API_WRITE, "github_api_write");
         assert_eq!(tool_names::LIST_GISTS, "list_gists");
         assert_eq!(tool_names::GET_GIST, "get_gist");
         assert_eq!(tool_names::DELETE_GIST, "delete_gist");
@@ -515,6 +516,7 @@ pub mod tool_names {
     pub const DELETE_SECRET: &str = "delete_secret";
     pub const SET_VARIABLE: &str = "set_variable";
     pub const DELETE_VARIABLE: &str = "delete_variable";
+    pub const GITHUB_API_WRITE: &str = "github_api_write";
     pub const REMOVE_ISSUE_COMMENT_REACTION: &str = "remove_issue_comment_reaction";
     pub const REMOVE_ISSUE_REACTION: &str = "remove_issue_reaction";
     pub const REMOVE_PULL_REQUEST_REVIEW_COMMENT_REACTION: &str =
