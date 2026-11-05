@@ -35,20 +35,20 @@
       "version": "v9.0.0",
       "sha": "3a2844b7e9c422d3c10d287c895573f7108da1b3"
     },
-    "actions/setup-dotnet@v6.0.0": {
+    "actions/setup-dotnet@v6.1.0": {
       "repo": "actions/setup-dotnet",
-      "version": "v6.0.0",
-      "sha": "a98b56852c35b8e3190ac28c8c2271da59106c68"
+      "version": "v6.1.0",
+      "sha": "0f4a354dd5547a28c70b7853dbd95d5b67886e73"
     },
     "actions/setup-go@v7.0.0": {
       "repo": "actions/setup-go",
       "version": "v7.0.0",
       "sha": "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e"
     },
-    "actions/setup-java@v6.1.0": {
+    "actions/setup-java@v6.2.0": {
       "repo": "actions/setup-java",
-      "version": "v6.1.0",
-      "sha": "b843ebf9b913146b38da2eaa7aeddf76074ae1ad"
+      "version": "v6.2.0",
+      "sha": "77dd5b2ce225ea11469928ac317850245a74ae78"
     },
     "actions/setup-node@v7.1.0": {
       "repo": "actions/setup-node",
@@ -85,10 +85,10 @@
       "version": "v7.4.0",
       "sha": "c3c9e263c25d99ce0380d002d59b67737d91b0dc"
     },
-    "docker/login-action@v4.7.0": {
+    "docker/login-action@v4.8.0": {
       "repo": "docker/login-action",
-      "version": "v4.7.0",
-      "sha": "81c6f93d4bc991e510b342a00b419b3bb4efc5c6"
+      "version": "v4.8.0",
+      "sha": "8aa5831fb8d48d8f76594c7ddde61ae58019f550"
     },
     "docker/setup-buildx-action@v4.4.1": {
       "repo": "docker/setup-buildx-action",
@@ -105,20 +105,15 @@
       "version": "v1.24.1",
       "sha": "54075bcc5e249e4758d363f27d099f55d843f124"
     },
-    "github/codeql-action/upload-sarif@v4.39.1": {
+    "github/codeql-action/upload-sarif@v4.39.3": {
       "repo": "github/codeql-action/upload-sarif",
-      "version": "v4.39.1",
-      "sha": "9b3254085494b55a0f7c4c2b3d2d52cc712ce370"
+      "version": "v4.39.3",
+      "sha": "33d7b85da1a04171e211befe2c739303b9a4c066"
     },
-    "github/gh-aw-actions/setup-cli@v1.0.1": {
+    "github/gh-aw-actions/setup-cli@v1.2.0": {
       "repo": "github/gh-aw-actions/setup-cli",
-      "version": "v1.0.1",
-      "sha": "221ba4f4319de6b8e809d1a15528b3ae6a818aa5"
-    },
-    "github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a": {
-      "repo": "github/gh-aw/actions/setup",
-      "version": "5fec33b64e8f9159001970542a8357293ca5b09a",
-      "sha": "5fec33b64e8f9159001970542a8357293ca5b09a"
+      "version": "v1.2.0",
+      "sha": "4607d462dc213dbe54d02f77ec31215776fd5554"
     },
     "haskell-actions/setup@v2.12.1": {
       "repo": "haskell-actions/setup",
