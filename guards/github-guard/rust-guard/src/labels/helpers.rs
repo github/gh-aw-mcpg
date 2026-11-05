@@ -1941,8 +1941,8 @@ fn pull_request_content_integrity_with_callback(
         return none_integrity(repo_full_name, ctx);
     }
     let (owner, repo, _) = extract_repo_info(tool_args);
-    let number = extract_number_as_string(tool_args, field_names::PULL_NUMBER)
-        .or_else(|| extract_number_as_string(tool_args, "pullNumber"))
+    let number = extract_number_as_string(tool_args, "pullNumber")
+        .or_else(|| extract_number_as_string(tool_args, field_names::PULL_NUMBER))
         .unwrap_or_default();
     let facts =
         super::backend::get_pull_request_facts_with_callback(callback, &owner, &repo, &number);
@@ -2649,6 +2649,19 @@ mod tests {
                 );
             }
         }
+        let conflicting_aliases =
+            serde_json::json!({"owner":"org","repo":"repo","pullNumber":1,"pull_number":2,"method":"get_diff"});
+        assert_eq!(
+            pull_request_content_integrity_with_callback(
+                callback,
+                &conflicting_aliases,
+                "org/repo",
+                &ctx
+            ),
+            blocked_integrity("org/repo", &ctx),
+            "the canonical pullNumber must determine which parent is checked"
+        );
+
         fn unexpected_callback(_: &str, _: &str, _: &mut [u8]) -> Result<usize, i32> {
             panic!("no parent lookup is needed without a deny-list")
         }

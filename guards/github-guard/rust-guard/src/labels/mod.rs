@@ -296,6 +296,33 @@ mod tests {
     }
 
     #[test]
+    fn zero_result_commit_search_without_items_uses_metadata_fallback() {
+        let mut policy = PolicyContext::default();
+        policy.blocked_users = vec!["blocked-bot".into()];
+        let args = json!({"query":"repo:org/repo"});
+
+        assert!(label_response_paths(
+            tool_names::SEARCH_COMMITS,
+            &args,
+            &json!({"total_count":0,"incomplete_results":false}),
+            &policy
+        )
+        .is_none());
+
+        let nonzero_without_items = label_response_paths(
+            tool_names::SEARCH_COMMITS,
+            &args,
+            &json!({"total_count":1,"incomplete_results":false}),
+            &policy,
+        )
+        .expect("nonzero results without items must retain conservative defaults");
+        assert_eq!(
+            nonzero_without_items.default_labels.unwrap().integrity,
+            blocked_integrity("org/repo", &policy)
+        );
+    }
+
+    #[test]
     fn test_extract_mcp_response_prefers_resource_over_status_text() {
         let response = json!({
             "content": [

@@ -975,6 +975,12 @@ pub fn label_response_paths(
 
         tool_names::SEARCH_COMMITS => {
             let (items, items_path) = extract_items_array(&actual_response);
+            if is_search_result_wrapper(&actual_response)
+                && actual_response.get("total_count").and_then(Value::as_u64) == Some(0)
+                && items.as_ref().is_none_or(|items| items.is_empty())
+            {
+                return None;
+            }
             let (_, _, repo_full) = extract_repo_scope_with_query_fallback(tool_args);
             let mut labeled_paths = Vec::new();
             if let Some(items) = items {
