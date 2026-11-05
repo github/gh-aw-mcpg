@@ -277,7 +277,10 @@ func (e *Evaluator) evaluateRead(
 	result := newEmptyEvaluationResult()
 
 	for _, tag := range resource.Integrity.Label.GetTags() {
-		if strings.HasPrefix(string(tag), "blocked:") {
+		tagValue := string(tag)
+		if tagValue == "blocked" ||
+			strings.HasPrefix(tagValue, "blocked:") ||
+			strings.HasPrefix(tagValue, "integrity=blocked;scopes=") {
 			result.Decision = AccessDeny
 			result.Reason = fmt.Sprintf("Resource '%s' is explicitly blocked.", resource.Description)
 			result.hardDeny = true

@@ -390,6 +390,7 @@ min-integrity = "unapproved"
   - `"merged"` - Merged to main branch (any object reachable from the main branch, regardless of authorship)
 
 - **`blocked-users`** *(optional)*: Array of GitHub usernames whose content is unconditionally blocked. Items from these users receive `blocked` integrity (below `none`) and are always denied, even when `min-integrity` is `"none"`. Cannot be overridden by `approval-labels` or `trusted-users`.
+  PR files and diffs are checked against the parent PR author's GitHub login; commit reads, commit search results, and releases are checked against each item's author. When this deny-list is nonempty, these responses fail closed if the account login cannot be established (including a failed parent PR lookup). Git commit display names and email addresses are not account identities and are never used to infer a login. Consequently, minimized commit responses exposing only name/email are denied even if the actual author is not blocked; use a response with GitHub-provided account identity to permit them. Without a deny-list, existing integrity classification is unchanged.
 
 - **`approval-labels`** *(optional)*: Array of GitHub label names that promote a content item's effective integrity to `approved` when present. Uses `max(base, approved)` so it never lowers integrity. Does not override `blocked-users`.
 

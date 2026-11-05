@@ -722,7 +722,11 @@ pub fn label_response_paths(
                         default_labels: Some(repo_default_labels(
                             desc_default::COMMIT,
                             secrecy,
-                            none_integrity(&repo_full, ctx),
+                            if ctx.blocked_users.is_empty() {
+                                none_integrity(&repo_full, ctx)
+                            } else {
+                                blocked_integrity(&repo_full, ctx)
+                            },
                         )),
                         items_path: (!items_path.is_empty()).then_some(items_path),
                         items_paths: None,
@@ -732,6 +736,7 @@ pub fn label_response_paths(
                 && matches!(method, "get_files" | "get_diff")
             {
                 let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+                let integrity = pull_request_content_integrity(tool_args, &repo_full, ctx);
                 let (items, items_path) = extract_items_array(&actual_response);
                 let labeled_paths = items
                     .map(|items| {
@@ -743,7 +748,7 @@ pub fn label_response_paths(
                                 labels: repo_default_labels(
                                     "pull-request-content",
                                     secrecy.clone(),
-                                    none_integrity(&repo_full, ctx),
+                                    integrity.clone(),
                                 ),
                             })
                             .collect()
@@ -754,7 +759,7 @@ pub fn label_response_paths(
                     default_labels: Some(repo_default_labels(
                         "pull-request-content",
                         secrecy,
-                        none_integrity(&repo_full, ctx),
+                        integrity,
                     )),
                     items_path: (!items_path.is_empty()).then_some(items_path),
                     items_paths: None,
@@ -968,6 +973,57 @@ pub fn label_response_paths(
             }
         }
 
+        tool_names::SEARCH_COMMITS => {
+            let (items, items_path) = extract_items_array(&actual_response);
+            if is_search_result_wrapper(&actual_response)
+                && actual_response.get("total_count").and_then(Value::as_u64) == Some(0)
+                && items.as_ref().is_none_or(|items| items.is_empty())
+            {
+                return None;
+            }
+            let (_, _, repo_full) = extract_repo_scope_with_query_fallback(tool_args);
+            let mut labeled_paths = Vec::new();
+            if let Some(items) = items {
+                for (index, item) in limit_items_with_log(items, tool_name).iter().enumerate() {
+                    let item_repo = extract_repo_from_item(item);
+                    let repo = if item_repo.is_empty() {
+                        &repo_full
+                    } else {
+                        &item_repo
+                    };
+                    labeled_paths.push(crate::PathLabel {
+                        path: make_item_path(items_path, index),
+                        labels: repo_default_labels(
+                            &format!(
+                                "commit:{repo}@{}",
+                                short_sha(get_str_or(item, field_names::SHA, ""))
+                            ),
+                            repo_visibility_secrecy_for_repo_id(repo, ctx).into(),
+                            if author_denied(extract_author_login(item), ctx) {
+                                blocked_integrity(repo, ctx)
+                            } else {
+                                writer_integrity(repo, ctx)
+                            },
+                        ),
+                    });
+                }
+            }
+            return Some(PathLabelResult {
+                labeled_paths,
+                default_labels: Some(repo_default_labels(
+                    desc_default::COMMIT,
+                    repo_visibility_secrecy_for_repo_id(&repo_full, ctx).into(),
+                    if ctx.blocked_users.is_empty() {
+                        writer_integrity(&repo_full, ctx)
+                    } else {
+                        blocked_integrity(&repo_full, ctx)
+                    },
+                )),
+                items_path: (!items_path.is_empty()).then_some(items_path),
+                items_paths: None,
+            });
+        }
+
         // === Commits - label by branch ===
         tool_names::LIST_COMMITS | tool_names::LIST_COMMITS_FF_FIELDS_PARAM => {
             let items = actual_response.as_array();
@@ -1031,7 +1087,9 @@ pub fn label_response_paths(
                     default_labels: Some(crate::ResourceLabels {
                         description: desc_default::COMMIT.to_string(),
                         secrecy: default_secrecy,
-                        integrity: if is_default_branch {
+                        integrity: if !ctx.blocked_users.is_empty() {
+                            blocked_integrity(&default_repo, ctx)
+                        } else if is_default_branch {
                             merged_integrity(&default_repo, ctx)
                         } else if default_repo_private == Some(true) {
                             writer_integrity(&default_repo, ctx)
@@ -1111,11 +1169,8 @@ pub fn label_response_paths(
                     };
 
                     let tag = get_str_or(item, field_names::TAG_NAME, UNKNOWN_LABEL_FALLBACK);
-                    let integrity: crate::SharedLabels = if item_repo.is_empty() {
-                        default_merged_shared.clone()
-                    } else {
-                        merged_integrity(repo_for_labels, ctx).into()
-                    };
+                    let integrity: crate::SharedLabels =
+                        release_integrity(item, repo_for_labels, ctx).into();
 
                     labeled_paths.push(crate::PathLabel {
                         path: format!("/{i}"),
@@ -1137,7 +1192,11 @@ pub fn label_response_paths(
                     default_labels: Some(crate::ResourceLabels {
                         description: desc_default::RELEASE.to_string(),
                         secrecy: default_secrecy_shared,
-                        integrity: default_merged_shared,
+                        integrity: if ctx.blocked_users.is_empty() {
+                            default_merged_shared
+                        } else {
+                            blocked_integrity(&default_repo, ctx).into()
+                        },
                     }),
                     items_path: None, // Root array
                     items_paths: None,
@@ -2573,10 +2632,10 @@ mod tests {
             });
             let result =
                 label_response_paths(tool_names::PULL_REQUEST_READ, &args, &response, &policy)
-                    .expect("authorless PR content should still get conservative defaults");
+                    .expect("unresolved parent authors should fail closed with blocked-users");
             assert_eq!(
                 result.default_labels.expect("default labels").integrity,
-                none_integrity(repo, &policy),
+                blocked_integrity(repo, &policy),
                 "method={method}"
             );
         }

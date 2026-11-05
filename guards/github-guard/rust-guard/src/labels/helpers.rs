@@ -1865,6 +1865,13 @@ pub(crate) fn extract_author_login(item: &Value) -> &str {
     if !login.is_empty() {
         return login;
     }
+    let login = item
+        .pointer("/author/user/login")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if !login.is_empty() {
+        return login;
+    }
     // Minimal review comments represent the author as a login string.
     if let Some(login) = item.get("author").and_then(Value::as_str) {
         if !login.is_empty() {
@@ -1882,6 +1889,74 @@ pub(crate) fn extract_author_login(item: &Value) -> &str {
         })
         .and_then(Value::as_str)
         .unwrap_or("")
+}
+
+/// Missing account identity cannot establish absence from an active deny-list.
+/// Git commit names and emails are user-controlled, not GitHub account identities.
+pub(crate) fn author_denied(author_login: &str, ctx: &PolicyContext) -> bool {
+    if ctx.blocked_users.is_empty() {
+        return false;
+    }
+    if author_login.is_empty() {
+        crate::log_warn(
+            "Cannot enforce blocked-users without a GitHub author login; denying content",
+        );
+        return true;
+    }
+    is_blocked_user(author_login, ctx)
+}
+
+pub(crate) fn release_integrity(
+    item: &Value,
+    repo_full_name: &str,
+    ctx: &PolicyContext,
+) -> Vec<String> {
+    if author_denied(extract_author_login(item), ctx) {
+        blocked_integrity(repo_full_name, ctx)
+    } else {
+        merged_integrity(repo_full_name, ctx)
+    }
+}
+
+pub(crate) fn pull_request_content_integrity(
+    tool_args: &Value,
+    repo_full_name: &str,
+    ctx: &PolicyContext,
+) -> Vec<String> {
+    pull_request_content_integrity_with_callback(
+        crate::invoke_backend,
+        tool_args,
+        repo_full_name,
+        ctx,
+    )
+}
+
+fn pull_request_content_integrity_with_callback(
+    callback: GithubMcpCallback,
+    tool_args: &Value,
+    repo_full_name: &str,
+    ctx: &PolicyContext,
+) -> Vec<String> {
+    if ctx.blocked_users.is_empty() {
+        return none_integrity(repo_full_name, ctx);
+    }
+    let (owner, repo, _) = extract_repo_info(tool_args);
+    let number = extract_number_as_string(tool_args, "pullNumber")
+        .or_else(|| extract_number_as_string(tool_args, field_names::PULL_NUMBER))
+        .unwrap_or_default();
+    let facts =
+        super::backend::get_pull_request_facts_with_callback(callback, &owner, &repo, &number);
+    if author_denied(
+        facts
+            .as_ref()
+            .and_then(|facts| facts.author_login.as_deref())
+            .unwrap_or(""),
+        ctx,
+    ) {
+        blocked_integrity(repo_full_name, ctx)
+    } else {
+        none_integrity(repo_full_name, ctx)
+    }
 }
 
 /// Extract the `author_association` field from an item, checking both the
@@ -2399,9 +2474,9 @@ pub(crate) fn commit_integrity_with_visibility(
 
     // Step 1: Check if author is in blocked_users — takes precedence over all other rules.
     let author_login = extract_author_login(item);
-    if !author_login.is_empty() && is_blocked_user(author_login, ctx) {
+    if author_denied(author_login, ctx) {
         crate::log_info(&format!(
-            "[integrity] commit:{repo_full_name}@{short_sha} → blocked (author '{author_login}' in blocked-users)"
+            "[integrity] commit:{repo_full_name}@{short_sha} → blocked (author '{author_login}' denied by blocked-users policy)"
         ));
         return blocked_integrity(repo_full_name, ctx);
     }
@@ -2529,6 +2604,105 @@ mod tests {
 
     fn test_ctx() -> PolicyContext {
         PolicyContext::default()
+    }
+
+    #[test]
+    fn blocked_users_pr_content_checks_parent_without_promoting_patches() {
+        fn callback(tool: &str, args: &str, buffer: &mut [u8]) -> Result<usize, i32> {
+            assert_eq!(tool, tool_names::PULL_REQUEST_READ);
+            let args: Value = serde_json::from_str(args).unwrap();
+            assert_eq!(args["method"], "get");
+            let response = match args["pullNumber"].as_str().unwrap() {
+                "1" => serde_json::json!({"user":{"login":"BLOCKED-BOT"}}),
+                "2" => serde_json::json!({"author":{"login":"maintainer"}, "merged":true}),
+                "3" => return Err(-1),
+                "4" => serde_json::json!({"pull_request":{"user":{"login":"blocked-bot"}}}),
+                "5" => serde_json::json!({"data":{"repository":{"pullRequest":{"author":{"login":"blocked-bot"}}}}}),
+                _ => serde_json::json!({"author":{"name":"maintainer"}}),
+            }.to_string();
+            buffer[..response.len()].copy_from_slice(response.as_bytes());
+            Ok(response.len())
+        }
+        let ctx = PolicyContext {
+            blocked_users: vec!["blocked-bot".into()],
+            trusted_users: vec!["blocked-bot".into(), "maintainer".into()],
+            ..Default::default()
+        };
+        for method in ["get_files", "get_diff"] {
+            for (number, denied) in [
+                (1, true),
+                (2, false),
+                (3, true),
+                (4, true),
+                (5, true),
+                (6, true),
+            ] {
+                let args = serde_json::json!({"owner":"org","repo":"repo","pullNumber":number,"method":method});
+                assert_eq!(
+                    pull_request_content_integrity_with_callback(callback, &args, "org/repo", &ctx),
+                    if denied {
+                        blocked_integrity("org/repo", &ctx)
+                    } else {
+                        none_integrity("org/repo", &ctx)
+                    },
+                    "{method} #{number}"
+                );
+            }
+        }
+        let conflicting_aliases =
+            serde_json::json!({"owner":"org","repo":"repo","pullNumber":1,"pull_number":2,"method":"get_diff"});
+        assert_eq!(
+            pull_request_content_integrity_with_callback(
+                callback,
+                &conflicting_aliases,
+                "org/repo",
+                &ctx
+            ),
+            blocked_integrity("org/repo", &ctx),
+            "the canonical pullNumber must determine which parent is checked"
+        );
+
+        fn unexpected_callback(_: &str, _: &str, _: &mut [u8]) -> Result<usize, i32> {
+            panic!("no parent lookup is needed without a deny-list")
+        }
+        assert_eq!(
+            pull_request_content_integrity_with_callback(
+                unexpected_callback,
+                &serde_json::json!({}),
+                "org/repo",
+                &test_ctx()
+            ),
+            none_integrity("org/repo", &test_ctx())
+        );
+    }
+
+    #[test]
+    fn blocked_users_commit_names_and_emails_are_not_logins() {
+        let ctx = PolicyContext {
+            blocked_users: vec!["blocked-bot".into()],
+            ..Default::default()
+        };
+        let item = serde_json::json!({
+            "author":{"login":"maintainer"},
+            "commit":{"author":{"name":"blocked-bot","email":"123+blocked-bot@users.noreply.github.com"}}
+        });
+        assert!(!author_denied(extract_author_login(&item), &ctx));
+        for repo_private in [Some(false), Some(true), None] {
+            for is_default in [false, true] {
+                let unknown = serde_json::json!({"author":{"name":"maintainer","email":"maintainer@example.com"}});
+                assert_eq!(
+                    commit_integrity_with_visibility(
+                        &unknown,
+                        "org/repo",
+                        repo_private,
+                        is_default,
+                        &ctx
+                    ),
+                    blocked_integrity("org/repo", &ctx)
+                );
+                assert!(!author_denied(extract_author_login(&unknown), &test_ctx()));
+            }
+        }
     }
 
     #[test]

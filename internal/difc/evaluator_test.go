@@ -908,20 +908,26 @@ func TestEvaluator_PropagateMode_Read(t *testing.T) {
 
 	t.Run("blocked integrity is a hard denial in propagate mode", func(t *testing.T) {
 		eval := NewEvaluatorWithMode(EnforcementPropagate)
-		resource := NewLabeledResource("unclassified GraphQL subtree")
-		resource.Integrity.Label.Add("blocked:owner/repo")
+		for _, tag := range []string{
+			"blocked:owner/repo",
+			"integrity=blocked;scopes=owner/first,owner/second",
+			"blocked",
+		} {
+			resource := NewLabeledResource("unclassified GraphQL subtree")
+			resource.Integrity.Label.Add(Tag(tag))
 
-		result := eval.Evaluate(
-			NewSecrecyLabel(),
-			NewIntegrityLabel("approved:owner/repo"),
-			resource,
-			OperationRead,
-		)
+			result := eval.Evaluate(
+				NewSecrecyLabel(),
+				NewIntegrityLabel("approved:owner/repo"),
+				resource,
+				OperationRead,
+			)
 
-		assert.False(t, result.IsAllowed())
-		assert.Equal(t, AccessDeny, result.Decision)
-		assert.True(t, result.hardDeny)
-		assert.Empty(t, result.IntegrityToDrop)
+			assert.False(t, result.IsAllowed(), "tag %q must be denied", tag)
+			assert.Equal(t, AccessDeny, result.Decision, "tag %q", tag)
+			assert.True(t, result.hardDeny, "tag %q", tag)
+			assert.Empty(t, result.IntegrityToDrop, "tag %q", tag)
+		}
 	})
 }
 

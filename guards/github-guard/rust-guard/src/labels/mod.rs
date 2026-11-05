@@ -161,6 +161,168 @@ mod tests {
     }
 
     #[test]
+    fn blocked_users_commit_responses_check_account_identity() {
+        let ctx = PolicyContext {
+            blocked_users: vec!["blocked-bot".into()],
+            trusted_users: vec!["blocked-bot".into()],
+            ..Default::default()
+        };
+        let args = json!({"owner":"org", "repo":"repo", "method":"get_commits"});
+        for item in [
+            json!({"sha":"abc", "author":{"login":"BLOCKED-BOT"}}),
+            json!({"sha":"abc", "author":{"user":{"login":"blocked-bot"}}}),
+            json!({"sha":"abc", "commit":{"author":{"user":{"login":"blocked-bot"}}}}),
+            json!({"sha":"abc", "author":{"name":"blocked-bot", "email":"blocked-bot@users.noreply.github.com"}}),
+            json!({"sha":"abc", "author":null}),
+        ] {
+            for tool in [
+                tool_names::PULL_REQUEST_READ,
+                tool_names::LIST_COMMITS,
+                tool_names::LIST_COMMITS_FF_FIELDS_PARAM,
+                tool_names::SEARCH_COMMITS,
+                tool_names::GET_COMMIT,
+            ] {
+                let response = if tool == tool_names::SEARCH_COMMITS {
+                    json!({"total_count":1,"items":[item]})
+                } else if tool == tool_names::GET_COMMIT {
+                    item.clone()
+                } else {
+                    json!([item])
+                };
+                let legacy = label_response_items(tool, &args, &response, &ctx);
+                assert_eq!(legacy.len(), 1, "{tool}: {response}");
+                assert_eq!(
+                    legacy[0].labels.integrity,
+                    blocked_integrity("org/repo", &ctx),
+                    "{tool}: {response}"
+                );
+                if let Some(paths) = label_response_paths(tool, &args, &response, &ctx) {
+                    assert_eq!(paths.labeled_paths.len(), 1);
+                    assert_eq!(
+                        paths.labeled_paths[0].labels.integrity,
+                        blocked_integrity("org/repo", &ctx)
+                    );
+                    assert_eq!(
+                        paths.default_labels.unwrap().integrity,
+                        blocked_integrity("org/repo", &ctx),
+                        "unclassified/overflow items must not bypass the deny-list"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn blocked_users_release_responses_preserve_unblocked_integrity() {
+        let ctx = PolicyContext {
+            blocked_users: vec!["blocked-bot".into()],
+            ..Default::default()
+        };
+        let args = json!({"owner":"org", "repo":"repo"});
+        for tool in [
+            tool_names::LIST_RELEASES,
+            tool_names::LIST_RELEASES_FF_FIELDS_PARAM,
+            tool_names::GET_LATEST_RELEASE,
+            tool_names::GET_RELEASE_BY_TAG,
+        ] {
+            for (author, denied) in [
+                (json!({"login":"BLOCKED-BOT"}), true),
+                (json!({"login":"maintainer"}), false),
+                (Value::Null, true),
+            ] {
+                let item = json!({"author":author,"tag_name":"v1","body":"release notes"});
+                let response = if tool.starts_with("list_") {
+                    json!([item])
+                } else {
+                    item
+                };
+                let expected = if denied {
+                    blocked_integrity("org/repo", &ctx)
+                } else {
+                    helpers::merged_integrity("org/repo", &ctx)
+                };
+                let legacy = label_response_items(tool, &args, &response, &ctx);
+                assert_eq!(legacy.len(), 1, "{tool}");
+                assert_eq!(legacy[0].labels.integrity, expected, "{tool}");
+                if let Some(paths) = label_response_paths(tool, &args, &response, &ctx) {
+                    assert_eq!(paths.labeled_paths.len(), 1);
+                    assert_eq!(paths.labeled_paths[0].labels.integrity, expected, "{tool}");
+                    assert_eq!(
+                        paths.default_labels.unwrap().integrity,
+                        blocked_integrity("org/repo", &ctx)
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn blocked_users_commit_search_labels_each_repository_and_preserves_writer_floor() {
+        let ctx = PolicyContext {
+            blocked_users: vec!["blocked-bot".into()],
+            ..Default::default()
+        };
+        let args = json!({"query":"repo:org/first author:maintainer"});
+        let response = json!({"total_count":2,"items":[
+            {"sha":"a", "repository":{"full_name":"org/first"}, "author":{"login":"maintainer"}},
+            {"sha":"b", "repository":{"full_name":"org/second"}, "author":{"login":"blocked-bot"}}
+        ]});
+        for payload in [
+            response.clone(),
+            json!({"content":[{"type":"text","text":response.to_string()}]}),
+            json!({"structuredContent":response}),
+        ] {
+            let paths =
+                label_response_paths(tool_names::SEARCH_COMMITS, &args, &payload, &ctx).unwrap();
+            let legacy = label_response_items(tool_names::SEARCH_COMMITS, &args, &payload, &ctx);
+            assert_eq!(paths.items_path, Some("/items"));
+            assert_eq!(paths.labeled_paths.len(), 2);
+            assert_eq!(legacy.len(), 2);
+            for (index, expected) in [
+                helpers::writer_integrity("org/first", &ctx),
+                blocked_integrity("org/second", &ctx),
+            ]
+            .iter()
+            .enumerate()
+            {
+                assert_eq!(paths.labeled_paths[index].path, format!("/items/{index}"));
+                assert_eq!(
+                    &paths.labeled_paths[index].labels.integrity.to_vec(),
+                    expected
+                );
+                assert_eq!(&legacy[index].labels.integrity.to_vec(), expected);
+            }
+        }
+    }
+
+    #[test]
+    fn zero_result_commit_search_without_items_uses_metadata_fallback() {
+        let mut policy = PolicyContext::default();
+        policy.blocked_users = vec!["blocked-bot".into()];
+        let args = json!({"query":"repo:org/repo"});
+
+        assert!(label_response_paths(
+            tool_names::SEARCH_COMMITS,
+            &args,
+            &json!({"total_count":0,"incomplete_results":false}),
+            &policy
+        )
+        .is_none());
+
+        let nonzero_without_items = label_response_paths(
+            tool_names::SEARCH_COMMITS,
+            &args,
+            &json!({"total_count":1,"incomplete_results":false}),
+            &policy,
+        )
+        .expect("nonzero results without items must retain conservative defaults");
+        assert_eq!(
+            nonzero_without_items.default_labels.unwrap().integrity,
+            blocked_integrity("org/repo", &policy)
+        );
+    }
+
+    #[test]
     fn test_extract_mcp_response_prefers_resource_over_status_text() {
         let response = json!({
             "content": [

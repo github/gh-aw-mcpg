@@ -647,7 +647,7 @@ pub fn apply_tool_labels(
         // === Code / Commit Search ===
         tool_names::SEARCH_CODE
         | tool_names::SEARCH_CODE_FF_FIELDS_PARAM
-        | "search_commits" => {
+        | tool_names::SEARCH_COMMITS => {
             // Repo-scoped search reads. Resolve scope from query repo qualifier first,
             // then fall back to tool_args owner/repo.
             let (s_owner, s_repo, s_repo_id) = resolve_search_scope(tool_args, &owner, &repo);
