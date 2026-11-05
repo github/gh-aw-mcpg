@@ -98,7 +98,6 @@ args = ["run", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "-e", "NO_COLOR=1",
 - **Note**: For the full JSON stdin field list and complete TOML examples (including `gateway.keepalive_interval`, top-level `sequential_launch`, and `guards_mode`), see `docs/CONFIGURATION.md` and `config.example.toml`
 - **Note**: For the full gateway field list (including `trusted_bots`, `rate_limit_threshold`, `rate_limit_cooldown`, and all server fields), see [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
 - Port range validation: 1-65535
-- Timeout validation: positive integers only
 
 ## Go Conventions
 
