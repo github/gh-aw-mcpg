@@ -264,9 +264,7 @@ func TestProvider_JWTWithoutExpiry(t *testing.T) {
 		"sub": "repo:owner/repo:ref:refs/heads/main",
 	}
 	claimsJSON, err := json.Marshal(claims)
-	if err != nil {
-		panic("TestProvider_JWTWithoutExpiry: unexpected json.Marshal error: " + err.Error())
-	}
+	require.NoError(t, err)
 	payload := base64.RawURLEncoding.EncodeToString(claimsJSON)
 	noExpToken := fmt.Sprintf("%s.%s.dummysignature", header, payload)
 
@@ -414,13 +412,11 @@ func TestProvider_NilContext(t *testing.T) {
 func TestProvider_BodyReadError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hijacker, ok := w.(http.Hijacker)
-		if !ok {
-			t.Error("ResponseWriter does not support Hijacker interface")
+		if !assert.True(t, ok, "ResponseWriter does not support Hijacker interface") {
 			return
 		}
 		conn, brw, err := hijacker.Hijack()
-		if err != nil {
-			t.Errorf("Hijack failed: %v", err)
+		if !assert.NoError(t, err, "Hijack failed") {
 			return
 		}
 		defer conn.Close()
@@ -429,14 +425,11 @@ func TestProvider_BodyReadError(t *testing.T) {
 		// the status line + headers successfully (so httpClient.Do returns a 200
 		// response), but the subsequent io.ReadAll call will get io.ErrUnexpectedEOF
 		// because the connection is closed before the declared bytes arrive.
-		if _, err := brw.WriteString("HTTP/1.1 200 OK\r\nContent-Length: 1000\r\nContent-Type: application/json\r\n\r\n"); err != nil {
-			t.Errorf("failed to write response headers: %v", err)
+		_, err = brw.WriteString("HTTP/1.1 200 OK\r\nContent-Length: 1000\r\nContent-Type: application/json\r\n\r\n")
+		if !assert.NoError(t, err, "failed to write response headers") {
 			return
 		}
-		if err := brw.Flush(); err != nil {
-			t.Errorf("failed to flush response: %v", err)
-			return
-		}
+		assert.NoError(t, brw.Flush(), "failed to flush response")
 	}))
 	defer server.Close()
 
