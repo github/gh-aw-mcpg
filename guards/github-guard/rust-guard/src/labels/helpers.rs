@@ -10,8 +10,8 @@ use serde_json::Value;
 
 use super::backend::GithubMcpCallback;
 use super::constants::{
-    field_names, label_constants, method_values, scope_names, tool_names, AuthorAssociation,
-    UNKNOWN_LABEL_FALLBACK, URL_FALLBACK_FIELDS,
+    field_names, label_constants, matches_any_ci, method_values, scope_names, tool_names,
+    AuthorAssociation, UNKNOWN_LABEL_FALLBACK, URL_FALLBACK_FIELDS,
 };
 
 /// Ensures the endorsement gateway-mode warning is emitted at most once per process lifetime.
@@ -197,18 +197,17 @@ impl MinIntegrity {
     /// Returns `None` for unrecognised values.
     pub(crate) fn from_policy_str(level: &str) -> Option<Self> {
         use super::constants::policy_integrity as pi;
+        const LEVELS: [(&str, MinIntegrity); 4] = [
+            (pi::NONE, MinIntegrity::None),
+            (pi::UNAPPROVED, MinIntegrity::Unapproved),
+            (pi::APPROVED, MinIntegrity::Approved),
+            (pi::MERGED, MinIntegrity::Merged),
+        ];
         let level = level.trim();
-        if level.eq_ignore_ascii_case(pi::NONE) {
-            Some(Self::None)
-        } else if level.eq_ignore_ascii_case(pi::UNAPPROVED) {
-            Some(Self::Unapproved)
-        } else if level.eq_ignore_ascii_case(pi::APPROVED) {
-            Some(Self::Approved)
-        } else if level.eq_ignore_ascii_case(pi::MERGED) {
-            Some(Self::Merged)
-        } else {
-            None
-        }
+        LEVELS
+            .iter()
+            .find(|(name, _)| level.eq_ignore_ascii_case(name))
+            .map(|(_, value)| *value)
     }
 
     /// Build the integrity label `Vec<String>` for this level over `scope`.
@@ -1784,12 +1783,6 @@ pub(crate) fn max_integrity(
     )
 }
 
-/// Returns true if `raw`, after trimming, matches any value case-insensitively.
-fn matches_any_ci(raw: &str, values: &[&str]) -> bool {
-    let raw = raw.trim();
-    values.iter().any(|value| raw.eq_ignore_ascii_case(value))
-}
-
 /// Map a GitHub `author_association` value to initial integrity labels.
 ///
 /// Mapping (case-insensitive):
@@ -2883,6 +2876,9 @@ mod tests {
     fn test_matches_any_ci_trims_and_matches_case_insensitively() {
         assert!(matches_any_ci("  MEMBER ", &["owner", "member"]));
         assert!(!matches_any_ci("contributor", &["owner", "member"]));
+        assert!(!matches_any_ci(" \t\n", &["owner", "member"]));
+        assert!(!matches_any_ci("member", &[]));
+        assert!(!matches_any_ci("mem ber", &["owner", "member"]));
     }
 
     #[test]
@@ -3289,6 +3285,10 @@ mod tests {
         ] {
             let s = level.as_str();
             assert_eq!(MinIntegrity::from_policy_str(s), Some(level));
+            assert_eq!(
+                MinIntegrity::from_policy_str(&format!(" \t{}\n ", s.to_ascii_uppercase())),
+                Some(level)
+            );
         }
     }
 
