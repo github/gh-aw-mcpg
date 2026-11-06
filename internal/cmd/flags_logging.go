@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var logFlagsLogging = logger.New("cmd:flags_logging")
+var logFlagsLogging = logger.ForFile()
 
 const wasmCacheDirEnvVar = "MCP_GATEWAY_WASM_CACHE_DIR"
 
