@@ -78,7 +78,7 @@ func (us *UnifiedServer) resolveWorkflowRepoVisibility() (githubhttp.RepoVisibil
 			logGuardInit.Printf("resolveWorkflowRepoVisibility: API call failed for %s: %v", us.repoVisibilityCached.Repository, us.repoVisibilityErr)
 			return
 		}
-		logGuardInit.Printf("resolveWorkflowRepoVisibility: cached repo visibility for %s: %s", us.repoVisibilityCached.Repository, us.repoVisibilityCached.Visibility)
+		logGuardInit.Printf("resolveWorkflowRepoVisibility: cached repo visibility: repo=%s visibility=%s", us.repoVisibilityCached.Repository, us.repoVisibilityCached.Visibility)
 	})
 	return us.repoVisibilityCached.Visibility, us.repoVisibilityErr == nil && us.repoVisibilityCached.Visibility != ""
 }
