@@ -3,8 +3,10 @@ package githubhttp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -219,6 +221,96 @@ func TestVerifySinkVisibility_APIError(t *testing.T) {
 	// On error, returns configured value unchanged
 	assert.Equal(t, "private", effective)
 	assert.False(t, overridden)
+}
+
+func TestEffectiveSinkVisibility(t *testing.T) {
+	tests := []struct {
+		configured     string
+		normalized     string
+		publicOverride bool
+	}{
+		{configured: "", normalized: "", publicOverride: true},
+		{configured: "private", normalized: "private", publicOverride: true},
+		{configured: "internal", normalized: "internal", publicOverride: true},
+		{configured: "public", normalized: "public"},
+		{configured: " PUBLIC ", normalized: "public"},
+		{configured: " PrIvAtE ", normalized: "private", publicOverride: true},
+	}
+	for _, tt := range tests {
+		for _, actual := range []RepoVisibility{RepoVisibilityPublic, RepoVisibilityPrivate, RepoVisibilityInternal} {
+			t.Run(fmt.Sprintf("%q/%s", tt.configured, actual), func(t *testing.T) {
+				expected, overridden := tt.normalized, false
+				if actual == RepoVisibilityPublic {
+					expected, overridden = "public", tt.publicOverride
+				}
+				effective, changed := EffectiveSinkVisibility(tt.configured, actual)
+				assert.Equal(t, expected, effective)
+				assert.Equal(t, overridden, changed)
+			})
+		}
+	}
+}
+
+func TestFetchWorkflowRepoVisibility(t *testing.T) {
+	tests := []struct {
+		name       string
+		repository string
+		token      string
+		envToken   string
+		status     int
+		wantVis    RepoVisibility
+		wantErr    bool
+		wantCalls  int32
+		cancelled  bool
+	}{
+		{name: "missing repository", token: "explicit-token"},
+		{name: "missing token", repository: "octo/repo"},
+		{name: "explicit token wins", repository: "octo/repo", token: "explicit-token", envToken: "env-token", status: http.StatusOK, wantVis: RepoVisibilityPublic, wantCalls: 1},
+		{name: "environment token fallback", repository: "octo/repo", envToken: "env-token", status: http.StatusOK, wantVis: RepoVisibilityPublic, wantCalls: 1},
+		{name: "API error", repository: "octo/repo", token: "explicit-token", status: http.StatusForbidden, wantErr: true, wantCalls: 1},
+		{name: "invalid repository", repository: "invalid", token: "explicit-token", wantErr: true},
+		{name: "cancelled context", repository: "octo/repo", token: "explicit-token", status: http.StatusOK, wantErr: true, cancelled: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("GITHUB_REPOSITORY", tt.repository)
+			t.Setenv("GITHUB_MCP_SERVER_TOKEN", tt.envToken)
+			t.Setenv("GITHUB_TOKEN", "")
+			t.Setenv("GITHUB_PERSONAL_ACCESS_TOKEN", "")
+			t.Setenv("GH_TOKEN", "")
+
+			var calls atomic.Int32
+			apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				assert.Equal(t, "/repos/octo/repo", r.URL.Path)
+				token := tt.token
+				if token == "" {
+					token = tt.envToken
+				}
+				assert.Equal(t, "token "+token, r.Header.Get("Authorization"))
+				w.WriteHeader(tt.status)
+				if tt.status == http.StatusOK {
+					_, _ = w.Write([]byte(`{"visibility":"public"}`))
+				}
+			}))
+			defer apiServer.Close()
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if tt.cancelled {
+				cancel()
+			}
+			result, err := FetchWorkflowRepoVisibility(ctx, apiServer.URL, tt.token)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.repository, result.Repository)
+			assert.Equal(t, tt.wantVis, result.Visibility)
+			assert.Equal(t, tt.wantCalls, calls.Load())
+		})
+	}
 }
 
 func TestFetchRepoVisibility_NetworkError(t *testing.T) {
