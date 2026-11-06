@@ -137,9 +137,9 @@ type UnifiedServer struct {
 	// Cached workflow repository visibility — set once during guard registration startup.
 	// Used by both verifySinkVisibilityAtRuntime and shouldForcePublicRepos to avoid
 	// repeated GitHub API calls for the same repository.
-	repoVisibilityOnce    sync.Once
-	repoVisibilityCached  githubhttp.RepoVisibility
-	repoVisibilityCacheOK bool
+	repoVisibilityOnce   sync.Once
+	repoVisibilityCached githubhttp.WorkflowRepoVisibility
+	repoVisibilityErr    error
 
 	// Cached result of the force-public-repos check — set once during guard registration.
 	// Avoids re-evaluating the check for every backend server registered at startup.

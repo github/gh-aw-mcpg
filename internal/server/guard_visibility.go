@@ -2,14 +2,12 @@ package server
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
 	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/githubhttp"
 	"github.com/github/gh-aw-mcpg/internal/logger"
-	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 // getTrustedBots returns the configured list of additional trusted bot usernames,
@@ -41,37 +39,25 @@ func (us *UnifiedServer) verifySinkVisibilityAtRuntime(serverID, configuredVisib
 		return configuredVisibility
 	}
 
-	nwo := os.Getenv("GITHUB_REPOSITORY")
-	if nwo == "" {
-		logGuardInit.Printf("sink-visibility runtime check skipped: GITHUB_REPOSITORY not set (serverID=%s)", serverID)
-		return configuredVisibility
-	}
-
-	token := envutil.LookupGitHubToken()
-	if token == "" {
-		logGuardInit.Printf("sink-visibility runtime check skipped: no GitHub token available (serverID=%s)", serverID)
-		return configuredVisibility
-	}
-
 	vis, ok := us.resolveWorkflowRepoVisibility()
 	if !ok {
-		logger.LogWarnToServer(serverID, "difc", "Sink visibility runtime verification failed (using configured value %q): API error or unavailable", configuredVisibility)
+		if us.repoVisibilityErr != nil {
+			logger.LogWarnToServer(serverID, "difc", "Sink visibility runtime verification failed (using configured value %q): API error or unavailable", configuredVisibility)
+		}
 		return configuredVisibility
 	}
 
-	configured := util.NormalizeStringCI(configuredVisibility)
-
-	// If actual is "public" but configured is not "public",
-	// override to "public" — this is the security-critical case.
-	if vis == githubhttp.RepoVisibilityPublic && configured != "public" {
+	nwo := us.repoVisibilityCached.Repository
+	effective, overridden := githubhttp.EffectiveSinkVisibility(configuredVisibility, vis)
+	if overridden {
 		logger.LogWarnToServer(serverID, "difc",
 			"SINK VISIBILITY OVERRIDE: configured=%q but runtime check shows repo %s is %q — overriding to %q to prevent potential data exfiltration",
-			configuredVisibility, nwo, vis, "public")
-		return "public"
+			configuredVisibility, nwo, vis, effective)
+		return effective
 	}
 
 	logger.LogInfoToServer(serverID, "difc", "Sink visibility runtime verification passed: repo=%s, configured=%q, actual=%q", nwo, configuredVisibility, vis)
-	return configured
+	return effective
 }
 
 // resolveWorkflowRepoVisibility fetches and caches the visibility of the workflow
@@ -82,30 +68,19 @@ func (us *UnifiedServer) verifySinkVisibilityAtRuntime(serverID, configuredVisib
 // unknown, the token is unavailable, or the API call fails (fail-open semantics).
 func (us *UnifiedServer) resolveWorkflowRepoVisibility() (githubhttp.RepoVisibility, bool) {
 	us.repoVisibilityOnce.Do(func() {
-		nwo := os.Getenv("GITHUB_REPOSITORY")
-		if nwo == "" {
-			return
-		}
-		token := envutil.LookupGitHubToken()
-		if token == "" {
-			return
-		}
 		apiURL := envutil.DeriveGitHubAPIURL(envutil.DefaultGitHubAPIBaseURL)
-		authHeader := "token " + token
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		vis, err := githubhttp.FetchRepoVisibility(ctx, apiURL, nwo, authHeader)
-		if err != nil {
-			logGuardInit.Printf("resolveWorkflowRepoVisibility: API call failed for %s: %v", nwo, err)
-			return // cache remains empty; repoVisibilityCacheOK stays false
+		us.repoVisibilityCached, us.repoVisibilityErr = githubhttp.FetchWorkflowRepoVisibility(ctx, apiURL, "")
+		if us.repoVisibilityErr != nil {
+			logGuardInit.Printf("resolveWorkflowRepoVisibility: API call failed for %s: %v", us.repoVisibilityCached.Repository, us.repoVisibilityErr)
+			return
 		}
-		us.repoVisibilityCached = vis
-		us.repoVisibilityCacheOK = true
-		logGuardInit.Printf("resolveWorkflowRepoVisibility: cached repo visibility for %s: %s", nwo, vis)
+		logGuardInit.Printf("resolveWorkflowRepoVisibility: cached repo visibility for %s: %s", us.repoVisibilityCached.Repository, us.repoVisibilityCached.Visibility)
 	})
-	return us.repoVisibilityCached, us.repoVisibilityCacheOK
+	return us.repoVisibilityCached.Visibility, us.repoVisibilityErr == nil && us.repoVisibilityCached.Visibility != ""
 }
 
 // shouldForcePublicRepos returns true when the gateway should automatically
@@ -137,26 +112,16 @@ func (us *UnifiedServer) computeForcePublicRepos() bool {
 		return false
 	}
 
-	nwo := os.Getenv("GITHUB_REPOSITORY")
-	if nwo == "" {
-		logGuardInit.Print("shouldForcePublicRepos: GITHUB_REPOSITORY not set — skipping")
-		return false
-	}
-
-	token := envutil.LookupGitHubToken()
-	if token == "" {
-		logGuardInit.Print("shouldForcePublicRepos: no GitHub token available — skipping")
-		return false
-	}
-
 	vis, ok := us.resolveWorkflowRepoVisibility()
 	if !ok {
-		logger.LogWarn("difc", "shouldForcePublicRepos: failed to determine visibility for %s (fail-open, not forcing repos=public)", nwo)
+		if us.repoVisibilityErr != nil {
+			logger.LogWarn("difc", "shouldForcePublicRepos: failed to determine visibility for %s (fail-open, not forcing repos=public)", us.repoVisibilityCached.Repository)
+		}
 		return false
 	}
 
 	forced := vis == githubhttp.RepoVisibilityPublic
-	logGuardInit.Printf("shouldForcePublicRepos: repo=%s visibility=%s forcePublic=%t", nwo, vis, forced)
+	logGuardInit.Printf("shouldForcePublicRepos: repo=%s visibility=%s forcePublic=%t", us.repoVisibilityCached.Repository, vis, forced)
 	return forced
 }
 
@@ -219,7 +184,7 @@ func (us *UnifiedServer) validateSinkVisibilityExemptServers() {
 // Changes are permanent for the gateway's lifetime and affect all subsequent
 // resolveGuardPolicy calls for the given server.
 func (us *UnifiedServer) overrideToPublicScope(serverID string) {
-	nwo := os.Getenv("GITHUB_REPOSITORY")
+	nwo := us.repoVisibilityCached.Repository
 	logGuardInit.Printf("overrideToPublicScope: applying public scope override for serverID=%s", serverID)
 
 	// Case 1: global policy override (set via CLI or env flags).

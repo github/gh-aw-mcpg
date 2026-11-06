@@ -281,6 +281,21 @@ func TestProxyForcePublicReposIfNeeded_TokenFromEnv(t *testing.T) {
 	assert.Equal(t, "public", allowOnly["repos"], "repos should be overridden when token comes from env")
 }
 
+func TestProxyForcePublicReposIfNeeded_ExplicitTokenTakesPrecedence(t *testing.T) {
+	withForcePublicRepo(t, true)
+	t.Setenv("GITHUB_REPOSITORY", "octo/repo")
+	clearAllTokenEnvVars(t)
+	t.Setenv("GITHUB_MCP_SERVER_TOKEN", "env-token")
+	t.Setenv("GITHUB_API_URL", "http://unused")
+
+	srv := repoVisibilityServer(t, "octo/repo", "public", http.StatusOK, "token explicit-token")
+	defer srv.Close()
+
+	policy := `{"allow-only":{"repos":"private","min-integrity":"none"}}`
+	result := proxyForcePublicReposIfNeeded(context.Background(), policy, "explicit-token", srv.URL)
+	assert.JSONEq(t, `{"allow-only":{"repos":"public","min-integrity":"none"}}`, result)
+}
+
 // TestProxyForcePublicReposIfNeeded_AllowOnlyWithNilValue verifies that when the
 // "allow-only" key exists but maps to a non-object (e.g., null), the function
 // still inserts a valid allow-only section.

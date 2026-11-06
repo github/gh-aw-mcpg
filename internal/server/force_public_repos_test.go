@@ -2,8 +2,10 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
@@ -415,6 +417,51 @@ func TestShouldForcePublicRepos_ResultCached(t *testing.T) {
 	assert.True(t, result3)
 	// API should only have been called once (via resolveWorkflowRepoVisibility cache)
 	assert.Equal(t, 1, callCount, "GitHub API should be called only once due to caching")
+}
+
+func TestWorkflowRepoVisibility_SharedCache(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusInternalServerError} {
+		for _, sinkFirst := range []bool{false, true} {
+			t.Run(fmt.Sprintf("status=%d/sinkFirst=%t", status, sinkFirst), func(t *testing.T) {
+				t.Setenv(config.EnvForcePublicRepos, "true")
+				t.Setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
+				t.Setenv("GITHUB_MCP_SERVER_TOKEN", "mock-token")
+
+				var calls atomic.Int32
+				apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls.Add(1)
+					assert.Equal(t, "/repos/test-owner/test-repo", r.URL.Path)
+					w.WriteHeader(status)
+					if status == http.StatusOK {
+						_, _ = w.Write([]byte(`{"visibility":"public"}`))
+					}
+				}))
+				t.Cleanup(apiServer.Close)
+				t.Setenv("GITHUB_API_URL", apiServer.URL)
+				us := newMinimalUnifiedServerForGuardTest(&config.Config{})
+
+				checkSink := func() {
+					expected := "public"
+					if status != http.StatusOK {
+						expected = " PrIvAtE "
+					}
+					assert.Equal(t, expected, us.verifySinkVisibilityAtRuntime("safe-outputs", " PrIvAtE "))
+				}
+				checkForce := func() {
+					assert.Equal(t, status == http.StatusOK, us.shouldForcePublicRepos())
+				}
+				if sinkFirst {
+					checkSink()
+					checkForce()
+				} else {
+					checkForce()
+					checkSink()
+				}
+				checkSink()
+				assert.EqualValues(t, 1, calls.Load(), "successful and failed lookups should both be cached")
+			})
+		}
+	}
 }
 
 // TestOverrideToPublicScope_PerServerPolicy_InvalidPolicy_Skipped verifies that

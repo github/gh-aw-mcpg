@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
@@ -229,6 +230,14 @@ func TestVerifySinkVisibilityAtRuntime_EmptyConfiguredVisibility(t *testing.T) {
 	t.Setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
 	t.Setenv("GITHUB_TOKEN", "mock-token")
 
+	var calls atomic.Int32
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		_, _ = w.Write([]byte(`{"visibility":"public"}`))
+	}))
+	t.Cleanup(apiServer.Close)
+	t.Setenv("GITHUB_API_URL", apiServer.URL)
+
 	us := newMinimalUnifiedServerForGuardTest(&config.Config{
 		Gateway: &config.GatewayConfig{},
 	})
@@ -236,6 +245,9 @@ func TestVerifySinkVisibilityAtRuntime_EmptyConfiguredVisibility(t *testing.T) {
 	result := us.verifySinkVisibilityAtRuntime("github", "")
 	assert.Empty(t, result,
 		"should return empty string unchanged when configuredVisibility is empty")
+	assert.Zero(t, calls.Load(), "omitted sink visibility must not trigger a lookup")
+	assert.Equal(t, "public", us.verifySinkVisibilityAtRuntime("github", "private"))
+	assert.EqualValues(t, 1, calls.Load(), "a subsequent explicit sink visibility should still resolve")
 }
 
 // TestVerifySinkVisibilityAtRuntime_NoGitHubRepository returns the configured value

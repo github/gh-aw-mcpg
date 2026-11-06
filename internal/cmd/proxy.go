@@ -526,29 +526,18 @@ func proxyForcePublicReposIfNeeded(ctx context.Context, policyJSON, token, apiUR
 		return policyJSON
 	}
 
-	nwo := os.Getenv("GITHUB_REPOSITORY")
-	if nwo == "" {
-		logger.LogInfo("difc", "forcePublicRepos: GITHUB_REPOSITORY not set — skipping")
-		return policyJSON
-	}
-
-	authToken := token
-	if authToken == "" {
-		authToken = envutil.LookupGitHubToken()
-	}
-	if authToken == "" {
-		logger.LogInfo("difc", "forcePublicRepos: no GitHub token available — skipping")
-		return policyJSON
-	}
-
-	vis, err := githubhttp.FetchRepoVisibility(ctx, apiURL, nwo, "token "+authToken)
+	repo, err := githubhttp.FetchWorkflowRepoVisibility(ctx, apiURL, token)
 	if err != nil {
-		logger.LogWarn("difc", "forcePublicRepos: failed to determine visibility for %s (fail-open): %v", nwo, err)
+		logger.LogWarn("difc", "forcePublicRepos: failed to determine visibility for %s (fail-open): %v", repo.Repository, err)
+		return policyJSON
+	}
+	if repo.Visibility == "" {
+		logger.LogInfo("difc", "forcePublicRepos: workflow repository or GitHub token unavailable — skipping")
 		return policyJSON
 	}
 
-	if vis != githubhttp.RepoVisibilityPublic {
-		logger.LogInfo("difc", "forcePublicRepos: repo %s is %s — no override needed", nwo, vis)
+	if repo.Visibility != githubhttp.RepoVisibilityPublic {
+		logger.LogInfo("difc", "forcePublicRepos: repo %s is %s — no override needed", repo.Repository, repo.Visibility)
 		return policyJSON
 	}
 
@@ -586,6 +575,6 @@ func proxyForcePublicReposIfNeeded(ctx context.Context, policyJSON, token, apiUR
 		return policyJSON
 	}
 
-	logger.LogWarn("difc", "FORCED REPOS=PUBLIC: workflow repo %s is public — overriding proxy allow-only scope to prevent private data reads", nwo)
+	logger.LogWarn("difc", "FORCED REPOS=PUBLIC: workflow repo %s is public — overriding proxy allow-only scope to prevent private data reads", repo.Repository)
 	return string(overridden)
 }

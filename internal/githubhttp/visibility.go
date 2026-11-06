@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
+	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/util"
 )
@@ -24,6 +26,36 @@ const (
 	// RepoVisibilityInternal indicates an organization-internal repository.
 	RepoVisibilityInternal RepoVisibility = "internal"
 )
+
+// WorkflowRepoVisibility pairs the workflow repository name with its visibility.
+// Visibility is empty when the repository or GitHub token is unavailable.
+type WorkflowRepoVisibility struct {
+	Repository string
+	Visibility RepoVisibility
+}
+
+// FetchWorkflowRepoVisibility looks up GITHUB_REPOSITORY using the given API base
+// URL and token, falling back to the standard token environment variables when
+// token is empty. Missing repository/token settings skip the lookup without error.
+// API errors are returned to the caller; caching and fallback policy are caller-owned.
+func FetchWorkflowRepoVisibility(ctx context.Context, apiBaseURL, token string) (WorkflowRepoVisibility, error) {
+	result := WorkflowRepoVisibility{Repository: os.Getenv("GITHUB_REPOSITORY")}
+	if result.Repository == "" {
+		logVisibility.Print("Workflow repo visibility lookup skipped: GITHUB_REPOSITORY not set")
+		return result, nil
+	}
+	if token == "" {
+		token = envutil.LookupGitHubToken()
+	}
+	if token == "" {
+		logVisibility.Print("Workflow repo visibility lookup skipped: no GitHub token available")
+		return result, nil
+	}
+
+	var err error
+	result.Visibility, err = FetchRepoVisibility(ctx, apiBaseURL, result.Repository, "token "+token)
+	return result, err
+}
 
 // repoResponse is the minimal subset of the GitHub repos API response we need.
 type repoResponse struct {
@@ -110,20 +142,23 @@ func VerifySinkVisibility(ctx context.Context, apiBaseURL, nwo, authHeader, conf
 		return configuredVisibility, false, err
 	}
 
-	configured := util.NormalizeStringCI(configuredVisibility)
-
-	// If actual is "public" but configured is not "public",
-	// override to "public" — this is the security-critical case.
-	if actual == RepoVisibilityPublic && configured != "public" {
-		logVisibility.Printf("Overriding sink visibility to public: nwo=%s, configured=%s", nwo, configured)
-		return "public", true, nil
+	effective, overridden := EffectiveSinkVisibility(configuredVisibility, actual)
+	if overridden {
+		logVisibility.Printf("Overriding sink visibility to public: nwo=%s, configured=%s", nwo, configuredVisibility)
+	} else {
+		logVisibility.Printf("Sink visibility unchanged: nwo=%s, configured=%s, actual=%s", nwo, effective, actual)
 	}
+	return effective, overridden, nil
+}
 
-	logVisibility.Printf("Sink visibility unchanged: nwo=%s, configured=%s, actual=%s", nwo, configured, actual)
-	// All other cases: return the configured value unchanged.
-	// This includes:
-	//   - configured="public" but actual=private → keep "public" (more restrictive)
-	//   - configured="private" and actual=private → no change needed
-	//   - configured="internal" and actual=internal → no change needed
-	return configured, false, nil
+// EffectiveSinkVisibility normalizes the configured value and overrides it only
+// when the actual repository is public. It never relaxes a configured public sink.
+// Callers that skip verification for omitted configuration must do so before
+// calling this function: an empty configured value is overridden for a public repo.
+func EffectiveSinkVisibility(configuredVisibility string, actual RepoVisibility) (string, bool) {
+	configured := util.NormalizeStringCI(configuredVisibility)
+	if actual == RepoVisibilityPublic && configured != string(RepoVisibilityPublic) {
+		return string(RepoVisibilityPublic), true
+	}
+	return configured, false
 }
