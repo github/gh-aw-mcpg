@@ -532,7 +532,11 @@ func proxyForcePublicReposIfNeeded(ctx context.Context, policyJSON, token, apiUR
 		return policyJSON
 	}
 	if repo.Visibility == "" {
-		logger.LogInfo("difc", "forcePublicRepos: workflow repository or GitHub token unavailable — skipping")
+		if repo.Repository == "" {
+			logger.LogInfo("difc", "forcePublicRepos: GITHUB_REPOSITORY not set — skipping")
+		} else {
+			logger.LogInfo("difc", "forcePublicRepos: no GitHub token available — skipping")
+		}
 		return policyJSON
 	}
 
