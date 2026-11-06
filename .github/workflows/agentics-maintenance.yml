@@ -110,7 +110,7 @@ jobs:
     steps:
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -134,7 +134,7 @@ jobs:
     steps:
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -158,7 +158,7 @@ jobs:
     steps:
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -183,7 +183,7 @@ jobs:
     steps:
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -216,7 +216,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -244,9 +244,9 @@ jobs:
           test ! -e "$runtime"
           git init "$runtime"
           git -C "$runtime" remote add origin https://github.com/github/gh-aw.git
-          git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
+          git -C "$runtime" fetch --depth=1 origin 18928ba35b7e374d394be6406c7213ed3f0d9454
           git -C "$runtime" checkout --detach FETCH_HEAD
-          test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
+          test "$(git -C "$runtime" rev-parse HEAD)" = "18928ba35b7e374d394be6406c7213ed3f0d9454"
           GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Run operation
@@ -282,7 +282,7 @@ jobs:
     steps:
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -328,7 +328,7 @@ jobs:
     steps:
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -382,7 +382,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -410,9 +410,9 @@ jobs:
           test ! -e "$runtime"
           git init "$runtime"
           git -C "$runtime" remote add origin https://github.com/github/gh-aw.git
-          git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
+          git -C "$runtime" fetch --depth=1 origin 18928ba35b7e374d394be6406c7213ed3f0d9454
           git -C "$runtime" checkout --detach FETCH_HEAD
-          test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
+          test "$(git -C "$runtime" rev-parse HEAD)" = "18928ba35b7e374d394be6406c7213ed3f0d9454"
           GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Create missing labels
@@ -446,7 +446,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -474,9 +474,9 @@ jobs:
           test ! -e "$runtime"
           git init "$runtime"
           git -C "$runtime" remote add origin https://github.com/github/gh-aw.git
-          git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
+          git -C "$runtime" fetch --depth=1 origin 18928ba35b7e374d394be6406c7213ed3f0d9454
           git -C "$runtime" checkout --detach FETCH_HEAD
-          test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
+          test "$(git -C "$runtime" rev-parse HEAD)" = "18928ba35b7e374d394be6406c7213ed3f0d9454"
           GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Restore activity report logs cache
@@ -567,7 +567,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -595,9 +595,9 @@ jobs:
           test ! -e "$runtime"
           git init "$runtime"
           git -C "$runtime" remote add origin https://github.com/github/gh-aw.git
-          git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
+          git -C "$runtime" fetch --depth=1 origin 18928ba35b7e374d394be6406c7213ed3f0d9454
           git -C "$runtime" checkout --detach FETCH_HEAD
-          test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
+          test "$(git -C "$runtime" rev-parse HEAD)" = "18928ba35b7e374d394be6406c7213ed3f0d9454"
           GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Restore forecast report logs cache
@@ -677,7 +677,7 @@ jobs:
     steps:
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -720,7 +720,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -748,9 +748,9 @@ jobs:
           test ! -e "$runtime"
           git init "$runtime"
           git -C "$runtime" remote add origin https://github.com/github/gh-aw.git
-          git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
+          git -C "$runtime" fetch --depth=1 origin 18928ba35b7e374d394be6406c7213ed3f0d9454
           git -C "$runtime" checkout --detach FETCH_HEAD
-          test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
+          test "$(git -C "$runtime" rev-parse HEAD)" = "18928ba35b7e374d394be6406c7213ed3f0d9454"
           GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Validate workflows and file issue on findings
@@ -796,9 +796,9 @@ jobs:
           test ! -e "$runtime"
           git init "$runtime"
           git -C "$runtime" remote add origin https://github.com/github/gh-aw.git
-          git -C "$runtime" fetch --depth=1 origin 5fec33b64e8f9159001970542a8357293ca5b09a
+          git -C "$runtime" fetch --depth=1 origin 18928ba35b7e374d394be6406c7213ed3f0d9454
           git -C "$runtime" checkout --detach FETCH_HEAD
-          test "$(git -C "$runtime" rev-parse HEAD)" = "5fec33b64e8f9159001970542a8357293ca5b09a"
+          test "$(git -C "$runtime" rev-parse HEAD)" = "18928ba35b7e374d394be6406c7213ed3f0d9454"
           GOTOOLCHAIN=auto make -C "$runtime" build
 
       - name: Pre-compile validation
@@ -809,12 +809,12 @@ jobs:
       - name: Compile workflows
         run: |
           "${RUNNER_TEMP}/gh-aw-runtime/gh-aw" compile --action-mode dev --validate --verbose
-          "${RUNNER_TEMP}/gh-aw-runtime/gh-aw" compile release --action-mode release --action-tag 5fec33b64e8f9159001970542a8357293ca5b09a
+          "${RUNNER_TEMP}/gh-aw-runtime/gh-aw" compile release --action-mode release --action-tag 18928ba35b7e374d394be6406c7213ed3f0d9454
           go run ./scripts/pin-workflow-actions
           echo "✓ All workflows compiled successfully"
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -844,7 +844,7 @@ jobs:
           node-version: '22'
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@5fec33b64e8f9159001970542a8357293ca5b09a
+        uses: github/gh-aw/actions/setup@18928ba35b7e374d394be6406c7213ed3f0d9454
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
