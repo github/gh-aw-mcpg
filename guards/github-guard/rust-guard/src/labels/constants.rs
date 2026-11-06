@@ -2,6 +2,12 @@
 //!
 //! This module contains all constant values used throughout the labeling system.
 
+/// Returns true if `raw`, after trimming, matches any value case-insensitively.
+pub(crate) fn matches_any_ci(raw: &str, values: &[&str]) -> bool {
+    let raw = raw.trim();
+    values.iter().any(|value| raw.eq_ignore_ascii_case(value))
+}
+
 /// GitHub author associations grouped by their initial integrity level.
 pub(crate) enum AuthorAssociation {
     Writer,
@@ -11,16 +17,9 @@ pub(crate) enum AuthorAssociation {
 
 impl AuthorAssociation {
     pub(crate) fn parse(raw: &str) -> Self {
-        let raw = raw.trim();
-        if ["OWNER", "MEMBER", "COLLABORATOR"]
-            .iter()
-            .any(|value| raw.eq_ignore_ascii_case(value))
-        {
+        if matches_any_ci(raw, &["OWNER", "MEMBER", "COLLABORATOR"]) {
             Self::Writer
-        } else if ["CONTRIBUTOR", "FIRST_TIME_CONTRIBUTOR", "NONE"]
-            .iter()
-            .any(|value| raw.eq_ignore_ascii_case(value))
-        {
+        } else if matches_any_ci(raw, &["CONTRIBUTOR", "FIRST_TIME_CONTRIBUTOR", "NONE"]) {
             Self::Reader
         } else {
             // FIRST_TIMER intentionally receives no initial integrity, like unknown values.
