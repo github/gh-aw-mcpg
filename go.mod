@@ -14,7 +14,7 @@ require (
 require (
 	github.com/itchyny/gojq v0.12.19
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	github.com/stretchr/testify v1.12.1
 	// Upstream repository moved to github.com/wazero/wazero, but its module path remains github.com/tetratelabs/wazero; re-check on each upgrade.
 	github.com/tetratelabs/wazero v1.12.0
