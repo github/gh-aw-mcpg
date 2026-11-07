@@ -145,6 +145,63 @@ func TestNormalizeStaticAllowOnlyPolicy(t *testing.T) {
 	assert.Equal(t, []interface{}{"BashRusakh/DeskForge"}, policy.AllowOnly.Repos)
 }
 
+func TestNormalizeStaticAllowOnlyPolicy_Scenarios(t *testing.T) {
+	t.Run("nil policy returns nil without error", func(t *testing.T) {
+		got, err := NormalizeStaticAllowOnlyPolicy(nil)
+		require.NoError(t, err)
+		assert.Nil(t, got)
+	})
+
+	t.Run("policy without allow-only is returned unchanged", func(t *testing.T) {
+		policy := &GuardPolicy{WriteSink: &WriteSinkPolicy{Accept: []string{"private:org/repo"}}}
+		got, err := NormalizeStaticAllowOnlyPolicy(policy)
+		require.NoError(t, err)
+		assert.Same(t, policy, got)
+	})
+
+	t.Run("string repos are lowercased", func(t *testing.T) {
+		policy := &GuardPolicy{AllowOnly: &AllowOnlyPolicy{Repos: " PUBLIC ", MinIntegrity: IntegrityNone}}
+		got, err := NormalizeStaticAllowOnlyPolicy(policy)
+		require.NoError(t, err)
+		assert.Equal(t, "public", got.AllowOnly.Repos)
+		assert.Equal(t, " PUBLIC ", policy.AllowOnly.Repos, "original must not be mutated")
+	})
+
+	t.Run("string slice repos are normalized and other fields preserved", func(t *testing.T) {
+		policy := &GuardPolicy{
+			AllowOnly: &AllowOnlyPolicy{
+				Repos:        []string{"Org/Repo"},
+				MinIntegrity: IntegrityNone,
+				BlockedUsers: []string{"bad"},
+			},
+			WriteSink: &WriteSinkPolicy{Accept: []string{"x/y"}},
+		}
+		got, err := NormalizeStaticAllowOnlyPolicy(policy)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"org/repo"}, got.AllowOnly.Repos)
+		assert.Equal(t, IntegrityNone, got.AllowOnly.MinIntegrity)
+		assert.Equal(t, []string{"bad"}, got.AllowOnly.BlockedUsers)
+		assert.Same(t, policy.WriteSink, got.WriteSink)
+	})
+
+	errTests := []struct {
+		name  string
+		repos interface{}
+	}{
+		{"invalid string", "everything"},
+		{"unsupported type", 42},
+		{"nil repos", nil},
+		{"invalid scope in array", []interface{}{"not a scope"}},
+	}
+	for _, tt := range errTests {
+		t.Run("error: "+tt.name, func(t *testing.T) {
+			got, err := NormalizeStaticAllowOnlyPolicy(&GuardPolicy{AllowOnly: &AllowOnlyPolicy{Repos: tt.repos}})
+			require.Error(t, err)
+			assert.Nil(t, got)
+		})
+	}
+}
+
 func TestValidateWriteSinkPolicy_SinkVisibility(t *testing.T) {
 	tests := []struct {
 		name       string
