@@ -86,6 +86,7 @@ func ValidateContainerID(containerID string) error {
 //   - error: Any validation or command execution error
 func runDockerInspect(containerID, formatTemplate string) (string, error) {
 	if err := ValidateContainerID(containerID); err != nil {
+		logDocker.Printf("Rejected docker inspect: invalid container ID: %v", err)
 		return "", err
 	}
 
@@ -94,6 +95,7 @@ func runDockerInspect(containerID, formatTemplate string) (string, error) {
 	cmd := exec.Command("docker", "inspect", "--format", formatTemplate, containerID)
 	output, err := cmd.Output()
 	if err != nil {
+		logDocker.Printf("Docker inspect failed: containerID=%s, format=%s, err=%v", containerID, formatTemplate, err)
 		return "", fmt.Errorf("docker inspect failed: %w", err)
 	}
 
@@ -154,6 +156,7 @@ func IsHostNetwork(containerID string) (bool, error) {
 func CheckStdinInteractive(containerID string) bool {
 	output, err := runDockerInspect(containerID, "{{.Config.OpenStdin}}")
 	if err != nil {
+		logDocker.Printf("Stdin interactive check failed, assuming not interactive: containerID=%s", containerID)
 		return false
 	}
 
@@ -166,6 +169,7 @@ func CheckStdinInteractive(containerID string) bool {
 func CheckLogDirMounted(containerID, logDir string) bool {
 	output, err := runDockerInspect(containerID, "{{json .Mounts}}")
 	if err != nil {
+		logDocker.Printf("Log dir mount check failed, assuming not mounted: containerID=%s, logDir=%s", containerID, logDir)
 		return false
 	}
 
