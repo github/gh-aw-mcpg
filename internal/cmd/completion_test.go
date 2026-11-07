@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"os"
 	"strings"
@@ -29,11 +28,11 @@ func captureStdoutDuring(t *testing.T, fn func()) string {
 		if os.Stdout != orig {
 			os.Stdout = orig
 		}
-		if closeErr := w.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
-			t.Errorf("failed to close stdout pipe writer: %v", closeErr)
+		if closeErr := w.Close(); closeErr != nil {
+			assert.ErrorIs(t, closeErr, os.ErrClosed, "failed to close stdout pipe writer")
 		}
-		if closeErr := r.Close(); closeErr != nil && !errors.Is(closeErr, os.ErrClosed) {
-			t.Errorf("failed to close stdout pipe reader: %v", closeErr)
+		if closeErr := r.Close(); closeErr != nil {
+			assert.ErrorIs(t, closeErr, os.ErrClosed, "failed to close stdout pipe reader")
 		}
 	}()
 

@@ -194,7 +194,7 @@ func TestRunProxy_GracefulShutdownViaContextCancellation(t *testing.T) {
 	case err := <-errCh:
 		require.NoError(t, err, "runProxy() should shut down gracefully without error when context is cancelled")
 	case <-time.After(5 * time.Second):
-		t.Fatal("runProxy() did not return within the expected shutdown window")
+		require.Fail(t, "runProxy() did not return within the expected shutdown window")
 	}
 }
 
@@ -233,7 +233,7 @@ func TestRunProxy_TLSGracefulShutdown(t *testing.T) {
 	case err := <-errCh:
 		require.NoError(t, err, "runProxy() with --tls should shut down gracefully without error")
 	case <-time.After(5 * time.Second):
-		t.Fatal("runProxy() with --tls did not return within the expected shutdown window")
+		require.Fail(t, "runProxy() with --tls did not return within the expected shutdown window")
 	}
 
 	// The CA certificate should have been generated under proxyTLSDir.
@@ -412,7 +412,7 @@ func TestRunProxy_DelegationSaveStateFailureOnShutdown(t *testing.T) {
 		require.Error(t, err, "runProxy() should surface a delegation state persistence failure on shutdown")
 		assert.Contains(t, err.Error(), "failed to persist delegation state")
 	case <-time.After(5 * time.Second):
-		t.Fatal("runProxy() did not return within the expected shutdown window")
+		require.Fail(t, "runProxy() did not return within the expected shutdown window")
 	}
 }
 
@@ -486,7 +486,7 @@ func TestRunProxy_DelegationModeGracefulShutdown(t *testing.T) {
 	case err := <-errCh:
 		require.NoError(t, err, "runProxy() in delegation mode should shut down gracefully without error")
 	case <-time.After(5 * time.Second):
-		t.Fatal("runProxy() in delegation mode did not return within the expected shutdown window")
+		require.Fail(t, "runProxy() in delegation mode did not return within the expected shutdown window")
 	}
 
 	// SaveState should have persisted the (empty) delegation store state to
