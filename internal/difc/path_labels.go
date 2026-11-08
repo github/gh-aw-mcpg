@@ -134,6 +134,7 @@ func (p *PathLabeledData) resolve() error {
 	}
 
 	if p.PathLabels.ItemsPaths != nil {
+		logPathLabels.Printf("resolve: using multi-collection resolution for %d items paths", len(p.PathLabels.ItemsPaths))
 		return p.resolveCollections()
 	}
 
@@ -270,6 +271,7 @@ func (p *PathLabeledData) extractIndexFromPath(path, itemsPath string) (int, err
 	} else if strings.HasPrefix(path, itemsPath+"/") {
 		remainder = strings.TrimPrefix(path, itemsPath)
 	} else {
+		logPathLabels.Printf("extractIndexFromPath: path %q does not match items path %q", path, itemsPath)
 		return -1, fmt.Errorf("path %q does not match items path %q", path, itemsPath)
 	}
 
@@ -295,6 +297,7 @@ func (p *PathLabeledData) pathEntryToResource(entry *PathLabelEntry) *LabeledRes
 		return NewLabeledResource("unlabeled")
 	}
 
+	logPathLabels.Printf("pathEntryToResource: applying labels: secrecy=%d, integrity=%d", len(entry.Secrecy), len(entry.Integrity))
 	resource := NewLabeledResource(entry.Description)
 
 	for _, s := range entry.Secrecy {
@@ -394,6 +397,7 @@ func (p *PathLabeledData) ToCollectionLabeledData() *CollectionLabeledData {
 
 func replaceCollectionAtPath(data interface{}, path string, replacement []interface{}) (interface{}, error) {
 	parts := splitJSONPointer(path)
+	logPathLabels.Printf("replaceCollectionAtPath: path=%q, segments=%d, replacementItems=%d", path, len(parts), len(replacement))
 	if len(parts) == 0 {
 		return replacement, nil
 	}
@@ -442,6 +446,7 @@ func ParsePathLabels(data []byte) (*PathLabels, error) {
 	logPathLabels.Printf("ParsePathLabels: parsing %d bytes", len(data))
 	var pl PathLabels
 	if err := json.Unmarshal(data, &pl); err != nil {
+		logPathLabels.Printf("ParsePathLabels: unmarshal failed: %v", err)
 		return nil, fmt.Errorf("failed to parse path labels: %w", err)
 	}
 	logPathLabels.Printf("ParsePathLabels: parsed %d labeled paths, hasDefaultLabels=%v", len(pl.LabeledPaths), pl.DefaultLabels != nil)
