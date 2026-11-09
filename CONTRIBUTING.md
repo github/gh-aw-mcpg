@@ -738,14 +738,27 @@ make release major
 When the release workflow is triggered, it automatically:
 - Runs the full test suite (unit + integration)
 - Creates and pushes the version tag (e.g., `v1.2.4`)
-- Builds multi-platform binaries (Linux for amd64, arm, and arm64)
-- Creates a GitHub release with all binaries and checksums
-- Builds and pushes a multi-arch Docker image to `ghcr.io/github/gh-aw-mcpg` with tags:
+- Builds Linux binaries in parallel: amd64 on `ubuntu-24.04`, arm64 on
+  `ubuntu-24.04-arm`, and arm cross-compiled on `ubuntu-24.04`
+- Collects the binaries and generates a combined `checksums.txt` before creating
+  the GitHub release
+- Builds the WASM guard once and shares it between native amd64 and arm64 Docker
+  build jobs, running alongside the binary builds without QEMU emulation
+- Combines the two image digests into a multi-arch Docker image after the GitHub
+  release succeeds, publishing to `ghcr.io/github/gh-aw-mcpg` with tags:
   - `latest` - Always points to the newest release
   - `v1.2.4` - Specific version tag
   - `<commit-sha>` - Specific commit reference
 - Generates and attaches SBOM files (SPDX and CycloneDX formats)
 - Creates release highlights from merged PRs
+
+All binary, guard, and Docker builds use the commit resolved from the release tag.
+Image caches are scoped by architecture. Published image tags are only updated
+after both native image builds succeed.
+
+For local binary builds, `bash scripts/build-release.sh v1.2.4` builds all three
+platforms. Pass one or more platforms after the version to build a subset, for
+example `bash scripts/build-release.sh v1.2.4 linux-arm64`.
 
 ### Version Guidelines
 

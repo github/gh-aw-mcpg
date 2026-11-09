@@ -43,7 +43,7 @@ safe-outputs:
 jobs:
   # Pre-tag validation: Run tests BEFORE creating the tag (workflow_dispatch only)
   # This prevents tag creation if build or tests fail
-  # Note: release job also runs tests for direct tag pushes and as defense-in-depth
+  # Note: prepare-release also runs tests for direct tag pushes and as defense-in-depth
   test:
     if: github.event_name == 'workflow_dispatch'
     needs: ["activation"]
@@ -141,18 +141,13 @@ jobs:
           echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
           echo "✓ Tag $NEW_TAG created and pushed"
 
-  release:
+  prepare-release:
     needs: ["activation", "create-tag"]
     if: always() && needs.activation.result == 'success' && ((github.event_name == 'workflow_dispatch' && needs.create-tag.result == 'success') || (github.event_name != 'workflow_dispatch' && needs.create-tag.result == 'skipped'))
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-      id-token: write
-      attestations: write
     outputs:
-      release_id: ${{ steps.get_release.outputs.release_id }}
-      release_tag: ${{ steps.get_release.outputs.release_tag }}
+      release_tag: ${{ steps.set_tag.outputs.release_tag }}
+      release_sha: ${{ steps.set_tag.outputs.release_sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -185,6 +180,7 @@ jobs:
           
           echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "✓ Using release tag: $RELEASE_TAG"
           
       - name: Set up Go
@@ -215,15 +211,80 @@ jobs:
           make test-integration
           echo "✓ Integration tests passed"
 
-      - name: Build release binaries
+  build-binaries:
+    needs: ["prepare-release"]
+    if: always() && !cancelled() && needs.prepare-release.result == 'success'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-amd64
+            runner: ubuntu-24.04
+          - platform: linux-arm
+            runner: ubuntu-24.04
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Build release binary
+        env:
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+          PLATFORM: ${{ matrix.platform }}
         run: |
-          echo "Building multi-platform binaries for: $RELEASE_TAG"
-          chmod +x scripts/build-release.sh
-          ./scripts/build-release.sh "$RELEASE_TAG"
+          bash scripts/build-release.sh "$RELEASE_TAG" "$PLATFORM"
+
+      - name: Upload release binary
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release-binary-${{ matrix.platform }}
+          path: dist/awmg-${{ matrix.platform }}
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    needs: ["prepare-release", "build-binaries"]
+    if: always() && !cancelled() && needs.prepare-release.result == 'success' && needs.build-binaries.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.get_release.outputs.release_id }}
+      release_tag: ${{ needs.prepare-release.outputs.release_tag }}
+    steps:
+      - name: Download release binaries
+        uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: release-binary-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate combined checksums
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          for platform in linux-amd64 linux-arm linux-arm64; do
+            test -s "awmg-$platform"
+          done
+          sha256sum awmg-* > checksums.txt
+          sha256sum --check checksums.txt
 
       - name: Upload binaries to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
         run: |
           echo "Creating release for tag: $RELEASE_TAG"
           
@@ -239,6 +300,8 @@ jobs:
         id: get_release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
         run: |
           echo "Getting release ID for tag: $RELEASE_TAG"
           RELEASE_ID=$(gh release view "$RELEASE_TAG" --json databaseId --jq '.databaseId')
@@ -247,19 +310,63 @@ jobs:
           echo "✓ Release ID: $RELEASE_ID"
           echo "✓ Release Tag: $RELEASE_TAG"
 
-  docker:
-    needs: ["release"]
+  build-guard:
+    needs: ["prepare-release"]
+    if: always() && !cancelled() && needs.prepare-release.result == 'success'
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
+          persist-credentials: false
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30  # v2.0.1
+        with:
+          target: wasm32-wasip1
+          cache: false
+
+      - name: Build baked WASM guard
+        run: |
+          make -C guards/github-guard build
+          test -f guards/github-guard/github-guard-rust.wasm
+
+      - name: Upload WASM guard
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release-wasm-guard
+          path: guards/github-guard/github-guard-rust.wasm
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-platform:
+    needs: ["prepare-release", "build-guard"]
+    if: always() && !cancelled() && needs.prepare-release.result == 'success' && needs.build-guard.result == 'success'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
     steps:
-      - name: Checkout
+      - name: Checkout release commit
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
+          persist-credentials: false
 
-      # Enables emulation so the amd64 runner can build arm64 too
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4.4.0
+      - name: Download WASM guard
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: release-wasm-guard
+          path: guards/github-guard
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.4.1
@@ -271,37 +378,93 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract tag version
-        id: tag_version
-        run: |
-          RELEASE_TAG="${{ needs.release.outputs.release_tag }}"
-          echo "version=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          echo "✓ Version: $RELEASE_TAG"
-
-      - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30  # v2.0.1
-        with:
-          target: wasm32-wasip1
-
-      - name: Build baked WASM guard
-        run: |
-          make -C guards/github-guard build
-          test -f guards/github-guard/github-guard-rust.wasm
-
-      - name: Build and push (multi-arch)
+      - name: Build and push native image
+        id: build
         uses: docker/build-push-action@v7.4.0
         with:
           context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
           build-args: |
-            VERSION=${{ steps.tag_version.outputs.version }}
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ steps.tag_version.outputs.version }}
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            VERSION=${{ needs.prepare-release.outputs.release_tag }}
+          cache-from: type=gha,scope=release-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=release-${{ matrix.arch }}
+
+      - name: Export image digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid image digest for $ARCH"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/image-digests"
+          printf '%s\n' "$DIGEST" > "$RUNNER_TEMP/image-digests/$ARCH"
+
+      - name: Upload image digest
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release-image-digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/image-digests/${{ matrix.arch }}
+          if-no-files-found: error
+          retention-days: 1
+
+  docker:
+    needs: ["prepare-release", "release", "docker-platform"]
+    if: always() && !cancelled() && needs.prepare-release.result == 'success' && needs.release.result == 'success' && needs.docker-platform.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download image digests
+        uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: release-image-digest-*
+          path: ${{ runner.temp }}/image-digests
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.4.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish multi-architecture manifest
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          sources=()
+          for arch in amd64 arm64; do
+            file="$RUNNER_TEMP/image-digests/$arch"
+            if [[ ! -f "$file" ]]; then
+              echo "::error::Missing image digest for $arch"
+              exit 1
+            fi
+            digest=$(cat "$file")
+            if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::Invalid image digest for $arch"
+              exit 1
+            fi
+            sources+=("$IMAGE@$digest")
+          done
+          docker buildx imagetools create \
+            --tag "$IMAGE:latest" \
+            --tag "$IMAGE:$RELEASE_TAG" \
+            --tag "$IMAGE:$RELEASE_SHA" \
+            "${sources[@]}"
+          docker buildx imagetools inspect "$IMAGE:$RELEASE_TAG" --raw \
+            | jq -e '[.manifests[].platform | "\(.os)/\(.architecture)"] | index("linux/amd64") and index("linux/arm64")' > /dev/null \
+            || { echo "::error::Image must include linux/amd64 and linux/arm64"; exit 1; }
 
   generate-sbom:
     needs: ["release"]
@@ -311,6 +474,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.release.outputs.release_tag }}
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
