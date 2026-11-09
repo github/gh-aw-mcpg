@@ -559,12 +559,7 @@ pub(crate) fn get_collaborator_permission_with_callback(
     // Cache key lowercases owner, repo, and username since GitHub treats all three
     // as case-insensitive. This ensures "Org/Repo:Alice" and "org/repo:alice" share
     // the same cache entry.
-    let cache_key = format!(
-        "{}/{}:{}",
-        owner.to_ascii_lowercase(),
-        repo.to_ascii_lowercase(),
-        username.to_ascii_lowercase()
-    );
+    let cache_key = collaborator_cache_key(owner, repo, username);
 
     // Return cached permission if available.
     if let CachedPermission::Known(cached) = get_cached_collaborator_permission(&cache_key) {
@@ -668,6 +663,17 @@ pub(crate) fn get_collaborator_permission(
     get_collaborator_permission_with_callback(crate::invoke_backend, owner, repo, username)
 }
 
+fn collaborator_cache_key(owner: &str, repo: &str, username: &str) -> String {
+    let mut cache_key = String::with_capacity(owner.len() + repo.len() + username.len() + 2);
+    cache_key.push_str(owner);
+    cache_key.push('/');
+    cache_key.push_str(repo);
+    cache_key.push(':');
+    cache_key.push_str(username);
+    cache_key.make_ascii_lowercase();
+    cache_key
+}
+
 /// Extract the raw `content[0].text` string from an MCP-wrapped response,
 /// e.g. `{"content":[{"type":"text","text":"..."}]}`. Returns None if the
 /// response isn't in that shape.
@@ -699,8 +705,10 @@ fn extract_backend_error_text(response: &Value) -> Option<&str> {
 }
 
 fn is_rate_limit_error(error_text: &str) -> bool {
-    let lower = error_text.to_ascii_lowercase();
-    lower.contains("rate limit")
+    error_text
+        .as_bytes()
+        .windows("rate limit".len())
+        .any(|window| window.eq_ignore_ascii_case(b"rate limit"))
 }
 
 fn extract_rate_reset_seconds(error_text: &str) -> Option<u64> {
@@ -851,6 +859,18 @@ mod tests {
         }
 
         clear_cached_collaborator_permission(key);
+    }
+
+    #[test]
+    fn test_collaborator_cache_key_is_ascii_case_insensitive() {
+        assert_eq!(
+            collaborator_cache_key("Org", "Repo", "Alice"),
+            "org/repo:alice"
+        );
+        assert_eq!(
+            collaborator_cache_key("Org", "Repo", "Alice"),
+            collaborator_cache_key("org", "repo", "alice")
+        );
     }
 
     #[test]
@@ -1149,6 +1169,7 @@ mod tests {
     #[test]
     fn test_is_rate_limit_error_matches_secondary_rate_limit() {
         assert!(is_rate_limit_error("Secondary Rate Limit exceeded"));
+        assert!(!is_rate_limit_error("secondary rate-limit exceeded"));
     }
 
     #[test]
