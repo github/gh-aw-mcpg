@@ -41,6 +41,7 @@ func supportedProtocolVersions() []string {
 	if len(legacy) == 0 {
 		panic("MCP SDK exposes no legacy protocol versions")
 	}
+	logHTTPServer.Printf("Supported protocol versions: advertised=%v, sdkTotal=%d", legacy, len(versions))
 	return legacy
 }
 
@@ -119,6 +120,7 @@ func CreateHTTPServerForMCP(addr string, unifiedServer *UnifiedServer, apiKeys [
 
 			if unifiedServer.isDelegatedExecutorSession(sessionID) {
 				return delegationServerCache.GetOrCreate(sessionID, func() *sdk.Server {
+					logTransport.Printf("Creating delegation-filtered unified server: session=%s", util.HashIdentifierForLog(sessionID))
 					return createDelegationFilteredUnifiedServer(unifiedServer)
 				})
 			}
@@ -127,6 +129,7 @@ func CreateHTTPServerForMCP(addr string, unifiedServer *UnifiedServer, apiKeys [
 			// authenticated agent may use (tool visibility enforcement).
 			if unifiedServer.agentPoliciesEnforced() {
 				return agentServerCache.GetOrCreate(sessionID, func() *sdk.Server {
+					logTransport.Printf("Creating agent-filtered unified server: session=%s", util.HashIdentifierForLog(sessionID))
 					return createAgentFilteredUnifiedServer(unifiedServer, sessionID)
 				})
 			}
