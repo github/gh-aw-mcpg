@@ -509,7 +509,7 @@ func (c *Connection) initializeHTTPSessionContext(ctx context.Context) (string, 
 	// the request as resuming an existing (and unknown) session.
 	result, err := c.executeHTTPRequest(ctx, "initialize", initParams, requestID, nil)
 	if err != nil {
-		logConn.Printf("Initialize request failed: %v", err)
+		logConn.Printf("Initialize request failed: %s", sanitize.SanitizeString(sanitize.RedactErrorForLogIf(err, sanitize.ShouldRedactPayload(IsEnclaveSession(ctx)))))
 		return "", err
 	}
 
