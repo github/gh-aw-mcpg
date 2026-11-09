@@ -1,5 +1,5 @@
-# gh-aw-metadata: {"schema_version":"v4","frontmatter_hash":"3ab26cac22a2694ef4192108922d3abdc7fc2ec6585b0020a09dbe3d95f3c979","body_hash":"bd23ed2cb1147f5fd825a13d823d452f7433f52bc01ea0b3db2510bd7a7ff459","compiler_version":"v1.2.1","strict":true,"agent_id":"copilot","engine_versions":{"copilot":"1.0.103"}}
-# gh-aw-manifest: {"version":1,"secrets":["GH_AW_DEFAULT_OTLP_ENDPOINT","GH_AW_DEFAULT_OTLP_HEADERS","GH_AW_GITHUB_MCP_SERVER_TOKEN","GH_AW_GITHUB_TOKEN","GITHUB_TOKEN"],"actions":[{"repo":"actions-rust-lang/setup-rust-toolchain","sha":"a188e68d0fd2bd36ad51dccb2b07ba6e75105f30","version":"v2.0.1"},{"repo":"actions/checkout","sha":"3d3c42e5aac5ba805825da76410c181273ba90b1","version":"v7.0.1"},{"repo":"actions/download-artifact","sha":"9000827ccba6bdab643e8b6fd33ac0654aef8333","version":"v8.0.2"},{"repo":"actions/github-script","sha":"3a2844b7e9c422d3c10d287c895573f7108da1b3","version":"v9.0.0"},{"repo":"actions/setup-go","sha":"b7ad1dad31e06c5925ef5d2fc7ad053ef454303e","version":"v7.0.0"},{"repo":"actions/upload-artifact","sha":"cf430e030ddbb5b0abf93d22962f4752f3646cd9","version":"v7.0.2"},{"repo":"anchore/sbom-action","sha":"66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c","version":"v0.24.3"},{"repo":"docker/build-push-action","sha":"c3c9e263c25d99ce0380d002d59b67737d91b0dc","version":"v7.4.0"},{"repo":"docker/login-action","sha":"8aa5831fb8d48d8f76594c7ddde61ae58019f550","version":"v4.8.0"},{"repo":"docker/setup-buildx-action","sha":"f87e5991a6d7451dcb8d9637bfbc97413f497069","version":"v4.4.1"},{"repo":"docker/setup-qemu-action","sha":"99012661954931238ded8c8b007157a8430204e1","version":"v4.4.0"},{"repo":"github/gh-aw-actions/setup","sha":"406c7719e31d7fe354224d4bb8fe3d4aeb47da1c","version":"v1.2.1"}],"containers":[{"image":"ghcr.io/github/gh-aw-firewall/agent:0.29.7","digest":"sha256:bd8d363c11b65632920850a44aa61cf9857e2ce9bcd78016e5e9ff57861cb2f5","pinned_image":"ghcr.io/github/gh-aw-firewall/agent:0.29.7@sha256:bd8d363c11b65632920850a44aa61cf9857e2ce9bcd78016e5e9ff57861cb2f5"},{"image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.29.7","digest":"sha256:c3b4c800634b9e314b80c0cd8daa6d861ed849381bf69234cd77417e7b79b94a","pinned_image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.29.7@sha256:c3b4c800634b9e314b80c0cd8daa6d861ed849381bf69234cd77417e7b79b94a"},{"image":"ghcr.io/github/gh-aw-firewall/squid:0.29.7","digest":"sha256:0790d978a820af2dc1bfab74d1f06b159f3a57ad4893ec49f475289691c4d154","pinned_image":"ghcr.io/github/gh-aw-firewall/squid:0.29.7@sha256:0790d978a820af2dc1bfab74d1f06b159f3a57ad4893ec49f475289691c4d154"},{"image":"ghcr.io/github/gh-aw-mcpg:v0.5.4","digest":"sha256:801db64c2456ba2132733b23141fb52ca9d4691765181ee957ee121a21b86c09","pinned_image":"ghcr.io/github/gh-aw-mcpg:v0.5.4@sha256:801db64c2456ba2132733b23141fb52ca9d4691765181ee957ee121a21b86c09"},{"image":"ghcr.io/github/gh-aw-node","digest":"sha256:a8082161d7dceda14b68f32eb39d0eaa96b825d07f5895b096afab9d9e0c7748","pinned_image":"ghcr.io/github/gh-aw-node@sha256:a8082161d7dceda14b68f32eb39d0eaa96b825d07f5895b096afab9d9e0c7748"},{"image":"ghcr.io/github/github-mcp-server:v2.0.3","digest":"sha256:250bc6ce70788207608ef74cef4397230ff2e8481218da74d6093e4bd9101132","pinned_image":"ghcr.io/github/github-mcp-server:v2.0.3@sha256:250bc6ce70788207608ef74cef4397230ff2e8481218da74d6093e4bd9101132"}],"mcp_servers":[{"name":"github","tools":["get_commit","get_file_contents","get_latest_release","get_me","get_pull_request","get_pull_request_comments","get_pull_request_diff","get_pull_request_files","get_pull_request_review_comments","get_pull_request_reviews","get_pull_request_status","get_release_by_tag","get_tag","issue_read","list_branches","list_commits","list_issue_types","list_issues","list_pull_requests","list_releases","list_starred_repositories","list_tags","pull_request_read","search_code","search_issues","search_pull_requests","search_repositories"]},{"name":"safeoutputs","tools":["create_issue","noop","report_incomplete","report_missing_data","report_missing_tool"]}],"threat_detection":{"mode":"disabled"},"admission":false}
+# gh-aw-metadata: {"schema_version":"v4","frontmatter_hash":"fc2e23f077c0fc83fc6ee29982e63ff629d03fcf179a140368d7ab2c7a8da6f4","body_hash":"bd23ed2cb1147f5fd825a13d823d452f7433f52bc01ea0b3db2510bd7a7ff459","compiler_version":"v1.2.1","strict":true,"agent_id":"copilot","engine_versions":{"copilot":"1.0.103"}}
+# gh-aw-manifest: {"version":1,"secrets":["GH_AW_DEFAULT_OTLP_ENDPOINT","GH_AW_DEFAULT_OTLP_HEADERS","GH_AW_GITHUB_MCP_SERVER_TOKEN","GH_AW_GITHUB_TOKEN","GITHUB_TOKEN"],"actions":[{"repo":"actions-rust-lang/setup-rust-toolchain","sha":"a188e68d0fd2bd36ad51dccb2b07ba6e75105f30","version":"v2.0.1"},{"repo":"actions/checkout","sha":"3d3c42e5aac5ba805825da76410c181273ba90b1","version":"v7.0.1"},{"repo":"actions/download-artifact","sha":"9000827ccba6bdab643e8b6fd33ac0654aef8333","version":"v8.0.2"},{"repo":"actions/github-script","sha":"3a2844b7e9c422d3c10d287c895573f7108da1b3","version":"v9.0.0"},{"repo":"actions/setup-go","sha":"b7ad1dad31e06c5925ef5d2fc7ad053ef454303e","version":"v7.0.0"},{"repo":"actions/upload-artifact","sha":"cf430e030ddbb5b0abf93d22962f4752f3646cd9","version":"v7.0.2"},{"repo":"anchore/sbom-action","sha":"66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c","version":"v0.24.3"},{"repo":"docker/build-push-action","sha":"c3c9e263c25d99ce0380d002d59b67737d91b0dc","version":"v7.4.0"},{"repo":"docker/login-action","sha":"8aa5831fb8d48d8f76594c7ddde61ae58019f550","version":"v4.8.0"},{"repo":"docker/setup-buildx-action","sha":"f87e5991a6d7451dcb8d9637bfbc97413f497069","version":"v4.4.1"},{"repo":"github/gh-aw-actions/setup","sha":"406c7719e31d7fe354224d4bb8fe3d4aeb47da1c","version":"v1.2.1"}],"containers":[{"image":"ghcr.io/github/gh-aw-firewall/agent:0.29.7","digest":"sha256:bd8d363c11b65632920850a44aa61cf9857e2ce9bcd78016e5e9ff57861cb2f5","pinned_image":"ghcr.io/github/gh-aw-firewall/agent:0.29.7@sha256:bd8d363c11b65632920850a44aa61cf9857e2ce9bcd78016e5e9ff57861cb2f5"},{"image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.29.7","digest":"sha256:c3b4c800634b9e314b80c0cd8daa6d861ed849381bf69234cd77417e7b79b94a","pinned_image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.29.7@sha256:c3b4c800634b9e314b80c0cd8daa6d861ed849381bf69234cd77417e7b79b94a"},{"image":"ghcr.io/github/gh-aw-firewall/squid:0.29.7","digest":"sha256:0790d978a820af2dc1bfab74d1f06b159f3a57ad4893ec49f475289691c4d154","pinned_image":"ghcr.io/github/gh-aw-firewall/squid:0.29.7@sha256:0790d978a820af2dc1bfab74d1f06b159f3a57ad4893ec49f475289691c4d154"},{"image":"ghcr.io/github/gh-aw-mcpg:v0.5.4","digest":"sha256:801db64c2456ba2132733b23141fb52ca9d4691765181ee957ee121a21b86c09","pinned_image":"ghcr.io/github/gh-aw-mcpg:v0.5.4@sha256:801db64c2456ba2132733b23141fb52ca9d4691765181ee957ee121a21b86c09"},{"image":"ghcr.io/github/gh-aw-node","digest":"sha256:a8082161d7dceda14b68f32eb39d0eaa96b825d07f5895b096afab9d9e0c7748","pinned_image":"ghcr.io/github/gh-aw-node@sha256:a8082161d7dceda14b68f32eb39d0eaa96b825d07f5895b096afab9d9e0c7748"},{"image":"ghcr.io/github/github-mcp-server:v2.0.3","digest":"sha256:250bc6ce70788207608ef74cef4397230ff2e8481218da74d6093e4bd9101132","pinned_image":"ghcr.io/github/github-mcp-server:v2.0.3@sha256:250bc6ce70788207608ef74cef4397230ff2e8481218da74d6093e4bd9101132"}],"mcp_servers":[{"name":"github","tools":["get_commit","get_file_contents","get_latest_release","get_me","get_pull_request","get_pull_request_comments","get_pull_request_diff","get_pull_request_files","get_pull_request_review_comments","get_pull_request_reviews","get_pull_request_status","get_release_by_tag","get_tag","issue_read","list_branches","list_commits","list_issue_types","list_issues","list_pull_requests","list_releases","list_starred_repositories","list_tags","pull_request_read","search_code","search_issues","search_pull_requests","search_repositories"]},{"name":"safeoutputs","tools":["create_issue","noop","report_incomplete","report_missing_data","report_missing_tool"]}],"threat_detection":{"mode":"disabled"},"admission":false}
 # This file was automatically generated by gh-aw (v1.2.1). DO NOT EDIT. To debug this workflow, load the skill at https://github.com/github/gh-aw/blob/main/debug.md
 #
 #    ___                   _   _
@@ -43,7 +43,6 @@
 #   - docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
 #   - docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
 #   - docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-#   - docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 #   - github/gh-aw-actions/setup@406c7719e31d7fe354224d4bb8fe3d4aeb47da1c # v1.2.1
 #
 # Container images used:
@@ -545,9 +544,13 @@ jobs:
     name: agent
     needs:
       - activation
+      - build-binaries
+      - build-guard
       - create-tag
       - docker
+      - docker-platform
       - generate-sbom
+      - prepare-release
       - release
       - test
     if: needs.activation.outputs.daily_ai_credits_exceeded != 'true'
@@ -1428,14 +1431,104 @@ jobs:
           if-no-files-found: ignore
           retention-days: ${{ vars.GH_AW_DEFAULT_ARTIFACT_RETENTION_DAYS || '0' }}
 
+  build-binaries:
+    name: build-binaries
+    needs: prepare-release
+    if: always() && !cancelled() && needs.prepare-release.result == 'success'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-amd64
+            runner: ubuntu-24.04
+          - platform: linux-arm
+            runner: ubuntu-24.04
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Configure GH_HOST for enterprise compatibility
+        id: ghes-host-config
+        shell: bash
+        run: | # zizmor: ignore[github-env] - GITHUB_SERVER_URL is set by GitHub Actions, not user input.
+          # Derive GH_HOST from GITHUB_SERVER_URL so the gh CLI targets the correct
+          # GitHub instance (GHES/GHEC). On github.com this is a harmless no-op.
+          GH_HOST="${GITHUB_SERVER_URL#https://}"
+          GH_HOST="${GH_HOST#http://}"
+          echo "GH_HOST=${GH_HOST}" >> "$GITHUB_ENV"
+      - name: Checkout release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          cache: false
+          go-version-file: go.mod
+      - name: Build release binary
+        run: |
+          bash scripts/build-release.sh "$RELEASE_TAG" "$PLATFORM"
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+      - name: Upload release binary
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          if-no-files-found: error
+          name: release-binary-${{ matrix.platform }}
+          path: dist/awmg-${{ matrix.platform }}
+          retention-days: ${{ vars.GH_AW_DEFAULT_ARTIFACT_RETENTION_DAYS || '1' }}
+
+  build-guard:
+    name: build-guard
+    needs: prepare-release
+    if: always() && !cancelled() && needs.prepare-release.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure GH_HOST for enterprise compatibility
+        id: ghes-host-config
+        shell: bash
+        run: | # zizmor: ignore[github-env] - GITHUB_SERVER_URL is set by GitHub Actions, not user input.
+          # Derive GH_HOST from GITHUB_SERVER_URL so the gh CLI targets the correct
+          # GitHub instance (GHES/GHEC). On github.com this is a harmless no-op.
+          GH_HOST="${GITHUB_SERVER_URL#https://}"
+          GH_HOST="${GH_HOST#http://}"
+          echo "GH_HOST=${GH_HOST}" >> "$GITHUB_ENV"
+      - name: Checkout release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
+        with:
+          cache: false
+          target: wasm32-wasip1
+      - name: Build baked WASM guard
+        run: |
+          make -C guards/github-guard build
+          test -f guards/github-guard/github-guard-rust.wasm
+      - name: Upload WASM guard
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          if-no-files-found: error
+          name: release-wasm-guard
+          path: guards/github-guard/github-guard-rust.wasm
+          retention-days: ${{ vars.GH_AW_DEFAULT_ARTIFACT_RETENTION_DAYS || '1' }}
+
   conclusion:
     name: conclusion
     needs:
       - activation
       - agent
+      - build-binaries
+      - build-guard
       - create-tag
       - docker
+      - docker-platform
       - generate-sbom
+      - prepare-release
       - release
       - safe_outputs
       - test
@@ -1456,9 +1549,9 @@ jobs:
       cancel-in-progress: false
       queue: max
     env:
-      GH_AW_JOB_DISPLAY_NAMES: "{\"activation\":\"activation\",\"agent\":\"agent\",\"conclusion\":\"conclusion\",\"create-tag\":\"create-tag\",\"docker\":\"docker\",\"generate-sbom\":\"generate-sbom\",\"pre_activation\":\"pre_activation\",\"release\":\"release\",\"safe_outputs\":\"safe_outputs\",\"test\":\"test\"}"
-      GH_AW_JOB_RESULTS: "{\"activation\":{\"result\":\"${{ needs.activation.result }}\"},\"agent\":{\"result\":\"${{ needs.agent.result }}\"},\"create-tag\":{\"result\":\"${{ needs.create-tag.result }}\"},\"docker\":{\"result\":\"${{ needs.docker.result }}\"},\"generate-sbom\":{\"result\":\"${{ needs.generate-sbom.result }}\"},\"release\":{\"result\":\"${{ needs.release.result }}\"},\"safe_outputs\":{\"result\":\"${{ needs.safe_outputs.result }}\"},\"test\":{\"result\":\"${{ needs.test.result }}\"}}"
-      GH_AW_JOB_TIMING_ELIGIBLE: "{\"activation\":true,\"agent\":true,\"conclusion\":true,\"create-tag\":true,\"docker\":true,\"generate-sbom\":true,\"pre_activation\":true,\"release\":true,\"safe_outputs\":true,\"test\":true}"
+      GH_AW_JOB_DISPLAY_NAMES: "{\"activation\":\"activation\",\"agent\":\"agent\",\"build-binaries\":\"build-binaries\",\"build-guard\":\"build-guard\",\"conclusion\":\"conclusion\",\"create-tag\":\"create-tag\",\"docker\":\"docker\",\"docker-platform\":\"docker-platform\",\"generate-sbom\":\"generate-sbom\",\"pre_activation\":\"pre_activation\",\"prepare-release\":\"prepare-release\",\"release\":\"release\",\"safe_outputs\":\"safe_outputs\",\"test\":\"test\"}"
+      GH_AW_JOB_RESULTS: "{\"activation\":{\"result\":\"${{ needs.activation.result }}\"},\"agent\":{\"result\":\"${{ needs.agent.result }}\"},\"build-binaries\":{\"result\":\"${{ needs.build-binaries.result }}\"},\"build-guard\":{\"result\":\"${{ needs.build-guard.result }}\"},\"create-tag\":{\"result\":\"${{ needs.create-tag.result }}\"},\"docker\":{\"result\":\"${{ needs.docker.result }}\"},\"docker-platform\":{\"result\":\"${{ needs.docker-platform.result }}\"},\"generate-sbom\":{\"result\":\"${{ needs.generate-sbom.result }}\"},\"prepare-release\":{\"result\":\"${{ needs.prepare-release.result }}\"},\"release\":{\"result\":\"${{ needs.release.result }}\"},\"safe_outputs\":{\"result\":\"${{ needs.safe_outputs.result }}\"},\"test\":{\"result\":\"${{ needs.test.result }}\"}}"
+      GH_AW_JOB_TIMING_ELIGIBLE: "{\"activation\":true,\"agent\":true,\"build-binaries\":false,\"build-guard\":true,\"conclusion\":true,\"create-tag\":true,\"docker\":true,\"docker-platform\":false,\"generate-sbom\":true,\"pre_activation\":true,\"prepare-release\":true,\"release\":true,\"safe_outputs\":true,\"test\":true}"
       GH_AW_RUNTIME_FEATURES: ${{ vars.GH_AW_RUNTIME_FEATURES }}
     outputs:
       incomplete_count: ${{ steps.report_incomplete.outputs.incomplete_count }}
@@ -1824,7 +1917,13 @@ jobs:
 
   docker:
     name: docker
-    needs: release
+    needs:
+      - docker-platform
+      - prepare-release
+      - release
+    if: >
+      always() && !cancelled() && needs.prepare-release.result == 'success' && needs.release.result == 'success' &&
+      needs.docker-platform.result == 'success'
     runs-on: ubuntu-latest
     # Permissions for the docker job (workflow permissions default to none).
     permissions:
@@ -1840,12 +1939,12 @@ jobs:
           GH_HOST="${GITHUB_SERVER_URL#https://}"
           GH_HOST="${GH_HOST#http://}"
           echo "GH_HOST=${GH_HOST}" >> "$GITHUB_ENV"
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Download image digests
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          persist-credentials: false
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+          merge-multiple: true
+          path: ${{ runner.temp }}/image-digests
+          pattern: release-image-digest-*
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Log in to GHCR
@@ -1854,36 +1953,113 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: ghcr.io
           username: ${{ github.actor }}
-      - name: Extract tag version
-        id: tag_version
+      - name: Publish multi-architecture manifest
         run: |
-          RELEASE_TAG="$GH_AW_NEEDS_RELEASE_OUTPUTS_RELEASE_TAG"
-          echo "version=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          echo "✓ Version: $RELEASE_TAG"
+          set -euo pipefail
+          sources=()
+          for arch in amd64 arm64; do
+            file="$RUNNER_TEMP/image-digests/$arch"
+            if [[ ! -f "$file" ]]; then
+              echo "::error::Missing image digest for $arch"
+              exit 1
+            fi
+            digest=$(cat "$file")
+            if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::Invalid image digest for $arch"
+              exit 1
+            fi
+            sources+=("$IMAGE@$digest")
+          done
+          docker buildx imagetools create \
+            --tag "$IMAGE:latest" \
+            --tag "$IMAGE:$RELEASE_TAG" \
+            --tag "$IMAGE:$RELEASE_SHA" \
+            "${sources[@]}"
+          docker buildx imagetools inspect "$IMAGE:$RELEASE_TAG" --raw \
+            | jq -e '[.manifests[].platform | "\(.os)/\(.architecture)"] | index("linux/amd64") and index("linux/arm64")' > /dev/null \
+            || { echo "::error::Image must include linux/amd64 and linux/arm64"; exit 1; }
         env:
-          GH_AW_NEEDS_RELEASE_OUTPUTS_RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
-      - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
+          IMAGE: ghcr.io/${{ github.repository }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+
+  docker-platform:
+    name: docker-platform
+    needs:
+      - build-guard
+      - prepare-release
+    if: always() && !cancelled() && needs.prepare-release.result == 'success' && needs.build-guard.result == 'success'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    # Permissions for the docker-platform job (workflow permissions default to none).
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Configure GH_HOST for enterprise compatibility
+        id: ghes-host-config
+        shell: bash
+        run: | # zizmor: ignore[github-env] - GITHUB_SERVER_URL is set by GitHub Actions, not user input.
+          # Derive GH_HOST from GITHUB_SERVER_URL so the gh CLI targets the correct
+          # GitHub instance (GHES/GHEC). On github.com this is a harmless no-op.
+          GH_HOST="${GITHUB_SERVER_URL#https://}"
+          GH_HOST="${GH_HOST#http://}"
+          echo "GH_HOST=${GH_HOST}" >> "$GITHUB_ENV"
+      - name: Checkout release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          target: wasm32-wasip1
-      - name: Build baked WASM guard
-        run: |
-          make -C guards/github-guard build
-          test -f guards/github-guard/github-guard-rust.wasm
-      - name: Build and push (multi-arch)
+          persist-credentials: false
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
+      - name: Download WASM guard
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-wasm-guard
+          path: guards/github-guard
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+      - name: Build and push native image
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           build-args: |
-            VERSION=${{ steps.tag_version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            VERSION=${{ needs.prepare-release.outputs.release_tag }}
+          cache-from: type=gha,scope=release-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=release-${{ matrix.arch }}
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ steps.tag_version.outputs.version }}
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+          platforms: linux/${{ matrix.arch }}
+      - name: Export image digest
+        run: |
+          set -euo pipefail
+          if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid image digest for $ARCH"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/image-digests"
+          printf '%s\n' "$DIGEST" > "$RUNNER_TEMP/image-digests/$ARCH"
+        env:
+          ARCH: ${{ matrix.arch }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+      - name: Upload image digest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          if-no-files-found: error
+          name: release-image-digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/image-digests/${{ matrix.arch }}
+          retention-days: ${{ vars.GH_AW_DEFAULT_ARTIFACT_RETENTION_DAYS || '1' }}
 
   generate-sbom:
     name: generate-sbom
@@ -1906,6 +2082,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.release.outputs.release_tag }}
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -1990,8 +2167,8 @@ jobs:
             const { main } = require(path.join(actionsDir, 'check_membership.cjs'));
             await main();
 
-  release:
-    name: release
+  prepare-release:
+    name: prepare-release
     needs:
       - activation
       - create-tag
@@ -1999,15 +2176,9 @@ jobs:
       always() && needs.activation.result == 'success' && ((github.event_name == 'workflow_dispatch' && needs.create-tag.result == 'success') ||
       (github.event_name != 'workflow_dispatch' && needs.create-tag.result == 'skipped'))
     runs-on: ubuntu-latest
-    # Permissions for the release job (workflow permissions default to none).
-    permissions:
-      attestations: write
-      contents: write
-      id-token: write
-      packages: write
     outputs:
-      release_id: "${{ steps.get_release.outputs.release_id }}"
-      release_tag: "${{ steps.get_release.outputs.release_tag }}"
+      release_sha: "${{ steps.set_tag.outputs.release_sha }}"
+      release_tag: "${{ steps.set_tag.outputs.release_tag }}"
     steps:
       - name: Configure GH_HOST for enterprise compatibility
         id: ghes-host-config
@@ -2048,6 +2219,7 @@ jobs:
 
           echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "✓ Using release tag: $RELEASE_TAG"
         env:
           GH_AW_EXPR_9AE4D1D3: ${{ needs.create-tag.outputs.new_tag }}
@@ -2075,11 +2247,45 @@ jobs:
           echo "Running integration tests with built binary..."
           make test-integration
           echo "✓ Integration tests passed"
-      - name: Build release binaries
+
+  release:
+    name: release
+    needs:
+      - build-binaries
+      - prepare-release
+    if: always() && !cancelled() && needs.prepare-release.result == 'success' && needs.build-binaries.result == 'success'
+    runs-on: ubuntu-latest
+    # Permissions for the release job (workflow permissions default to none).
+    permissions:
+      contents: write
+    outputs:
+      release_id: "${{ steps.get_release.outputs.release_id }}"
+      release_tag: "${{ needs.prepare-release.outputs.release_tag }}"
+    steps:
+      - name: Configure GH_HOST for enterprise compatibility
+        id: ghes-host-config
+        shell: bash
+        run: | # zizmor: ignore[github-env] - GITHUB_SERVER_URL is set by GitHub Actions, not user input.
+          # Derive GH_HOST from GITHUB_SERVER_URL so the gh CLI targets the correct
+          # GitHub instance (GHES/GHEC). On github.com this is a harmless no-op.
+          GH_HOST="${GITHUB_SERVER_URL#https://}"
+          GH_HOST="${GH_HOST#http://}"
+          echo "GH_HOST=${GH_HOST}" >> "$GITHUB_ENV"
+      - name: Download release binaries
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          merge-multiple: true
+          path: dist
+          pattern: release-binary-*
+      - name: Generate combined checksums
         run: |
-          echo "Building multi-platform binaries for: $RELEASE_TAG"
-          chmod +x scripts/build-release.sh
-          ./scripts/build-release.sh "$RELEASE_TAG"
+          set -euo pipefail
+          for platform in linux-amd64 linux-arm linux-arm64; do
+            test -s "awmg-$platform"
+          done
+          sha256sum awmg-* > checksums.txt
+          sha256sum --check checksums.txt
+        working-directory: dist
       - name: Upload binaries to release
         run: |
           echo "Creating release for tag: $RELEASE_TAG"
@@ -2092,7 +2298,9 @@ jobs:
 
           echo "✓ Release created with all platform binaries and checksums"
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
       - name: Get release ID
         id: get_release
         run: |
@@ -2103,7 +2311,9 @@ jobs:
           echo "✓ Release ID: $RELEASE_ID"
           echo "✓ Release Tag: $RELEASE_TAG"
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
 
   safe_outputs:
     name: safe_outputs

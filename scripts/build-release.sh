@@ -1,9 +1,9 @@
 #!/bin/bash
 # Custom build script for multi-platform builds of awmg
-# This script is called during the release process to build binaries for all platforms
-set -e
+# Pass optional platform arguments to build a subset in parallel release jobs.
+set -euo pipefail
 
-VERSION="$1"
+VERSION="${1:-}"
 
 if [ -z "$VERSION" ]; then
   echo "error: VERSION argument is required" >&2
@@ -15,6 +15,20 @@ platforms=(
   linux-arm
   linux-arm64
 )
+
+if [ "$#" -gt 1 ]; then
+  platforms=("${@:2}")
+fi
+
+for p in "${platforms[@]}"; do
+  case "$p" in
+    linux-amd64|linux-arm|linux-arm64) ;;
+    *)
+      echo "error: unsupported release platform $p" >&2
+      exit 1
+      ;;
+  esac
+done
 
 echo "Building binaries with version: $VERSION"
 
@@ -39,7 +53,7 @@ for p in "${platforms[@]}"; do
   fi
   
   echo "Building awmg for $p..."
-  GOOS="$goos" GOARCH="$goarch" go build \
+  CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build \
     -trimpath \
     -ldflags="-s -w -X main.Version=${VERSION}" \
     -o "dist/awmg-${p}${ext}" \
@@ -56,9 +70,9 @@ echo "Generating checksums..."
 cd dist
 # Use sha256sum if available (Linux), otherwise use shasum (macOS)
 if command -v sha256sum &> /dev/null; then
-  sha256sum * > checksums.txt
+  sha256sum awmg-* > checksums.txt
 elif command -v shasum &> /dev/null; then
-  shasum -a 256 * > checksums.txt
+  shasum -a 256 awmg-* > checksums.txt
 else
   echo "error: neither sha256sum nor shasum is available" >&2
   exit 1
