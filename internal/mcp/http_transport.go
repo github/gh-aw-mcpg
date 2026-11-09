@@ -118,6 +118,7 @@ func isHTTPConnectionError(err error) bool {
 	}
 	var opErr *net.OpError
 	if errors.As(err, &opErr) {
+		logHTTP.Printf("Network operation error detected: op=%s, isDial=%v", opErr.Op, opErr.Op == "dial")
 		return opErr.Op == "dial"
 	}
 	return false
@@ -132,6 +133,7 @@ func isSessionNotFoundError(err error) bool {
 		return false
 	}
 	if errors.Is(err, sdk.ErrSessionMissing) {
+		logHTTP.Print("Session-not-found detected via sdk.ErrSessionMissing")
 		return true
 	}
 	// Plain JSON-RPC fallback requests bypass SDK session types, so they cannot
@@ -140,7 +142,11 @@ func isSessionNotFoundError(err error) bool {
 	// transport (HTTPTransportPlainJSON) is retired. Retirement criteria:
 	// confirm no active backends still require the pre-2024-11-05 compatibility
 	// path, then delete the fallback together with the plain JSON-RPC transport.
-	return strings.Contains(strings.ToLower(err.Error()), sessionNotFoundMessage)
+	matched := strings.Contains(strings.ToLower(err.Error()), sessionNotFoundMessage)
+	if matched {
+		logHTTP.Print("Session-not-found detected via error message fallback")
+	}
+	return matched
 }
 
 // isSessionNotFoundHTTPResponse checks if an HTTP response indicates the backend session was not found.
@@ -149,7 +155,11 @@ func isSessionNotFoundHTTPResponse(statusCode int, body []byte) bool {
 	if statusCode != http.StatusNotFound {
 		return false
 	}
-	return strings.Contains(strings.ToLower(string(body)), sessionNotFoundMessage)
+	matched := strings.Contains(strings.ToLower(string(body)), sessionNotFoundMessage)
+	if matched {
+		logHTTP.Printf("Session-not-found detected in HTTP 404 response: body_len=%d", len(body))
+	}
+	return matched
 }
 
 // parseSSEResponse extracts JSON data from SSE-formatted response
@@ -499,6 +509,11 @@ func (c *Connection) initializeHTTPSessionContext(ctx context.Context) (string, 
 	// the request as resuming an existing (and unknown) session.
 	result, err := c.executeHTTPRequest(ctx, "initialize", initParams, requestID, nil)
 	if err != nil {
+		redactedErr := sanitize.SanitizeString(sanitize.RedactErrorForLogIf(err, sanitize.ShouldRedactPayload(IsEnclaveSession(ctx))))
+		if c.httpURL != "" {
+			redactedErr = strings.ReplaceAll(redactedErr, c.httpURL, sanitize.RedactURL(c.httpURL))
+		}
+		logConn.Printf("Initialize request failed: %s", redactedErr)
 		return "", err
 	}
 
@@ -514,6 +529,7 @@ func (c *Connection) initializeHTTPSessionContext(ctx context.Context) (string, 
 
 	// Check for HTTP errors
 	if result.StatusCode != http.StatusOK {
+		logConn.Printf("Initialize returned non-OK status: %d", result.StatusCode)
 		return "", fmt.Errorf("initialize failed: status=%d, body=%s", result.StatusCode, string(result.ResponseBody))
 	}
 
@@ -525,6 +541,7 @@ func (c *Connection) initializeHTTPSessionContext(ctx context.Context) (string, 
 	}
 
 	if rpcResponse.Error != nil {
+		logConn.Printf("Initialize returned JSON-RPC error: code=%d", rpcResponse.Error.Code)
 		return "", fmt.Errorf("initialize error: code=%d, message=%s", rpcResponse.Error.Code, rpcResponse.Error.Message)
 	}
 
