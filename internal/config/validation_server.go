@@ -320,25 +320,26 @@ func validateAgainstCustomSchema(name string, server *StdinServerConfig, schemaU
 	// Compile the custom schema (with remote $ref support via fetchSchema loader)
 	compiler := newCompilerWithSchemaLoader()
 
-	// Add the schema with the fetch URL
-	if err := compiler.AddResource(schemaURL, schemaDoc); err != nil {
-		return schemaErr(
-			fmt.Sprintf("failed to compile custom schema: %v", err),
-			fmt.Sprintf("The schema at '%s' must be a valid JSON Schema document", schemaURL))
-	}
+	resourceIDs := []string{schemaURL}
 	if schemaID != schemaURL {
-		if err := compiler.AddResource(schemaID, schemaDoc); err != nil {
-			return schemaErr(
-				fmt.Sprintf("failed to compile custom schema with $id: %v", err),
-				fmt.Sprintf("Check the $id field in the schema at '%s'", schemaURL))
-		}
+		resourceIDs = append(resourceIDs, schemaID)
 	}
 
-	schema, err := compiler.Compile(schemaID)
-	if err != nil {
+	schema, compileErr := compileSchemaDocument(compiler, schemaID, schemaDoc, resourceIDs...)
+	if compileErr != nil {
+		if compileErr.compile {
+			return schemaErr(
+				fmt.Sprintf("failed to compile custom schema: %v", compileErr),
+				fmt.Sprintf("The schema at '%s' must be a valid JSON Schema document (Draft 2020-12 or earlier)", schemaURL))
+		}
+		if compileErr.resourceID == schemaURL {
+			return schemaErr(
+				fmt.Sprintf("failed to compile custom schema: %v", compileErr),
+				fmt.Sprintf("The schema at '%s' must be a valid JSON Schema document", schemaURL))
+		}
 		return schemaErr(
-			fmt.Sprintf("failed to compile custom schema: %v", err),
-			fmt.Sprintf("The schema at '%s' must be a valid JSON Schema document (Draft 2020-12 or earlier)", schemaURL))
+			fmt.Sprintf("failed to compile custom schema with $id: %v", compileErr),
+			fmt.Sprintf("Check the $id field in the schema at '%s'", schemaURL))
 	}
 
 	logValidationServer.Printf("Custom schema compiled successfully: name=%s", name)
