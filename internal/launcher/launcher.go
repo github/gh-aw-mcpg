@@ -276,6 +276,7 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 	l.mu.RLock()
 	if l.closed {
 		l.mu.RUnlock()
+		logLauncher.Printf("Rejecting session launch, launcher closed: serverID=%s", serverID)
 		return nil, ErrLauncherClosed
 	}
 	conn, exists := l.sessionPool.Get(serverID, sessionID)
@@ -309,6 +310,7 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 
 		conn, err := l.launchStdioConnection(serverID, sessionID, serverCfg)
 		if err != nil {
+			logLauncher.Printf("Session launch failed: serverID=%s, sessionID=%s, error=%v", serverID, util.FormatSessionIDForLog(sessionID), err)
 			// Record error in session pool and server state
 			l.sessionPool.RecordError(serverID, sessionID)
 			l.recordError(serverID, err.Error())
@@ -324,6 +326,7 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 		}
 		l.sessionPool.Set(serverID, sessionID, conn)
 		l.mu.Unlock()
+		logLauncher.Printf("Session connection added to pool: serverID=%s, sessionID=%s", serverID, util.FormatSessionIDForLog(sessionID))
 		l.recordStart(serverID)
 		return conn, nil
 	})
@@ -339,6 +342,7 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 func (l *Launcher) launchStdioConnection(serverID, sessionID string, serverCfg *config.ServerConfig) (*mcp.Connection, error) {
 	// Warn if using direct command in a container
 	isDirectCommand := isDirectStdioCommand(serverCfg)
+	logLauncher.Printf("Launching stdio connection: serverID=%s, directCommand=%v, inContainer=%v", serverID, isDirectCommand, l.runningInContainer)
 	if l.runningInContainer && isDirectCommand {
 		l.logSecurityWarning(serverID, serverCfg)
 	}
@@ -393,6 +397,7 @@ func (l *Launcher) launchStdioConnection(serverID, sessionID string, serverCfg *
 		return conn, nil
 
 	case <-time.After(l.startupTimeout):
+		logLauncher.Printf("Server startup timed out: serverID=%s, timeout=%v", serverID, l.startupTimeout)
 		l.logTimeoutError(serverID, sessionID)
 		return nil, fmt.Errorf("server startup timeout after %v", l.startupTimeout)
 	}
