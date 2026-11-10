@@ -240,6 +240,34 @@ func newCompilerWithSchemaLoader() *jsonschema.Compiler {
 	return compiler
 }
 
+type schemaCompileError struct {
+	resourceID string
+	compile    bool
+	err        error
+}
+
+func (e *schemaCompileError) Error() string {
+	return e.err.Error()
+}
+
+func (e *schemaCompileError) Unwrap() error {
+	return e.err
+}
+
+func compileSchemaDocument(compiler *jsonschema.Compiler, schemaID string, schemaDoc any, resourceIDs ...string) (*jsonschema.Schema, *schemaCompileError) {
+	for _, resourceID := range resourceIDs {
+		if err := compiler.AddResource(resourceID, schemaDoc); err != nil {
+			return nil, &schemaCompileError{resourceID: resourceID, err: err}
+		}
+	}
+
+	schema, err := compiler.Compile(schemaID)
+	if err != nil {
+		return nil, &schemaCompileError{compile: true, err: err}
+	}
+	return schema, nil
+}
+
 // getOrCompileSchema retrieves the cached compiled schema or compiles it on first use.
 // This function uses sync.Once to ensure thread-safe, one-time schema compilation,
 // which significantly improves performance by avoiding repeated schema compilation
@@ -274,16 +302,16 @@ func getOrCompileSchema() (*jsonschema.Schema, error) {
 		// Compile the schema
 		compiler := newCompiler()
 
-		// Add the schema using its $id URL so internal $ref references resolve correctly
-		if addErr := compiler.AddResource(schemaID, schemaDoc); addErr != nil {
-			schemaErr = fmt.Errorf("failed to add schema resource: %w", addErr)
-			return
-		}
-
-		cachedSchema, schemaErr = compiler.Compile(schemaID)
-		if schemaErr != nil {
-			schemaErr = fmt.Errorf("failed to compile schema: %w", schemaErr)
-			logSchema.Printf("Schema compilation failed: %v", schemaErr)
+		// Add the schema using its $id URL so internal $ref references resolve correctly.
+		var compileErr *schemaCompileError
+		cachedSchema, compileErr = compileSchemaDocument(compiler, schemaID, schemaDoc, schemaID)
+		if compileErr != nil {
+			if compileErr.compile {
+				schemaErr = fmt.Errorf("failed to compile schema: %w", compileErr)
+				logSchema.Printf("Schema compilation failed: %v", schemaErr)
+			} else {
+				schemaErr = fmt.Errorf("failed to add schema resource: %w", compileErr)
+			}
 			return
 		}
 
