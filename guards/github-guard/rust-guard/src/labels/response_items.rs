@@ -113,11 +113,13 @@ pub fn label_response_items(
 
         tool_names::ISSUE_ARTIFACT_READ | tool_names::ISSUE_ARTIFACT_WRITE => {
             let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
-            let integrity = if repo_visibility_private_for_repo_id(&repo_full) == Some(true) {
-                writer_integrity(&repo_full, ctx)
-            } else {
-                vec![]
-            };
+            let integrity: SharedLabels =
+                if repo_visibility_private_for_repo_id(&repo_full) == Some(true) {
+                    writer_integrity(&repo_full, ctx)
+                } else {
+                    vec![]
+                }
+                .into();
             let items = extract_items_slice(&actual_response, "artifacts");
             for item in limit_items_with_log(items, tool_name) {
                 labeled_items.push(LabeledItem {
@@ -125,7 +127,7 @@ pub fn label_response_items(
                     labels: ResourceLabels {
                         description: format!("issue-artifact:{repo_full}"),
                         secrecy: secrecy.clone(),
-                        integrity: integrity.clone().into(),
+                        integrity: integrity.clone(),
                     },
                 });
             }
@@ -703,6 +705,42 @@ mod tests {
                 vec![]
             };
             assert_eq!(integrity, expected, "private={private}");
+        }
+    }
+
+    #[test]
+    fn issue_artifact_items_share_integrity_labels() {
+        let ctx = default_ctx();
+        let repo_id = "octocat/shared-artifact-labels";
+        let args = json!({"owner": "octocat", "repo": "shared-artifact-labels"});
+        let response = json!({"artifacts": [{"name": "first"}, {"name": "second"}]});
+
+        for private in [false, true] {
+            let _visibility =
+                super::super::backend::cache_repo_visibility_for_tests(repo_id, private);
+            let expected = if private {
+                writer_integrity(repo_id, &ctx)
+            } else {
+                vec![]
+            };
+            for tool in [
+                tool_names::ISSUE_ARTIFACT_READ,
+                tool_names::ISSUE_ARTIFACT_WRITE,
+            ] {
+                let items = label_response_items(tool, &args, &response, &ctx);
+
+                assert_eq!(items.len(), 2);
+                for item in &items {
+                    assert_eq!(
+                        item.labels.integrity, expected,
+                        "tool={tool}, private={private}"
+                    );
+                }
+                assert!(std::sync::Arc::ptr_eq(
+                    &items[0].labels.integrity.0,
+                    &items[1].labels.integrity.0,
+                ));
+            }
         }
     }
 
