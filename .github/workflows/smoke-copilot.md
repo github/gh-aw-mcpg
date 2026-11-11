@@ -36,7 +36,7 @@ network:
     - github.com
     - packagefeedproxy.microsoft.io
     # Approved-feed tarballs are served through Azure Artifacts and blob storage.
-    - "*.pkgs.visualstudio.com"
+    - "pkgs.dev.azure.com"
     - "*.vsblob.vsassets.io"
 tools:
   cache-memory: true
