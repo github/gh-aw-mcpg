@@ -35,9 +35,8 @@ network:
     - playwright
     - github.com
     - packagefeedproxy.microsoft.io
-    # Approved-feed tarballs are served through Azure Artifacts and blob storage.
+    # Approved-feed tarballs are served through Azure Artifacts.
     - "pkgs.dev.azure.com"
-    - "*.vsblob.vsassets.io"
 tools:
   cache-memory: true
   github:
