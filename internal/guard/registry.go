@@ -46,7 +46,9 @@ func (r *Registry) Get(serverID string) Guard {
 
 // Has checks if a guard is registered for a server
 func (r *Registry) Has(serverID string) bool {
-	return r.guards.Has(serverID)
+	registered := r.guards.Has(serverID)
+	logRegistry.Printf("Has: serverID=%s, registered=%v", serverID, registered)
+	return registered
 }
 
 // HasNonNoopGuard returns true if any registered guard is not a noop guard
@@ -74,13 +76,18 @@ func (r *Registry) HasNonNoopSourceGuard() bool {
 		if g.Name() != "noop" {
 			if _, ok := g.(*WriteSinkGuard); ok {
 				// Continue searching; write-sink guards do not label sources.
+				logRegistry.Print("HasNonNoopSourceGuard: skipping write-sink guard")
 				return true
 			}
+			logRegistry.Printf("HasNonNoopSourceGuard: found source guard=%s", g.Name())
 			found = true
 			return false
 		}
 		return true
 	})
+	if !found {
+		logRegistry.Print("HasNonNoopSourceGuard: no non-noop source guards registered")
+	}
 	return found
 }
 
@@ -117,6 +124,7 @@ func (r *Registry) Close(ctx context.Context) {
 		c  interface{ Close(context.Context) error }
 	}
 
+	logRegistry.Printf("Closing guards: registered=%d", r.guards.Len())
 	closers := make([]closableGuard, 0, r.guards.Len())
 	r.guards.Range(func(id string, g Guard) bool {
 		if c, ok := g.(interface{ Close(context.Context) error }); ok {
@@ -125,6 +133,7 @@ func (r *Registry) Close(ctx context.Context) {
 		return true
 	})
 	for _, guard := range closers {
+		logRegistry.Printf("Closing guard for serverID=%s", guard.id)
 		if err := guard.c.Close(ctx); err != nil {
 			logger.LogWarn("guard", "Failed to close guard for server %s: %v", guard.id, err)
 		}
@@ -144,6 +153,7 @@ var registeredGuardsMu sync.RWMutex
 // RegisterGuardType registers a guard type with a factory function
 // This allows dynamic guard creation by name
 func RegisterGuardType(name string, factory GuardFactory) {
+	logRegistry.Printf("Registering guard type: %s", name)
 	registeredGuardsMu.Lock()
 	defer registeredGuardsMu.Unlock()
 	registeredGuards[name] = factory
