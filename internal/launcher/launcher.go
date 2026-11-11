@@ -310,7 +310,7 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 
 		conn, err := l.launchStdioConnection(serverID, sessionID, serverCfg)
 		if err != nil {
-			logLauncher.Printf("Session launch failed: serverID=%s, sessionID=%s, error=%v", serverID, util.FormatSessionIDForLog(sessionID), err)
+			logLauncher.Printf("Session launch failed: serverID=%s, sessionID=%s, error=%s", serverID, util.FormatSessionIDForLog(sessionID), sanitize.SanitizeString(sanitize.RedactErrorForLogIf(err, sanitize.ShouldRedactPayload(mcp.IsEnclaveSession(l.ctx)))))
 			// Record error in session pool and server state
 			l.sessionPool.RecordError(serverID, sessionID)
 			l.recordError(serverID, err.Error())
