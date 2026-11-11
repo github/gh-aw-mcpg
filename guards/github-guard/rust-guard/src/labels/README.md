@@ -110,7 +110,7 @@ Areas identified for further refactoring (from quality evaluation):
 
 1. **Split large functions** - `label_response_paths` (309 lines) and `label_response_items` (375 lines) could be split into per-tool handler functions
 
-2. **Reduce string duplication** - More field extraction could use `get_string_field()` and constants from `field_names`
+2. **Reduce string duplication** - Use `get_str_or()` for borrowed string fields and constants from `field_names`
 
 3. **Extract common patterns** - Both response functions have similar match patterns that could be unified
 

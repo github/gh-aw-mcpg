@@ -15,8 +15,8 @@ use super::constants::{CODE_SCANNING_DEPENDABOT_ALERT_TOOLS, SECRET_SCANNING_ALE
 use super::helpers::{
     author_association_floor_from_str, blocked_integrity, elevate_via_collaborator_permission,
     ensure_integrity_baseline, extract_number_as_string, extract_repo_info_from_search_query,
-    file_content_integrity, format_repo_id, get_str_or, get_string_field, is_any_trusted_actor,
-    is_blocked_user, is_default_branch_commit_context, max_integrity, merged_integrity,
+    file_content_integrity, format_repo_id, get_str_or, is_any_trusted_actor, is_blocked_user,
+    is_default_branch_commit_context, max_integrity, merged_integrity,
     none_integrity, policy_private_scope_label, private_scope_label, private_user_label,
     project_github_label, reader_integrity, short_sha, split_repo_id, writer_integrity,
     PolicyContext, ScopeKind,
@@ -291,13 +291,13 @@ pub fn apply_tool_labels(
     mut desc: String,
     ctx: &PolicyContext,
 ) -> (Vec<String>, Vec<String>, String) {
-    let owner = get_string_field(tool_args, field_names::OWNER);
-    let repo = get_string_field(tool_args, field_names::REPO);
+    let owner = get_str_or(tool_args, field_names::OWNER, "");
+    let repo = get_str_or(tool_args, field_names::REPO, "");
     let mut baseline_scope: Cow<'_, str> = Cow::Borrowed(repo_id);
     let repo_private = if owner.is_empty() || repo.is_empty() {
         None
     } else {
-        super::backend::is_repo_private(&owner, &repo)
+        super::backend::is_repo_private(owner, repo)
     };
 
     match tool_name {
@@ -310,7 +310,7 @@ pub fn apply_tool_labels(
             // Issues are user-submitted, low integrity
             // I(issue) = contributor if author is contributor, else untrusted (empty)
             // S(issue) = S(repo) - inherits from repository visibility
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = private_writer_integrity(repo_id, repo_private, ctx);
             let method = tool_args
                 .get(field_names::METHOD)
@@ -319,17 +319,17 @@ pub fn apply_tool_labels(
             let enrich = tool_name == tool_names::GET_ISSUE
                 || (tool_name == tool_names::ISSUE_READ && method == method_values::GET);
             (desc, integrity) =
-                apply_issue_read_enrichment(&owner, &repo, repo_id, tool_args, desc, integrity, enrich, ctx);
+                apply_issue_read_enrichment(owner, repo, repo_id, tool_args, desc, integrity, enrich, ctx);
             if tool_name == tool_names::ISSUE_READ && method != method_values::GET {
                 integrity = vec![];
             }
         }
 
         tool_names::ISSUE_DEPENDENCY_READ | "issue_dependency_read_ff_issue_dependencies" => {
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = private_writer_integrity(repo_id, repo_private, ctx);
             (desc, integrity) =
-                apply_issue_read_enrichment(&owner, &repo, repo_id, tool_args, desc, integrity, true, ctx);
+                apply_issue_read_enrichment(owner, repo, repo_id, tool_args, desc, integrity, true, ctx);
         }
 
         tool_names::ISSUE_ARTIFACT_READ | tool_names::ISSUE_ARTIFACT_WRITE => {
@@ -340,12 +340,12 @@ pub fn apply_tool_labels(
                     desc = format!(
                         "{}{}#{}",
                         desc_prefix::ISSUE,
-                        format_repo_id(&owner, &repo),
+                        format_repo_id(owner, repo),
                         issue_num
                     );
                 }
             }
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = if tool_name == tool_names::ISSUE_ARTIFACT_READ {
                 private_writer_integrity(repo_id, repo_private, ctx)
             } else {
@@ -367,12 +367,12 @@ pub fn apply_tool_labels(
                     desc = format!(
                         "{}{}#{}",
                         desc_prefix::ISSUE,
-                        format_repo_id(&owner, &repo),
+                        format_repo_id(owner, repo),
                         issue_num
                     );
                 }
             }
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = writer_integrity(repo_id, ctx);
         }
 
@@ -385,7 +385,7 @@ pub fn apply_tool_labels(
         | tool_names::ARCHIVE_REPOSITORY
         | tool_names::UNARCHIVE_REPOSITORY
         | tool_names::RENAME_REPOSITORY => {
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
         }
 
         // Search issues / pull requests: extract repo scope from query or tool_args when available
@@ -393,7 +393,7 @@ pub fn apply_tool_labels(
         | tool_names::SEARCH_ISSUES_FF_FIELDS_PARAM
         | tool_names::SEARCH_PULL_REQUESTS
         | tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM => {
-            let (s_owner, s_repo, s_repo_id) = resolve_search_scope(tool_args, &owner, &repo);
+            let (s_owner, s_repo, s_repo_id) = resolve_search_scope(tool_args, owner, repo);
             if s_repo_id.is_empty() {
                 integrity = vec![];
             } else {
@@ -421,10 +421,10 @@ pub fn apply_tool_labels(
             if !owner.is_empty() && !repo.is_empty() {
                 if let Some(ref num) = pull_number {
                     desc =
-                        format!("{}{}#{}", desc_prefix::PR, format_repo_id(&owner, &repo), num);
+                        format!("{}{}#{}", desc_prefix::PR, format_repo_id(owner, repo), num);
                 }
             }
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             let method = tool_args
                 .get(field_names::METHOD)
                 .and_then(Value::as_str)
@@ -436,10 +436,10 @@ pub fn apply_tool_labels(
             {
                 if let Some(ref number) = pull_number {
                     if let Some(facts) =
-                        super::backend::get_pull_request_facts(&owner, &repo, number)
+                        super::backend::get_pull_request_facts(owner, repo, number)
                     {
                         integrity = resolve_author_integrity(
-                            &owner, &repo, repo_id,
+                            owner, repo, repo_id,
                             facts.author_login.as_deref(),
                             facts.author_association.as_deref(),
                             tool_names::PULL_REQUEST_READ, number,
@@ -513,12 +513,12 @@ pub fn apply_tool_labels(
                     desc = format!(
                         "{}{}@{}",
                         desc_prefix::COMMIT,
-                        format_repo_id(&owner, &repo),
+                        format_repo_id(owner, repo),
                         short_sha
                     );
                 }
             }
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             let sha_or_ref = tool_args
                 .get(field_names::SHA)
                 .and_then(|v| v.as_str())
@@ -541,7 +541,7 @@ pub fn apply_tool_labels(
         | tool_names::GET_CODE_SCANNING_ALERT
         | tool_names::LIST_DEPENDABOT_ALERTS
         | tool_names::GET_DEPENDABOT_ALERT => {
-            secrecy = policy_private_scope_label(&owner, &repo, repo_id, ctx);
+            secrecy = policy_private_scope_label(owner, repo, repo_id, ctx);
             integrity = reader_integrity(repo_id, ctx);
         }
 
@@ -557,7 +557,7 @@ pub fn apply_tool_labels(
                 // Repo-scoped metadata: labels, milestones, branches
                 // S = S(repo); I = writer
                 method if UI_GET_REPO_SCOPED_METHODS.contains(&method) => {
-                    secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+                    secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
                     integrity = writer_integrity(repo_id, ctx);
                 }
                 method if UI_GET_GITHUB_APPROVED_METHODS.contains(&method) => {
@@ -567,7 +567,7 @@ pub fn apply_tool_labels(
                 // Access-sensitive membership/reviewer data
                 // S = private policy scope; I = reader
                 method if UI_GET_ACCESS_SENSITIVE_METHODS.contains(&method) => {
-                    secrecy = policy_private_scope_label(&owner, &repo, repo_id, ctx);
+                    secrecy = policy_private_scope_label(owner, repo, repo_id, ctx);
                     integrity = reader_integrity(repo_id, ctx);
                 }
                 _ => {}
@@ -577,7 +577,7 @@ pub fn apply_tool_labels(
         // Job logs can embed outsider-authored text, build output, and workflow inputs.
         // Repository visibility controls secrecy, not endorsement of those bytes.
         tool_names::GET_JOB_LOGS => {
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = vec![];
         }
 
@@ -597,7 +597,7 @@ pub fn apply_tool_labels(
         | tool_names::GET_LATEST_RELEASE
         | tool_names::GET_RELEASE_BY_TAG
         | "list_tags" => {
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = writer_integrity(repo_id, ctx);
         }
 
@@ -605,7 +605,7 @@ pub fn apply_tool_labels(
         tool_names::GET_DISCUSSION
         | tool_names::GET_DISCUSSION_COMMENTS
         | tool_names::LIST_DISCUSSIONS => {
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = vec![];
         }
 
@@ -615,13 +615,13 @@ pub fn apply_tool_labels(
             // S = private policy scope — collaborator/permission information is access-controlled
             // even for public repositories.
             // I = reader (access-sensitive metadata should not directly authorize writes)
-            secrecy = policy_private_scope_label(&owner, &repo, repo_id, ctx);
+            secrecy = policy_private_scope_label(owner, repo, repo_id, ctx);
             integrity = reader_integrity(repo_id, ctx);
         }
 
         // === Content Access ===
         tool_names::GET_REPOSITORY_TREE => {
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = writer_integrity(repo_id, ctx);
             if !repo_id.is_empty() {
                 desc = format!("{}{repo_id}", desc_prefix::REPO);
@@ -630,10 +630,10 @@ pub fn apply_tool_labels(
         tool_names::GET_FILE_CONTENTS
         | "get_file_blame"
         | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             // File secrecy based on path patterns
             if let Some(path) = tool_args.get(field_names::PATH).and_then(|v| v.as_str()) {
-                secrecy = check_file_secrecy(path, secrecy, &owner, &repo, repo_id, ctx);
+                secrecy = check_file_secrecy(path, secrecy, owner, repo, repo_id, ctx);
             }
             integrity = file_content_integrity(tool_args, repo_id, ctx);
         }
@@ -644,9 +644,9 @@ pub fn apply_tool_labels(
         | tool_names::SEARCH_COMMITS => {
             // Repo-scoped search reads. Resolve scope from query repo qualifier first,
             // then fall back to tool_args owner/repo.
-            let (s_owner, s_repo, s_repo_id) = resolve_search_scope(tool_args, &owner, &repo);
+            let (s_owner, s_repo, s_repo_id) = resolve_search_scope(tool_args, owner, repo);
             if s_repo_id.is_empty() {
-                secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+                secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
                 integrity = writer_integrity(repo_id, ctx);
             } else {
                 desc = format!("{tool_name}:{s_repo_id}");
@@ -697,7 +697,7 @@ pub fn apply_tool_labels(
             // S = empty by default (public project); per-item secrecy for items is refined in
             //     label_response_paths for list_project_items
             if !owner.is_empty() {
-                baseline_scope = Cow::Owned(owner);
+                baseline_scope = Cow::Owned(owner.to_string());
                 integrity = writer_integrity(&baseline_scope, ctx);
             }
         }
@@ -759,9 +759,9 @@ pub fn apply_tool_labels(
                 baseline_scope = Cow::Borrowed(scope_names::GITHUB);
                 integrity = project_github_label(ctx);
             } else {
-                secrecy.extend(policy_private_scope_label(&owner, &repo, repo_id, ctx));
+                secrecy.extend(policy_private_scope_label(owner, repo, repo_id, ctx));
                 if !owner.is_empty() && !repo.is_empty() {
-                    let scoped_repo_id = format_repo_id(&owner, &repo);
+                    let scoped_repo_id = format_repo_id(owner, repo);
                     baseline_scope = Cow::Owned(scoped_repo_id.clone());
                     integrity = reader_integrity(&scoped_repo_id, ctx);
                 } else {
@@ -797,7 +797,7 @@ pub fn apply_tool_labels(
             // with non-public vulnerability details.
             // S = private:repo — may contain embargoed vulnerability info
             // Read access, publication, and submission acceptance do not establish authorship.
-            secrecy = policy_private_scope_label(&owner, &repo, repo_id, ctx);
+            secrecy = policy_private_scope_label(owner, repo, repo_id, ctx);
             integrity = none_integrity(repo_id, ctx);
         }
 
@@ -807,7 +807,7 @@ pub fn apply_tool_labels(
             // The ff_duplicate_detection suffix is the current upstream feature-flagged
             // tool name; it shares the same repo-scoped secrecy/integrity as find_duplicate.
             // S = S(repo); I = private writer (public results carry no write authority).
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = private_writer_integrity(repo_id, repo_private, ctx);
         }
         tool_names::REPOSITORY_RULESET_READ | tool_names::CUSTOM_PROPERTIES_READ => {
@@ -815,8 +815,8 @@ pub fn apply_tool_labels(
             // S = S(target); I = writer(target).
             apply_governance_labels(
                 tool_args,
-                &owner,
-                &repo,
+                owner,
+                repo,
                 repo_id,
                 &mut secrecy,
                 &mut integrity,
@@ -921,7 +921,7 @@ pub fn apply_tool_labels(
         | "delete_release"
         | "delete_release_asset"
         | "upload_release_asset" => {
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = writer_integrity(repo_id, ctx);
         }
 
@@ -932,7 +932,7 @@ pub fn apply_tool_labels(
         | tool_names::UNHIDE_PULL_REQUEST_REVIEW_COMMENT
         | tool_names::HIDE_PULL_REQUEST_REVIEW
         | tool_names::UNHIDE_PULL_REQUEST_REVIEW => {
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = writer_integrity(repo_id, ctx);
             let (number_field, prefix) = if matches!(
                 tool_name,
@@ -958,8 +958,8 @@ pub fn apply_tool_labels(
         tool_names::CUSTOM_PROPERTIES_WRITE | tool_names::CREATE_REPOSITORY_RULESET => {
             apply_governance_labels(
                 tool_args,
-                &owner,
-                &repo,
+                owner,
+                repo,
                 repo_id,
                 &mut secrecy,
                 &mut integrity,
@@ -984,8 +984,8 @@ pub fn apply_tool_labels(
                     ));
                 }
                 apply_dispatch_repo_labels(
-                    &owner,
-                    &repo,
+                    owner,
+                    repo,
                     repo_id,
                     tool_args
                         .get(field_names::COMMENT_NODE_ID)
@@ -996,7 +996,7 @@ pub fn apply_tool_labels(
                     ctx,
                 );
             } else {
-                secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+                secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
                 integrity = writer_integrity(repo_id, ctx);
             }
         }
@@ -1012,8 +1012,8 @@ pub fn apply_tool_labels(
                 ));
             }
             apply_dispatch_repo_labels(
-                &owner,
-                &repo,
+                owner,
+                repo,
                 repo_id,
                 tool_args
                     .get(field_names::COMMENT_NODE_ID)
@@ -1027,7 +1027,7 @@ pub fn apply_tool_labels(
 
         // === Repo-scoped workflow/fork writes ===
         tool_names::DISABLE_WORKFLOW | tool_names::ENABLE_WORKFLOW | tool_names::SYNC_FORK => {
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             integrity = writer_integrity(repo_id, ctx);
         }
 
@@ -1065,7 +1065,7 @@ pub fn apply_tool_labels(
             // Projects are org-scoped; write responses carry the same labels as reads.
             // I = approved:<owner>
             if !owner.is_empty() {
-                baseline_scope = Cow::Owned(owner);
+                baseline_scope = Cow::Owned(owner.to_string());
                 integrity = writer_integrity(&baseline_scope, ctx);
             }
         }
@@ -1076,7 +1076,7 @@ pub fn apply_tool_labels(
             // Blocked via is_blocked_tool(); secrecy applied so the resource is correctly
             // classified before the integrity override in label_resource.
             // S = S(repo); I = blocked (override applied in label_resource)
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
         }
 
         // === Deploy key management (SSH key with optional write access) ===
@@ -1084,7 +1084,7 @@ pub fn apply_tool_labels(
             // Manages SSH deploy keys — `add_deploy_key` may grant persistent write access.
             // S = at least private; scope is policy-dependent (may be unscoped, owner-scoped, or repo-scoped)
             // I = writer (requires admin access)
-            secrecy = policy_private_scope_label(&owner, &repo, repo_id, ctx);
+            secrecy = policy_private_scope_label(owner, repo, repo_id, ctx);
             integrity = writer_integrity(repo_id, ctx);
         }
 
@@ -1125,13 +1125,13 @@ pub fn apply_tool_labels(
             let org = if !explicit_org.is_empty() {
                 explicit_org
             } else if repo.is_empty() {
-                owner.as_str()
+                owner
             } else {
                 ""
             };
 
             if !owner.is_empty() && !repo.is_empty() {
-                secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+                secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
                 integrity = writer_integrity(repo_id, ctx);
             } else if !org.is_empty() {
                 secrecy = private_scope_label(org);
