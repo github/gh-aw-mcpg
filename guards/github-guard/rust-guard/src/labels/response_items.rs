@@ -10,6 +10,7 @@
 //! Use path-based labeling (`label_response_paths`) when possible for better
 //! performance with large result sets.
 
+use super::apply_tool_labels;
 use super::constants::{desc_prefix, field_names, scope_names, tool_names, UNKNOWN_LABEL_FALLBACK};
 use super::extract_mcp_response;
 use super::helpers::*;
@@ -468,9 +469,16 @@ pub fn label_response_items(
 
             let items_limited =
                 limit_items_with_log(all_items.as_slice(), tool_names::GET_FILE_CONTENTS);
-            let (arg_owner, arg_repo, repo_full_name) = extract_repo_info(tool_args);
-            let secrecy = repo_visibility_secrecy(&arg_owner, &arg_repo, &repo_full_name, ctx);
-            let file_integrity = file_content_integrity(tool_args, &repo_full_name, ctx);
+            let (_, _, repo_full_name) = extract_repo_info(tool_args);
+            let (secrecy, file_integrity, _) = apply_tool_labels(
+                tool_name,
+                tool_args,
+                &repo_full_name,
+                vec![],
+                vec![],
+                String::new(),
+                ctx,
+            );
             let secrecy_shared: SharedLabels = secrecy.into();
             let file_integrity_shared: SharedLabels = file_integrity.into();
 

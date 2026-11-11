@@ -732,6 +732,45 @@ mod tests {
     }
 
     #[test]
+    fn test_file_blame_sensitive_path_response_labels_are_private() {
+        let repo = "github/copilot";
+        let _visibility = backend::cache_repo_visibility_for_tests(repo, false);
+        let ctx = default_ctx();
+        let args = json!({
+            "owner": "github",
+            "repo": "copilot",
+            "path": ".env"
+        });
+        let response = json!({
+            "content": [{
+                "type": "text",
+                "text": "[{\"commit\":\"abc123\",\"path\":\".env\"}]"
+            }]
+        });
+        let expected_secrecy = vec!["private:github/copilot".to_string()];
+
+        let items = label_response_items(
+            constants::tool_names::GET_FILE_BLAME,
+            &args,
+            &response,
+            &ctx,
+        );
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].labels.secrecy, expected_secrecy);
+
+        let paths = label_response_paths(
+            constants::tool_names::GET_FILE_BLAME,
+            &args,
+            &response,
+            &ctx,
+        )
+        .expect("file blame response should have path labels");
+        assert_eq!(paths.labeled_paths.len(), 1);
+        assert_eq!(paths.labeled_paths[0].labels.secrecy, expected_secrecy);
+        assert_eq!(paths.default_labels.unwrap().secrecy, expected_secrecy);
+    }
+
+    #[test]
     fn test_pr_content_does_not_inherit_metadata_approval() {
         let repo = "github/copilot";
         let _visibility = backend::cache_repo_visibility_for_tests(repo, false);

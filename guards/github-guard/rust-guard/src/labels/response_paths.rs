@@ -7,6 +7,7 @@
 //! Returns JSON paths like `/items/0`, `/items/1` pointing to labeled objects
 //! in the response, rather than cloning the entire data.
 
+use super::apply_tool_labels;
 use super::constants::{
     desc_default, desc_prefix, field_names, scope_names, tool_names, MAX_ITEMS_PER_RESPONSE,
     UNKNOWN_LABEL_FALLBACK,
@@ -1108,9 +1109,16 @@ pub fn label_response_paths(
         tool_names::GET_FILE_CONTENTS
         | tool_names::GET_FILE_BLAME
         | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
-            let (arg_owner, arg_repo, arg_repo_full) = extract_repo_info(tool_args);
-            let secrecy = repo_visibility_secrecy(&arg_owner, &arg_repo, &arg_repo_full, ctx);
-            let file_integrity = file_content_integrity(tool_args, &arg_repo_full, ctx);
+            let (_, _, arg_repo_full) = extract_repo_info(tool_args);
+            let (secrecy, file_integrity, _) = apply_tool_labels(
+                tool_name,
+                tool_args,
+                &arg_repo_full,
+                vec![],
+                vec![],
+                String::new(),
+                ctx,
+            );
             // Convert to SharedLabels (Arc<Vec<_>>) first — O(1) Arc clones in the loop.
             let secrecy_shared: crate::SharedLabels = secrecy.into();
             let file_integrity_shared: crate::SharedLabels = file_integrity.into();
