@@ -21,6 +21,8 @@ engine:
   # Keep the CLI on a release with a reviewed checksum in the pinned setup action.
   version: "1.0.98"
 strict: false
+env:
+  NPM_CONFIG_REGISTRY: https://packagefeedproxy.microsoft.io/npm/
 imports:
   - shared/mcp-pagination.md
   - shared/reporting.md
@@ -32,6 +34,9 @@ network:
     - github
     - playwright
     - github.com
+    - packagefeedproxy.microsoft.io
+    # Approved-feed tarballs are served through Azure Artifacts.
+    - "pkgs.dev.azure.com"
 tools:
   cache-memory: true
   github:
