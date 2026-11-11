@@ -1105,7 +1105,9 @@ pub fn label_response_paths(
         }
 
         // === File Contents - repo-scoped secrecy ===
-        tool_names::GET_FILE_CONTENTS | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
+        tool_names::GET_FILE_CONTENTS
+        | tool_names::GET_FILE_BLAME
+        | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
             let (arg_owner, arg_repo, arg_repo_full) = extract_repo_info(tool_args);
             let secrecy = repo_visibility_secrecy(&arg_owner, &arg_repo, &arg_repo_full, ctx);
             let file_integrity = file_content_integrity(tool_args, &arg_repo_full, ctx);

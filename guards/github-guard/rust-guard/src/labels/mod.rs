@@ -706,14 +706,11 @@ mod tests {
             for tool in [
                 constants::tool_names::GET_FILE_CONTENTS,
                 constants::tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM,
-                "get_file_blame",
+                constants::tool_names::GET_FILE_BLAME,
             ] {
                 let (_, integrity, _) =
                     apply_tool_labels(tool, &args, repo, vec![], vec![], String::new(), &ctx);
                 assert_eq!(integrity, expected, "{tool}: {revision}");
-                if tool == "get_file_blame" {
-                    continue;
-                }
                 for data in [
                     json!({"name": "README.md", "content": "aGVsbG8="}),
                     json!([{"name": "README.md", "content": "aGVsbG8="}]),
@@ -787,7 +784,7 @@ mod tests {
         });
 
         let (secrecy, integrity, desc) = apply_tool_labels(
-            "get_file_blame",
+            constants::tool_names::GET_FILE_BLAME,
             &tool_args,
             "github/copilot",
             vec![],
@@ -812,7 +809,7 @@ mod tests {
         });
 
         let (secrecy, integrity, _desc) = apply_tool_labels(
-            "get_file_blame",
+            constants::tool_names::GET_FILE_BLAME,
             &tool_args,
             "github/copilot",
             vec![],

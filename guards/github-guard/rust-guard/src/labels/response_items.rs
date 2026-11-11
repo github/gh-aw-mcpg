@@ -461,7 +461,9 @@ pub fn label_response_items(
         }
 
         // === File Contents - repo-scoped secrecy ===
-        tool_names::GET_FILE_CONTENTS | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
+        tool_names::GET_FILE_CONTENTS
+        | tool_names::GET_FILE_BLAME
+        | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
             let all_items = collect_items_simple(&actual_response);
 
             let items_limited =

@@ -628,7 +628,7 @@ pub fn apply_tool_labels(
             }
         }
         tool_names::GET_FILE_CONTENTS
-        | "get_file_blame"
+        | tool_names::GET_FILE_BLAME
         | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
             secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
             // File secrecy based on path patterns
