@@ -15,7 +15,7 @@ use super::constants::{CODE_SCANNING_DEPENDABOT_ALERT_TOOLS, SECRET_SCANNING_ALE
 use super::helpers::{
     author_association_floor_from_str, blocked_integrity, elevate_via_collaborator_permission,
     ensure_integrity_baseline, extract_number_as_string, extract_repo_info_from_search_query,
-    file_content_integrity, format_repo_id, get_str_or, get_string_field, is_any_trusted_actor,
+    file_content_integrity, format_repo_id, get_str_or, is_any_trusted_actor,
     is_blocked_user, is_default_branch_commit_context, max_integrity, merged_integrity,
     none_integrity, policy_private_scope_label, private_scope_label, private_user_label,
     project_github_label, reader_integrity, short_sha, split_repo_id, writer_integrity,
@@ -291,13 +291,13 @@ pub fn apply_tool_labels(
     mut desc: String,
     ctx: &PolicyContext,
 ) -> (Vec<String>, Vec<String>, String) {
-    let owner = get_string_field(tool_args, field_names::OWNER);
-    let repo = get_string_field(tool_args, field_names::REPO);
+    let owner = get_str_or(tool_args, field_names::OWNER, "");
+    let repo = get_str_or(tool_args, field_names::REPO, "");
     let mut baseline_scope: Cow<'_, str> = Cow::Borrowed(repo_id);
     let repo_private = if owner.is_empty() || repo.is_empty() {
         None
     } else {
-        super::backend::is_repo_private(&owner, &repo)
+        super::backend::is_repo_private(owner, repo)
     };
 
     match tool_name {
@@ -697,7 +697,7 @@ pub fn apply_tool_labels(
             // S = empty by default (public project); per-item secrecy for items is refined in
             //     label_response_paths for list_project_items
             if !owner.is_empty() {
-                baseline_scope = Cow::Owned(owner);
+                baseline_scope = Cow::Owned(owner.to_string());
                 integrity = writer_integrity(&baseline_scope, ctx);
             }
         }
@@ -1065,7 +1065,7 @@ pub fn apply_tool_labels(
             // Projects are org-scoped; write responses carry the same labels as reads.
             // I = approved:<owner>
             if !owner.is_empty() {
-                baseline_scope = Cow::Owned(owner);
+                baseline_scope = Cow::Owned(owner.to_string());
                 integrity = writer_integrity(&baseline_scope, ctx);
             }
         }
@@ -1125,7 +1125,7 @@ pub fn apply_tool_labels(
             let org = if !explicit_org.is_empty() {
                 explicit_org
             } else if repo.is_empty() {
-                owner.as_str()
+                owner
             } else {
                 ""
             };
