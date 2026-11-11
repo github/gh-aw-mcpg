@@ -30,50 +30,43 @@ func setupTLSCmd(t *testing.T) *cobra.Command {
 // TestTLSFlagsRequiredTogether verifies that cobra's MarkFlagsRequiredTogether
 // constraint on --tls-cert and --tls-key is wired up correctly.
 func TestTLSFlagsRequiredTogether(t *testing.T) {
-	t.Run("cert without key is rejected by cobra", func(t *testing.T) {
-		cmd := setupTLSCmd(t)
-		cmd.SetArgs([]string{"--tls-cert", "/tmp/cert.pem"})
-		err := cmd.Execute()
-		require.Error(t, err, "should fail when only --tls-cert is provided")
-		assert.Contains(t, err.Error(), "tls-cert", "error should mention tls-cert")
-		assert.Contains(t, err.Error(), "tls-key", "error should mention tls-key")
-	})
-
-	t.Run("key without cert is rejected by cobra", func(t *testing.T) {
-		cmd := setupTLSCmd(t)
-		cmd.SetArgs([]string{"--tls-key", "/tmp/key.pem"})
-		err := cmd.Execute()
-		require.Error(t, err, "should fail when only --tls-key is provided")
-		assert.Contains(t, err.Error(), "tls-cert", "error should mention tls-cert")
-		assert.Contains(t, err.Error(), "tls-key", "error should mention tls-key")
-	})
-
-	t.Run("cert and key together are accepted", func(t *testing.T) {
-		cmd := setupTLSCmd(t)
-		cmd.SetArgs([]string{"--tls-cert", "/tmp/cert.pem", "--tls-key", "/tmp/key.pem"})
-		err := cmd.Execute()
-		require.NoError(t, err, "should succeed when both --tls-cert and --tls-key are provided")
-	})
-
-	t.Run("neither cert nor key is accepted (TLS disabled)", func(t *testing.T) {
-		cmd := setupTLSCmd(t)
-		cmd.SetArgs([]string{})
-		err := cmd.Execute()
-		require.NoError(t, err, "should succeed when neither TLS flag is provided")
-	})
-
-	t.Run("cert key and ca together are accepted", func(t *testing.T) {
-		cmd := setupTLSCmd(t)
-		cmd.SetArgs([]string{"--tls-cert", "/tmp/cert.pem", "--tls-key", "/tmp/key.pem", "--tls-ca", "/tmp/ca.pem"})
-		err := cmd.Execute()
-		require.NoError(t, err, "should succeed when --tls-cert, --tls-key, and --tls-ca are all provided")
-	})
+	tests := []struct {
+		name        string
+		args        []string
+		wantErr     bool
+		errContains []string
+	}{
+		{"cert without key is rejected", []string{"--tls-cert", "/tmp/cert.pem"}, true, []string{"tls-cert", "tls-key"}},
+		{"key without cert is rejected", []string{"--tls-key", "/tmp/key.pem"}, true, []string{"tls-cert", "tls-key"}},
+		{"ca alone is accepted", []string{"--tls-ca", "/tmp/ca.pem"}, false, nil},
+		{"cert and key together are accepted", []string{"--tls-cert", "/tmp/cert.pem", "--tls-key", "/tmp/key.pem"}, false, nil},
+		{"neither cert nor key is accepted (TLS disabled)", []string{}, false, nil},
+		{"cert key and ca together are accepted", []string{"--tls-cert", "/tmp/cert.pem", "--tls-key", "/tmp/key.pem", "--tls-ca", "/tmp/ca.pem"}, false, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := setupTLSCmd(t)
+			cmd.SetArgs(tt.args)
+			err := cmd.Execute()
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			for _, s := range tt.errContains {
+				assert.Contains(t, err.Error(), s)
+			}
+		})
+	}
 }
 
 // TestTLSFlagsRegistered verifies that the TLS flags exist on the root command.
 func TestTLSFlagsRegistered(t *testing.T) {
-	assert.NotNil(t, rootCmd.Flags().Lookup("tls-cert"), "tls-cert flag should be registered on rootCmd")
-	assert.NotNil(t, rootCmd.Flags().Lookup("tls-key"), "tls-key flag should be registered on rootCmd")
-	assert.NotNil(t, rootCmd.Flags().Lookup("tls-ca"), "tls-ca flag should be registered on rootCmd")
-	assert.NotNil(t, rootCmd.Flags().Lookup("hmac-secret"), "hmac-secret flag should be registered on rootCmd")
+	for _, name := range []string{"tls-cert", "tls-key", "tls-ca", "hmac-secret"} {
+		t.Run(name, func(t *testing.T) {
+			f := rootCmd.Flags().Lookup(name)
+			require.NotNil(t, f, "%s flag should be registered on rootCmd", name)
+			assert.Equal(t, "string", f.Value.Type())
+		})
+	}
 }
