@@ -58,6 +58,16 @@ Thank you for your interest in contributing to MCP Gateway! This document provid
 
 ## Development Workflow
 
+### npm Registry
+
+The root `.npmrc` configures npm to use Microsoft's approved package feed at
+`https://packagefeedproxy.microsoft.io/npm/` for repository-local installs.
+Run npm commands from the repository root so they load this configuration, and do
+not override it with the public npm registry. Global installs (`npm install -g`)
+ignore project `.npmrc` files, so any workflow that installs npm packages globally
+or runs npm from another directory must also set `NPM_CONFIG_REGISTRY` to the
+approved feed.
+
 ### Building
 
 Build the binary using:
