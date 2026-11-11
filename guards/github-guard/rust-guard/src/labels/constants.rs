@@ -466,6 +466,7 @@ pub mod tool_names {
     pub const LIST_PULL_REQUESTS_FF_FIELDS_PARAM: &str = "list_pull_requests_ff_fields_param";
     pub const GET_FILE_CONTENTS: &str = "get_file_contents";
     pub const GET_FILE_CONTENTS_FF_FIELDS_PARAM: &str = "get_file_contents_ff_fields_param";
+    pub const GET_FILE_BLAME: &str = "get_file_blame";
     pub const GET_REPOSITORY_TREE: &str = "get_repository_tree";
     pub const GET_LABEL: &str = "get_label";
     pub const LIST_LABEL: &str = "list_label";
