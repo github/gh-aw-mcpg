@@ -18,7 +18,7 @@ func TestCompileSchemaDocument(t *testing.T) {
 		schema, cerr := compileSchemaDocument(newCompiler(), "https://example.test/ok.json", validDoc, "https://example.test/ok.json")
 		require.Nil(t, cerr) // *schemaCompileError (not error) — Nil is intentional
 		require.NotNil(t, schema)
-		assert.NoError(t, schema.Validate(map[string]any{"a": 1}))
+		require.NoError(t, schema.Validate(map[string]any{"a": 1}))
 		assert.Error(t, schema.Validate("not-an-object"))
 	})
 
