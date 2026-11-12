@@ -1109,7 +1109,7 @@ pub fn label_response_paths(
         tool_names::GET_FILE_CONTENTS
         | tool_names::GET_FILE_BLAME
         | tool_names::GET_FILE_CONTENTS_FF_FIELDS_PARAM => {
-            let (_, _, arg_repo_full) = extract_repo_info(tool_args);
+            let arg_repo_full = extract_repo_id(tool_args);
             let (secrecy, file_integrity, _) = apply_tool_labels(
                 tool_name,
                 tool_args,
