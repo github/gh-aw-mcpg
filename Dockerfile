@@ -123,6 +123,16 @@ RUN chmod +x run.sh run_containerized.sh
 # The gateway discovers guards from /guards/{serverID}/*.wasm
 COPY guards/github-guard/github-guard-rust.wasm /guards/github/00-github-guard.wasm
 
+# The gateway does not need an SSH server. Keep SSHHole (CVE-2026-123158)
+# inapplicable by checking the final image, including transitive packages.
+RUN set -eu; \
+    packages="$(apk info)"; \
+    if printf '%s\n' "$packages" | grep -Eq '^openssh-server($|-)' \
+       || command -v sshd >/dev/null 2>&1; then \
+        echo "Unexpected OpenSSH server in gateway image (CVE-2026-123158)" >&2; \
+        exit 1; \
+    fi
+
 # Expose default HTTP port
 EXPOSE 8000
 

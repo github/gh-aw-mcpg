@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,10 +42,73 @@ func TestDockerfileUsesPinnedBaseImages(t *testing.T) {
 	for _, stage := range []string{"podman-builder", "network-builder", "builder"} {
 		assert.Contains(t, dockerfile, "FROM go-base AS "+stage)
 	}
+
 	for _, root := range []string{"emSign_ECC_Root_CA_-_G3.crt", "Comodo_AAA_Services_root.crt"} {
 		assert.Equal(t, 2, strings.Count(dockerfile, "'s|^mozilla/"+root+"$|!&|'"),
 			"disable the affected root in both builder and runtime trust stores")
 	}
 	assert.Equal(t, 2, strings.Count(dockerfile, "&& update-ca-certificates"),
 		"regenerate both effective trust bundles after disabling roots")
+}
+
+func TestDockerfileRejectsSSHServer(t *testing.T) {
+	t.Parallel()
+
+	content, err := os.ReadFile("Dockerfile")
+	require.NoError(t, err)
+	dockerfile := string(content)
+	var instruction string
+	for line := range strings.SplitSeq(strings.ReplaceAll(dockerfile, "\\\n", ""), "\n") {
+		if strings.HasPrefix(line, "RUN set -eu;") {
+			require.Empty(t, instruction, "expected exactly one final-image SSH check")
+			instruction = line
+		}
+	}
+	require.NotEmpty(t, instruction)
+	assert.Greater(t, strings.Index(dockerfile, "RUN set -eu;"), strings.LastIndex(dockerfile, "\nCOPY "),
+		"check the final runtime filesystem after all copies")
+	grep, err := exec.LookPath("grep")
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		name     string
+		packages string
+		sshd     bool
+		apkExit  string
+		wantErr  string
+	}{
+		{name: "no SSH", packages: "bash\nca-certificates", apkExit: "0"},
+		{name: "client only", packages: "openssh-client-common\nopenssh-client-default", apkExit: "0"},
+		{name: "server", packages: "bash\nopenssh-server", apkExit: "0", wantErr: "Unexpected OpenSSH server"},
+		{name: "PAM server", packages: "openssh-server-pam", apkExit: "0", wantErr: "Unexpected OpenSSH server"},
+		{name: "server subpackage", packages: "openssh-server-common", apkExit: "0", wantErr: "Unexpected OpenSSH server"},
+		{name: "unpackaged daemon", packages: "bash", sshd: true, apkExit: "0", wantErr: "Unexpected OpenSSH server"},
+		{name: "package query failure", apkExit: "1", wantErr: "package query failed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.Symlink(grep, filepath.Join(dir, "grep")))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "apk"), []byte(`#!/bin/sh
+	if [ "$TEST_APK_EXIT" != 0 ]; then
+	    echo "package query failed" >&2
+	    exit "$TEST_APK_EXIT"
+	fi
+	printf '%s\n' "$TEST_PACKAGES"
+	`), 0o700))
+			if tc.sshd {
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "sshd"), []byte("#!/bin/sh\nexit 0\n"), 0o700))
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, "/bin/sh", "-c", strings.TrimPrefix(instruction, "RUN "))
+			cmd.Env = []string{"PATH=" + dir, "TEST_PACKAGES=" + tc.packages, "TEST_APK_EXIT=" + tc.apkExit}
+			output, err := cmd.CombinedOutput()
+			if tc.wantErr != "" {
+				require.Error(t, err, "%s", output)
+				assert.Contains(t, string(output), tc.wantErr)
+				return
+			}
+			require.NoError(t, err, "%s", output)
+		})
+	}
 }
