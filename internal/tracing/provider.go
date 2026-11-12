@@ -72,6 +72,7 @@ func (p *Provider) Shutdown(ctx context.Context) error {
 		logTracing.Print("Flushing and shutting down OTLP tracer provider")
 		return p.sdk.Shutdown(ctx)
 	}
+	logTracing.Print("Shutdown skipped: noop tracer provider has nothing to flush")
 	return nil
 }
 
@@ -288,6 +289,7 @@ func mergeOTLPHeaders(shared, specific map[string]string) map[string]string {
 		return nil
 	}
 
+	logTracing.Printf("Merging OTLP headers: shared=%d, specific=%d", len(shared), len(specific))
 	merged := make(map[string]string, len(shared)+len(specific))
 	for key, value := range shared {
 		merged[key] = value
@@ -314,6 +316,7 @@ func (ct CachedTracer) GetTracer() trace.Tracer {
 // Exported for use at startup to build the root span's parent context.
 func ParentContext(ctx context.Context, cfg *config.TracingConfig) context.Context {
 	if cfg == nil || cfg.TraceID == "" {
+		logTracing.Print("No traceId configured; skipping W3C parent context")
 		return ctx
 	}
 
@@ -334,6 +337,7 @@ func ParentContext(ctx context.Context, cfg *config.TracingConfig) context.Conte
 	}
 
 	if spanID == (trace.SpanID{}) {
+		logTracing.Print("No valid spanId configured; generating a random span ID")
 		generatedID, genErr := generateRandomSpanID()
 		if genErr != nil {
 			logTracing.Printf("Warning: failed to generate random span ID: %v; skipping W3C parent context", genErr)
