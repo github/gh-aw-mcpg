@@ -323,6 +323,7 @@ pub mod scope_names {
 pub mod field_names {
     pub const OWNER: &str = "owner";
     pub const REPO: &str = "repo";
+    pub const ORGANIZATION_NAME: &str = "organization_name";
     pub const ISSUE_NUMBER: &str = "issue_number";
     pub const PULL_NUMBER: &str = "pull_number";
     pub const SHA: &str = "sha";

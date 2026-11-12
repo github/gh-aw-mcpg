@@ -12,12 +12,13 @@
 mod labels;
 mod tools;
 
+use labels::constants::field_names;
 use labels::constants::policy_integrity;
 use labels::constants::scope_names;
 use labels::constants::tool_names;
 use labels::{
-    blocked_integrity, extract_repo_id, extract_repo_info_from_search_query, MinIntegrity,
-    PolicyContext, PolicyScopeEntry, ScopeKind,
+    blocked_integrity, extract_repo_id, extract_repo_info_from_search_query, get_str_or,
+    MinIntegrity, PolicyContext, PolicyScopeEntry, ScopeKind,
 };
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
@@ -528,22 +529,14 @@ fn infer_scope_for_baseline<'a>(
                         .filter(|value| !value.is_empty())
                 })
                 .or_else(|| {
-                    tool_args
-                        .get("organization_name")
-                        .and_then(Value::as_str)
+                    Some(get_str_or(tool_args, field_names::ORGANIZATION_NAME, ""))
                         .filter(|value| !value.is_empty())
                 });
             if let Some(org) = org {
                 Cow::Owned(org.to_string())
             } else {
-                let owner = tool_args
-                    .get(labels::constants::field_names::OWNER)
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
-                let repo = tool_args
-                    .get(labels::constants::field_names::REPO)
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
+                let owner = get_str_or(tool_args, field_names::OWNER, "");
+                let repo = get_str_or(tool_args, field_names::REPO, "");
                 if !owner.is_empty() && repo.is_empty() {
                     Cow::Owned(owner.to_string())
                 } else if matches!(
@@ -1890,6 +1883,32 @@ mod tests {
                 infer_scope_for_baseline(tool, &user_args, ""),
                 "",
                 "{tool} should not infer user baseline scope without repo or org context"
+            );
+        }
+    }
+
+    #[test]
+    fn infer_scope_for_baseline_preserves_org_alias_fallbacks() {
+        for (args, expected) in [
+            (json!({"organization_name": "github"}), "github"),
+            (
+                json!({"org": "", "org_name": null, "organization": 42, "organization_name": "github"}),
+                "github",
+            ),
+            (
+                json!({"org": "first", "organization_name": "second"}),
+                "first",
+            ),
+            (
+                json!({"organization_name": 42, "owner": "github"}),
+                "github",
+            ),
+            (json!({"owner": "github", "repo": 42}), "github"),
+            (json!({"owner": 42, "repo": "repo"}), ""),
+        ] {
+            assert_eq!(
+                infer_scope_for_baseline(tool_names::SET_VARIABLE, &args, ""),
+                expected
             );
         }
     }

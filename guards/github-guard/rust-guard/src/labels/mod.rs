@@ -41,7 +41,7 @@ pub(crate) mod tool_rules;
 // Re-export helpers consumed by lib.rs within this crate.
 pub(crate) use helpers::{
     blocked_integrity, ensure_integrity_baseline, extract_repo_id,
-    extract_repo_info_from_search_query, reader_integrity, search_result_total_count,
+    extract_repo_info_from_search_query, get_str_or, reader_integrity, search_result_total_count,
     writer_integrity, MinIntegrity, PolicyContext, PolicyScopeEntry, ScopeKind,
 };
 // Crate-internal re-exports: consumed only within this crate (e.g. lib.rs),

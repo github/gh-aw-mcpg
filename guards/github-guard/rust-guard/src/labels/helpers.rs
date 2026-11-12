@@ -4441,8 +4441,27 @@ mod tests {
     }
 
     // -------------------------------------------------------------------------
-    // strip_query_punctuation / extract_repo_info_from_search_query
+    // Repository extraction and search query parsing
     // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_extract_repo_id_matches_repo_info() {
+        for (args, expected) in [
+            (
+                serde_json::json!({"owner": "octocat", "repo": "hello"}),
+                "octocat/hello",
+            ),
+            (serde_json::json!({"repo": "hello"}), ""),
+            (serde_json::json!({"owner": "octocat"}), ""),
+            (serde_json::json!({"owner": 42, "repo": "hello"}), ""),
+            (serde_json::json!({"owner": "octocat", "repo": null}), ""),
+            (serde_json::json!({"owner": "", "repo": "hello"}), ""),
+            (serde_json::json!({"owner": "octocat", "repo": ""}), ""),
+        ] {
+            assert_eq!(extract_repo_id(&args), expected);
+            assert_eq!(extract_repo_id(&args), extract_repo_info(&args).2);
+        }
+    }
 
     #[test]
     fn test_strip_query_punctuation_no_punctuation() {
