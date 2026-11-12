@@ -7,21 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
 var logHandlers = logger.ForFile()
-
-// HandleReflect returns an http.HandlerFunc that handles the /reflect endpoint.
-func HandleReflect(unifiedServer *UnifiedServer) http.HandlerFunc {
-	logHandlers.Print("Creating reflect handler")
-	return func(w http.ResponseWriter, r *http.Request) {
-		logHandlers.Printf("Reflect endpoint request: remote=%s, method=%s, path=%s", r.RemoteAddr, r.Method, r.URL.Path)
-		httputil.WriteJSONResponse(w, http.StatusOK, difc.BuildReflectResponse(unifiedServer.DIFCComponents))
-	}
-}
 
 // shutdownErrorJSON is the pre-formatted JSON response for shutdown errors
 // Used by middleware to return HTTP 503 during graceful shutdown (spec 5.1.3)
@@ -123,7 +113,7 @@ func handleClose(unifiedServer *UnifiedServer) http.Handler {
 }
 
 // registerCommonEndpoints registers shared HTTP endpoints that are common to both routed and unified modes.
-// This includes OAuth discovery, health check, reflect, and close endpoints.
+// This includes OAuth discovery, health check, and close endpoints.
 func registerCommonEndpoints(mux *http.ServeMux, unifiedServer *UnifiedServer, apiKeys []string) {
 	logHandlers.Printf("Registering common endpoints: close_auth_enabled=%t", len(apiKeys) > 0)
 
@@ -137,10 +127,6 @@ func registerCommonEndpoints(mux *http.ServeMux, unifiedServer *UnifiedServer, a
 	healthHandler := HandleHealth(unifiedServer)
 	mux.Handle("/health", withResponseLogging(healthHandler))
 
-	// Reflect endpoint exposes a live DIFC label snapshot.
-	reflectHandler := HandleReflect(unifiedServer)
-	mux.Handle("/reflect", withResponseLogging(reflectHandler))
-
 	// Close endpoint for graceful shutdown (spec 5.1.3)
 	closeHandler := handleClose(unifiedServer)
 	if len(apiKeys) > 0 {
@@ -148,5 +134,5 @@ func registerCommonEndpoints(mux *http.ServeMux, unifiedServer *UnifiedServer, a
 	}
 	finalCloseHandler := applyAuthIfConfigured(apiKeys, closeHandler.ServeHTTP)
 	mux.Handle("/close", withResponseLogging(finalCloseHandler))
-	logHandlers.Print("Registered common endpoints: oauth discovery, health, reflect, close")
+	logHandlers.Print("Registered common endpoints: oauth discovery, health, close")
 }

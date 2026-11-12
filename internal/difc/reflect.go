@@ -16,7 +16,7 @@ type ReflectedAgentLabels struct {
 	Integrity []string `json:"integrity"`
 }
 
-// ReflectResponse is the JSON response returned by /reflect endpoints.
+// ReflectResponse is a snapshot of DIFC labels for known agents.
 type ReflectResponse struct {
 	Agents    map[string]ReflectedAgentLabels `json:"agents"`
 	Mode      string                          `json:"mode"`

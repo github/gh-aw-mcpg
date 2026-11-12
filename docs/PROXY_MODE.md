@@ -169,35 +169,6 @@ All accepted upstream and guard-enrichment requests discard the inbound Bearer v
 
 Assigned private repository responses use the existing `private:<owner>/<repo>` secrecy vocabulary. The signed capability binds the invocation's sole private repository label, and the DIFC evaluator hard-denies any resource whose secrecy is not a subset of that label. Confirmed public response data remains public. Per-invocation state is keyed by a non-revealing digest of the run and invocation IDs. Sequential or collection reads preserve the existing aggregation rules: secrecy is a union and integrity is an intersection, so mixed data receives the strongest secrecy and weakest integrity.
 
-## Reflect Endpoint
-
-Proxy mode exposes an unauthenticated DIFC reflection endpoint:
-
-- `GET /reflect`
-- `GET /api/v3/reflect` (`GH_HOST` style REST base path used by `gh` against GHES/proxy targets; normalized to `/reflect`)
-
-The enclave profile disables `/reflect`; only `/health` and `/healthz` remain unauthenticated.
-
-Response schema:
-
-```json
-{
-  "agents": {
-    "<agent-id>": {
-      "secrecy": ["<tag>"],
-      "integrity": ["<tag>"]
-    }
-  },
-  "mode": "strict|filter|propagate",
-  "timestamp": "RFC3339 UTC timestamp"
-}
-```
-
-- `agents`: map of known agent IDs to current DIFC labels.
-- `secrecy`/`integrity`: sorted label arrays in ascending lexicographic order (empty when no labels are present).
-- `mode`: current DIFC enforcement mode.
-- `timestamp`: snapshot creation time in UTC (`time.RFC3339`).
-
 ## Flags
 
 | Flag | Default | Description |

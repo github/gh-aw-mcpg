@@ -1,6 +1,6 @@
 package server
 
-// Direct unit tests for HandleHealth and HandleReflect HTTP handler constructors.
+// Direct unit tests for the HandleHealth HTTP handler constructor.
 //
 // These tests exercise the handlers as standalone http.HandlerFunc values,
 // complementing the integration-level tests in health_test.go that go through
@@ -8,8 +8,6 @@ package server
 //
 //   - Verify HandleHealth returns a handler that writes HTTP 200 with a valid
 //     HealthResponse JSON body in a variety of server-state scenarios.
-//   - Verify HandleReflect returns a handler that writes HTTP 200 with a valid
-//     DIFC ReflectResponse JSON body.
 //   - Cover all branches of BuildHealthResponse that are not exercised by the
 //     server-level tests (e.g. zero servers, mixed healthy/error status).
 
@@ -141,118 +139,6 @@ func TestHandleHealth_AllHTTPMethods(t *testing.T) {
 			HandleHealth(us)(rec, req)
 			assert.Equal(t, http.StatusOK, rec.Code, "expected 200 for method %s", method)
 		})
-	}
-}
-
-// --- HandleReflect ---------------------------------------------------------
-
-func TestHandleReflect_ReturnsHTTP200(t *testing.T) {
-	t.Parallel()
-	us := makeTestUnifiedServer(t)
-
-	handler := HandleReflect(us)
-	require.NotNil(t, handler, "HandleReflect must return a non-nil handler")
-
-	req := httptest.NewRequest(http.MethodGet, "/reflect", nil)
-	rec := httptest.NewRecorder()
-	handler(rec, req)
-
-	assert.Equal(t, http.StatusOK, rec.Code)
-}
-
-func TestHandleReflect_ContentTypeIsJSON(t *testing.T) {
-	t.Parallel()
-	us := makeTestUnifiedServer(t)
-
-	req := httptest.NewRequest(http.MethodGet, "/reflect", nil)
-	rec := httptest.NewRecorder()
-	HandleReflect(us)(rec, req)
-
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
-}
-
-func TestHandleReflect_BodyIsValidJSON(t *testing.T) {
-	t.Parallel()
-	us := makeTestUnifiedServer(t)
-
-	req := httptest.NewRequest(http.MethodGet, "/reflect", nil)
-	rec := httptest.NewRecorder()
-	HandleReflect(us)(rec, req)
-
-	var body map[string]interface{}
-	err := json.Unmarshal(rec.Body.Bytes(), &body)
-	require.NoError(t, err, "response body must be valid JSON")
-}
-
-// TestHandleReflect_BodyContainsAgentsField verifies the reflect endpoint
-// always includes the "agents" key in its response, even when no agents have
-// accumulated labels yet.
-func TestHandleReflect_BodyContainsAgentsField(t *testing.T) {
-	t.Parallel()
-	us := makeTestUnifiedServer(t)
-
-	req := httptest.NewRequest(http.MethodGet, "/reflect", nil)
-	rec := httptest.NewRecorder()
-	HandleReflect(us)(rec, req)
-
-	var body map[string]interface{}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-	assert.Contains(t, body, "agents", "reflect response must contain 'agents' key")
-}
-
-// TestHandleReflect_AllHTTPMethods verifies that HandleReflect responds to any
-// HTTP method (the handler does not validate the request method).
-func TestHandleReflect_AllHTTPMethods(t *testing.T) {
-	t.Parallel()
-	us := makeTestUnifiedServer(t)
-
-	methods := []string{
-		http.MethodConnect,
-		http.MethodDelete,
-		http.MethodGet,
-		http.MethodHead,
-		http.MethodOptions,
-		http.MethodPatch,
-		http.MethodPost,
-		http.MethodPut,
-		http.MethodTrace,
-	}
-
-	for _, method := range methods {
-		method := method
-		t.Run(method, func(t *testing.T) {
-			t.Parallel()
-			req := httptest.NewRequest(method, "/reflect", nil)
-			rec := httptest.NewRecorder()
-			HandleReflect(us)(rec, req)
-			assert.Equal(t, http.StatusOK, rec.Code, "expected 200 for method %s", method)
-		})
-	}
-}
-
-// TestHandleReflect_ConcurrentRequests verifies that HandleReflect is safe to
-// call concurrently from multiple goroutines sharing the same handler.
-func TestHandleReflect_ConcurrentRequests(t *testing.T) {
-	t.Parallel()
-	us := makeTestUnifiedServer(t)
-	handler := HandleReflect(us)
-
-	const numRequests = 10
-	done := make(chan struct{}, numRequests)
-	for i := 0; i < numRequests; i++ {
-		go func() {
-			defer func() { done <- struct{}{} }()
-			req := httptest.NewRequest(http.MethodGet, "/reflect", nil)
-			rec := httptest.NewRecorder()
-			handler(rec, req)
-			// Only assert status; body checking is racy and covered by other tests.
-			if rec.Code != http.StatusOK {
-				t.Errorf("concurrent reflect: got status %d, want 200", rec.Code)
-			}
-		}()
-	}
-	for i := 0; i < numRequests; i++ {
-		<-done
 	}
 }
 
