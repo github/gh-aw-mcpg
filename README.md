@@ -302,29 +302,6 @@ For the full server field list (including shared fields such as `registry` and T
 - `POST /mcp` — Unified mode: JSON-RPC request routed to configured servers
 - `GET /health` — Health check; returns JSON `{"status":"healthy" | "unhealthy","specVersion":"...","gatewayVersion":"...","servers":{...}}`
 - `POST /close` — Graceful shutdown; terminates all backend servers and exits the process (auth-protected when agent ID is configured; not HMAC-protected)
-- `GET /reflect` — Unauthenticated DIFC label snapshot for all known agents (gateway and proxy mode)
-
-### `GET /reflect` response schema
-
-```json
-{
-  "agents": {
-    "<agent-id>": {
-      "secrecy": ["<tag>"],
-      "integrity": ["<tag>"]
-    }
-  },
-  "mode": "strict|filter|propagate",
-  "timestamp": "RFC3339 UTC timestamp"
-}
-```
-
-- `agents`: map keyed by agent ID with current DIFC labels.
-- `secrecy`/`integrity`: sorted arrays of label tags (empty array when none).
-- `mode`: active DIFC enforcement mode.
-- `timestamp`: snapshot generation time in UTC (`time.RFC3339`).
-
-> Security note: `/reflect` is intentionally unauthenticated for local/runtime debugging and operational introspection. It exposes active agent IDs and current DIFC labels, so operators should only expose the gateway/proxy on trusted networks.
 
 Supported MCP methods: `tools/list`, `tools/call` (proxied to backend servers), plus standard lifecycle methods (`initialize`, etc.) handled natively by the MCP SDK.
 

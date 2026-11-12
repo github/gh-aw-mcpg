@@ -311,40 +311,29 @@ func TestServeHTTP_GHHostPrefixStripped(t *testing.T) {
 	assert.Equal(t, "ok", got["status"])
 }
 
-func TestServeHTTP_ReflectReturnsAllAgents(t *testing.T) {
+func TestServeHTTP_ReflectReturnsNotFound(t *testing.T) {
 	tests := []struct {
-		name string
-		path string
+		name     string
+		path     string
+		readOnly bool
 	}{
 		{name: "/reflect", path: "/reflect"},
 		{name: "/api/v3/reflect", path: "/api/v3/reflect"},
+		{name: "read-only /reflect", path: "/reflect", readOnly: true},
+		{name: "read-only /api/v3/reflect", path: "/api/v3/reflect", readOnly: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := newTestServer(t, "http://unused")
-			s.readOnly = true
-			s.Mode = difc.EnforcementPropagate
-			s.AgentRegistry.Register(proxyAgentID, []difc.Tag{"repo:github/private-repo"}, []difc.Tag{"approved"})
-			s.AgentRegistry.Register("abc123def456", nil, []difc.Tag{"unapproved"})
+			s.readOnly = tt.readOnly
 
 			h := &proxyHandler{server: s}
 			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, req)
 
-			require.Equal(t, http.StatusOK, w.Code)
-			require.Equal(t, "application/json", w.Header().Get("Content-Type"))
-
-			var got difc.ReflectResponse
-			require.NoError(t, json.NewDecoder(w.Body).Decode(&got))
-			assert.Equal(t, "propagate", got.Mode)
-			assert.ElementsMatch(t, []string{"repo:github/private-repo"}, got.Agents["proxy"].Secrecy)
-			assert.ElementsMatch(t, []string{"approved"}, got.Agents["proxy"].Integrity)
-			assert.Empty(t, got.Agents["abc123def456"].Secrecy)
-			assert.ElementsMatch(t, []string{"unapproved"}, got.Agents["abc123def456"].Integrity)
-			_, err := time.Parse(time.RFC3339, got.Timestamp)
-			assert.NoError(t, err)
+			assert.Equal(t, http.StatusNotFound, w.Code)
 		})
 	}
 }

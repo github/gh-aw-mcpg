@@ -84,9 +84,11 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteJSONResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
-	localReflection := h.server.enclave == nil && h.server.delegation == nil &&
-		r.Method == http.MethodGet && rawPath == "/reflect"
-	if h.server.readOnly && !localReflection {
+	if rawPath == "/reflect" {
+		http.NotFound(w, r)
+		return
+	}
+	if h.server.readOnly {
 		selectedBody, err := h.validateReadOnlyRequest(r, fullPath)
 		if err != nil {
 			rejectProxyRequest(w, oteltrace.SpanFromContext(r.Context()), http.StatusForbidden,
@@ -104,12 +106,6 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.server.delegation != nil {
 		h.handleDelegatedRequest(w, r)
-		return
-	}
-
-	// Reflect endpoint exposes a live DIFC label snapshot.
-	if r.Method == http.MethodGet && rawPath == "/reflect" {
-		httputil.WriteJSONResponse(w, http.StatusOK, difc.BuildReflectResponse(h.server.DIFCComponents))
 		return
 	}
 
