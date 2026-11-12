@@ -41,6 +41,16 @@ func TestStripQuery(t *testing.T) {
 			path: "/issues?page=1?extra=2",
 			want: "/issues",
 		},
+		{
+			name: "fragment without query is preserved",
+			path: "/issues#section",
+			want: "/issues#section",
+		},
+		{
+			name: "query after fragment marker is stripped",
+			path: "/issues#a?b=1",
+			want: "/issues#a",
+		},
 	}
 
 	for _, tt := range tests {
@@ -78,6 +88,11 @@ func TestMatch(t *testing.T) {
 			path: "",
 			want: nil,
 		},
+		{
+			name: "trailing slash does not match",
+			path: "/repos/github/gh-aw/issues/",
+			want: nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -106,4 +121,32 @@ func TestStripQuery_DebugLoggingEnabled(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "subprocess output:\n%s", out)
 	assert.Contains(t, string(out), "StripQuery: stripped query string from path")
+}
+
+func TestMatch_PatternShapes(t *testing.T) {
+	tests := []struct {
+		name    string
+		pattern string
+		path    string
+		want    []string
+	}{
+		{
+			name:    "no capture groups returns only full match",
+			pattern: `^/user$`,
+			path:    "/user",
+			want:    []string{"/user"},
+		},
+		{
+			name:    "unmatched optional group yields empty submatch",
+			pattern: `^/repos/([^/]+)(?:/([^/]+))?$`,
+			path:    "/repos/github",
+			want:    []string{"/repos/github", "github", ""},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, Match(tt.path, regexp.MustCompile(tt.pattern)))
+		})
+	}
 }
