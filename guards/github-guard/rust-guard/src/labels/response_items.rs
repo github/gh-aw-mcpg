@@ -469,7 +469,7 @@ pub fn label_response_items(
 
             let items_limited =
                 limit_items_with_log(all_items.as_slice(), tool_names::GET_FILE_CONTENTS);
-            let (_, _, repo_full_name) = extract_repo_info(tool_args);
+            let repo_full_name = extract_repo_id(tool_args);
             let (secrecy, file_integrity, _) = apply_tool_labels(
                 tool_name,
                 tool_args,

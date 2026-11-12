@@ -16,7 +16,7 @@ use labels::constants::policy_integrity;
 use labels::constants::scope_names;
 use labels::constants::tool_names;
 use labels::{
-    blocked_integrity, extract_repo_info, extract_repo_info_from_search_query, MinIntegrity,
+    blocked_integrity, extract_repo_id, extract_repo_info_from_search_query, MinIntegrity,
     PolicyContext, PolicyScopeEntry, ScopeKind,
 };
 use serde::{Deserialize, Serialize, Serializer};
@@ -410,7 +410,7 @@ fn apply_singleton_fallback_if_needed(
     }
 
     // Extract repo info from tool args (same logic as label_resource)
-    let (_, _, repo_id) = extract_repo_info(&input.tool_args);
+    let repo_id = extract_repo_id(&input.tool_args);
     let baseline_scope = infer_scope_for_baseline(&input.tool_name, &input.tool_args, &repo_id);
 
     // Server-generated metadata (pagination errors, empty search results) contains
@@ -536,8 +536,14 @@ fn infer_scope_for_baseline<'a>(
             if let Some(org) = org {
                 Cow::Owned(org.to_string())
             } else {
-                let owner = tool_args.get("owner").and_then(Value::as_str).unwrap_or("");
-                let repo = tool_args.get("repo").and_then(Value::as_str).unwrap_or("");
+                let owner = tool_args
+                    .get(labels::constants::field_names::OWNER)
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let repo = tool_args
+                    .get(labels::constants::field_names::REPO)
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 if !owner.is_empty() && repo.is_empty() {
                     Cow::Owned(owner.to_string())
                 } else if matches!(
@@ -593,7 +599,7 @@ fn build_label_resource_output(
     ctx: &PolicyContext,
 ) -> LabelResourceOutput {
     // Extract owner/repo for scoped tags
-    let (_, _, repo_id) = extract_repo_info(&input.tool_args);
+    let repo_id = extract_repo_id(&input.tool_args);
 
     // Build initial labels
     let desc = format!("resource:{}", input.tool_name);
@@ -1274,7 +1280,7 @@ mod tests {
                         "{tool_name}"
                     );
                     assert!(items.is_empty(), "{tool_name}");
-                    let (_, _, repo_id) = extract_repo_info(&tool_args);
+                    let repo_id = extract_repo_id(&tool_args);
                     let (actual_secrecy, integrity, _) = labels::apply_tool_labels(
                         tool_name,
                         &tool_args,
@@ -2053,7 +2059,7 @@ mod tests {
                 },
                 &ctx,
             );
-            let (_, _, repo_id) = extract_repo_info(&tool_args);
+            let repo_id = extract_repo_id(&tool_args);
             let blocked_scope = if repo_id.is_empty() {
                 scope_names::GLOBAL
             } else {
