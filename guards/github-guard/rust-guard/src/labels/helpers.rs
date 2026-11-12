@@ -1284,7 +1284,8 @@ pub(crate) fn extract_repo_info(tool_args: &Value) -> (String, String, String) {
     (owner, repo, repo_id)
 }
 
-/// Extract the "owner/repo" ID, or an empty string if either part is missing.
+/// Extract only the "owner/repo" id from tool arguments (empty if either part is missing).
+/// Avoids allocating owner/repo Strings for callers that discard them.
 pub(crate) fn extract_repo_id(tool_args: &Value) -> String {
     format_repo_id(
         get_str_or(tool_args, field_names::OWNER, ""),
@@ -2632,8 +2633,7 @@ mod tests {
                 );
             }
         }
-        let conflicting_aliases =
-            serde_json::json!({"owner":"org","repo":"repo","pullNumber":1,"pull_number":2,"method":"get_diff"});
+        let conflicting_aliases = serde_json::json!({"owner":"org","repo":"repo","pullNumber":1,"pull_number":2,"method":"get_diff"});
         assert_eq!(
             pull_request_content_integrity_with_callback(
                 callback,
@@ -4471,6 +4471,19 @@ mod tests {
     #[test]
     fn test_strip_query_punctuation_double_quotes() {
         assert_eq!(strip_query_punctuation("\"owner/repo\""), "owner/repo");
+    }
+
+    #[test]
+    fn test_extract_repo_id_matches_extract_repo_info() {
+        for args in [
+            serde_json::json!({"owner": "o", "repo": "r"}),
+            serde_json::json!({"repo": "r"}),
+            serde_json::json!({"owner": "o"}),
+            serde_json::json!({"owner": 1, "repo": ["r"]}),
+            serde_json::json!({}),
+        ] {
+            assert_eq!(extract_repo_id(&args), extract_repo_info(&args).2, "{args}");
+        }
     }
 
     #[test]
