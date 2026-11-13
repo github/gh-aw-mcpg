@@ -82,7 +82,7 @@ fn label_author_items(
             .get("review_threads")
             .and_then(Value::as_array)
         {
-            let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+            let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
             let mut labeled_paths = Vec::new();
             let mut items_paths = Vec::new();
             for (thread_index, thread) in threads.iter().enumerate() {
@@ -115,7 +115,7 @@ fn label_author_items(
     }
     let (items, items_path) = extract_items_array(actual_response);
     let items = items?;
-    let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+    let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
     let limited_items = limit_items_with_log(items, tool_name);
     let labeled_paths = limited_items
         .iter()
@@ -173,7 +173,7 @@ fn label_graphql_pull_request(
     let parent_path = "/data/repository/pullRequest";
     let parent = response.pointer(parent_path)?.as_object()?;
     let parent_value = response.pointer(parent_path)?;
-    let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+    let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
     let number = extract_resource_number(parent_value, "pr", &repo_full);
     let private = repo_visibility_private_for_repo_id(&repo_full).unwrap_or(false);
     let mut parent_labels = crate::ResourceLabels {
@@ -688,7 +688,7 @@ pub fn label_response_paths(
             } else if tool_name == tool_names::PULL_REQUEST_READ && method == "get_commits" {
                 let (items, items_path) = extract_items_array(&actual_response);
                 if let Some(items) = items {
-                    let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+                    let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
                     let repo_private = repo_visibility_private_for_repo_id(&repo_full);
                     let limited_items = limit_items_with_log(items, tool_name);
                     let labeled_paths = limited_items
@@ -736,7 +736,7 @@ pub fn label_response_paths(
             } else if tool_name == tool_names::PULL_REQUEST_READ
                 && matches!(method, "get_files" | "get_diff")
             {
-                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+                let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
                 let integrity = pull_request_content_integrity(tool_args, &repo_full, ctx);
                 let (items, items_path) = extract_items_array(&actual_response);
                 let labeled_paths = items
@@ -768,7 +768,7 @@ pub fn label_response_paths(
             } else if tool_name == tool_names::PULL_REQUEST_READ
                 && matches!(method, "get_check_runs" | "get_status")
             {
-                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+                let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
                 let (items, items_path) = extract_items_array(&actual_response);
                 let labeled_paths = items
                     .map(|items| {
@@ -877,7 +877,7 @@ pub fn label_response_paths(
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             if tool_name == tool_names::ISSUE_READ && method == "get_labels" {
-                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+                let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
                 let (items, items_path) = actual_response
                     .get("labels")
                     .and_then(Value::as_array)
@@ -1293,7 +1293,7 @@ pub fn label_response_paths(
         // === GitHub Project Items - heterogeneous ISSUE / PULL_REQUEST / DRAFT_ISSUE ===
         // projects_list is the new canonical name (replaces list_project_items)
         tool_names::LIST_PROJECT_ITEMS | tool_names::PROJECTS_LIST => {
-            let (arg_owner, _, _) = extract_repo_info(tool_args);
+            let arg_owner = get_str_or(tool_args, field_names::OWNER, "");
             let (items, items_path) = extract_items_array(&actual_response);
 
             if let Some(items) = items {
@@ -1313,13 +1313,13 @@ pub fn label_response_paths(
                             // Fail secure: if we cannot determine the repo for this
                             // item, treat it as private within the owner scope rather
                             // than defaulting to public.
-                            policy_private_scope_label(&arg_owner, "", "", ctx)
+                            policy_private_scope_label(arg_owner, "", "", ctx)
                         } else {
                             repo_visibility_secrecy_for_repo_id(&item_repo, ctx)
                         };
                         let association = get_author_association(content);
                         let integrity_scope = if item_repo.is_empty() {
-                            &arg_owner
+                            arg_owner
                         } else {
                             &item_repo
                         };
@@ -1330,7 +1330,7 @@ pub fn label_response_paths(
                         // DRAFT_ISSUE or unrecognised type: no underlying repo context.
                         // Use org-scoped approved integrity (adding items to a project
                         // requires org membership, regardless of the creator's identity).
-                        let integrity = writer_integrity(&arg_owner, ctx);
+                        let integrity = writer_integrity(arg_owner, ctx);
                         (vec![], integrity)
                     };
 
