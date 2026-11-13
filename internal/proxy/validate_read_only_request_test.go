@@ -44,7 +44,7 @@ func TestProxyHandlerValidateReadOnlyRequest(t *testing.T) {
 			name: "rejects graphql in enclave mode before reading body",
 			mode: "enclave",
 			request: func() *http.Request {
-				return httptest.NewRequest(http.MethodPost, "http://example.test/graphql", strings.NewReader("not read"))
+				return httptest.NewRequest(http.MethodPost, "http://example.test/graphql", nil)
 			},
 			path:    "/graphql",
 			wantErr: true,
@@ -53,7 +53,7 @@ func TestProxyHandlerValidateReadOnlyRequest(t *testing.T) {
 			name: "rejects graphql in delegation mode before reading body",
 			mode: "delegation",
 			request: func() *http.Request {
-				return httptest.NewRequest(http.MethodPost, "http://example.test/graphql", strings.NewReader("not read"))
+				return httptest.NewRequest(http.MethodPost, "http://example.test/graphql", nil)
 			},
 			path:    "/graphql",
 			wantErr: true,
@@ -117,7 +117,16 @@ func TestProxyHandlerValidateReadOnlyRequest(t *testing.T) {
 			}
 
 			handler := &proxyHandler{server: server}
-			got, err := handler.validateReadOnlyRequest(tt.request(), tt.path)
+			req := tt.request()
+			var body *readCountingBody
+			if tt.mode != "" {
+				body = &readCountingBody{}
+				req.Body = body
+			}
+			got, err := handler.validateReadOnlyRequest(req, tt.path)
+			if body != nil {
+				assert.Zero(t, body.reads.Load())
+			}
 			if tt.wantErr {
 				require.ErrorIs(t, err, errReadOnlyDenied)
 				assert.Nil(t, got)
