@@ -69,6 +69,30 @@ func TestUnifiedServer_AgentPoliciesDisabled_FullAccess(t *testing.T) {
 	assert.True(t, usNil.agentCanUseTool("x", "y", "z"))
 }
 
+func TestUnifiedServer_AgentPolicyGuardEdgeCases(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		policy        *config.AgentPolicy
+		serverAllowed bool
+		toolAllowed   bool
+	}{
+		{"nil policy", nil, false, false},
+		{"no servers", &config.AgentPolicy{}, false, false},
+		{"empty tool list", &config.AgentPolicy{Servers: []string{"github"}, Tools: map[string][]string{"github": {}}}, true, false},
+		{"wildcard tool list", &config.AgentPolicy{Servers: []string{"github"}, Tools: map[string][]string{"github": {"other", "*"}}}, true, true},
+		{"tools cannot grant server access", &config.AgentPolicy{Tools: map[string][]string{"github": {"*"}}}, false, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			us := &UnifiedServer{cfg: agentPolicyTestConfig([]string{"a"}, map[string]*config.AgentPolicy{"a": tt.policy})}
+			assert.True(t, us.agentPoliciesEnforced())
+			assert.Equal(t, tt.serverAllowed, us.agentCanAccessServer("a", "github"))
+			assert.Equal(t, tt.toolAllowed, us.agentCanUseTool("a", "github", "search_code"))
+			assert.False(t, us.agentCanAccessServer("unknown", "github"))
+			assert.False(t, us.agentCanUseTool("unknown", "github", "search_code"))
+		})
+	}
+}
+
 func TestUnifiedServer_IsMultiAgent(t *testing.T) {
 	assert.False(t, (&UnifiedServer{}).isMultiAgent())
 	assert.False(t, (&UnifiedServer{cfg: &config.Config{Gateway: &config.GatewayConfig{AgentID: "solo"}}}).isMultiAgent())

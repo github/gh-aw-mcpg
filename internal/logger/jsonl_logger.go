@@ -50,6 +50,11 @@ type JSONLRPCMessage struct {
 	Payload        json.RawMessage `json:"payload"`                 // Full sanitized payload as raw JSON
 }
 
+func (entry *JSONLRPCMessage) setAgentTags(agentSecrecy, agentIntegrity []string) {
+	entry.AgentSecrecy = append([]string(nil), agentSecrecy...)
+	entry.AgentIntegrity = append([]string(nil), agentIntegrity...)
+}
+
 // jsonlLoggerFactory bundles the setup and error-handler for JSONLLogger.
 var jsonlLoggerFactory = newLoggerFactory(
 	func(file *os.File, logDir, fileName string) (*JSONLLogger, error) {
@@ -131,12 +136,7 @@ func logRPCMessageJSONLWithTagsAndSanitized(direction RPCMessageDirection, messa
 			Payload:   sanitizedPayload,
 		}
 
-		if len(agentSecrecy) > 0 {
-			entry.AgentSecrecy = append([]string(nil), agentSecrecy...)
-		}
-		if len(agentIntegrity) > 0 {
-			entry.AgentIntegrity = append([]string(nil), agentIntegrity...)
-		}
+		entry.setAgentTags(agentSecrecy, agentIntegrity)
 
 		if err != nil {
 			entry.Error = err.Error()
@@ -166,12 +166,7 @@ func logRPCMessageJSONLRedacted(direction RPCMessageDirection, messageType RPCMe
 			Error:       errCategory,
 		}
 
-		if len(agentSecrecy) > 0 {
-			entry.AgentSecrecy = append([]string(nil), agentSecrecy...)
-		}
-		if len(agentIntegrity) > 0 {
-			entry.AgentIntegrity = append([]string(nil), agentIntegrity...)
-		}
+		entry.setAgentTags(agentSecrecy, agentIntegrity)
 
 		// Best effort logging - don't fail if JSONL logging fails
 		_ = logger.LogMessage(entry)
