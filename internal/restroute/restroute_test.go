@@ -138,7 +138,7 @@ func TestMatch_PatternShapes(t *testing.T) {
 		},
 		{
 			name:    "unmatched optional group yields empty submatch",
-			pattern: `^/repos/([^/]+)(/[^/]+)?$`
+			pattern: `^/repos/([^/]+)(/[^/]+)?$`,
 			path:    "/repos/github",
 			want:    []string{"/repos/github", "github", ""},
 		},
