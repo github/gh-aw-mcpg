@@ -178,14 +178,19 @@ Assigned private repository responses use the existing `private:<owner>/<repo>` 
 | `--github-token` | *(forwards client auth)* | Fallback GitHub API token for requests without Authorization header |
 | `--listen` / `-l` | `127.0.0.1:8080` | Proxy listen address |
 | `--log-dir` | `/tmp/gh-aw/mcp-logs` | Log file directory |
+| `--wasm-cache-dir` | `<parent-of-log-dir>/wazero-cache` | Directory for disk-backed wazero compilation cache; defaults to `MCP_GATEWAY_WASM_CACHE_DIR` when set, otherwise a sibling `wazero-cache` directory next to `--log-dir` |
 | `--guards-mode` | `filter` | DIFC mode: `strict`, `filter`, or `propagate` |
 | `--github-api-url` | `https://api.github.com` | Upstream GitHub API URL |
+| `--force-public-repos` | `true` | Force `repos="public"` at runtime if the workflow repository is public; defaults to `MCP_GATEWAY_FORCE_PUBLIC_REPOS` when set. Set to `false` to disable |
 | `--read-only` | `false` | Reject writes and unsupported requests before forwarding; can also be enabled with `MCP_GATEWAY_PROXY_READ_ONLY=1` |
 | `--tls` | `false` | Enable HTTPS with auto-generated self-signed certificates |
 | `--tls-dir` | `<log-dir>/proxy-tls` | Directory for generated TLS certificate files |
 | `--tls-dns-name` | *(disabled)* | Additional DNS SAN for the generated certificate; repeat the flag or use a comma-separated list |
 | `--trusted-bots` | *(disabled)* | Additional trusted bot usernames (comma-separated, extends built-in list) |
 | `--trusted-users` | *(disabled)* | User logins that receive approved integrity (comma-separated) |
+| `--otlp-endpoint` | *(empty)* | OTLP HTTP endpoint for trace export (e.g., `http://localhost:4318`); defaults to `OTEL_EXPORTER_OTLP_ENDPOINT` when set. Tracing is disabled when empty |
+| `--otlp-service-name` | `mcp-gateway` | Service name reported in traces; defaults to `OTEL_SERVICE_NAME` when set |
+| `--otlp-sample-rate` | `1.0` | Fraction of traces to sample and export (`0.0`–`1.0`) |
 
 ## DIFC Pipeline
 
