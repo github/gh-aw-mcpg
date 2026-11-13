@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/github/gh-aw-mcpg/internal/config"
 	"github.com/github/gh-aw-mcpg/internal/delegation"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/util"
@@ -38,35 +39,31 @@ func (us *UnifiedServer) isMultiAgent() bool {
 // the server is not permitted by it), access is denied. When policies are not
 // enforced, all access is allowed.
 func (us *UnifiedServer) agentCanAccessServer(agentID, serverID string) bool {
-	if !us.agentPoliciesEnforced() {
-		return true
-	}
-	policy := us.cfg.AgentPolicyFor(agentID)
-	if policy == nil {
-		logUnified.Printf("agentCanAccessServer: no policy for agent; denying serverID=%s", serverID)
-		return false
-	}
-	allowed := policy.AllowsServer(serverID)
-	if !allowed {
-		logUnified.Printf("agentCanAccessServer: policy denies agent=%s serverID=%s", util.HashIdentifierForLog(agentID), serverID)
-	}
-	return allowed
+	return us.agentPolicyAllows(agentID, serverID, "", func(policy *config.AgentPolicy) bool {
+		return policy.AllowsServer(serverID)
+	})
 }
 
 // agentCanUseTool reports whether the given agent may call toolName on serverID.
 // Fail-closed with the same semantics as agentCanAccessServer.
 func (us *UnifiedServer) agentCanUseTool(agentID, serverID, toolName string) bool {
+	return us.agentPolicyAllows(agentID, serverID, toolName, func(policy *config.AgentPolicy) bool {
+		return policy.AllowsTool(serverID, toolName)
+	})
+}
+
+func (us *UnifiedServer) agentPolicyAllows(agentID, serverID, toolName string, allows func(*config.AgentPolicy) bool) bool {
 	if !us.agentPoliciesEnforced() {
 		return true
 	}
 	policy := us.cfg.AgentPolicyFor(agentID)
 	if policy == nil {
-		logUnified.Printf("agentCanUseTool: no policy for agent; denying serverID=%s tool=%s", serverID, toolName)
+		logUnified.Printf("agentPolicyAllows: no policy for agent; denying serverID=%s tool=%s", serverID, toolName)
 		return false
 	}
-	allowed := policy.AllowsTool(serverID, toolName)
+	allowed := allows(policy)
 	if !allowed {
-		logUnified.Printf("agentCanUseTool: policy denies agent=%s serverID=%s tool=%s", util.HashIdentifierForLog(agentID), serverID, toolName)
+		logUnified.Printf("agentPolicyAllows: policy denies agent=%s serverID=%s tool=%s", util.HashIdentifierForLog(agentID), serverID, toolName)
 	}
 	return allowed
 }

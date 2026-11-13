@@ -35,6 +35,34 @@ func TestInitJSONLLogger(t *testing.T) {
 	require.NoError(err, "Log file should exist at %s", logPath)
 }
 
+func TestJSONLRPCMessage_SetAgentTags(t *testing.T) {
+	entry := &JSONLRPCMessage{}
+	secrecy := []string{"private", "repo"}
+	integrity := []string{"approved"}
+	entry.setAgentTags(secrecy, integrity)
+	assert.Equal(t, secrecy, entry.AgentSecrecy)
+	assert.Equal(t, integrity, entry.AgentIntegrity)
+
+	secrecy[0] = "changed"
+	integrity[0] = "changed"
+	assert.Equal(t, []string{"private", "repo"}, entry.AgentSecrecy)
+	assert.Equal(t, []string{"approved"}, entry.AgentIntegrity)
+	entry.AgentSecrecy[1] = "snapshot"
+	assert.Equal(t, "repo", secrecy[1])
+	entry.AgentIntegrity[0] = "snapshot"
+	assert.Equal(t, "changed", integrity[0])
+
+	for _, tags := range [][]string{nil, {}} {
+		entry.setAgentTags(tags, tags)
+		assert.Nil(t, entry.AgentSecrecy)
+		assert.Nil(t, entry.AgentIntegrity)
+		data, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), "agent_secrecy")
+		assert.NotContains(t, string(data), "agent_integrity")
+	}
+}
+
 func TestJSONLLoggerClose(t *testing.T) {
 	require := require.New(t)
 	tmpDir := t.TempDir()

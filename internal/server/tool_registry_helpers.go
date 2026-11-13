@@ -152,52 +152,41 @@ func (e *registrationErrors) finish() {
 // tools are permitted. If the Tools list contains a "*" entry anywhere, the
 // server is treated the same as having no list (all tools allowed).
 func buildAllowedToolSets(cfg *config.Config) map[string]map[string]bool {
-	sets := make(map[string]map[string]bool)
-	if cfg == nil {
-		return sets
-	}
-	for serverID, serverCfg := range cfg.Servers {
-		if len(serverCfg.Tools) > 0 {
-			// Treat "*" anywhere in the list as "allow all" — skip adding to the filter map
-			if hasWildcard(serverCfg.Tools) {
-				logger.LogInfo("backend", "[allowed-tools] Wildcard \"*\" configured for %s: allowing all tools", serverID)
-				continue
-			}
-			set := make(map[string]bool, len(serverCfg.Tools))
-			for _, t := range serverCfg.Tools {
-				set[t] = true
-			}
-			sets[serverID] = set
-			logToolRegistryHelpers.Printf("Built allowed tool set for server %s: %d tool(s) permitted", serverID, len(set))
-		}
-	}
-	logToolRegistryHelpers.Printf("Built allowed tool sets: %d server(s) with tool restrictions", len(sets))
-	return sets
+	return buildAllowedSets(cfg, "tool", func(serverCfg *config.ServerConfig) []string {
+		return serverCfg.Tools
+	})
 }
 
 // buildAllowedPromptSets builds a per-server prompt allowlist for O(1) lookup.
 // Servers with no Prompts list, or with a "*" entry, permit every prompt.
 func buildAllowedPromptSets(cfg *config.Config) map[string]map[string]bool {
+	return buildAllowedSets(cfg, "prompt", func(serverCfg *config.ServerConfig) []string {
+		return serverCfg.Prompts
+	})
+}
+
+func buildAllowedSets(cfg *config.Config, kind string, namesFor func(*config.ServerConfig) []string) map[string]map[string]bool {
 	sets := make(map[string]map[string]bool)
 	if cfg == nil {
 		return sets
 	}
 	for serverID, serverCfg := range cfg.Servers {
-		if len(serverCfg.Prompts) == 0 {
+		names := namesFor(serverCfg)
+		if len(names) == 0 {
 			continue
 		}
-		if hasWildcard(serverCfg.Prompts) {
-			logger.LogInfo("backend", "[allowed-prompts] Wildcard \"*\" configured for %s: allowing all prompts", serverID)
+		if hasWildcard(names) {
+			logger.LogInfo("backend", "[allowed-%ss] Wildcard \"*\" configured for %s: allowing all %ss", kind, serverID, kind)
 			continue
 		}
-		set := make(map[string]bool, len(serverCfg.Prompts))
-		for _, prompt := range serverCfg.Prompts {
-			set[prompt] = true
+		set := make(map[string]bool, len(names))
+		for _, name := range names {
+			set[name] = true
 		}
 		sets[serverID] = set
-		logToolRegistryHelpers.Printf("Built allowed prompt set for server %s: %d prompt(s) permitted", serverID, len(set))
+		logToolRegistryHelpers.Printf("Built allowed %s set for server %s: %d %s(s) permitted", kind, serverID, len(set), kind)
 	}
-	logToolRegistryHelpers.Printf("Built allowed prompt sets: %d server(s) with prompt restrictions", len(sets))
+	logToolRegistryHelpers.Printf("Built allowed %s sets: %d server(s) with %s restrictions", kind, len(sets), kind)
 	return sets
 }
 
