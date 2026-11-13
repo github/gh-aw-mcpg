@@ -86,6 +86,7 @@ func (p *Provider) Token(ctx context.Context, audience string) (string, error) {
 	logOIDC.Printf("Fetching new OIDC token: audience=%s", audience)
 	token, expiresAt, err := p.fetchToken(ctx, audience)
 	if err != nil {
+		logOIDC.Printf("OIDC token acquisition failed: audience=%s, err=%v", audience, err)
 		return "", err
 	}
 
@@ -119,10 +120,12 @@ func (p *Provider) fetchToken(ctx context.Context, audience string) (string, tim
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
+		logOIDC.Printf("OIDC token HTTP request failed: audience=%s, err=%v", audience, err)
 		return "", time.Time{}, fmt.Errorf("OIDC token request failed: %w", err)
 	}
 	body, err := httputil.ReadResponseBodyStrict(resp, http.StatusOK, "OIDC token request")
 	if err != nil {
+		logOIDC.Printf("OIDC token response rejected: audience=%s, err=%v", audience, err)
 		return "", time.Time{}, err
 	}
 	logOIDC.Printf("OIDC token HTTP response: status=%d, bodyLen=%d", resp.StatusCode, len(body))
@@ -132,9 +135,11 @@ func (p *Provider) fetchToken(ctx context.Context, audience string) (string, tim
 		Value string `json:"value"`
 	}
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		logOIDC.Printf("Failed to parse OIDC token response: audience=%s, bodyLen=%d, err=%v", audience, len(body), err)
 		return "", time.Time{}, fmt.Errorf("failed to parse OIDC token response: %w", err)
 	}
 	if tokenResp.Value == "" {
+		logOIDC.Printf("OIDC token response contained empty token value: audience=%s", audience)
 		return "", time.Time{}, fmt.Errorf("OIDC token response contained empty token value")
 	}
 
@@ -155,6 +160,7 @@ func (p *Provider) fetchToken(ctx context.Context, audience string) (string, tim
 func extractJWTExpiry(jwtToken string) (time.Time, error) {
 	parts := strings.Split(jwtToken, ".")
 	if len(parts) != 3 {
+		logOIDC.Printf("Cannot parse JWT expiry: expected 3 parts, got %d", len(parts))
 		return time.Time{}, fmt.Errorf("malformed JWT: expected 3 parts, got %d", len(parts))
 	}
 
@@ -182,6 +188,7 @@ func extractJWTExpiry(jwtToken string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("failed to parse JWT claims: %w", err)
 	}
 	if claims.Exp == 0 {
+		logOIDC.Print("JWT payload has no exp claim")
 		return time.Time{}, fmt.Errorf("JWT has no exp claim")
 	}
 
