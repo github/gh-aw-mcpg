@@ -1143,13 +1143,27 @@ pub(crate) fn repo_visibility_secrecy(
 }
 
 /// Extract repository identifiers and their visibility-derived shared secrecy labels.
+#[cfg(test)]
 pub(crate) fn repo_info_with_secrecy(
     tool_args: &Value,
     ctx: &PolicyContext,
 ) -> (String, String, String, crate::SharedLabels) {
-    let (owner, repo, repo_full) = extract_repo_info(tool_args);
-    let secrecy = repo_visibility_secrecy(&owner, &repo, &repo_full, ctx).into();
+    let owner = get_string_field(tool_args, field_names::OWNER);
+    let repo = get_string_field(tool_args, field_names::REPO);
+    let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
     (owner, repo, repo_full, secrecy)
+}
+
+/// Returns (repo_full, shared secrecy) without allocating owner/repo Strings.
+pub(crate) fn repo_full_with_secrecy(
+    tool_args: &Value,
+    ctx: &PolicyContext,
+) -> (String, crate::SharedLabels) {
+    let owner = get_str_or(tool_args, field_names::OWNER, "");
+    let repo = get_str_or(tool_args, field_names::REPO, "");
+    let repo_full = format_repo_id(owner, repo);
+    let secrecy = repo_visibility_secrecy(owner, repo, &repo_full, ctx).into();
+    (repo_full, secrecy)
 }
 
 /// Convenience wrapper: splits `repo_id` as "owner/repo" and delegates to
@@ -1924,12 +1938,13 @@ fn pull_request_content_integrity_with_callback(
     if ctx.blocked_users.is_empty() {
         return none_integrity(repo_full_name, ctx);
     }
-    let (owner, repo, _) = extract_repo_info(tool_args);
+    let owner = get_str_or(tool_args, field_names::OWNER, "");
+    let repo = get_str_or(tool_args, field_names::REPO, "");
     let number = extract_number_as_string(tool_args, "pullNumber")
         .or_else(|| extract_number_as_string(tool_args, field_names::PULL_NUMBER))
         .unwrap_or_default();
     let facts =
-        super::backend::get_pull_request_facts_with_callback(callback, &owner, &repo, &number);
+        super::backend::get_pull_request_facts_with_callback(callback, owner, repo, &number);
     if author_denied(
         facts
             .as_ref()
@@ -3032,6 +3047,38 @@ mod tests {
         assert!(repo.is_empty());
         assert!(repo_full.is_empty());
         assert_eq!(secrecy, vec![label_constants::PRIVATE_BASE.to_string()]);
+    }
+
+    #[test]
+    fn test_repo_full_with_secrecy_matches_repo_info() {
+        let ctx = test_ctx();
+        let _private_guard = super::super::backend::cache_repo_visibility_for_tests(
+            "full-secrecy-owner/private-repo",
+            true,
+        );
+        let _public_guard = super::super::backend::cache_repo_visibility_for_tests(
+            "full-secrecy-owner/public-repo",
+            false,
+        );
+        for args in [
+            serde_json::json!({"owner": "full-secrecy-owner", "repo": "private-repo"}),
+            serde_json::json!({"owner": "full-secrecy-owner", "repo": "public-repo"}),
+            serde_json::json!({"owner": "full-secrecy-owner", "repo": "unknown-repo"}),
+            serde_json::json!({"owner": "full-secrecy-owner"}),
+            serde_json::json!({"repo": "private-repo"}),
+            serde_json::json!({"owner": "", "repo": ""}),
+            serde_json::json!({"owner": null, "repo": 42}),
+            serde_json::json!({"owner": "full-secrecy-owner", "repo": false}),
+            serde_json::json!({}),
+        ] {
+            let (owner, repo, repo_full) = extract_repo_info(&args);
+            let secrecy = repo_visibility_secrecy(&owner, &repo, &repo_full, &ctx).into();
+            let expected = (repo_full, secrecy);
+            assert_eq!(repo_full_with_secrecy(&args, &ctx), expected, "{args}");
+
+            let (_, _, repo_full, secrecy) = repo_info_with_secrecy(&args, &ctx);
+            assert_eq!((repo_full, secrecy), expected, "{args}");
+        }
     }
 
     #[test]

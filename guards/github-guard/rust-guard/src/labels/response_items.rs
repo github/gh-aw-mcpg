@@ -83,7 +83,7 @@ pub fn label_response_items(
         | tool_names::GET_DISCUSSION
         | tool_names::GET_DISCUSSION_COMMENTS => {
             let items = extract_items_slice(&actual_response, "discussions");
-            let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+            let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
             for item in limit_items_with_log(items, tool_name) {
                 let id = item
                     .get(field_names::ID)
@@ -113,7 +113,7 @@ pub fn label_response_items(
         }
 
         tool_names::ISSUE_ARTIFACT_READ | tool_names::ISSUE_ARTIFACT_WRITE => {
-            let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+            let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
             let integrity: SharedLabels =
                 if repo_visibility_private_for_repo_id(&repo_full) == Some(true) {
                     writer_integrity(&repo_full, ctx)
@@ -245,7 +245,7 @@ pub fn label_response_items(
                 )
             {
                 let items = extract_items_slice(&actual_response, "items");
-                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+                let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
                 for item in limit_items_with_log(items, tool_name) {
                     let id = get_str_or(item, field_names::ID, UNKNOWN_LABEL_FALLBACK);
                     labeled_items.push(LabeledItem {
@@ -260,7 +260,7 @@ pub fn label_response_items(
                 }
             } else if tool_name == tool_names::PULL_REQUEST_READ && method == "get_commits" {
                 let items = extract_items_slice(&actual_response, "items");
-                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+                let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
                 let repo_private = repo_visibility_private_for_repo_id(&repo_full);
                 for item in limit_items_with_log(items, tool_name) {
                     let sha = get_str_or(item, field_names::SHA, UNKNOWN_LABEL_FALLBACK);
@@ -288,7 +288,7 @@ pub fn label_response_items(
             } else if tool_name == tool_names::PULL_REQUEST_READ
                 && matches!(method, "get_files" | "get_diff")
             {
-                let (_, _, repo_full, secrecy) = repo_info_with_secrecy(tool_args, ctx);
+                let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
                 let integrity: SharedLabels =
                     pull_request_content_integrity(tool_args, &repo_full, ctx).into();
                 let (items, _) = extract_items_array(&actual_response);
