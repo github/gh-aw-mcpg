@@ -58,6 +58,30 @@ func TestValidateServerAgainstSchema_HappyPath(t *testing.T) {
 	assert.NoError(t, err, "conforming server config should pass schema validation")
 }
 
+// TestValidateServerAgainstSchema_MarshalError verifies that unsupported values
+// in the server configuration are reported as an internal schema-validation
+// error instead of being silently omitted or causing a panic.
+func TestValidateServerAgainstSchema_MarshalError(t *testing.T) {
+	schema := compileSchemaForTest(t, `{"type": "object"}`)
+	server := &StdinServerConfig{
+		Type:      "stdio",
+		Container: "ghcr.io/example/server:latest",
+		GuardPolicies: map[string]interface{}{
+			"unsupported": func() {},
+		},
+	}
+
+	err := validateServerAgainstSchema(
+		"test-server", server, schema,
+		"https://test.example.com/schema.json",
+		"mcpServers.test-server",
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to marshal server config for validation")
+	assert.Contains(t, err.Error(), "Internal error - please report this issue")
+}
+
 // TestValidateServerAgainstSchema_ValidationFailure verifies that a server config
 // missing a required field returns a SchemaValidationError.
 func TestValidateServerAgainstSchema_ValidationFailure(t *testing.T) {
