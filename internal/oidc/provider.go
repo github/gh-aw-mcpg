@@ -86,7 +86,7 @@ func (p *Provider) Token(ctx context.Context, audience string) (string, error) {
 	logOIDC.Printf("Fetching new OIDC token: audience=%s", audience)
 	token, expiresAt, err := p.fetchToken(ctx, audience)
 	if err != nil {
-		logOIDC.Printf("OIDC token acquisition failed: audience=%s, err=%v", audience, err)
+		logOIDC.Printf("OIDC token acquisition failed: audience=%s", audience)
 		return "", err
 	}
 
@@ -125,7 +125,7 @@ func (p *Provider) fetchToken(ctx context.Context, audience string) (string, tim
 	}
 	body, err := httputil.ReadResponseBodyStrict(resp, http.StatusOK, "OIDC token request")
 	if err != nil {
-		logOIDC.Printf("OIDC token response rejected: audience=%s, err=%v", audience, err)
+		logOIDC.Printf("OIDC token response rejected: audience=%s, status=%d", audience, resp.StatusCode)
 		return "", time.Time{}, err
 	}
 	logOIDC.Printf("OIDC token HTTP response: status=%d, bodyLen=%d", resp.StatusCode, len(body))
