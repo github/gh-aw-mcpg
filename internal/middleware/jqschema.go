@@ -73,6 +73,17 @@ type PayloadMetadata struct {
 // Empty arrays are preserved as [].
 const jqSchemaFilter = `walk_schema`
 
+// walkSchemaCompileOpts returns the compiler options that register the native
+// walk_schema function referenced by jqSchemaFilter. Compiling the filter without
+// these options fails with "function not defined: walk_schema/0".
+func walkSchemaCompileOpts() []gojq.CompilerOption {
+	return append(secureCompileOpts,
+		gojq.WithFunction("walk_schema", 0, 0, func(v any, _ []any) any {
+			return inferSchema(v)
+		}),
+	)
+}
+
 // Pre-compiled jq query code for performance.
 // This is compiled once at package initialization and reused for all requests.
 var (
@@ -119,13 +130,7 @@ func init() {
 		panic(fmt.Sprintf("built-in jq schema filter failed to parse: %v", err))
 	}
 
-	jqSchemaCode, jqSchemaCompileErr = gojq.Compile(query,
-		append(secureCompileOpts,
-			gojq.WithFunction("walk_schema", 0, 0, func(v any, _ []any) any {
-				return inferSchema(v)
-			}),
-		)...,
-	)
+	jqSchemaCode, jqSchemaCompileErr = gojq.Compile(query, walkSchemaCompileOpts()...)
 	if jqSchemaCompileErr != nil {
 		panic(fmt.Sprintf("built-in jq schema filter failed to compile: %v", jqSchemaCompileErr))
 	}

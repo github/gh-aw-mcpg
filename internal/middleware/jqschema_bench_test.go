@@ -7,6 +7,8 @@ import (
 
 	"github.com/itchyny/gojq"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // BenchmarkApplyJqSchema_CompiledCode benchmarks the current implementation
@@ -76,9 +78,7 @@ func BenchmarkApplyJqSchema_CompiledCode(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, err := applyJqSchema(ctx, tt.input)
-				if err != nil {
-					b.Fatalf("applyJqSchema failed: %v", err)
-				}
+				require.NoError(b, err, "applyJqSchema failed")
 			}
 		})
 	}
@@ -95,15 +95,15 @@ func BenchmarkApplyJqSchema_ParseEveryTime(b *testing.B) {
 	b.Skip("invalid benchmark: walk_schema requires gojq.Compile with gojq.WithFunction registration; parse-only path no longer produces meaningful results")
 }
 
-// BenchmarkCompileVsParse compares the time to compile vs parse the jq query
+// BenchmarkCompileVsParse compares the time to compile vs parse the jq query.
+// The compile path uses walkSchemaCompileOpts so the walk_schema reference resolves
+// exactly as it does in production.
 func BenchmarkCompileVsParse(b *testing.B) {
 	b.Run("parse_only", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, err := gojq.Parse(jqSchemaFilter)
-			if err != nil {
-				b.Fatalf("Parse failed: %v", err)
-			}
+			require.NoError(b, err, "Parse failed")
 		}
 	})
 
@@ -111,13 +111,9 @@ func BenchmarkCompileVsParse(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			query, err := gojq.Parse(jqSchemaFilter)
-			if err != nil {
-				b.Fatalf("Parse failed: %v", err)
-			}
-			_, err = gojq.Compile(query)
-			if err != nil {
-				b.Fatalf("Compile failed: %v", err)
-			}
+			require.NoError(b, err, "Parse failed")
+			_, err = gojq.Compile(query, walkSchemaCompileOpts()...)
+			require.NoError(b, err, "Compile failed")
 		}
 	})
 }
@@ -223,4 +219,20 @@ func BenchmarkPreviewCreation(b *testing.B) {
 			}
 		})
 	}
+}
+
+// TestWalkSchemaCompileOpts_CompilesFilter guards the benchmark compile path: the
+// filter must compile with the shared walk_schema options and produce the same
+// output as the production compiled code.
+func TestWalkSchemaCompileOpts_CompilesFilter(t *testing.T) {
+	query, err := gojq.Parse(jqSchemaFilter)
+	require.NoError(t, err)
+
+	code, err := gojq.Compile(query, walkSchemaCompileOpts()...)
+	require.NoError(t, err, "filter must compile with walk_schema registered")
+
+	input := map[string]interface{}{"name": "test", "count": 42}
+	got, ok := code.RunWithContext(context.Background(), input).Next()
+	require.True(t, ok, "compiled filter should produce one output")
+	assert.Equal(t, inferSchema(input), got)
 }
