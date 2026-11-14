@@ -16,9 +16,11 @@ use labels::constants::field_names;
 use labels::constants::policy_integrity;
 use labels::constants::scope_names;
 use labels::constants::tool_names;
+use labels::constants::ORG_FIELD_ALIASES;
 use labels::{
-    blocked_integrity, extract_repo_id, extract_repo_info_from_search_query, get_str_or,
-    MinIntegrity, PolicyContext, PolicyScopeEntry, ScopeKind,
+    blocked_integrity, extract_repo_id, extract_repo_info_from_search_query,
+    get_first_non_empty_field, get_str_or, MinIntegrity, PolicyContext, PolicyScopeEntry,
+    ScopeKind,
 };
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
@@ -512,27 +514,8 @@ fn infer_scope_for_baseline<'a>(
             if !repo_id.is_empty() {
                 return Cow::Borrowed(repo_id);
             }
-            let org = tool_args
-                .get("org")
-                .and_then(Value::as_str)
-                .filter(|value| !value.is_empty())
-                .or_else(|| {
-                    tool_args
-                        .get("org_name")
-                        .and_then(Value::as_str)
-                        .filter(|value| !value.is_empty())
-                })
-                .or_else(|| {
-                    tool_args
-                        .get("organization")
-                        .and_then(Value::as_str)
-                        .filter(|value| !value.is_empty())
-                })
-                .or_else(|| {
-                    Some(get_str_or(tool_args, field_names::ORGANIZATION_NAME, ""))
-                        .filter(|value| !value.is_empty())
-                });
-            if let Some(org) = org {
+            let org = get_first_non_empty_field(tool_args, ORG_FIELD_ALIASES);
+            if !org.is_empty() {
                 Cow::Owned(org.to_string())
             } else {
                 let owner = get_str_or(tool_args, field_names::OWNER, "");

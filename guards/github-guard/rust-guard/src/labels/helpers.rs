@@ -1208,6 +1208,20 @@ pub(crate) fn get_str_or<'a>(value: &'a Value, field: &str, default: &'a str) ->
     value.get(field).and_then(|v| v.as_str()).unwrap_or(default)
 }
 
+/// Return the first non-empty string field from `tool_args` using the provided lookup order.
+///
+/// This is used by scope-sensitive CLI guard entries whose synthetic arguments may carry
+/// equivalent scope information under several field names (for example `org`,
+/// `organization`, or `org_name`). The first field that exists and is a non-empty string is
+/// returned; otherwise this returns an empty string.
+pub(crate) fn get_first_non_empty_field<'a>(tool_args: &'a Value, fields: &[&str]) -> &'a str {
+    fields
+        .iter()
+        .map(|field_name| get_str_or(tool_args, field_name, ""))
+        .find(|value| !value.is_empty())
+        .unwrap_or("")
+}
+
 /// Extract a nested string field (e.g., user.login) from a JSON value
 #[inline]
 pub(crate) fn get_nested_str<'a>(value: &'a Value, outer: &str, inner: &str) -> &'a str {
