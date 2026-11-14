@@ -12,6 +12,9 @@ var logMCPResult = logger.ForFile()
 // error result.
 func IsErrorResult(result map[string]interface{}) bool {
 	isError, _ := result["isError"].(bool)
+	if isError {
+		logMCPResult.Print("MCP result is marked as an error (isError=true)")
+	}
 	return isError
 }
 
@@ -37,12 +40,17 @@ func NormalizeContentItems(contentVal interface{}) ([]map[string]interface{}, bo
 	switch v := contentVal.(type) {
 	case []interface{}:
 		items := make([]map[string]interface{}, 0, len(v))
+		skipped := 0
 		for _, item := range v {
 			ci, ok := item.(map[string]interface{})
 			if !ok {
+				skipped++
 				continue
 			}
 			items = append(items, ci)
+		}
+		if skipped > 0 {
+			logMCPResult.Printf("Skipped %d non-map content item(s) during normalization", skipped)
 		}
 		logMCPResult.Printf("Normalized []interface{} content: input=%d output=%d", len(v), len(items))
 		return items, true
@@ -76,15 +84,18 @@ func ExtractTextContent(result map[string]interface{}) string {
 	logMCPResult.Printf("Processing %d normalized MCP content items for text extraction", len(items))
 
 	var text strings.Builder
+	skippedNonText := 0
 	for _, item := range items {
 		itemType, _ := item["type"].(string)
 		switch itemType {
 		case "", "text":
 			// keep
 		case "image", "audio", "resource":
+			skippedNonText++
 			continue
 		default:
 			// Unknown types are treated as text for compatibility with ConvertToCallToolResult.
+			logMCPResult.Printf("Treating unknown MCP content type %q as text", itemType)
 		}
 		itemText, _ := item["text"].(string)
 		if itemText == "" {
@@ -93,6 +104,9 @@ func ExtractTextContent(result map[string]interface{}) string {
 		text.WriteString(itemText)
 	}
 
+	if skippedNonText > 0 {
+		logMCPResult.Printf("Skipped %d non-text content item(s) (image/audio/resource)", skippedNonText)
+	}
 	logMCPResult.Printf("Finished text extraction with output length=%d", text.Len())
 
 	return text.String()
