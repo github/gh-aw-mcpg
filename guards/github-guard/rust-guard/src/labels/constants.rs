@@ -421,7 +421,12 @@ pub const URL_FALLBACK_FIELDS: &[&str] = &["repository_url", "html_url", "url"];
 /// different tool argument shapes (governance reads/writes and
 /// scope-sensitive secret/variable writes). Centralized so both call sites
 /// stay in sync if a new org-alias field is ever added.
-pub const ORG_FIELD_ALIASES: &[&str] = &["org", "org_name", "organization", "organization_name"];
+pub const ORG_FIELD_ALIASES: &[&str] = &[
+    "org",
+    "org_name",
+    "organization",
+    field_names::ORGANIZATION_NAME,
+];
 
 /// Buffer size constants for backend calls
 pub const SMALL_BUFFER_SIZE: usize = 256 * 1024; // 256KB

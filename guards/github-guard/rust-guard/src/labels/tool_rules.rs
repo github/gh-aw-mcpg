@@ -15,15 +15,19 @@ use super::constants::{CODE_SCANNING_DEPENDABOT_ALERT_TOOLS, SECRET_SCANNING_ALE
 use super::helpers::{
     author_association_floor_from_str, blocked_integrity, elevate_via_collaborator_permission,
     ensure_integrity_baseline, extract_number_as_string, extract_repo_info_from_search_query,
-    file_content_integrity, format_repo_id, get_str_or, is_any_trusted_actor, is_blocked_user,
-    is_default_branch_commit_context, max_integrity, merged_integrity, none_integrity,
-    policy_private_scope_label, private_scope_label, private_user_label, project_github_label,
-    reader_integrity, short_sha, split_repo_id, writer_integrity, PolicyContext, ScopeKind,
+    file_content_integrity, format_repo_id, get_first_non_empty_field, get_str_or,
+    is_any_trusted_actor, is_blocked_user, is_default_branch_commit_context, max_integrity,
+    merged_integrity, none_integrity, policy_private_scope_label, private_scope_label,
+    private_user_label, project_github_label, reader_integrity, short_sha, split_repo_id,
+    writer_integrity, PolicyContext, ScopeKind,
 };
 use std::borrow::Cow;
 
 fn user_writer_labels(ctx: &PolicyContext) -> (Vec<String>, Vec<String>) {
-    (private_user_label(), writer_integrity(scope_names::USER, ctx))
+    (
+        private_user_label(),
+        writer_integrity(scope_names::USER, ctx),
+    )
 }
 
 fn apply_repo_visibility_secrecy(
@@ -94,20 +98,6 @@ fn resolve_search_scope(tool_args: &Value, owner: &str, repo: &str) -> (String, 
     } else {
         (String::new(), String::new(), String::new())
     }
-}
-
-/// Return the first non-empty string field from `tool_args` using the provided lookup order.
-///
-/// This is used by scope-sensitive CLI guard entries whose synthetic arguments may carry
-/// equivalent scope information under several field names (for example `org`,
-/// `organization`, or `org_name`). The first field that exists and is a non-empty string is
-/// returned; otherwise this returns an empty string.
-fn get_first_non_empty_field<'a>(tool_args: &'a Value, field_names: &[&str]) -> &'a str {
-    field_names
-        .iter()
-        .map(|field_name| get_str_or(tool_args, field_name, ""))
-        .find(|value| !value.is_empty())
-        .unwrap_or("")
 }
 
 fn graphql_has_single_root_field(tool_args: &Value, expected: &str) -> bool {
@@ -1773,8 +1763,7 @@ mod tests {
         let ctx = default_ctx();
         let repo_id = "octocat/issue-artifact-labels";
         for private in [false, true] {
-            let _guard =
-                super::super::backend::cache_repo_visibility_for_tests(repo_id, private);
+            let _guard = super::super::backend::cache_repo_visibility_for_tests(repo_id, private);
             let expected_secrecy = if private {
                 private_label("octocat", "issue-artifact-labels", repo_id, &ctx)
             } else {
@@ -1797,11 +1786,9 @@ mod tests {
                 ),
             ] {
                 for method in methods {
-                    for issue_number in [
-                        serde_json::json!(42),
-                        serde_json::json!("42"),
-                        Value::Null,
-                    ] {
+                    for issue_number in
+                        [serde_json::json!(42), serde_json::json!("42"), Value::Null]
+                    {
                         let mut args = serde_json::json!({
                             "owner": "octocat",
                             "repo": "issue-artifact-labels",
