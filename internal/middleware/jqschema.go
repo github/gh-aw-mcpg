@@ -545,18 +545,12 @@ func wrapToolHandler(
 						}
 						if onlyKnownKeys {
 							items, ok := mcpresult.NormalizeContentItems(env["content"])
-							var first map[string]any
-							switch c := env["content"].(type) {
-							case []any:
-								if len(c) == 1 && ok && len(items) == 1 {
-									first = items[0]
-								}
-							case []map[string]any:
-								if len(c) == 1 && ok && len(items) == 1 {
-									first = items[0]
-								}
+							// Normalization skips non-map []any entries; they must still count.
+							if rawItems, isRawSlice := env["content"].([]any); isRawSlice && len(rawItems) != 1 {
+								ok = false
 							}
-							if first != nil {
+							if ok && len(items) == 1 {
+								first := items[0]
 								if itemType, _ := first["type"].(string); itemType == "text" {
 									if text, _ := first["text"].(string); text == tc.Text && len(text) <= sizeThreshold-fastPathOverheadBound {
 										logMiddleware.Printf("fast-path: content_text_len=%d within threshold-%d=%d, skipping json.Marshal: tool=%s, queryID=%s",
