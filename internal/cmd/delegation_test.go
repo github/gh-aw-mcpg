@@ -82,10 +82,10 @@ func TestServeDelegationControl(t *testing.T) {
 			select {
 			case <-done:
 			case <-time.After(5 * time.Second):
-				t.Fatal("control listener serve loop did not exit")
+				require.Fail(t, "control listener serve loop did not exit")
 			}
 			if graceful {
-				assert.NoError(t, ctx.Err())
+				require.NoError(t, ctx.Err())
 				assert.Empty(t, errCh)
 			} else {
 				require.ErrorIs(t, ctx.Err(), context.Canceled)
