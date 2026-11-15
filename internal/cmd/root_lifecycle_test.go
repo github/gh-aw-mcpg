@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"log"
 	"os"
 	"testing"
@@ -51,6 +52,20 @@ func TestPostRun(t *testing.T) {
 			postRun(&cobra.Command{}, nil)
 			postRun(&cobra.Command{}, nil)
 		})
+	})
+
+	t.Run("logs a warning when logger cleanup fails", func(t *testing.T) {
+		originalCloseAllLoggers := closeAllLoggers
+		closeAllLoggers = func() error { return errors.New("cleanup failed") }
+		t.Cleanup(func() { closeAllLoggers = originalCloseAllLoggers })
+
+		var buf bytes.Buffer
+		originalLogWriter := log.Writer()
+		log.SetOutput(&buf)
+		t.Cleanup(func() { log.SetOutput(originalLogWriter) })
+
+		require.NotPanics(t, func() { postRun(&cobra.Command{}, nil) })
+		assert.Contains(t, buf.String(), "Warning: error closing loggers: cleanup failed")
 	})
 }
 
