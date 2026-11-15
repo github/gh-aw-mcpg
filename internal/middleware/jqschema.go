@@ -692,15 +692,8 @@ func wrapToolHandler(
 
 		// Create a new CallToolResult with the transformed content
 		// Replace the original content with our rewritten response
-		transformedResult := &sdk.CallToolResult{
-			Content: []sdk.Content{
-				&sdk.TextContent{
-					Text: string(rewrittenJSON),
-				},
-			},
-			IsError: result.IsError,
-			Meta:    result.Meta,
-		}
+		transformedResult := mcp.NewTextCallToolResult(string(rewrittenJSON), result.IsError)
+		transformedResult.Meta = result.Meta
 
 		logger.LogInfo("payload", "Returning transformed response to client: tool=%s, queryID=%s, session=%s, clientReceivesMetadata=true",
 			toolName, queryID, util.FormatSessionIDForLog(sessionID))

@@ -384,10 +384,7 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 		// rate-limit details. ErrCircuitOpen is only returned when cb.Allow() rejects
 		// the call before contacting the backend.
 		errText := extractRateLimitErrorText(backendResult)
-		return &sdk.CallToolResult{
-			Content: []sdk.Content{&sdk.TextContent{Text: errText}},
-			IsError: true,
-		}, backendResult, nil
+		return mcp.NewErrorTextCallToolResult(errText), backendResult, nil
 	}
 	cb.RecordSuccess()
 

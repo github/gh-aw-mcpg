@@ -231,6 +231,8 @@ func TestRewriteFilteredTextPayload(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, `"new"`, tc.Text)
 		assert.Equal(t, trailing, got.Content[1])
+		assert.Equal(t, &sdk.TextContent{Text: `"original"`}, result.Content[0])
+		assert.Same(t, trailing, result.Content[1])
 	})
 
 	t.Run("envelope rewrite fails, valid JSON filteredText parses to filteredPayload", func(t *testing.T) {
@@ -271,9 +273,12 @@ func TestRewriteFilteredTextPayload(t *testing.T) {
 		result := &sdk.CallToolResult{
 			Content: []sdk.Content{&sdk.TextContent{Text: `"x"`}},
 			IsError: true,
+			Meta:    sdk.Meta{"requestId": "request-123"},
 		}
 		got, _ := rewriteFilteredTextPayload(result, data, `"y"`)
 		assert.True(t, got.IsError)
+		assert.Equal(t, result.Meta, got.Meta)
+		assert.NotSame(t, result, got)
 	})
 }
 

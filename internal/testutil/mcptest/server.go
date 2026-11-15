@@ -64,27 +64,13 @@ func (s *Server) Start() error {
 			args, err := mcp.ParseToolArguments(req)
 			if err != nil {
 				logServer.Printf("tool call failed to parse arguments: tool=%s, err=%v", tool.Name, err)
-				return &sdk.CallToolResult{
-					IsError: true,
-					Content: []sdk.Content{
-						&sdk.TextContent{
-							Text: fmt.Sprintf("Failed to parse tool arguments: %v", err),
-						},
-					},
-				}, nil
+				return mcp.NewErrorTextCallToolResult(fmt.Sprintf("Failed to parse tool arguments: %v", err)), nil
 			}
 
 			content, err := tool.Handler(args)
 			if err != nil {
 				logServer.Printf("tool handler returned error: tool=%s, err=%v", tool.Name, err)
-				return &sdk.CallToolResult{
-					IsError: true,
-					Content: []sdk.Content{
-						&sdk.TextContent{
-							Text: fmt.Sprintf("Tool execution error: %v", err),
-						},
-					},
-				}, nil
+				return mcp.NewErrorTextCallToolResult(fmt.Sprintf("Tool execution error: %v", err)), nil
 			}
 
 			return &sdk.CallToolResult{

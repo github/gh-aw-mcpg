@@ -4,22 +4,17 @@ import (
 	"encoding/json"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/mcp"
 	"github.com/github/gh-aw-mcpg/internal/util"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func rewriteFilteredTextPayload(result *sdk.CallToolResult, data any, filteredText string) (*sdk.CallToolResult, any) {
 	logMiddleware.Printf("rewriteFilteredTextPayload: rewriting first text content item, filteredLen=%d", len(filteredText))
-	rewrittenContent := make([]sdk.Content, 0, len(result.Content))
-	rewrittenContent = append(rewrittenContent, &sdk.TextContent{Text: filteredText})
+	rewrittenResult := mcp.NewTextCallToolResult(filteredText, result.IsError)
+	rewrittenResult.Meta = result.Meta
 	if len(result.Content) > 1 {
-		rewrittenContent = append(rewrittenContent, result.Content[1:]...)
-	}
-
-	rewrittenResult := &sdk.CallToolResult{
-		Content: rewrittenContent,
-		IsError: result.IsError,
-		Meta:    result.Meta,
+		rewrittenResult.Content = append(rewrittenResult.Content, result.Content[1:]...)
 	}
 
 	if rewrittenData, ok := rewriteEnvelopeTextPayload(data, filteredText); ok {
