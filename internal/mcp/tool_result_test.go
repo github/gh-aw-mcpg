@@ -10,6 +10,46 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNewTextCallToolResult(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		text    string
+		isError bool
+	}{
+		{name: "success", text: "hello\n\"世界\""},
+		{name: "error", text: `{"error":"tool failed"}`, isError: true},
+		{name: "empty success"},
+		{name: "empty error", isError: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NewTextCallToolResult(tt.text, tt.isError)
+
+			assert.Equal(t, &sdk.CallToolResult{
+				Content: []sdk.Content{&sdk.TextContent{Text: tt.text}},
+				IsError: tt.isError,
+			}, result)
+		})
+	}
+}
+
+func TestNewErrorTextCallToolResult(t *testing.T) {
+	t.Parallel()
+
+	for _, text := range []string{"tool execution failed", ""} {
+		t.Run(text, func(t *testing.T) {
+			result := NewErrorTextCallToolResult(text)
+
+			assert.Equal(t, &sdk.CallToolResult{
+				Content: []sdk.Content{&sdk.TextContent{Text: text}},
+				IsError: true,
+			}, result)
+		})
+	}
+}
+
 // TestConvertToCallToolResult tests conversion of backend result data to SDK CallToolResult format.
 func TestConvertToCallToolResult(t *testing.T) {
 	t.Parallel()

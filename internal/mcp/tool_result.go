@@ -12,14 +12,26 @@ import (
 
 var logToolResult = logger.ForFile()
 
+// NewTextCallToolResult creates a CallToolResult containing a single text item.
+// Callers rebuilding an existing result must propagate its metadata explicitly.
+func NewTextCallToolResult(text string, isError bool) *sdk.CallToolResult {
+	return &sdk.CallToolResult{
+		Content: []sdk.Content{&sdk.TextContent{Text: text}},
+		IsError: isError,
+	}
+}
+
+// NewErrorTextCallToolResult creates an error CallToolResult containing a single text item.
+func NewErrorTextCallToolResult(text string) *sdk.CallToolResult {
+	return NewTextCallToolResult(text, true)
+}
+
 func marshalValueToTextContentResult(value any) (*sdk.CallToolResult, error) {
 	dataBytes, err := json.Marshal(value)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal backend result: %w", err)
 	}
-	return &sdk.CallToolResult{
-		Content: []sdk.Content{&sdk.TextContent{Text: string(dataBytes)}},
-	}, nil
+	return NewTextCallToolResult(string(dataBytes), false), nil
 }
 
 // ConvertToCallToolResult converts backend result data to SDK CallToolResult format.
@@ -194,12 +206,7 @@ func NewErrorCallToolResult(err error) (*sdk.CallToolResult, any, error) {
 	if err == nil {
 		err = fmt.Errorf("unknown error")
 	}
-	return &sdk.CallToolResult{
-		IsError: true,
-		Content: []sdk.Content{
-			&sdk.TextContent{Text: err.Error()},
-		},
-	}, nil, err
+	return NewErrorTextCallToolResult(err.Error()), nil, err
 }
 
 // BuildMCPTextResponse returns a raw MCP response map with a single text content item.

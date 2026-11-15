@@ -107,6 +107,7 @@ func TestWrapToolHandler_SchemaGenerationSuccess_ReturnsPayloadMetadata(t *testi
 
 	originalResult := &sdk.CallToolResult{
 		Content: []sdk.Content{&sdk.TextContent{Text: "result"}},
+		Meta:    sdk.Meta{"requestId": "request-123"},
 	}
 	originalData := map[string]any{"key": "value"}
 
@@ -119,6 +120,14 @@ func TestWrapToolHandler_SchemaGenerationSuccess_ReturnsPayloadMetadata(t *testi
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
+	assert.False(t, result.IsError)
+	assert.Equal(t, originalResult.Meta, result.Meta)
+	assert.NotSame(t, originalResult, result)
+	require.Len(t, result.Content, 1)
+	text, ok := result.Content[0].(*sdk.TextContent)
+	require.True(t, ok)
+	assert.Contains(t, text.Text, `"payloadPath"`)
+	assert.Equal(t, &sdk.TextContent{Text: "result"}, originalResult.Content[0])
 	meta, ok := data.(PayloadMetadata)
 	require.True(t, ok, "expected PayloadMetadata for oversized payload with successful schema generation")
 	assert.NotEmpty(t, meta.PayloadPath)
