@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/envutil"
+	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 const (
@@ -17,7 +18,7 @@ func isNonEmptyWhitespace(s string) bool {
 }
 
 func normalizeContainerRuntime(runtime string) string {
-	return strings.ToLower(strings.TrimSpace(runtime))
+	return util.NormalizeStringCI(runtime)
 }
 
 func runtimeCommandForName(runtime string) string {

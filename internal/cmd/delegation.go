@@ -35,15 +35,22 @@ func startUnifiedDelegationControl(
 			return ctx
 		},
 	}
-	go func() {
-		if err := controlHTTPServer.Serve(controlListener); err != nil && err != http.ErrServerClosed {
-			logger.LogError("delegation", "Private delegation control channel exited unexpectedly, shutting down: %v", err)
-			controlListenerErrCh <- err
-			cancel()
-		}
-	}()
+	go serveDelegationControl(controlHTTPServer, controlListener, controlListenerErrCh, cancel)
 	logger.LogInfo("startup", "Private delegation control channel listening on %s", controlListener.Addr())
 	return controlHTTPServer, controlListenerErrCh, nil
+}
+
+func serveDelegationControl(srv *http.Server, listener net.Listener, errCh chan<- error, cancel context.CancelFunc) {
+	if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
+		// A post-start failure of the private control listener
+		// must not silently leave the data plane running while
+		// AWF loses its only way to create, confirm, revoke, or
+		// reconcile delegated identities: treat it as fatal to
+		// the whole process rather than merely logging it.
+		logger.LogError("delegation", "Private delegation control channel exited unexpectedly, shutting down: %v", err)
+		errCh <- err
+		cancel()
+	}
 }
 
 func persistUnifiedDelegationState(delegationConfig *delegation.RuntimeConfig, delegationStatePath string) error {

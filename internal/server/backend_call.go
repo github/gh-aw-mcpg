@@ -280,15 +280,8 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 		return mcp.NewErrorCallToolResult(deniedErr)
 	}
 
-	// Create backend caller for the guard
-	backendCaller := &guardBackendCaller{
-		server:   us,
-		serverID: serverID,
-		ctx:      ctx,
-	}
-
 	// Initialize policy-driven guard session state (label_agent) before first guarded call.
-	enforcementMode, err := us.ensureGuardInitialized(ctx, sessionID, serverID, g, backendCaller)
+	pipelineIn, err := us.buildPipelineInput(ctx, sessionID, serverID, toolName, args, g)
 	if err != nil {
 		httpStatusCode = 500
 		return mcp.NewErrorCallToolResult(fmt.Errorf("guard session initialization failed: %w", err))
@@ -299,21 +292,11 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 		return mcp.NewErrorCallToolResult(err)
 	}
 
-	requestEvaluator := difc.NewEvaluatorWithMode(enforcementMode)
+	requestEvaluator := pipelineIn.Evaluator
+	enforcementMode := pipelineIn.EnforcementMode
 
 	// **Phases 0–2: Get agent labels, label resource, coarse access check**
-	agentID := guard.GetAgentIDFromContext(ctx)
-	pipelineIn := guard.PipelineInput{
-		AgentID:         agentID,
-		ToolName:        toolName,
-		Args:            args,
-		Guard:           g,
-		Evaluator:       requestEvaluator,
-		AgentRegistry:   us.AgentRegistry,
-		Capabilities:    us.Capabilities,
-		EnforcementMode: enforcementMode,
-		BackendCaller:   backendCaller,
-	}
+	agentID := pipelineIn.AgentID
 	ctx, pre, err := guard.RunPipelinePrePhases(ctx, pipelineIn)
 	if err != nil {
 		if denied, detailedErr := guard.HandlePrePhaseError(err); denied != nil {

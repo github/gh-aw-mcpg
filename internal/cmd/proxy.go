@@ -387,18 +387,7 @@ func runProxy(cmd *cobra.Command, args []string) error {
 		controlHTTPServer = &http.Server{
 			Handler: delegationConfigHandler(proxySrv),
 		}
-		go func() {
-			if err := controlHTTPServer.Serve(controlListener); err != nil && err != http.ErrServerClosed {
-				// A post-start failure of the private control listener
-				// must not silently leave the data plane running while
-				// AWF loses its only way to create, confirm, revoke, or
-				// reconcile delegated identities: treat it as fatal to
-				// the whole proxy process rather than merely logging it.
-				logger.LogError("delegation", "Private delegation control channel exited unexpectedly, shutting down: %v", err)
-				controlListenerErrCh <- err
-				cancel()
-			}
-		}()
+		go serveDelegationControl(controlHTTPServer, controlListener, controlListenerErrCh, cancel)
 		defer func() {
 			_ = controlHTTPServer.Shutdown(context.Background())
 		}()

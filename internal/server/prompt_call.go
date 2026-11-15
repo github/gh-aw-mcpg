@@ -9,7 +9,6 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/github/gh-aw-mcpg/internal/guard"
 	"github.com/github/gh-aw-mcpg/internal/logger"
-	"github.com/github/gh-aw-mcpg/internal/mcp"
 	"github.com/github/gh-aw-mcpg/internal/sanitize"
 	"github.com/github/gh-aw-mcpg/internal/util"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -61,32 +60,14 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 	if err != nil {
 		return nil, fmt.Errorf("failed to create isolated guard session: %w", err)
 	}
-	backendCaller := &guardBackendCaller{
-		server:   us,
-		serverID: serverID,
-		ctx:      ctx,
-	}
-	enforcementMode, err := us.ensureGuardInitialized(ctx, sessionID, serverID, g, backendCaller)
+	pipelineIn, err := us.buildPipelineInput(ctx, sessionID, serverID, promptName, args, g)
 	if err != nil {
 		return nil, fmt.Errorf("guard session initialization failed: %w", err)
 	}
 
+	enforcementMode := pipelineIn.EnforcementMode
 	logUnified.Printf("callBackendPrompt: guard initialized: serverID=%s, enforcementMode=%v", serverID, enforcementMode)
-	requestEvaluator := difc.NewEvaluatorWithMode(enforcementMode)
-	pipelineIn := guard.PipelineInput{
-		AgentID:         agentID,
-		ToolName:        promptName,
-		Args:            args,
-		Guard:           g,
-		Evaluator:       requestEvaluator,
-		AgentRegistry:   us.AgentRegistry,
-		Capabilities:    us.Capabilities,
-		EnforcementMode: enforcementMode,
-		BackendCaller:   backendCaller,
-		SensitiveLogging: sanitize.ShouldRedactPayload(
-			mcp.IsEnclaveSession(ctx),
-		),
-	}
+	requestEvaluator := pipelineIn.Evaluator
 	ctx, pre, err := guard.RunPipelinePrePhases(ctx, pipelineIn)
 	if err != nil {
 		if denied, detailedErr := guard.HandlePrePhaseError(err); denied != nil {

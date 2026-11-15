@@ -57,6 +57,45 @@ func TestStartUnifiedDelegationControlServesStatus(t *testing.T) {
 	require.NoError(t, selectDelegationControlError(nil, controlErrCh))
 }
 
+func TestServeDelegationControl(t *testing.T) {
+	for _, graceful := range []bool{false, true} {
+		name := "listener failure cancels data plane"
+		if graceful {
+			name = "server shutdown does not cancel data plane"
+		}
+		t.Run(name, func(t *testing.T) {
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			require.NoError(t, err)
+			require.NoError(t, listener.Close())
+			srv := &http.Server{}
+			if graceful {
+				require.NoError(t, srv.Close())
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			errCh := make(chan error, 1)
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				serveDelegationControl(srv, listener, errCh, cancel)
+			}()
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				require.Fail(t, "control listener serve loop did not exit")
+			}
+			if graceful {
+				require.NoError(t, ctx.Err())
+				assert.Empty(t, errCh)
+			} else {
+				require.ErrorIs(t, ctx.Err(), context.Canceled)
+				require.Len(t, errCh, 1)
+				assert.ErrorIs(t, <-errCh, net.ErrClosed)
+			}
+		})
+	}
+}
+
 func TestStartUnifiedDelegationControlFailsWhenListenAddrOccupied(t *testing.T) {
 	previousRedaction := sanitize.PrivateSelectorRedactionEnabled()
 	t.Cleanup(func() { sanitize.SetPrivateSelectorRedaction(previousRedaction) })
