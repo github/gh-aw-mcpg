@@ -29,6 +29,8 @@ const (
 // Package-level variables that don't belong to a specific feature
 var (
 	debugLog = logger.ForFile()
+	// Keep cleanup injectable so postRun can exercise its warning path.
+	closeAllLoggers = logger.CloseAllLoggers
 	// cliVersion stores the version string for Cobra's CLI version display.
 	// This is kept separate from version.Get() because rootCmd.Version must be
 	// set at initialization time (before SetVersion is called). We sync both
@@ -143,7 +145,7 @@ func preRun(cmd *cobra.Command, args []string) error {
 
 // postRun performs cleanup after command execution
 func postRun(cmd *cobra.Command, args []string) {
-	if err := logger.CloseAllLoggers(); err != nil {
+	if err := closeAllLoggers(); err != nil {
 		log.Printf("Warning: error closing loggers: %v", err)
 	}
 }
