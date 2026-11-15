@@ -522,12 +522,14 @@ pub fn apply_tool_labels(
         }
 
         // === Security-sensitive data: always private regardless of repo visibility ===
-        // These alerts expose repository security findings. Keep them below writer-level data
-        // because the returned findings are observations, not evidence of repository writes.
+        // Code scanning findings are produced by trusted repository-configured tools.
+        tool_names::LIST_CODE_SCANNING_ALERTS | tool_names::GET_CODE_SCANNING_ALERT => {
+            secrecy = policy_private_scope_label(&owner, &repo, repo_id, ctx);
+            integrity = writer_integrity(repo_id, ctx);
+        }
+
         tool_names::LIST_SECRET_SCANNING_ALERTS
         | tool_names::GET_SECRET_SCANNING_ALERT
-        | tool_names::LIST_CODE_SCANNING_ALERTS
-        | tool_names::GET_CODE_SCANNING_ALERT
         | tool_names::LIST_DEPENDABOT_ALERTS
         | tool_names::GET_DEPENDABOT_ALERT => {
             secrecy = policy_private_scope_label(&owner, &repo, repo_id, ctx);
@@ -2241,9 +2243,13 @@ mod tests {
         let args = serde_json::json!({"owner": "octocat", "repo": "hello-world"});
         let repo_id = "octocat/hello-world";
         let expected_secrecy = private_label("octocat", "hello-world", repo_id, &ctx);
-        let expected_integrity = reader_integrity(repo_id, &ctx);
-
         for tool in CODE_SCANNING_DEPENDABOT_ALERT_TOOLS.iter().copied() {
+            let expected_integrity = match tool {
+                tool_names::LIST_CODE_SCANNING_ALERTS | tool_names::GET_CODE_SCANNING_ALERT => {
+                    writer_integrity(repo_id, &ctx)
+                }
+                _ => reader_integrity(repo_id, &ctx),
+            };
             let (secrecy, integrity, _) =
                 super::apply_tool_labels(tool, &args, repo_id, vec![], vec![], String::new(), &ctx);
             assert_eq!(
@@ -2252,8 +2258,43 @@ mod tests {
             );
             assert_eq!(
                 integrity, expected_integrity,
-                "{tool}: expected reader-level integrity",
+                "{tool}: expected tool-specific integrity",
             );
+        }
+    }
+
+    #[test]
+    fn apply_tool_labels_code_scanning_is_private_and_approved_regardless_of_visibility() {
+        let ctx = default_ctx();
+        let args = serde_json::json!({"owner": "octocat", "repo": "code-scanning"});
+        let repo_id = "octocat/code-scanning";
+
+        for private in [false, true] {
+            let _guard = crate::labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            for tool in [
+                tool_names::LIST_CODE_SCANNING_ALERTS,
+                tool_names::GET_CODE_SCANNING_ALERT,
+            ] {
+                let (secrecy, integrity, _) = super::apply_tool_labels(
+                    tool,
+                    &args,
+                    repo_id,
+                    vec![],
+                    vec![],
+                    String::new(),
+                    &ctx,
+                );
+                assert_eq!(secrecy, vec![format!("private:{repo_id}")], "{tool}");
+                assert_eq!(
+                    integrity,
+                    vec![
+                        format!("none:{repo_id}"),
+                        format!("unapproved:{repo_id}"),
+                        format!("approved:{repo_id}"),
+                    ],
+                    "{tool}"
+                );
+            }
         }
     }
 

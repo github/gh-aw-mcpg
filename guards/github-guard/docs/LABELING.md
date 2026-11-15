@@ -112,11 +112,16 @@ for supported policy choices and the current `approved` review limitation.
 
 | Tool | Secrecy | Integrity |
 |------|---------|-----------|
-| Secret scanning | `private:<repo>` (always, even public repos) | `approved + unapproved` |
+| Secret scanning | `private:<repo>` (always, even public repos) | `unapproved` |
 | Code scanning | `private:<repo>` | `approved + unapproved` |
-| Dependabot | `private:<repo>` | `approved + unapproved` |
+| Dependabot | `private:<repo>` | `unapproved` |
 | Global advisories | `[]` | `approved:github` |
 | Repo advisories | `private:<repo>` | `unapproved` |
+
+Code scanning list/get responses, individual alerts, and list envelope defaults
+receive writer-level (`approved`) integrity because trusted repository-configured
+tools produce the findings. Secrecy remains private even for public repositories.
+Secret scanning and Dependabot alerts retain reader-level (`unapproved`) integrity.
 
 ### File Contents
 

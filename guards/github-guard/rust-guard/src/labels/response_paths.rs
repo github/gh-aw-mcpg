@@ -561,7 +561,7 @@ pub fn label_response_paths(
             }
         }
 
-        // === Security alert lists - always private and reader-level ===
+        // === Security alert lists - always private, code scanning is writer-level ===
         tool_names::LIST_SECRET_SCANNING_ALERTS
         | tool_names::LIST_CODE_SCANNING_ALERTS
         | tool_names::LIST_DEPENDABOT_ALERTS => {
@@ -570,7 +570,13 @@ pub fn label_response_paths(
                 let (owner, repo, repo_full) = extract_repo_scope_with_query_fallback(tool_args);
                 let secrecy: crate::SharedLabels =
                     policy_private_scope_label(&owner, &repo, &repo_full, ctx).into();
-                let integrity: crate::SharedLabels = reader_integrity(&repo_full, ctx).into();
+                let integrity: crate::SharedLabels =
+                    if tool_name == tool_names::LIST_CODE_SCANNING_ALERTS {
+                        writer_integrity(&repo_full, ctx)
+                    } else {
+                        reader_integrity(&repo_full, ctx)
+                    }
+                    .into();
                 let items_to_process = limit_items_with_log(items, tool_name);
                 let labeled_paths = items_to_process
                     .iter()
@@ -1578,7 +1584,11 @@ mod tests {
                             "secrecy": policy_private_scope_label(
                                 "octocat", "hello-world", "octocat/hello-world", &ctx
                             ),
-                            "integrity": reader_integrity("octocat/hello-world", &ctx),
+                            "integrity": if tool_name == tool_names::LIST_CODE_SCANNING_ALERTS {
+                                writer_integrity("octocat/hello-world", &ctx)
+                            } else {
+                                reader_integrity("octocat/hello-world", &ctx)
+                            },
                         })
                     );
 
