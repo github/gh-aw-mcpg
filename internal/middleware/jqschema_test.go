@@ -30,9 +30,7 @@ func testGetSessionID(ctx context.Context) string {
 func payloadMetadataToMap(t *testing.T, data interface{}) map[string]interface{} {
 	t.Helper()
 	pm, ok := data.(PayloadMetadata)
-	if !ok {
-		t.Fatalf("expected PayloadMetadata, got %T", data)
-	}
+	require.True(t, ok, "expected PayloadMetadata, got %T", data)
 	jsonBytes, err := json.Marshal(pm)
 	require.NoError(t, err)
 	var result map[string]interface{}
@@ -827,20 +825,15 @@ func TestApplyJqSchema_ErrorCases(t *testing.T) {
 	})
 
 	t.Run("handles context cancellation", func(t *testing.T) {
-		// Create a cancelled context
 		ctx, cancel := context.WithCancel(context.Background())
-		cancel() // Cancel immediately
+		cancel()
 
 		input := map[string]interface{}{"test": "data"}
 
-		// The query should complete quickly, but context cancellation should be handled gracefully
-		// Note: For this simple query, it may complete before cancellation is processed
-		_, err := applyJqSchema(ctx, input)
-
-		// Either succeeds (query completed before cancellation) or fails with context error
-		if err != nil {
-			assert.ErrorContains(t, err, "context", "Error should mention context if cancelled")
-		}
+		// applyJqSchema checks ctx.Err() before inferring, so a cancelled context always fails
+		result, err := applyJqSchema(ctx, input)
+		require.ErrorIs(t, err, context.Canceled)
+		assert.Nil(t, result)
 	})
 }
 
@@ -881,23 +874,18 @@ func TestApplyJqSchema_TimeoutBehavior(t *testing.T) {
 		assert.Equal(t, "string", schema["test"], "Test field should have string type")
 	})
 
-	t.Run("respects short context timeout", func(t *testing.T) {
-		// Create a context with a very short timeout (1 nanosecond)
-		// This is likely to timeout before query completion
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	t.Run("respects an expired context deadline", func(t *testing.T) {
+		// A deadline in the past is already exceeded, so the outcome is deterministic
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 		defer cancel()
 
-		// Use input that takes some time to process
 		input := map[string]interface{}{
 			"items": make([]interface{}, 1000),
 		}
 
-		_, err := applyJqSchema(ctx, input)
-
-		// Either completes (if fast enough) or times out
-		if err != nil {
-			assert.ErrorContains(t, err, "context", "Timeout error should mention context")
-		}
+		result, err := applyJqSchema(ctx, input)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		assert.Nil(t, result)
 	})
 
 	t.Run("handles large arrays within timeout", func(t *testing.T) {
@@ -998,19 +986,15 @@ func TestApplyJqSchema_ContextTimeout(t *testing.T) {
 	})
 
 	t.Run("canceled context returns error", func(t *testing.T) {
-		// Create a canceled context
 		ctx, cancel := context.WithCancel(context.Background())
-		cancel() // Cancel immediately
+		cancel()
 
 		input := map[string]interface{}{"test": "data"}
 
-		_, err := applyJqSchema(ctx, input)
-
-		// For simple queries, it might complete before cancellation is detected
-		// If error occurs, it should be context-related
-		if err != nil {
-			assert.ErrorContains(t, err, "context", "Error should mention context cancellation")
-		}
+		result, err := applyJqSchema(ctx, input)
+		require.ErrorIs(t, err, context.Canceled)
+		require.ErrorContains(t, err, "schema inference failed")
+		assert.Nil(t, result)
 	})
 }
 
