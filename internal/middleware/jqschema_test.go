@@ -993,7 +993,7 @@ func TestApplyJqSchema_ContextTimeout(t *testing.T) {
 
 		result, err := applyJqSchema(ctx, input)
 		require.ErrorIs(t, err, context.Canceled)
-		assert.ErrorContains(t, err, "schema inference failed")
+		require.ErrorContains(t, err, "schema inference failed")
 		assert.Nil(t, result)
 	})
 }
