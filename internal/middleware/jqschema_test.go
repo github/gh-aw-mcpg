@@ -1788,6 +1788,48 @@ func TestWrapToolHandler_FastPath_SkipsMarshal(t *testing.T) {
 	assert.Empty(t, entries, "fast path must not create payload files")
 }
 
+func TestWrapToolHandler_FastPath_PreservesNonMapItems(t *testing.T) {
+	t.Parallel()
+
+	const innerText = `{"repo":"owner/test"}`
+	threshold := len(innerText) + fastPathOverheadBound + 1024
+	textItem := map[string]any{"type": "text", "text": innerText}
+	largeNonMapItem := strings.Repeat("x", threshold+1)
+
+	tests := []struct {
+		name    string
+		content []any
+	}{
+		{name: "non-map after text", content: []any{textItem, largeNonMapItem}},
+		{name: "non-map before text", content: []any{largeNonMapItem, textItem}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			baseDir := t.TempDir()
+			innerData := map[string]any{"content": tt.content, "isError": false}
+			handler := func(context.Context, *sdk.CallToolRequest, any) (*sdk.CallToolResult, any, error) {
+				return &sdk.CallToolResult{
+					Content: []sdk.Content{&sdk.TextContent{Text: innerText}},
+				}, innerData, nil
+			}
+
+			wrapped := WrapToolHandler(handler, "test_tool", baseDir, "", threshold, testGetSessionID)
+			_, data, err := wrapped(context.Background(), &sdk.CallToolRequest{}, nil)
+			require.NoError(t, err)
+
+			metadata, ok := data.(PayloadMetadata)
+			require.True(t, ok, "non-map items must not be ignored by the fast path")
+			stored, err := os.ReadFile(metadata.PayloadPath)
+			require.NoError(t, err)
+			expected, err := json.Marshal(innerData)
+			require.NoError(t, err)
+			assert.JSONEq(t, string(expected), string(stored))
+			assert.Equal(t, len(expected), metadata.OriginalSize)
+		})
+	}
+}
+
 func TestWrapToolHandler_FastPath_SkipsMarshalForTypedContentSlice(t *testing.T) {
 	t.Parallel()
 	baseDir := t.TempDir()
