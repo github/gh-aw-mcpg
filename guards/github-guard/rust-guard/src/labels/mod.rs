@@ -2866,7 +2866,7 @@ mod tests {
     }
 
     #[test]
-    fn test_security_alert_response_records_keep_private_reader_labels() {
+    fn test_security_alert_response_records_keep_private_tool_specific_integrity() {
         let ctx = default_ctx();
         let args = json!({"owner": "github", "repo": "copilot"});
         let repo_id = "github/copilot";
@@ -2891,8 +2891,13 @@ mod tests {
             );
             assert_eq!(
                 items[0].labels.integrity,
-                reader_integrity(repo_id, &ctx),
-                "{tool} should label alerts with reader integrity"
+                match tool {
+                    tool_names::LIST_CODE_SCANNING_ALERTS | tool_names::GET_CODE_SCANNING_ALERT => {
+                        writer_integrity(repo_id, &ctx)
+                    }
+                    _ => reader_integrity(repo_id, &ctx),
+                },
+                "{tool} should label alerts with tool-specific integrity"
             );
             assert_eq!(
                 items[0].labels.description,
@@ -2937,7 +2942,11 @@ mod tests {
             );
             assert_eq!(
                 paths.labeled_paths[0].labels.integrity,
-                reader_integrity(repo_id, &ctx)
+                if tool == tool_names::LIST_CODE_SCANNING_ALERTS {
+                    writer_integrity(repo_id, &ctx)
+                } else {
+                    reader_integrity(repo_id, &ctx)
+                }
             );
         }
     }

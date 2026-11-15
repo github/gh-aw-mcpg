@@ -134,7 +134,7 @@ pub fn label_response_items(
             }
         }
 
-        // === Security alerts - always private and reader-level ===
+        // === Security alerts - always private, code scanning is writer-level ===
         tool_names::LIST_SECRET_SCANNING_ALERTS
         | tool_names::GET_SECRET_SCANNING_ALERT
         | tool_names::LIST_CODE_SCANNING_ALERTS
@@ -165,7 +165,16 @@ pub fn label_response_items(
                     labels: ResourceLabels {
                         description: format!("security-alert:{repo_full}#{number}"),
                         secrecy: policy_private_scope_label(owner, repo, &repo_full, ctx).into(),
-                        integrity: reader_integrity(&repo_full, ctx).into(),
+                        integrity: if matches!(
+                            tool_name,
+                            tool_names::LIST_CODE_SCANNING_ALERTS
+                                | tool_names::GET_CODE_SCANNING_ALERT
+                        ) {
+                            writer_integrity(&repo_full, ctx)
+                        } else {
+                            reader_integrity(&repo_full, ctx)
+                        }
+                        .into(),
                     },
                 });
             }
