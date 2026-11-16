@@ -69,6 +69,7 @@ func SessionIDFromContext(ctx context.Context) string {
 	if id, ok := ctx.Value(SessionIDContextKey).(string); ok && id != "" {
 		return id
 	}
+	logSession.Print("No session ID in context, falling back to default session")
 	return "default"
 }
 
@@ -90,11 +91,13 @@ func (us *UnifiedServer) ensureSessionDirectory(sessionID string) error {
 		return nil
 	} else if !os.IsNotExist(err) {
 		// Some other error occurred while checking
+		logSession.Printf("Failed to stat session directory: dir=%s, error=%v", sessionDir, err)
 		return fmt.Errorf("failed to check session directory: %w", err)
 	}
 
 	// Directory doesn't exist, create it with world-readable permissions (for agent access)
 	if err := os.MkdirAll(sessionDir, 0755); err != nil {
+		logSession.Printf("Failed to create session directory: dir=%s, error=%v", sessionDir, err)
 		return fmt.Errorf("failed to create session directory: %w", err)
 	}
 
@@ -122,7 +125,9 @@ func (us *UnifiedServer) requireSession(ctx context.Context) error {
 		return err
 	}
 
-	if isNew {
+	if !isNew {
+		logSession.Printf("Reusing existing session: sessionID=%s", util.FormatSessionIDForLog(sessionID))
+	} else {
 		// Ensure session directory exists in payload mount point.
 		// Called after GetOrCreate releases the lock to avoid holding it during I/O.
 		if err := us.ensureSessionDirectory(sessionID); err != nil {
