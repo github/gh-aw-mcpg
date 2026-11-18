@@ -79,6 +79,7 @@ These variables are script-specific controls for bind address and routing mode:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MCP_GATEWAY_CONTAINER_RUNTIME` | Overrides gateway stdio container runtime selection (`docker` or `podman`). Applies to JSON stdin `container` launches. | `docker` |
+| `MCP_GATEWAY_ALLOWED_MOUNT_ROOTS` | Overrides the host bind-mount allowlist with comma-separated absolute `path[:ro\|:rw]` entries (default `ro`), enforced immediately before container launch. | `$GITHUB_WORKSPACE` and the working directory read-only; system temp directory read-write |
 | `DOCKER_HOST` | Docker daemon socket path | `/var/run/docker.sock` |
 
 ### Helper/CLI Docker Variables
