@@ -41,9 +41,9 @@ const DIFC_MODE: &str = "filter";
 /// `label_response` read it. This is safe because WASM is single-threaded.
 /// All internal functions take `&PolicyContext` explicitly so that tests
 /// can construct their own context without touching this global.
-static RUNTIME_POLICY_CONTEXT: Mutex<Option<PolicyContext>> = Mutex::new(None);
+static RUNTIME_POLICY_CONTEXT: Mutex<Option<Arc<PolicyContext>>> = Mutex::new(None);
 
-fn get_runtime_policy_context() -> PolicyContext {
+fn get_runtime_policy_context() -> Arc<PolicyContext> {
     RUNTIME_POLICY_CONTEXT
         .lock()
         .ok()
@@ -53,7 +53,7 @@ fn get_runtime_policy_context() -> PolicyContext {
 
 fn set_runtime_policy_context(ctx: PolicyContext) {
     if let Ok(mut guard) = RUNTIME_POLICY_CONTEXT.lock() {
-        *guard = Some(ctx);
+        *guard = Some(Arc::new(ctx));
     }
 }
 
@@ -1085,6 +1085,11 @@ pub extern "C" fn label_response(
 #[no_mangle]
 pub extern "C" fn alloc(size: u32) -> u32 {
     log_debug(&format!(">>> alloc({size})"));
+    // std::alloc::alloc is undefined behavior for zero-sized layouts.
+    if size == 0 {
+        log_error("    alloc FAILED: zero-size allocation");
+        return 0;
+    }
     let Ok(layout) = Layout::from_size_align(size as usize, 8) else {
         log_error(&format!("    alloc FAILED: invalid layout for size {size}"));
         return 0;
@@ -1118,7 +1123,15 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn alloc_rejects_zero_size_without_touching_allocator() {
+        // Non-zero round-trips are wasm32-only: alloc returns a u32 pointer, which
+        // truncates native 64-bit pointers, so only the zero-size guard is tested here.
+        assert_eq!(alloc(0), 0, "zero-size alloc must not reach std::alloc");
+    }
+
+    #[test]
     fn serialize_and_write_preserves_serialization_error_codes() {
+
         struct Unserializable;
 
         impl Serialize for Unserializable {
