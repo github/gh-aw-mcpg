@@ -59,6 +59,14 @@ func TestMapGetOrCreate_DoesNotStoreOnError(t *testing.T) {
 	assert.Equal(t, 0, v)
 	_, exists := cache["key"]
 	assert.False(t, exists, "failed value should not be stored in cache")
+
+	// A later call must retry create instead of returning the failed result.
+	v, err = syncutil.MapGetOrCreate(&mu, cache, "key", func() (int, error) {
+		return 7, nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 7, v)
+	assert.Equal(t, 7, cache["key"])
 }
 
 // TestMapGetOrCreate_CreateCalledOnce verifies the double-check locking ensures
@@ -100,34 +108,43 @@ func TestMapGetOrCreate_MultipleKeys(t *testing.T) {
 	cache := map[string]string{}
 
 	for _, key := range []string{"a", "b", "c"} {
-		k := key
-		v, err := syncutil.MapGetOrCreate(&mu, cache, k, func() (string, error) {
-			return "value-" + k, nil
+		v, err := syncutil.MapGetOrCreate(&mu, cache, key, func() (string, error) {
+			return "value-" + key, nil
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "value-"+k, v)
+		assert.Equal(t, "value-"+key, v)
 	}
 
-	assert.Len(t, cache, 3)
+	assert.Equal(t, map[string]string{"a": "value-a", "b": "value-b", "c": "value-c"}, cache)
 }
 
-// TestMapGetOrCreate_RaceDetector is run with -race to verify no data races.
+// TestMapGetOrCreate_RaceDetector runs concurrent lookups over colliding keys.
+// Its primary purpose is to surface data races under -race; the assertions
+// confirm each key converges on exactly one value.
 func TestMapGetOrCreate_RaceDetector(t *testing.T) {
 	var mu sync.RWMutex
 	cache := map[int]int{}
 
+	const numGoroutines = 10
+	const numKeys = 3
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
-		key := i % 3 // intentional key collisions
+	errs := make([]error, numGoroutines)
+	for i := range numGoroutines {
 		wg.Add(1)
-		go func(k int) {
+		go func(idx int) {
 			defer wg.Done()
-			_, _ = syncutil.MapGetOrCreate(&mu, cache, k, func() (int, error) {
-				return k * 10, nil
+			key := idx % numKeys // intentional key collisions
+			_, errs[idx] = syncutil.MapGetOrCreate(&mu, cache, key, func() (int, error) {
+				return key * 10, nil
 			})
-		}(key)
+		}(i)
 	}
 	wg.Wait()
+
+	for i, err := range errs {
+		require.NoError(t, err, "goroutine %d returned an error", i)
+	}
+	assert.Equal(t, map[int]int{0: 0, 1: 10, 2: 20}, cache)
 }
 
 // TestMapGetOrCreate_DoubleCheckPreventsRedundantCreate verifies the double-check locking
