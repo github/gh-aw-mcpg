@@ -29,7 +29,7 @@ safe-outputs:
 
 steps:
   - name: Set up Go
-    uses: actions/setup-go@v7.0.0
+    uses: actions/setup-go@v7.1.0
     with:
       go-version-file: go.mod
       cache: true
