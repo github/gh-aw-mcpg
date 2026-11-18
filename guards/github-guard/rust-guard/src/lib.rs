@@ -2016,6 +2016,71 @@ mod tests {
     }
 
     #[test]
+    fn build_label_resource_output_covers_automation_operations() {
+        let ctx = PolicyContext::default();
+        let repo_id = "automation-pipeline-owner/automation-pipeline-repo";
+        let cases = [
+            (tool_names::CREATE_AUTOMATION, "write", false),
+            (tool_names::DELETE_AUTOMATION, "write", false),
+            (tool_names::RUN_AUTOMATION, "write", false),
+            (tool_names::UPDATE_AUTOMATION, "read-write", true),
+            (tool_names::GET_AUTOMATION, "read", true),
+            (tool_names::GET_AUTOMATION_REVISION, "read", true),
+            (tool_names::LIST_AUTOMATION_REVISIONS, "read", true),
+            (tool_names::LIST_AUTOMATIONS, "read", true),
+            (
+                tool_names::GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY,
+                "read",
+                false,
+            ),
+            (tool_names::LIST_AVAILABLE_AUTOMATION_TOOLS, "read", false),
+            (tool_names::LIST_AVAILABLE_AUTOMATION_TRIGGERS, "read", false),
+        ];
+
+        for private in [false, true] {
+            let _guard = labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            for (tool_name, operation, personal) in cases {
+                let output = build_label_resource_output(
+                    &LabelResourceInput {
+                        tool_name: tool_name.to_string(),
+                        tool_args: json!({
+                            "owner": "automation-pipeline-owner",
+                            "repo": "automation-pipeline-repo",
+                            "automation_id": "automation-123",
+                        }),
+                    },
+                    &ctx,
+                );
+                let mut expected_secrecy = if private {
+                    labels::private_scope_label(repo_id)
+                } else {
+                    vec![]
+                };
+                if personal {
+                    expected_secrecy.extend(labels::private_user_label());
+                }
+                let expected_integrity = if operation == "read" {
+                    labels::reader_integrity(repo_id, &ctx)
+                } else {
+                    labels::writer_integrity(repo_id, &ctx)
+                };
+
+                assert_eq!(output.operation, operation, "{tool_name}");
+                assert_eq!(
+                    output.resource.secrecy, expected_secrecy,
+                    "{tool_name}, private={private}"
+                );
+                assert_eq!(output.resource.integrity, expected_integrity, "{tool_name}");
+                assert_eq!(
+                    output.resource.description,
+                    format!("{tool_name}:{repo_id}/automation-123"),
+                    "{tool_name}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn build_label_resource_output_preserves_scope_sensitive_writer_integrity() {
         let ctx = PolicyContext::default();
         let cases = [
