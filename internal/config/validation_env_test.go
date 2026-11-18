@@ -27,16 +27,6 @@ func TestDetectContainerID(t *testing.T) {
 }
 
 func TestCheckRequiredEnvVars(t *testing.T) {
-	// Clear any existing env vars for the test
-	for _, v := range RequiredEnvVars {
-		os.Unsetenv(v)
-	}
-	defer func() {
-		for _, v := range RequiredEnvVars {
-			os.Unsetenv(v)
-		}
-	}()
-
 	tests := []struct {
 		name     string
 		envVars  map[string]string
@@ -90,6 +80,16 @@ func TestCheckRequiredEnvVars(t *testing.T) {
 			expected: []string{"MCP_GATEWAY_PORT"},
 		},
 		{
+			name: "both agent identifier variables set",
+			envVars: map[string]string{
+				"MCP_GATEWAY_PORT":     "8080",
+				"MCP_GATEWAY_DOMAIN":   "localhost",
+				"MCP_GATEWAY_AGENT_ID": "current-id",
+				"MCP_GATEWAY_API_KEY":  "legacy-id",
+			},
+			expected: nil,
+		},
+		{
 			name: "legacy api key env still satisfies agent id requirement",
 			envVars: map[string]string{
 				"MCP_GATEWAY_PORT":    "8080",
@@ -103,14 +103,14 @@ func TestCheckRequiredEnvVars(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear all env vars first
-			for _, v := range RequiredEnvVars {
-				os.Unsetenv(v)
+			for _, v := range append([]string{"MCP_GATEWAY_API_KEY"}, RequiredEnvVars...) {
+				t.Setenv(v, "")
 			}
 
 			// Set up test environment
 			for k, v := range tt.envVars {
 				if v != "" {
-					os.Setenv(k, v)
+					t.Setenv(k, v)
 				}
 			}
 

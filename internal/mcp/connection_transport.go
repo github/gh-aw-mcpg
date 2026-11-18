@@ -36,7 +36,7 @@ func (c *Connection) reconnectPlainJSON() error {
 			return err
 		}
 		c.httpSessionID = sessionID
-		logConn.Printf("Reconnected plain JSON-RPC session for serverID=%s, new sessionID=%s", c.serverID, util.FormatSessionIDForLog(sessionID))
+		logConn.Printf("Reconnected plain JSON-RPC session for serverID=%s, new sessionID=%s", c.serverID, util.HashIdentifierForLog(sessionID))
 		return nil
 	})
 }

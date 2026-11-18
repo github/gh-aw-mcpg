@@ -513,7 +513,7 @@ pub(crate) fn get_issue_author_info_with_callback(
     let extracted = super::extract_mcp_response(&response);
     let issue = extracted.get("issue").unwrap_or(&extracted);
 
-    let author_association = get_author_association(&issue).map(String::from);
+    let author_association = get_author_association(issue).map(String::from);
 
     let author_login = issue
         .get("user")
