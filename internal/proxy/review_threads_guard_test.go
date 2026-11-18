@@ -11,6 +11,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/github/gh-aw-mcpg/internal/guard"
+	"github.com/github/gh-aw-mcpg/internal/mcpresult"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -167,7 +168,7 @@ func unwrapReviewThreadsResult(t *testing.T, result interface{}) interface{} {
 	if structured, ok := envelope["structuredContent"]; ok {
 		return structured
 	}
-	text := envelope["content"].([]interface{})[0].(map[string]interface{})["text"].(string)
+	text := mcpresult.ExtractTextContent(envelope)
 	var parsed interface{}
 	require.NoError(t, json.Unmarshal([]byte(text), &parsed))
 	return parsed
