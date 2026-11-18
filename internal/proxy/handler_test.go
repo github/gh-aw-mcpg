@@ -232,6 +232,37 @@ func TestServeHTTP_ListCommitsPassesSHAToGuard(t *testing.T) {
 	assert.Equal(t, "feature/branch", args["sha"])
 }
 
+func TestServeHTTP_DoubleEncodedRepoIdentityMatchesUpstream(t *testing.T) {
+	var receivedURL string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedURL = r.URL.RequestURI()
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write([]byte("[]"))
+		assert.NoError(t, err)
+	}))
+	defer upstream.Close()
+
+	g := &stubGuard{
+		labelResourceResult: publicResource(),
+		labelResourceOp:     difc.OperationRead,
+		labelResponseErr:    errors.New("response labeling unavailable"),
+	}
+	s := newTestServerWithStub(t, upstream.URL, g, difc.EnforcementFilter)
+	h := &proxyHandler{server: s}
+
+	req := httptest.NewRequest(http.MethodGet, "/repos/%2561/%2562/issues", nil)
+	require.Equal(t, "/repos/%61/%62/issues", req.URL.Path)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	args, ok := g.labelResourceArgs.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "%61", args["owner"])
+	assert.Equal(t, "%62", args["repo"])
+	assert.Equal(t, "/repos/%2561/%2562/issues", receivedURL)
+}
+
 func TestServeHTTP_UnknownRESTEndpointPassthroughWithEmptyLabels(t *testing.T) {
 	require.NoError(t, logger.CloseAllLoggers())
 
