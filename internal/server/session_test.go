@@ -268,7 +268,7 @@ func TestEnsureSessionDirectory(t *testing.T) {
 		err := us2.ensureSessionDirectory("blocked-session")
 		require.Error(t, err, "should fail when payloadDir is not writable")
 		require.ErrorContains(t, err, "failed to create session directory")
-		assert.ErrorIs(t, err, os.ErrPermission)
+		require.ErrorIs(t, err, os.ErrPermission)
 		assert.NotContains(t, err.Error(), "blocked-session")
 	})
 
