@@ -167,7 +167,7 @@ const READ_WRITE_OPERATIONS: &[&str] = &[
     "create_pull_request_review",      // POST /repos/.../pulls/{number}/reviews
     "custom_properties_write",         // updates repository/org custom properties
     "delete_pending_pull_request_review", // DELETE /repos/.../pulls/{number}/reviews/{id}
-    tool_names::ISSUE_ARTIFACT_WRITE, // creates, updates, or deletes issue artifacts
+    tool_names::ISSUE_ARTIFACT_WRITE,  // creates, updates, or deletes issue artifacts
     "issue_dependency_write", // GraphQL addBlockedBy/removeBlockedBy after resolving issue IDs
     "issue_dependency_write_ff_issue_dependencies", // current upstream feature-flagged issue dependency mutation
     "issue_write",
@@ -183,7 +183,7 @@ const READ_WRITE_OPERATIONS: &[&str] = &[
     "sub_issue_write",
     "submit_pending_pull_request_review", // POST /repos/.../pulls/{number}/reviews/{id}/events
     "unresolve_review_thread",            // PUT  /graphql — unresolveReviewThread
-    tool_names::UPDATE_AUTOMATION,       // PATCH — returns the updated automation definition
+    tool_names::UPDATE_AUTOMATION,        // PATCH — returns the updated automation definition
     "update_gist",
     tool_names::UPDATE_ISSUE_ASSIGNEES, // PATCH — modifies issue assignees
     tool_names::UPDATE_ISSUE_BODY,      // PATCH — modifies issue body
@@ -556,37 +556,6 @@ mod tests {
     }
 
     #[test]
-    fn test_automation_operations_match_upstream_classification() {
-        for tool in [
-            tool_names::CREATE_AUTOMATION,
-            tool_names::DELETE_AUTOMATION,
-            tool_names::RUN_AUTOMATION,
-        ] {
-            assert!(
-                WRITE_OPERATIONS.contains(&tool),
-                "{tool} is an upstream write"
-            );
-            assert!(is_write_operation(tool), "{tool} must be a write operation");
-            assert!(!is_read_write_operation(tool), "{tool} is write-only");
-        }
-        assert!(is_read_write_operation(tool_names::UPDATE_AUTOMATION));
-        assert!(!is_write_operation(tool_names::UPDATE_AUTOMATION));
-
-        for tool in [
-            tool_names::LIST_AUTOMATIONS,
-            tool_names::GET_AUTOMATION,
-            tool_names::LIST_AUTOMATION_REVISIONS,
-            tool_names::GET_AUTOMATION_REVISION,
-            tool_names::LIST_AVAILABLE_AUTOMATION_TOOLS,
-            tool_names::LIST_AVAILABLE_AUTOMATION_TRIGGERS,
-            tool_names::GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY,
-        ] {
-            assert!(!is_write_operation(tool), "{tool} is read-only");
-            assert!(!is_read_write_operation(tool), "{tool} is read-only");
-        }
-    }
-
-    #[test]
     fn test_repo_modifying_operations_are_write_operations() {
         for op in &[
             tool_names::ARCHIVE_REPOSITORY,
@@ -834,10 +803,9 @@ mod tests {
     }
 
     #[test]
-    fn test_copilot_automation_mutations_are_write_operations() {
+    fn test_copilot_automation_mutation_classification() {
         for op in [
             tool_names::CREATE_AUTOMATION,
-            tool_names::UPDATE_AUTOMATION,
             tool_names::DELETE_AUTOMATION,
             tool_names::RUN_AUTOMATION,
         ] {
@@ -847,6 +815,8 @@ mod tests {
             );
             assert!(!is_read_write_operation(op), "{op}");
         }
+        assert!(is_read_write_operation(tool_names::UPDATE_AUTOMATION));
+        assert!(!is_write_operation(tool_names::UPDATE_AUTOMATION));
     }
 
     #[test]

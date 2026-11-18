@@ -873,20 +873,6 @@ pub fn apply_tool_labels(
             );
         }
 
-        // === Copilot Automations (repo-scoped reads) ===
-        tool_names::LIST_AUTOMATIONS
-        | tool_names::GET_AUTOMATION
-        | tool_names::LIST_AUTOMATION_REVISIONS
-        | tool_names::GET_AUTOMATION_REVISION
-        | tool_names::LIST_AVAILABLE_AUTOMATION_TOOLS
-        | tool_names::LIST_AVAILABLE_AUTOMATION_TRIGGERS
-        | tool_names::GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY => {
-            // Automation definitions are repository-configured agent instructions.
-            // S = S(repo); I = reader (configuration content should not authorize writes).
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
-            integrity = reader_integrity(repo_id, ctx);
-        }
-
         // === Repo-scoped write operations ===
         // All listed tools follow: S = S(repo), I = writer.
         // Issue/PR writes
@@ -901,11 +887,6 @@ pub fn apply_tool_labels(
         | "merge_pull_request"
         | "add_comment_to_pending_review"
         | "add_reply_to_pull_request_comment"
-        // Copilot Automations
-        | tool_names::CREATE_AUTOMATION
-        | tool_names::UPDATE_AUTOMATION
-        | tool_names::DELETE_AUTOMATION
-        | tool_names::RUN_AUTOMATION
         // Discussion
         | tool_names::CREATE_DISCUSSION // gh discussion create — creates a discussion in a repository
         | tool_names::EDIT_DISCUSSION // gh discussion edit   — edits title/body/labels of a discussion
@@ -1377,7 +1358,10 @@ mod tests {
                     String::new(),
                     &ctx,
                 );
-                assert_eq!(secrecy, expected_secrecy, "type={filter}, private={private}");
+                assert_eq!(
+                    secrecy, expected_secrecy,
+                    "type={filter}, private={private}"
+                );
             }
         }
     }
@@ -2091,50 +2075,6 @@ mod tests {
             tool_names::SEARCH_PULL_REQUESTS_FF_FIELDS_PARAM,
             &search_pr_args,
         );
-    }
-
-    #[test]
-    fn apply_tool_labels_copilot_automation_tools_are_repo_scoped() {
-        let ctx = default_ctx();
-        let repo_id = "github/copilot";
-        let args = serde_json::json!({
-            "owner": "github",
-            "repo": "copilot",
-            "automation_id": "auto-1"
-        });
-        let reads = [
-            tool_names::LIST_AUTOMATIONS,
-            tool_names::GET_AUTOMATION,
-            tool_names::LIST_AUTOMATION_REVISIONS,
-            tool_names::GET_AUTOMATION_REVISION,
-            tool_names::LIST_AVAILABLE_AUTOMATION_TOOLS,
-            tool_names::LIST_AVAILABLE_AUTOMATION_TRIGGERS,
-            tool_names::GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY,
-        ];
-        let writes = [
-            tool_names::CREATE_AUTOMATION,
-            tool_names::UPDATE_AUTOMATION,
-            tool_names::DELETE_AUTOMATION,
-            tool_names::RUN_AUTOMATION,
-        ];
-
-        for (tools, expected) in [
-            (reads.as_slice(), reader_integrity(repo_id, &ctx)),
-            (writes.as_slice(), writer_integrity(repo_id, &ctx)),
-        ] {
-            for &tool in tools {
-                let (_, integrity, _) = super::apply_tool_labels(
-                    tool,
-                    &args,
-                    repo_id,
-                    vec![],
-                    vec![],
-                    String::new(),
-                    &ctx,
-                );
-                assert_eq!(integrity, expected, "{tool}");
-            }
-        }
     }
 
     #[test]
