@@ -30,11 +30,11 @@ func TestLauncher_StoreConnectionIfOpen(t *testing.T) {
 				stored := false
 				err := l.storeConnectionIfOpen("backend", conn, func() {
 					stored = true
-					unlocked := l.mu.TryLock()
-					if unlocked {
-						l.mu.Unlock()
+					readLockAcquired := l.mu.TryRLock()
+					if readLockAcquired {
+						l.mu.RUnlock()
 					}
-					assert.False(t, unlocked, "store must run under the launcher lock")
+					assert.False(t, readLockAcquired, "store must run under the exclusive launcher lock")
 					assert.Empty(t, l.serverStartTimes, "start must be recorded after storing")
 					if session {
 						l.sessionPool.Set("backend", "session", conn)
