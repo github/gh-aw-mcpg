@@ -23,6 +23,7 @@ const WRITE_OPERATIONS: &[&str] = &[
     "add_reply_to_pull_request_comment",
     "assign_copilot_to_issue",
     "assign_copilot_to_issue_with_intent",
+    tool_names::CREATE_AUTOMATION,
     tool_names::CREATE_BRANCH,
     "create_gist",
     "create_issue",
@@ -31,6 +32,7 @@ const WRITE_OPERATIONS: &[&str] = &[
     "create_pull_request_with_copilot",
     tool_names::CREATE_REPOSITORY,
     "create_repository_ruleset", // creates a repository ruleset
+    tool_names::DELETE_AUTOMATION,
     tool_names::DELETE_FILE,
     tool_names::DELETE_REPOSITORY,
     tool_names::DISCUSSION_COMMENT_WRITE, // creates or edits GitHub Discussion comments
@@ -44,8 +46,10 @@ const WRITE_OPERATIONS: &[&str] = &[
     tool_names::REMOVE_ISSUE_REACTION, // DELETE /repos/.../issues/{number}/reactions/{reaction_id}
     tool_names::REMOVE_PULL_REQUEST_REVIEW_COMMENT_REACTION, // DELETE /repos/.../pulls/comments/{id}/reactions/{reaction_id}
     "request_copilot_review",
+    tool_names::RUN_AUTOMATION,
     tool_names::STAR_REPOSITORY,
     tool_names::UNSTAR_REPOSITORY,
+    tool_names::UPDATE_AUTOMATION,
 ];
 
 /// Upstream writes omitted from the default README catalog because they are feature-gated.
@@ -549,6 +553,35 @@ mod tests {
             is_write_operation(tool_names::TRANSFER_REPOSITORY),
             "transfer_repository must be classified as a write operation"
         );
+    }
+
+    #[test]
+    fn test_automation_operations_match_upstream_classification() {
+        for tool in [
+            tool_names::CREATE_AUTOMATION,
+            tool_names::UPDATE_AUTOMATION,
+            tool_names::DELETE_AUTOMATION,
+            tool_names::RUN_AUTOMATION,
+        ] {
+            assert!(
+                WRITE_OPERATIONS.contains(&tool),
+                "{tool} is an upstream write"
+            );
+            assert!(is_write_operation(tool), "{tool} must be a write operation");
+            assert!(!is_read_write_operation(tool), "{tool} is write-only");
+        }
+        for tool in [
+            tool_names::LIST_AUTOMATIONS,
+            tool_names::GET_AUTOMATION,
+            tool_names::LIST_AUTOMATION_REVISIONS,
+            tool_names::GET_AUTOMATION_REVISION,
+            tool_names::LIST_AVAILABLE_AUTOMATION_TOOLS,
+            tool_names::LIST_AVAILABLE_AUTOMATION_TRIGGERS,
+            tool_names::GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY,
+        ] {
+            assert!(!is_write_operation(tool), "{tool} is read-only");
+            assert!(!is_read_write_operation(tool), "{tool} is read-only");
+        }
     }
 
     #[test]

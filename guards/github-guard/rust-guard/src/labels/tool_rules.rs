@@ -290,6 +290,37 @@ pub fn apply_tool_labels(
     };
 
     match tool_name {
+        // === Copilot Automations (repo-scoped) ===
+        tool_names::LIST_AUTOMATIONS
+        | tool_names::GET_AUTOMATION
+        | tool_names::LIST_AUTOMATION_REVISIONS
+        | tool_names::GET_AUTOMATION_REVISION
+        | tool_names::LIST_AVAILABLE_AUTOMATION_TOOLS
+        | tool_names::LIST_AVAILABLE_AUTOMATION_TRIGGERS
+        | tool_names::GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY
+        | tool_names::CREATE_AUTOMATION
+        | tool_names::UPDATE_AUTOMATION
+        | tool_names::DELETE_AUTOMATION
+        | tool_names::RUN_AUTOMATION => {
+            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            integrity = if matches!(
+                tool_name,
+                tool_names::CREATE_AUTOMATION
+                    | tool_names::UPDATE_AUTOMATION
+                    | tool_names::DELETE_AUTOMATION
+                    | tool_names::RUN_AUTOMATION
+            ) {
+                writer_integrity(repo_id, ctx)
+            } else {
+                reader_integrity(repo_id, ctx)
+            };
+            desc = format!("{tool_name}:{repo_id}");
+            let automation_id = get_str_or(tool_args, "automation_id", "");
+            if !automation_id.is_empty() {
+                desc.push_str(&format!("/{automation_id}"));
+            }
+        }
+
         // === Issues (repo-scoped) ===
         tool_names::GET_ISSUE
         | tool_names::ISSUE_READ
@@ -1215,6 +1246,68 @@ mod tests {
 
     fn default_ctx() -> PolicyContext {
         PolicyContext::default()
+    }
+
+    #[test]
+    fn apply_tool_labels_automation_operations_are_repo_scoped() {
+        let ctx = default_ctx();
+        let owner = "automation-owner";
+        let repo = "automation-repo";
+        let repo_id = "automation-owner/automation-repo";
+        let tools = [
+            (tool_names::LIST_AUTOMATIONS, false),
+            (tool_names::GET_AUTOMATION, false),
+            (tool_names::LIST_AUTOMATION_REVISIONS, false),
+            (tool_names::GET_AUTOMATION_REVISION, false),
+            (tool_names::LIST_AVAILABLE_AUTOMATION_TOOLS, false),
+            (tool_names::LIST_AVAILABLE_AUTOMATION_TRIGGERS, false),
+            (
+                tool_names::GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY,
+                false,
+            ),
+            (tool_names::CREATE_AUTOMATION, true),
+            (tool_names::UPDATE_AUTOMATION, true),
+            (tool_names::DELETE_AUTOMATION, true),
+            (tool_names::RUN_AUTOMATION, true),
+        ];
+
+        for private in [true, false] {
+            let _guard = crate::labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            let expected_secrecy = if private {
+                private_label(owner, repo, repo_id, &ctx)
+            } else {
+                vec![]
+            };
+            for (tool, write) in tools {
+                for automation_id in [None, Some("automation-123")] {
+                    let mut args = serde_json::json!({"owner": owner, "repo": repo});
+                    if let Some(id) = automation_id {
+                        args["automation_id"] = serde_json::json!(id);
+                    }
+                    let (secrecy, integrity, desc) = apply_tool_labels(
+                        tool,
+                        &args,
+                        repo_id,
+                        private_label(owner, repo, repo_id, &ctx),
+                        merged_integrity(repo_id, &ctx),
+                        String::new(),
+                        &ctx,
+                    );
+                    assert_eq!(secrecy, expected_secrecy, "{tool}, private={private}");
+                    let expected_integrity = if write {
+                        writer_integrity(repo_id, &ctx)
+                    } else {
+                        reader_integrity(repo_id, &ctx)
+                    };
+                    assert_eq!(integrity, expected_integrity, "{tool}, private={private}");
+                    let expected_desc = match automation_id {
+                        Some(id) => format!("{tool}:{repo_id}/{id}"),
+                        None => format!("{tool}:{repo_id}"),
+                    };
+                    assert_eq!(desc, expected_desc);
+                }
+            }
+        }
     }
 
     #[test]

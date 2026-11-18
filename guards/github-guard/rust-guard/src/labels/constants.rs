@@ -441,6 +441,18 @@ pub const MAX_ITEMS_PER_RESPONSE: usize = 100;
 /// match arm or the `is_non_get_read_sub_method` skip-check, since these
 /// are plain `&str` comparisons with no compiler-checked exhaustiveness.
 pub mod tool_names {
+    pub const LIST_AUTOMATIONS: &str = "list_automations";
+    pub const GET_AUTOMATION: &str = "get_automation";
+    pub const LIST_AUTOMATION_REVISIONS: &str = "list_automation_revisions";
+    pub const GET_AUTOMATION_REVISION: &str = "get_automation_revision";
+    pub const LIST_AVAILABLE_AUTOMATION_TOOLS: &str = "list_available_automation_tools";
+    pub const LIST_AVAILABLE_AUTOMATION_TRIGGERS: &str = "list_available_automation_triggers";
+    pub const GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY: &str =
+        "get_automations_configuration_for_repository";
+    pub const CREATE_AUTOMATION: &str = "create_automation";
+    pub const UPDATE_AUTOMATION: &str = "update_automation";
+    pub const DELETE_AUTOMATION: &str = "delete_automation";
+    pub const RUN_AUTOMATION: &str = "run_automation";
     pub const PULL_REQUEST_READ: &str = "pull_request_read";
     pub const GET_PULL_REQUEST: &str = "get_pull_request";
     pub const ISSUE_READ: &str = "issue_read";
