@@ -265,6 +265,19 @@ GraphQL queries are parsed to extract operation type and owner/repo context:
 
 Owner and repo are extracted from GraphQL variables (`$owner`, `$name`/`$repo`) or inline string arguments.
 
+The structural guard uses gqlparser's `ParseQueryWithTokenLimit` with a
+100,000-token limit, in addition to the parser's nesting-depth bound. It does
+not use schema validation: GitHub validates fields and arguments against its
+schema, while the proxy enforces operation selection, routing, and DIFC policy.
+Parsed documents are reused only within a request and only for identical query
+text. Removing unselected operations/fragments or trimming the source requires
+a fresh parse before routing and field injection, so source offsets remain valid.
+
+Parser and lexer positions are rune offsets, not byte offsets. Source-preserving
+rewrites retain lexer passes because operation/fragment positions exclude leading
+descriptions, and fragment-spread selections need the position of `...`.
+Unicode regression tests cover both operation selection and PR-field injection.
+
 When the upstream API base is GHES-style `.../api/v3`, GraphQL forwarding is rewritten to `.../api/graphql` to match GHES routing.
 
 ## Policy Notes
