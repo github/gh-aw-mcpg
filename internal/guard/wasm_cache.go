@@ -22,7 +22,12 @@ func newCompilationCache(dir string) (wazero.CompilationCache, error) {
 		return wazero.NewCompilationCache(), nil
 	}
 	logWasm.Printf("Creating disk-backed compilation cache: dir=%s", dir)
-	return wazero.NewCompilationCacheWithDir(dir)
+	cache, err := wazero.NewCompilationCacheWithDir(dir)
+	if err != nil {
+		logWasm.Printf("Failed to create disk-backed compilation cache: dir=%s, error=%v", dir, err)
+		return nil, err
+	}
+	return cache, nil
 }
 
 // newCompilationCacheFn is a package-level indirection over newCompilationCache
@@ -38,6 +43,7 @@ func ConfigureGlobalCompilationCache(ctx context.Context, dir string) error {
 	logWasm.Printf("Configuring global compilation cache: dir=%q", dir)
 	cache, err := newCompilationCacheFn(dir)
 	if err != nil {
+		logWasm.Printf("Keeping existing global compilation cache: replacement creation failed: %v", err)
 		return err
 	}
 
@@ -52,6 +58,7 @@ func ConfigureGlobalCompilationCache(ctx context.Context, dir string) error {
 
 	if err := oldCache.Close(ctx); err != nil {
 		globalCompilationCacheMu.Unlock()
+		logWasm.Printf("Failed to close previous compilation cache, discarding replacement: %v", err)
 
 		closeReplacementErr := cache.Close(ctx)
 		if closeReplacementErr != nil {
@@ -95,6 +102,7 @@ func CloseGlobalCompilationCache(ctx context.Context) error {
 		return nil
 	}
 	if err := cache.Close(ctx); err != nil {
+		logWasm.Printf("Failed to close global compilation cache: %v", err)
 		return err
 	}
 	logWasm.Print("Global compilation cache closed")
