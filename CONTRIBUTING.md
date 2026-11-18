@@ -184,7 +184,7 @@ make lint
 This runs:
 - `go vet` for common code issues
 - `gofmt` check for code formatting
-- `golangci-lint` for additional static analysis (misspell, unconvert)
+- `golangci-lint` for additional static analysis (misspell, testifylint, unconvert)
 
 **Note**: `make install` ensures `golangci-lint` v2.13.2 is available. If another version is already found on your PATH/GOPATH, it is upgraded to v2.13.2.
 
