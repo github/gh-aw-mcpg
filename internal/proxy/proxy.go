@@ -498,23 +498,25 @@ func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body 
 		}
 	}
 
-	url := s.githubAPIURL + path
 	pathOnly, query, hasQuery := strings.Cut(path, "?")
+	upstreamBaseURL := s.githubAPIURL
+	upstreamPath := pathOnly
 	if IsGraphQLPath(pathOnly) {
-		var graphqlURL string
 		if strings.HasSuffix(s.githubAPIURL, "/api/v3") {
 			// GHES: strip /api/v3, GraphQL lives at /api/graphql
-			graphqlURL = strings.TrimSuffix(s.githubAPIURL, "/api/v3") + "/api/graphql"
+			upstreamBaseURL = strings.TrimSuffix(s.githubAPIURL, "/api/v3")
+			upstreamPath = "/api/graphql"
 		} else {
 			// github.com and GHEC data residency (api.<tenant>.ghe.com):
 			// GraphQL lives at /graphql
-			graphqlURL = s.githubAPIURL + "/graphql"
+			upstreamPath = "/graphql"
 		}
-		url = graphqlURL
 		logProxy.Printf("forwardToGitHub: rewrote GraphQL upstream URL: ghes=%v", strings.HasSuffix(s.githubAPIURL, "/api/v3"))
-		if hasQuery {
-			url += "?" + query
-		}
+	}
+	url, err := buildUpstreamRequestURL(upstreamBaseURL, upstreamPath, query, hasQuery)
+	if err != nil {
+		logProxy.Printf("forwardToGitHub: failed to build upstream URL: method=%s, err=%s", method, sanitize.RedactErrorForLog(err))
+		return nil, fmt.Errorf("failed to build upstream URL: %w", err)
 	}
 	if s.enclave != nil {
 		logProxy.Printf("forwarding enclave request: %s", method)
@@ -551,6 +553,22 @@ func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body 
 		return doWithoutFollowingRedirects(s.httpClient, req)
 	}
 	return s.httpClient.Do(req)
+}
+
+func buildUpstreamRequestURL(baseURL, requestPath, query string, hasQuery bool) (string, error) {
+	target, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+	target.Path = strings.TrimSuffix(target.Path, "/") + requestPath
+	target.RawPath = ""
+	if hasQuery {
+		target.RawQuery = query
+	} else {
+		target.RawQuery = ""
+	}
+	target.Fragment = ""
+	return target.String(), nil
 }
 
 func doWithoutFollowingRedirects(client *http.Client, req *http.Request) (*http.Response, error) {

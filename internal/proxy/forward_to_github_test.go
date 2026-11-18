@@ -226,6 +226,12 @@ func TestForwardToGitHub_GraphQLPathRouting(t *testing.T) {
 			requestPath:    "/repos/org/repo",
 			wantServerPath: "/api/v3/repos/org/repo",
 		},
+		{
+			name:           "escape-like REST path segments remain literal",
+			apiURLSuffix:   "",
+			requestPath:    "/repos/%61/%62/issues",
+			wantServerPath: "/repos/%2561/%2562/issues",
+		},
 	}
 
 	for _, tt := range tests {
