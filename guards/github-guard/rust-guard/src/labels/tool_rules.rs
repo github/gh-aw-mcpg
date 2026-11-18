@@ -3323,6 +3323,12 @@ mod tests {
                     writer_integrity(repo_id, &ctx),
                 ),
                 (
+                    Some("untrusted-author"),
+                    Some("CONTRIBUTOR"),
+                    vec![],
+                    reader_integrity(repo_id, &ctx),
+                ),
+                (
                     None,
                     None,
                     merged_integrity(repo_id, &ctx),
