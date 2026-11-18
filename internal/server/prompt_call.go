@@ -154,6 +154,6 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 		return nil, fmt.Errorf("failed to parse filtered prompt result: %w", err)
 	}
 	logger.LogInfo("client", "MCP prompt response mediated, session=%s, prompt=%s",
-		util.FormatSessionIDForLog(sessionID), promptName)
+		util.HashIdentifierForLog(sessionID), promptName)
 	return &result, nil
 }

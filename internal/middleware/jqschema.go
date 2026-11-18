@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,7 +15,6 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/mcp"
 	"github.com/github/gh-aw-mcpg/internal/mcpresult"
-	"github.com/github/gh-aw-mcpg/internal/urlutil"
 	"github.com/github/gh-aw-mcpg/internal/util"
 	"github.com/itchyny/gojq"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -492,7 +488,7 @@ func wrapToolHandler(
 		}
 
 		logger.LogDebug("payload", "Middleware processing tool call: tool=%s, queryID=%s, session=%s, baseDir=%s",
-			toolName, queryID, util.FormatSessionIDForLog(sessionID), baseDir)
+			toolName, queryID, util.HashIdentifierForLog(sessionID), baseDir)
 
 		// Call the original handler
 		result, data, err := handler(ctx, req, args)
@@ -587,16 +583,16 @@ func wrapToolHandler(
 
 		// Payload is larger than threshold - save to filesystem
 		logger.LogInfo("payload", "Payload size (%d bytes) exceeds threshold (%d bytes), saving to filesystem: tool=%s, queryID=%s, session=%s, baseDir=%s",
-			payloadSize, sizeThreshold, toolName, queryID, util.FormatSessionIDForLog(sessionID), baseDir)
+			payloadSize, sizeThreshold, toolName, queryID, util.HashIdentifierForLog(sessionID), baseDir)
 
 		filePath, saveErr := savePayload(baseDir, pathPrefix, sessionID, queryID, payloadJSON)
 		if saveErr != nil {
 			logger.LogError("payload", "Failed to save payload to filesystem: tool=%s, queryID=%s, session=%s, error=%v",
-				toolName, queryID, util.FormatSessionIDForLog(sessionID), saveErr)
+				toolName, queryID, util.HashIdentifierForLog(sessionID), saveErr)
 			// Continue even if save fails - don't break the tool call
 		} else {
 			logger.LogInfo("payload", "Payload storage completed successfully: tool=%s, queryID=%s, session=%s, size=%d bytes",
-				toolName, queryID, util.FormatSessionIDForLog(sessionID), len(payloadJSON))
+				toolName, queryID, util.HashIdentifierForLog(sessionID), len(payloadJSON))
 		}
 
 		// Apply jq schema transformation
@@ -676,7 +672,7 @@ func wrapToolHandler(
 		}
 
 		logger.LogInfo("payload", "Created metadata response for client: tool=%s, queryID=%s, session=%s, originalSize=%d bytes, truncated=%v",
-			toolName, queryID, util.FormatSessionIDForLog(sessionID), payloadLen, truncated)
+			toolName, queryID, util.HashIdentifierForLog(sessionID), payloadLen, truncated)
 
 		// Marshal the rewritten response to JSON for the Content field
 		rewrittenJSON, marshalErr := json.Marshal(rewrittenResponse)
@@ -696,7 +692,7 @@ func wrapToolHandler(
 		transformedResult.Meta = result.Meta
 
 		logger.LogInfo("payload", "Returning transformed response to client: tool=%s, queryID=%s, session=%s, clientReceivesMetadata=true",
-			toolName, queryID, util.FormatSessionIDForLog(sessionID))
+			toolName, queryID, util.HashIdentifierForLog(sessionID))
 
 		return transformedResult, rewrittenResponse, nil
 	}
@@ -709,129 +705,4 @@ func ShouldApplyMiddleware(toolName string) bool {
 	applies := !strings.HasPrefix(toolName, "sys___")
 	logMiddleware.Printf("ShouldApplyMiddleware: tool=%s, applies=%v", toolName, applies)
 	return applies
-}
-
-func auditObservedURLDomains(toolName string, data any) {
-	if !logger.URLDomainAuditEnabled() || data == nil {
-		return
-	}
-	serverID := util.ParseServerIDFromToolName(toolName)
-	domains := urlutil.ExtractURLDomainsFromValue(data)
-	if len(domains) == 0 {
-		return
-	}
-	logger.LogObservedURLDomains(serverID, domains)
-}
-
-// savePayload saves the payload to disk and returns the file path
-// The file is saved to {baseDir}/{sessionID}/{queryID}/payload.json
-// The returned path uses pathPrefix if provided, otherwise returns the actual filesystem path
-func savePayload(baseDir, pathPrefix, sessionID, queryID string, payload []byte) (string, error) {
-	// Create directory structure: {baseDir}/{sessionID}/{queryID}
-	dir := filepath.Join(baseDir, sessionID, queryID)
-
-	logger.LogDebug("payload", "Creating payload directory: baseDir=%s, session=%s, query=%s",
-		baseDir, util.FormatSessionIDForLog(sessionID), queryID)
-
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		sanitizedErr := strings.ReplaceAll(err.Error(), sessionID, util.FormatSessionIDForLog(sessionID))
-		logger.LogError("payload", "Failed to create payload directory: session=%s, error=%s", util.FormatSessionIDForLog(sessionID), sanitizedErr)
-		return "", fmt.Errorf("failed to create payload directory: %s", sanitizedErr)
-	}
-
-	logger.LogDebug("payload", "Successfully created payload directory: session=%s, query=%s, permissions=0755",
-		util.FormatSessionIDForLog(sessionID), queryID)
-
-	// Save payload to file with restrictive permissions (owner read/write only)
-	filePath := filepath.Join(dir, "payload.json")
-	payloadSize := len(payload)
-
-	logger.LogInfo("payload", "Writing large payload to filesystem: session=%s, query=%s, size=%d bytes (%.2f KB, %.2f MB)",
-		util.FormatSessionIDForLog(sessionID), queryID, payloadSize, float64(payloadSize)/1024, float64(payloadSize)/(1024*1024))
-
-	if err := os.WriteFile(filePath, payload, 0600); err != nil {
-		sanitizedErr := strings.ReplaceAll(err.Error(), sessionID, util.FormatSessionIDForLog(sessionID))
-		logger.LogError("payload", "Failed to write payload file: session=%s, query=%s, size=%d bytes, error=%s",
-			util.FormatSessionIDForLog(sessionID), queryID, payloadSize, sanitizedErr)
-		return "", fmt.Errorf("failed to write payload file: %s", sanitizedErr)
-	}
-
-	// Enforce permissions even if the file already existed (WriteFile only sets mode on create)
-	if err := os.Chmod(filePath, 0600); err != nil {
-		sanitizedErr := strings.ReplaceAll(err.Error(), sessionID, util.FormatSessionIDForLog(sessionID))
-		logger.LogError("payload", "Failed to enforce payload file permissions: session=%s, query=%s, size=%d bytes, error=%s",
-			util.FormatSessionIDForLog(sessionID), queryID, payloadSize, sanitizedErr)
-		return "", fmt.Errorf("failed to set payload file permissions: %s", sanitizedErr)
-	}
-
-	// Log with the requested chmod mode rather than re-stating as a guarantee (Chmod may be
-	// a no-op on some platforms/filesystems while still returning nil).
-	logger.LogInfo("payload", "Successfully saved large payload to filesystem: session=%s, query=%s, size=%d bytes, chmod=0600",
-		util.FormatSessionIDForLog(sessionID), queryID, payloadSize)
-
-	// If pathPrefix is provided, use it to remap the path for the client
-	// This allows the gateway to save files at one path (e.g., /tmp/jq-payloads)
-	// while returning a different path to clients (e.g., /workspace/payloads)
-	returnPath := filePath
-	if pathPrefix != "" {
-		// Replace baseDir with pathPrefix in the file path
-		relPath := filepath.Join(sessionID, queryID, "payload.json")
-		returnPath = filepath.Join(pathPrefix, relPath)
-		logger.LogInfo("payload", "Remapped payload path for client: session=%s, query=%s, pathPrefix=%s",
-			util.FormatSessionIDForLog(sessionID), queryID, pathPrefix)
-	}
-
-	return returnPath, nil
-}
-
-// inferSchema recursively walks a JSON-compatible Go value and replaces every leaf
-// with its jq type name ("null", "boolean", "number", "string"). Objects are
-// traversed key-by-key; arrays are collapsed to a single representative element (or
-// [] when empty). The output mirrors what the previous pure-jq walk_schema filter
-// produced, but runs entirely in Go, bypassing jq interpreter overhead for recursion.
-//
-// Type mapping (matches jq's built-in type function):
-//   - nil                                          → "null"
-//   - bool                                         → "boolean"
-//   - any integer or floating-point numeric type   → "number"
-//     (float32/64, int/8/16/32/64, uint/8/16/32/64, json.Number)
-//   - string                                       → "string"
-//   - map[string]any                               → recursed object
-//   - []any                                        → recursed array (first element only)
-func inferSchema(v any) any {
-	switch val := v.(type) {
-	case map[string]any:
-		result := make(map[string]any, len(val))
-		for k, child := range val {
-			result[k] = inferSchema(child)
-		}
-		return result
-	case []any:
-		if len(val) == 0 {
-			return []any{}
-		}
-		return []any{inferSchema(val[0])}
-	case nil:
-		return "null"
-	case bool:
-		return "boolean"
-	case float64, float32,
-		int, int8, int16, int32, int64,
-		uint, uint8, uint16, uint32, uint64,
-		json.Number:
-		return "number"
-	case string:
-		return "string"
-	default:
-		// Defensive fallback: classify any remaining numeric reflect.Kind as "number"
-		// and everything else as "string" to keep the schema output valid.
-		switch reflect.TypeOf(v).Kind() {
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-			reflect.Float32, reflect.Float64:
-			return "number"
-		default:
-			return "string"
-		}
-	}
 }

@@ -311,11 +311,11 @@ func (us *UnifiedServer) registerToolsFromBackendContext(ctx context.Context, se
 			redactPayload := sanitize.ShouldRedactPayload(mcp.IsEnclaveSession(ctx))
 			argsJSON, _ := json.Marshal(toolArgs)
 			sanitizedArgs := sanitize.PayloadTextForLog(argsJSON, redactPayload)
-			logger.LogInfo("client", "MCP tool call request, session=%s, tool=%s, args=%s", util.FormatSessionIDForLog(sessionID), toolNameCopy, sanitizedArgs)
+			logger.LogInfo("client", "MCP tool call request, session=%s, tool=%s, args=%s", util.HashIdentifierForLog(sessionID), toolNameCopy, sanitizedArgs)
 
 			// Check session is initialized
 			if err := us.requireSession(ctx); err != nil {
-				logger.LogError("client", "MCP tool call failed: session not initialized, session=%s, tool=%s", util.FormatSessionIDForLog(sessionID), toolNameCopy)
+				logger.LogError("client", "MCP tool call failed: session not initialized, session=%s, tool=%s", util.HashIdentifierForLog(sessionID), toolNameCopy)
 				return mcp.NewErrorCallToolResult(err)
 			}
 
@@ -323,10 +323,10 @@ func (us *UnifiedServer) registerToolsFromBackendContext(ctx context.Context, se
 
 			// Log the MCP tool call response
 			if err != nil {
-				logger.LogError("client", "MCP tool call error, session=%s, tool=%s, error=%s", util.FormatSessionIDForLog(sessionID), toolNameCopy, sanitize.RedactErrorForLogIf(err, redactPayload))
+				logger.LogError("client", "MCP tool call error, session=%s, tool=%s, error=%s", util.HashIdentifierForLog(sessionID), toolNameCopy, sanitize.RedactErrorForLogIf(err, redactPayload))
 			} else {
 				resultJSON, _ := json.Marshal(data)
-				logger.LogInfo("client", "MCP tool call response, session=%s, tool=%s, result=%s", util.FormatSessionIDForLog(sessionID), toolNameCopy, sanitize.PayloadTextForLog(resultJSON, redactPayload))
+				logger.LogInfo("client", "MCP tool call response, session=%s, tool=%s, result=%s", util.HashIdentifierForLog(sessionID), toolNameCopy, sanitize.PayloadTextForLog(resultJSON, redactPayload))
 			}
 
 			return result, data, err
@@ -491,7 +491,7 @@ func (us *UnifiedServer) registerPromptsFromBackend(ctx context.Context, serverI
 			sessionID := us.getSessionID(ctx)
 			if err := us.requireSession(ctx); err != nil {
 				logger.LogError("client", "MCP prompt call failed: session not initialized, session=%s, prompt=%s",
-					util.FormatSessionIDForLog(sessionID), promptNameCopy)
+					util.HashIdentifierForLog(sessionID), promptNameCopy)
 				return nil, err
 			}
 
