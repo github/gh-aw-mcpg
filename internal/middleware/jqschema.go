@@ -73,7 +73,9 @@ const jqSchemaFilter = `walk_schema`
 // walk_schema function referenced by jqSchemaFilter. Compiling the filter without
 // these options fails with "function not defined: walk_schema/0".
 func walkSchemaCompileOpts() []gojq.CompilerOption {
-	return append(secureCompileOpts,
+	opts := make([]gojq.CompilerOption, 0, len(secureCompileOpts)+1)
+	opts = append(opts, secureCompileOpts...)
+	return append(opts,
 		gojq.WithFunction("walk_schema", 0, 0, func(v any, _ []any) any {
 			return inferSchema(v)
 		}),
