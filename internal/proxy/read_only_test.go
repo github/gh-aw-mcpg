@@ -248,6 +248,40 @@ func TestReadOnlyProxyForwardsSelectedQueryWithoutUnselectedDescription(t *testi
 	assert.Len(t, doc.Operations, 1)
 }
 
+func TestSelectReadOnlyGraphQLOperationUnicodeOffsets(t *testing.T) {
+	for _, description := range []string{`"sélection 😀"`, `"""sélection 日本語 😀"""`} {
+		t.Run(description, func(t *testing.T) {
+			operation := description + `
+				query Read($text: String = "héllo 日本語 😀") {
+					repository(owner: "o", name: "r") { ...Repo }
+				}`
+			fragment := `"détails 日本語 😀" fragment Repo on Repository { name }`
+			body, err := json.Marshal(GraphQLRequest{
+				Query: `"ignoré 😀" query Other { viewer { login } }
+					` + fragment + `
+					` + operation + `
+					"""inutilisé 😀""" mutation Write { createIssue(input: {}) { clientMutationId } }
+					fragment Unused on Repository { id }`,
+				OperationName: "Read",
+				Variables:     map[string]interface{}{"text": "préservé 😀"},
+			})
+			require.NoError(t, err)
+			selected, err := selectReadOnlyGraphQLOperation(body)
+			require.NoError(t, err)
+			var request GraphQLRequest
+			require.NoError(t, json.Unmarshal(selected, &request))
+			assert.Equal(t, operation+"\n"+fragment, request.Query)
+			assert.Equal(t, map[string]interface{}{"text": "préservé 😀"}, request.Variables)
+			doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: request.Query}, graphqlTokenLimit)
+			require.NoError(t, err)
+			require.Len(t, doc.Operations, 1)
+			assert.Equal(t, "Read", doc.Operations[0].Name)
+			require.Len(t, doc.Fragments, 1)
+			assert.Equal(t, "Repo", doc.Fragments[0].Name)
+		})
+	}
+}
+
 func TestReadOnlyProxyAllowsCollaboratorPermissionEnrichment(t *testing.T) {
 	var upstreamRequests atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

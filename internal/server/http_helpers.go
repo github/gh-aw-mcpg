@@ -92,7 +92,7 @@ func readAndRestoreRequestBody(r *http.Request) ([]byte, error) {
 // When enclaveSession is true the body — which carries the tool arguments of an
 // enclave-scoped call — is reduced to metadata instead of being persisted.
 func logHTTPRequestBody(r *http.Request, sessionID, backendID string, enclaveSession bool) {
-	logServerHelpers.Printf("Checking request body: method=%s, hasBody=%v, sessionID=%s", r.Method, r.Body != nil, util.FormatSessionIDForLog(sessionID))
+	logServerHelpers.Printf("Checking request body: method=%s, hasBody=%v, sessionID=%s", r.Method, r.Body != nil, util.HashIdentifierForLog(sessionID))
 
 	if r.Method != http.MethodPost {
 		logServerHelpers.Printf("Skipping body logging: not a POST request, no body present, or empty body")
@@ -109,14 +109,14 @@ func logHTTPRequestBody(r *http.Request, sessionID, backendID string, enclaveSes
 		return
 	}
 
-	logServerHelpers.Printf("Request body read: size=%d bytes, sessionID=%s, backendID=%s", len(bodyBytes), util.FormatSessionIDForLog(sessionID), backendID)
+	logServerHelpers.Printf("Request body read: size=%d bytes, sessionID=%s, backendID=%s", len(bodyBytes), util.HashIdentifierForLog(sessionID), backendID)
 
 	sanitizedBody := sanitize.PayloadTextForLog(bodyBytes, sanitize.ShouldRedactPayload(enclaveSession))
 
 	if backendID != "" {
 		logger.LogDebug("client", "MCP client request body, backend=%s, body=%s", backendID, sanitizedBody)
 	} else {
-		logger.LogDebug("client", "MCP request body, session=%s, body=%s", util.FormatSessionIDForLog(sessionID), sanitizedBody)
+		logger.LogDebug("client", "MCP request body, session=%s, body=%s", util.HashIdentifierForLog(sessionID), sanitizedBody)
 	}
 	logServerHelpers.Print("Request body logged for debugging")
 }

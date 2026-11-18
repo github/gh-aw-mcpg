@@ -185,12 +185,10 @@ func checkRequiredEnvVars() []string {
 	var missing []string
 	for _, envVar := range RequiredEnvVars {
 		if envVar == "MCP_GATEWAY_AGENT_ID" {
-			if os.Getenv("MCP_GATEWAY_AGENT_ID") != "" || os.Getenv("MCP_GATEWAY_API_KEY") != "" {
-				if os.Getenv("MCP_GATEWAY_AGENT_ID") == "" && os.Getenv("MCP_GATEWAY_API_KEY") != "" {
-					logEnv.Print("DEPRECATION: MCP_GATEWAY_API_KEY satisfies required agent identifier but should be renamed to MCP_GATEWAY_AGENT_ID")
-				}
-				continue
+			if GetGatewayAgentIDFromEnv() == "" {
+				missing = append(missing, envVar)
 			}
+			continue
 		}
 		if os.Getenv(envVar) == "" {
 			missing = append(missing, envVar)

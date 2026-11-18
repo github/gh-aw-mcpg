@@ -33,7 +33,7 @@ func WithSDKLogging(handler http.Handler, mode string, us *UnifiedServer) http.H
 
 		// Log incoming request
 		logSDK.Printf(">>> SDK Request [%s] session=%s mcp-session=%s method=%s path=%s",
-			mode, util.FormatSessionIDForLog(sessionID), util.FormatSessionIDForLog(mcpSessionID), r.Method, r.URL.Path)
+			mode, util.HashIdentifierForLog(sessionID), util.HashIdentifierForLog(mcpSessionID), r.Method, r.URL.Path)
 
 		// Capture and log request body for POST requests
 		var requestBody []byte
@@ -47,7 +47,7 @@ func WithSDKLogging(handler http.Handler, mode string, us *UnifiedServer) http.H
 			if err := json.Unmarshal(requestBody, &jsonrpcReq); err == nil {
 				logSDK.Printf("    JSON-RPC Request: method=%s id=%v", jsonrpcReq.Method, jsonrpcReq.ID)
 				logger.LogDebug("sdk-frontend", "JSON-RPC request parsed: mode=%s, method=%s, id=%v, session=%s",
-					mode, jsonrpcReq.Method, jsonrpcReq.ID, util.FormatSessionIDForLog(sessionID))
+					mode, jsonrpcReq.Method, jsonrpcReq.ID, util.HashIdentifierForLog(sessionID))
 			} else {
 				payloadText := sanitize.PayloadTextForLog(requestBody, redactPayload)
 				if redactPayload {
@@ -100,7 +100,7 @@ func WithSDKLogging(handler http.Handler, mode string, us *UnifiedServer) http.H
 						logSDK.Printf("    ⚠️  TOOL NOT FOUND ERROR")
 						logger.LogWarn("client",
 							"Tool not found: mode=%s, method=%s, session=%s, code=%d, message=%q",
-							mode, jsonrpcReq.Method, util.FormatSessionIDForLog(sessionID), errorCode, loggedErrorMsg)
+							mode, jsonrpcReq.Method, util.HashIdentifierForLog(sessionID), errorCode, loggedErrorMsg)
 					}
 
 					// Log detailed error info for protocol state issues
@@ -108,14 +108,14 @@ func WithSDKLogging(handler http.Handler, mode string, us *UnifiedServer) http.H
 						strings.Contains(errorMsg, "invalid during") {
 						logSDK.Printf("    ⚠️  PROTOCOL STATE ERROR DETECTED")
 						logSDK.Printf("    Request method was: %s", jsonrpcReq.Method)
-						logSDK.Printf("    Session ID: %s", util.FormatSessionIDForLog(sessionID))
-						logSDK.Printf("    MCP-Session-Id header: %s", util.FormatSessionIDForLog(mcpSessionID))
+						logSDK.Printf("    Session ID: %s", util.HashIdentifierForLog(sessionID))
+						logSDK.Printf("    MCP-Session-Id header: %s", util.HashIdentifierForLog(mcpSessionID))
 						logSDK.Printf("    This error indicates SDK's StreamableHTTPHandler created fresh protocol state")
 
 						logger.LogWarn("sdk-frontend",
 							"Protocol state error: mode=%s, method=%s, session=%s, mcp_session=%s, error=%q",
-							mode, jsonrpcReq.Method, util.FormatSessionIDForLog(sessionID),
-							util.FormatSessionIDForLog(mcpSessionID), loggedErrorMsg)
+							mode, jsonrpcReq.Method, util.HashIdentifierForLog(sessionID),
+							util.HashIdentifierForLog(mcpSessionID), loggedErrorMsg)
 					} else if (errorCode != -32602 && errorCode != -32601) || jsonrpcReq.Method != "tools/call" {
 						// Only log as general error if not already logged above
 						logger.LogError("sdk-frontend",

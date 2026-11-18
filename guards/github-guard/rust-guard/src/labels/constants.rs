@@ -245,6 +245,32 @@ mod tests {
             tool_names::CREATE_REPOSITORY_RULESET,
             "create_repository_ruleset"
         );
+        assert_eq!(tool_names::LIST_AUTOMATIONS, "list_automations");
+        assert_eq!(tool_names::GET_AUTOMATION, "get_automation");
+        assert_eq!(
+            tool_names::LIST_AUTOMATION_REVISIONS,
+            "list_automation_revisions"
+        );
+        assert_eq!(
+            tool_names::GET_AUTOMATION_REVISION,
+            "get_automation_revision"
+        );
+        assert_eq!(
+            tool_names::LIST_AVAILABLE_AUTOMATION_TOOLS,
+            "list_available_automation_tools"
+        );
+        assert_eq!(
+            tool_names::LIST_AVAILABLE_AUTOMATION_TRIGGERS,
+            "list_available_automation_triggers"
+        );
+        assert_eq!(
+            tool_names::GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY,
+            "get_automations_configuration_for_repository"
+        );
+        assert_eq!(tool_names::CREATE_AUTOMATION, "create_automation");
+        assert_eq!(tool_names::UPDATE_AUTOMATION, "update_automation");
+        assert_eq!(tool_names::DELETE_AUTOMATION, "delete_automation");
+        assert_eq!(tool_names::RUN_AUTOMATION, "run_automation");
         assert_eq!(tool_names::SET_SECRET, "set_secret");
         assert_eq!(tool_names::DELETE_SECRET, "delete_secret");
         assert_eq!(tool_names::SET_VARIABLE, "set_variable");
@@ -441,18 +467,6 @@ pub const MAX_ITEMS_PER_RESPONSE: usize = 100;
 /// match arm or the `is_non_get_read_sub_method` skip-check, since these
 /// are plain `&str` comparisons with no compiler-checked exhaustiveness.
 pub mod tool_names {
-    pub const LIST_AUTOMATIONS: &str = "list_automations";
-    pub const GET_AUTOMATION: &str = "get_automation";
-    pub const LIST_AUTOMATION_REVISIONS: &str = "list_automation_revisions";
-    pub const GET_AUTOMATION_REVISION: &str = "get_automation_revision";
-    pub const LIST_AVAILABLE_AUTOMATION_TOOLS: &str = "list_available_automation_tools";
-    pub const LIST_AVAILABLE_AUTOMATION_TRIGGERS: &str = "list_available_automation_triggers";
-    pub const GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY: &str =
-        "get_automations_configuration_for_repository";
-    pub const CREATE_AUTOMATION: &str = "create_automation";
-    pub const UPDATE_AUTOMATION: &str = "update_automation";
-    pub const DELETE_AUTOMATION: &str = "delete_automation";
-    pub const RUN_AUTOMATION: &str = "run_automation";
     pub const PULL_REQUEST_READ: &str = "pull_request_read";
     pub const GET_PULL_REQUEST: &str = "get_pull_request";
     pub const ISSUE_READ: &str = "issue_read";
@@ -515,6 +529,18 @@ pub mod tool_names {
     pub const CUSTOM_PROPERTIES_READ: &str = "custom_properties_read";
     pub const CUSTOM_PROPERTIES_WRITE: &str = "custom_properties_write";
     pub const CREATE_REPOSITORY_RULESET: &str = "create_repository_ruleset";
+    pub const LIST_AUTOMATIONS: &str = "list_automations";
+    pub const GET_AUTOMATION: &str = "get_automation";
+    pub const LIST_AUTOMATION_REVISIONS: &str = "list_automation_revisions";
+    pub const GET_AUTOMATION_REVISION: &str = "get_automation_revision";
+    pub const LIST_AVAILABLE_AUTOMATION_TOOLS: &str = "list_available_automation_tools";
+    pub const LIST_AVAILABLE_AUTOMATION_TRIGGERS: &str = "list_available_automation_triggers";
+    pub const GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY: &str =
+        "get_automations_configuration_for_repository";
+    pub const CREATE_AUTOMATION: &str = "create_automation";
+    pub const UPDATE_AUTOMATION: &str = "update_automation";
+    pub const DELETE_AUTOMATION: &str = "delete_automation";
+    pub const RUN_AUTOMATION: &str = "run_automation";
     pub const ACTIONS_GET: &str = "actions_get";
     pub const ACTIONS_LIST: &str = "actions_list";
     pub const ACTIONS_RUN_TRIGGER: &str = "actions_run_trigger";

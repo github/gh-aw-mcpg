@@ -129,18 +129,9 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 			finalResult = filteredMap
 		}
 	} else if !pre.EvalResult.IsAllowed() {
-		denied := &guard.PipelineAccessDenied{
-			EvalResult:  pre.EvalResult,
-			Resource:    pre.Resource,
-			AgentLabels: pre.AgentLabels,
-		}
+		denied, detailedErr := guard.CoarseDenialError(pre)
 		logCoarseDIFCDenial(ctx, serverID, promptName, denied)
-		return nil, difc.FormatViolationError(
-			pre.EvalResult,
-			pre.AgentLabels.Secrecy,
-			pre.AgentLabels.Integrity,
-			pre.Resource,
-		)
+		return nil, detailedErr
 	}
 
 	guard.RunPipelinePhase6(pre, labeledData, enforcementMode)
@@ -154,6 +145,6 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 		return nil, fmt.Errorf("failed to parse filtered prompt result: %w", err)
 	}
 	logger.LogInfo("client", "MCP prompt response mediated, session=%s, prompt=%s",
-		util.FormatSessionIDForLog(sessionID), promptName)
+		util.HashIdentifierForLog(sessionID), promptName)
 	return &result, nil
 }

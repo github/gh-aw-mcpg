@@ -14,7 +14,6 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/restroute"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/lexer"
-	"github.com/vektah/gqlparser/v2/parser"
 )
 
 var logReadOnly = logger.ForFile()
@@ -92,6 +91,10 @@ func isSupportedReadOnlyRESTPath(path string) bool {
 }
 
 func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
+	return selectReadOnlyGraphQLOperationParsed(body, &graphQLParseCache{})
+}
+
+func selectReadOnlyGraphQLOperationParsed(body []byte, parsed *graphQLParseCache) ([]byte, error) {
 	var request GraphQLRequest
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	opening, err := decoder.Token()
@@ -150,7 +153,7 @@ func selectReadOnlyGraphQLOperation(body []byte) ([]byte, error) {
 		return nil, errReadOnlyDenied
 	}
 
-	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: request.Query}, graphqlTokenLimit)
+	doc, err := parsed.parse(request.Query)
 	if err != nil || doc == nil || len(doc.Operations) == 0 {
 		return nil, errReadOnlyDenied
 	}

@@ -48,14 +48,14 @@ func (s *SysServer) ListServers() (interface{}, error) {
 // It validates that a session exists and delegates to callAndLogSysTool.
 func (us *UnifiedServer) sysListServersHandler(ctx context.Context, _ *sdk.CallToolRequest, _ interface{}) (*sdk.CallToolResult, interface{}, error) {
 	sessionID := us.getSessionID(ctx)
-	logger.LogInfo("client", "MCP sys_list_servers request, session=%s", util.FormatSessionIDForLog(sessionID))
+	logger.LogInfo("client", "MCP sys_list_servers request, session=%s", util.HashIdentifierForLog(sessionID))
 
 	if err := us.requireSession(ctx); err != nil {
-		logger.LogError("client", "MCP sys_list_servers failed: session not initialized, session=%s", util.FormatSessionIDForLog(sessionID))
+		logger.LogError("client", "MCP sys_list_servers failed: session not initialized, session=%s", util.HashIdentifierForLog(sessionID))
 		return mcp.NewErrorCallToolResult(err)
 	}
 
-	return us.callAndLogSysTool(util.FormatSessionIDForLog(sessionID), "sys_list_servers", "sys_list_servers")
+	return us.callAndLogSysTool(util.HashIdentifierForLog(sessionID), "sys_list_servers", "sys_list_servers")
 }
 
 // sysInitHandler handles sys___init tool calls.
@@ -81,16 +81,16 @@ func (us *UnifiedServer) sysInitHandler(ctx context.Context, req *sdk.CallToolRe
 		return mcp.NewErrorCallToolResult(fmt.Errorf("no session ID provided"))
 	}
 
-	logger.LogInfo("client", "MCP session initialization started, session=%s, has_token=%v", util.FormatSessionIDForLog(sessionID), token != "")
+	logger.LogInfo("client", "MCP session initialization started, session=%s, has_token=%v", util.HashIdentifierForLog(sessionID), token != "")
 
 	us.sessionMu.Lock()
 	us.sessions[sessionID] = NewSession(sessionID, token)
 	us.sessionMu.Unlock()
 
 	if err := us.ensureSessionDirectory(sessionID); err != nil {
-		logger.LogWarn("client", "Failed to create session directory for session=%s: %v", util.FormatSessionIDForLog(sessionID), err)
+		logger.LogWarn("client", "Failed to create session directory for session=%s: %v", util.HashIdentifierForLog(sessionID), err)
 	}
 
-	logger.LogInfo("client", "MCP session initialized successfully, session=%s, available_servers=%v", util.FormatSessionIDForLog(sessionID), us.launcher.ServerIDs())
-	return us.callAndLogSysTool(util.FormatSessionIDForLog(sessionID), "session initialization", "sys_init")
+	logger.LogInfo("client", "MCP session initialized successfully, session=%s, available_servers=%v", util.HashIdentifierForLog(sessionID), us.launcher.ServerIDs())
+	return us.callAndLogSysTool(util.HashIdentifierForLog(sessionID), "session initialization", "sys_init")
 }

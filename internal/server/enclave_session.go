@@ -14,10 +14,10 @@ func (us *UnifiedServer) isEnclaveSession(sessionID string) bool {
 		return false
 	}
 	if us.isDelegatedExecutorSession(sessionID) {
-		logUnified.Printf("isEnclaveSession: session=%s is a delegated executor, treating as enclave-scoped", util.FormatSessionIDForLog(sessionID))
+		logUnified.Printf("isEnclaveSession: session=%s is a delegated executor, treating as enclave-scoped", util.HashIdentifierForLog(sessionID))
 		return true
 	}
 	enclave := us.cfg.AgentPolicyFor(sessionID).IsEnclave()
-	logUnified.Printf("isEnclaveSession: session=%s, agentPolicyEnclave=%v", util.FormatSessionIDForLog(sessionID), enclave)
+	logUnified.Printf("isEnclaveSession: session=%s, agentPolicyEnclave=%v", util.HashIdentifierForLog(sessionID), enclave)
 	return enclave
 }

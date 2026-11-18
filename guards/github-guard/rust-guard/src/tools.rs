@@ -46,10 +46,9 @@ const WRITE_OPERATIONS: &[&str] = &[
     tool_names::REMOVE_ISSUE_REACTION, // DELETE /repos/.../issues/{number}/reactions/{reaction_id}
     tool_names::REMOVE_PULL_REQUEST_REVIEW_COMMENT_REACTION, // DELETE /repos/.../pulls/comments/{id}/reactions/{reaction_id}
     "request_copilot_review",
-    tool_names::RUN_AUTOMATION,
+    tool_names::RUN_AUTOMATION, // POST — starts a manual Copilot Automation run
     tool_names::STAR_REPOSITORY,
     tool_names::UNSTAR_REPOSITORY,
-    tool_names::UPDATE_AUTOMATION,
 ];
 
 /// Upstream writes omitted from the default README catalog because they are feature-gated.
@@ -184,6 +183,7 @@ const READ_WRITE_OPERATIONS: &[&str] = &[
     "sub_issue_write",
     "submit_pending_pull_request_review", // POST /repos/.../pulls/{number}/reviews/{id}/events
     "unresolve_review_thread",            // PUT  /graphql — unresolveReviewThread
+    tool_names::UPDATE_AUTOMATION,       // PATCH — returns the updated automation definition
     "update_gist",
     tool_names::UPDATE_ISSUE_ASSIGNEES, // PATCH — modifies issue assignees
     tool_names::UPDATE_ISSUE_BODY,      // PATCH — modifies issue body
@@ -559,7 +559,6 @@ mod tests {
     fn test_automation_operations_match_upstream_classification() {
         for tool in [
             tool_names::CREATE_AUTOMATION,
-            tool_names::UPDATE_AUTOMATION,
             tool_names::DELETE_AUTOMATION,
             tool_names::RUN_AUTOMATION,
         ] {
@@ -570,6 +569,9 @@ mod tests {
             assert!(is_write_operation(tool), "{tool} must be a write operation");
             assert!(!is_read_write_operation(tool), "{tool} is write-only");
         }
+        assert!(is_read_write_operation(tool_names::UPDATE_AUTOMATION));
+        assert!(!is_write_operation(tool_names::UPDATE_AUTOMATION));
+
         for tool in [
             tool_names::LIST_AUTOMATIONS,
             tool_names::GET_AUTOMATION,
@@ -829,6 +831,38 @@ mod tests {
             !is_write_operation(op),
             "{op} should not be in WRITE_OPERATIONS (it is in READ_WRITE_OPERATIONS)"
         );
+    }
+
+    #[test]
+    fn test_copilot_automation_mutations_are_write_operations() {
+        for op in [
+            tool_names::CREATE_AUTOMATION,
+            tool_names::UPDATE_AUTOMATION,
+            tool_names::DELETE_AUTOMATION,
+            tool_names::RUN_AUTOMATION,
+        ] {
+            assert!(
+                is_write_operation(op),
+                "{op} must be classified as a write operation"
+            );
+            assert!(!is_read_write_operation(op), "{op}");
+        }
+    }
+
+    #[test]
+    fn test_copilot_automation_reads_are_not_write_operations() {
+        for op in [
+            tool_names::LIST_AUTOMATIONS,
+            tool_names::GET_AUTOMATION,
+            tool_names::LIST_AUTOMATION_REVISIONS,
+            tool_names::GET_AUTOMATION_REVISION,
+            tool_names::LIST_AVAILABLE_AUTOMATION_TOOLS,
+            tool_names::LIST_AVAILABLE_AUTOMATION_TRIGGERS,
+            tool_names::GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY,
+        ] {
+            assert!(!is_write_operation(op), "{op}");
+            assert!(!is_read_write_operation(op), "{op}");
+        }
     }
 
     #[test]

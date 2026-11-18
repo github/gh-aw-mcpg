@@ -48,7 +48,7 @@ func TestIsSinglePathSegmentSessionID(t *testing.T) {
 	}
 }
 
-func TestFormatSessionIDForLog(t *testing.T) {
+func TestHashIdentifierForLog(t *testing.T) {
 	tests := []struct {
 		name      string
 		sessionID string
@@ -63,9 +63,11 @@ func TestFormatSessionIDForLog(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := util.FormatSessionIDForLog(tt.sessionID)
-			assert.Equal(t, util.HashIdentifierForLog(tt.sessionID), result)
-			if tt.sessionID != "" {
+			result := util.HashIdentifierForLog(tt.sessionID)
+			if tt.sessionID == "" {
+				assert.Equal(t, "(none)", result)
+			} else {
+				assert.Regexp(t, `^agent:[a-f0-9]{12}$`, result)
 				assert.NotEqual(t, tt.sessionID, result)
 			}
 		})

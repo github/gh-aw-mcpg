@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,6 +80,52 @@ func TestInitProvider_HonorsCompressionOptOut(t *testing.T) {
 		assert.Empty(t, headers.Get("Content-Encoding"))
 	case <-time.After(3 * time.Second):
 		t.Fatal("timed out waiting for OTLP export request")
+	}
+}
+
+func TestInitProvider_ErrorResponseSizeLimit(t *testing.T) {
+	for _, size := range []int{1024, 64 * 1024, 64*1024 + 1} {
+		t.Run(fmt.Sprintf("%d_bytes", size), func(t *testing.T) {
+			ctx := context.Background()
+			t.Setenv("GH_AW_OTLP_ENDPOINTS", "")
+
+			const marker = "collector-error-body-end"
+			body := strings.Repeat("x", size-len(marker)) + marker
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(body))
+			}))
+			defer ts.Close()
+
+			provider, err := tracing.InitProvider(ctx, &config.TracingConfig{
+				Endpoint:   ts.URL,
+				SampleRate: ptrFloat64(1),
+			})
+			require.NoError(t, err)
+			defer func() {
+				shutdownCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+				defer cancel()
+				assert.NoError(t, provider.Shutdown(shutdownCtx))
+			}()
+
+			sdkProvider, ok := otel.GetTracerProvider().(*sdktrace.TracerProvider)
+			require.True(t, ok)
+
+			_, span := provider.Tracer().Start(ctx, "response-size-limit-test")
+			span.End()
+
+			flushCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			defer cancel()
+			err = sdkProvider.ForceFlush(flushCtx)
+
+			if size > 64*1024 {
+				require.ErrorContains(t, err, "response body too large: exceeded 65536 bytes")
+				assert.NotContains(t, err.Error(), marker)
+			} else {
+				require.Error(t, err)
+				assert.NotContains(t, err.Error(), "response body too large")
+			}
+		})
 	}
 }
 
