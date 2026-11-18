@@ -91,7 +91,8 @@ func (us *UnifiedServer) ensureSessionDirectory(sessionID string) error {
 		return nil
 	} else if !os.IsNotExist(err) {
 		// Some other error occurred while checking
-		logSession.Printf("Failed to stat session directory: dir=%s, error=%v", sessionDir, err)
+		sanitizedErr := strings.ReplaceAll(err.Error(), sessionID, util.FormatSessionIDForLog(sessionID))
+		logSession.Printf("Failed to stat session directory: sessionID=%s, error=%s", util.FormatSessionIDForLog(sessionID), sanitizedErr)
 		return fmt.Errorf("failed to check session directory: %w", err)
 	}
 
