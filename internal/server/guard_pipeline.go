@@ -8,7 +8,6 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/mcp"
 	"github.com/github/gh-aw-mcpg/internal/sanitize"
-	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 var logGuardPipeline = logger.ForFile()
@@ -19,7 +18,7 @@ func (us *UnifiedServer) buildPipelineInput(
 	args interface{},
 	g guard.Guard,
 ) (guard.PipelineInput, error) {
-	logGuardPipeline.Printf("Building pipeline input: serverID=%s, tool=%s, session=%s", serverID, toolName, util.FormatSessionIDForLog(sessionID))
+	logGuardPipeline.Printf("Building pipeline input: serverID=%s, tool=%s", serverID, toolName)
 
 	backendCaller := &guardBackendCaller{
 		server:   us,
