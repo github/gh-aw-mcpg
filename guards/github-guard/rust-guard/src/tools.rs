@@ -49,7 +49,6 @@ const WRITE_OPERATIONS: &[&str] = &[
     tool_names::RUN_AUTOMATION, // POST — starts a manual Copilot Automation run
     tool_names::STAR_REPOSITORY,
     tool_names::UNSTAR_REPOSITORY,
-    tool_names::UPDATE_AUTOMATION,
 ];
 
 /// Upstream writes omitted from the default README catalog because they are feature-gated.
@@ -168,7 +167,7 @@ const READ_WRITE_OPERATIONS: &[&str] = &[
     "create_pull_request_review",      // POST /repos/.../pulls/{number}/reviews
     "custom_properties_write",         // updates repository/org custom properties
     "delete_pending_pull_request_review", // DELETE /repos/.../pulls/{number}/reviews/{id}
-    tool_names::ISSUE_ARTIFACT_WRITE, // creates, updates, or deletes issue artifacts
+    tool_names::ISSUE_ARTIFACT_WRITE,  // creates, updates, or deletes issue artifacts
     "issue_dependency_write", // GraphQL addBlockedBy/removeBlockedBy after resolving issue IDs
     "issue_dependency_write_ff_issue_dependencies", // current upstream feature-flagged issue dependency mutation
     "issue_write",
@@ -184,6 +183,7 @@ const READ_WRITE_OPERATIONS: &[&str] = &[
     "sub_issue_write",
     "submit_pending_pull_request_review", // POST /repos/.../pulls/{number}/reviews/{id}/events
     "unresolve_review_thread",            // PUT  /graphql — unresolveReviewThread
+    tool_names::UPDATE_AUTOMATION,        // PATCH — returns the updated automation definition
     "update_gist",
     tool_names::UPDATE_ISSUE_ASSIGNEES, // PATCH — modifies issue assignees
     tool_names::UPDATE_ISSUE_BODY,      // PATCH — modifies issue body
@@ -803,10 +803,9 @@ mod tests {
     }
 
     #[test]
-    fn test_copilot_automation_mutations_are_write_operations() {
+    fn test_copilot_automation_mutation_classification() {
         for op in [
             tool_names::CREATE_AUTOMATION,
-            tool_names::UPDATE_AUTOMATION,
             tool_names::DELETE_AUTOMATION,
             tool_names::RUN_AUTOMATION,
         ] {
@@ -816,6 +815,8 @@ mod tests {
             );
             assert!(!is_read_write_operation(op), "{op}");
         }
+        assert!(is_read_write_operation(tool_names::UPDATE_AUTOMATION));
+        assert!(!is_write_operation(tool_names::UPDATE_AUTOMATION));
     }
 
     #[test]
