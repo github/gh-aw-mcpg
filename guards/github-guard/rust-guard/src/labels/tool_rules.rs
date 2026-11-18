@@ -178,22 +178,28 @@ fn apply_dispatch_repo_labels(
     *integrity = writer_integrity(scope, ctx);
 }
 
+/// Identifies the issue or PR whose author integrity is being resolved.
+struct AuthoredResource<'a> {
+    owner: &'a str,
+    repo: &'a str,
+    repo_id: &'a str,
+    /// Tool name used as the resource kind in debug logs.
+    label: &'a str,
+    number: &'a str,
+}
+
 /// Compute integrity for a user-authored resource (issue or PR), applying:
 ///   1. `author_association` floor
 ///   2. Trusted bot/user elevation to writer level
 ///   3. Collaborator-permission fallback for org repos
-#[allow(clippy::too_many_arguments)]
 fn resolve_author_integrity(
-    owner: &str,
-    repo: &str,
-    repo_id: &str,
+    resource: &AuthoredResource<'_>,
     author_login: Option<&str>,
     author_association: Option<&str>,
-    resource_label: &str,
-    resource_num: &str,
     base_integrity: &[String],
     ctx: &PolicyContext,
 ) -> Vec<String> {
+    let repo_id = resource.repo_id;
     if author_login.is_some_and(|login| is_blocked_user(login, ctx)) {
         return blocked_integrity(repo_id, ctx);
     }
@@ -204,11 +210,11 @@ fn resolve_author_integrity(
         if is_any_trusted_actor(login, ctx) {
             floor = max_integrity(repo_id, &floor, &writer_integrity(repo_id, ctx), ctx);
         }
-        let resource_id = format!("{owner}/{repo}#{resource_num}");
+        let resource_id = format!("{}/{}#{}", resource.owner, resource.repo, resource.number);
         floor = elevate_via_collaborator_permission(
             login,
             repo_id,
-            resource_label,
+            resource.label,
             &resource_id,
             floor,
             ctx,
@@ -249,13 +255,15 @@ fn apply_issue_read_enrichment(
             if always_enrich {
                 if let Some(info) = super::backend::get_issue_author_info(owner, repo, &issue_num) {
                     integrity = resolve_author_integrity(
-                        owner,
-                        repo,
-                        repo_id,
+                        &AuthoredResource {
+                            owner,
+                            repo,
+                            repo_id,
+                            label: tool_names::ISSUE_READ,
+                            number: &issue_num,
+                        },
                         info.author_login.as_deref(),
                         info.author_association.as_deref(),
-                        tool_names::ISSUE_READ,
-                        &issue_num,
                         &integrity,
                         ctx,
                     );
@@ -428,11 +436,17 @@ pub fn apply_tool_labels(
                         super::backend::get_pull_request_facts(owner, repo, number)
                     {
                         integrity = resolve_author_integrity(
-                            owner, repo, repo_id,
+                            &AuthoredResource {
+                                owner,
+                                repo,
+                                repo_id,
+                                label: tool_names::PULL_REQUEST_READ,
+                                number,
+                            },
                             facts.author_login.as_deref(),
                             facts.author_association.as_deref(),
-                            tool_names::PULL_REQUEST_READ, number,
-                            &integrity, ctx,
+                            &integrity,
+                            ctx,
                         );
 
                         if repo_private == Some(true) {
@@ -3330,18 +3344,67 @@ mod tests {
         };
 
         let integrity = super::resolve_author_integrity(
-            "octocat",
-            "hello-world",
-            "octocat/hello-world",
+            &AuthoredResource {
+                owner: "octocat",
+                repo: "hello-world",
+                repo_id: "octocat/hello-world",
+                label: "issue",
+                number: "1",
+            },
             Some("dual-listed"),
             Some("OWNER"),
-            "issue",
-            "1",
             &writer_integrity("octocat/hello-world", &ctx),
             &ctx,
         );
 
         assert_eq!(integrity, blocked_integrity("octocat/hello-world", &ctx));
+    }
+
+    #[test]
+    fn resolve_author_integrity_preserves_floors_and_baseline() {
+        let ctx = PolicyContext {
+            trusted_users: vec!["trusted-author".to_string()],
+            ..Default::default()
+        };
+        let repo_id = "octocat/hello-world";
+
+        for label in [tool_names::ISSUE_READ, tool_names::PULL_REQUEST_READ] {
+            let resource = AuthoredResource {
+                owner: "octocat",
+                repo: "hello-world",
+                repo_id,
+                label,
+                number: "42",
+            };
+            for (login, association, baseline, expected) in [
+                (None, None, vec![], none_integrity(repo_id, &ctx)),
+                (None, Some("OWNER"), vec![], writer_integrity(repo_id, &ctx)),
+                (
+                    Some("trusted-author"),
+                    None,
+                    vec![],
+                    writer_integrity(repo_id, &ctx),
+                ),
+                (
+                    Some("untrusted-author"),
+                    Some("CONTRIBUTOR"),
+                    vec![],
+                    reader_integrity(repo_id, &ctx),
+                ),
+                (
+                    None,
+                    None,
+                    merged_integrity(repo_id, &ctx),
+                    merged_integrity(repo_id, &ctx),
+                ),
+            ] {
+                assert_eq!(
+                    resolve_author_integrity(&resource, login, association, &baseline, &ctx),
+                    expected,
+                    "{label}: login={login:?}, association={association:?}"
+                );
+            }
+        }
     }
 
     #[test]
