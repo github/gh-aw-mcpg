@@ -62,7 +62,7 @@ func WithOTELTracing(next http.Handler, tag string) http.Handler {
 		next.ServeHTTP(w, r)
 		sessionID := SessionIDFromContext(r.Context())
 		span := oteltrace.SpanFromContext(r.Context())
-		span.SetAttributes(tracing.GenAIConversationID.String(util.FormatSessionIDForLog(sessionID)))
+		span.SetAttributes(tracing.GenAIConversationID.String(util.HashIdentifierForLog(sessionID)))
 	})
 	return tracing.WrapHTTPHandler(enriched, "gateway.request", tracing.GatewayTag.String(tag))
 }

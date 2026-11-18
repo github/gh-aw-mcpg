@@ -39,8 +39,7 @@ type Claims struct {
 
 // AgentID returns the stable DIFC registry key for this invocation.
 func (c *Claims) AgentID() string {
-	sum := sha256.Sum256([]byte(c.Run + "\x00" + c.Invocation))
-	return "enclave:" + hex.EncodeToString(sum[:16])
+	return util.HashForLog(c.Run+"\x00"+c.Invocation, 32, "enclave:")
 }
 
 // AllowsOperation reports whether the invocation capability permits operation.
