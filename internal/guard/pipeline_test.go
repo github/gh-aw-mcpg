@@ -335,7 +335,7 @@ func TestCoarseDenialError(t *testing.T) {
 	assert.Same(t, pre.EvalResult, denied.EvalResult)
 	assert.Same(t, pre.Resource, denied.Resource)
 	assert.Same(t, pre.AgentLabels, denied.AgentLabels)
-	assert.EqualError(t, denied, "DIFC access denied: secrecy violation")
+	require.EqualError(t, denied, "DIFC access denied: secrecy violation")
 	expectedErr := difc.FormatViolationError(pre.EvalResult, agentLabels.Secrecy, agentLabels.Integrity, resource)
 	assert.EqualError(t, detailedErr, expectedErr.Error())
 }
