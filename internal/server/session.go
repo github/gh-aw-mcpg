@@ -98,7 +98,7 @@ func (us *UnifiedServer) ensureSessionDirectory(sessionID string) error {
 
 	// Directory doesn't exist, create it with world-readable permissions (for agent access)
 	if err := os.MkdirAll(sessionDir, 0755); err != nil {
-		logSession.Printf("Failed to create session directory: dir=%s, error=%v", sessionDir, err)
+		logSession.Printf("Failed to create session directory: payloadDir=%s, sessionID=%s, error=%v", us.payloadDir, util.FormatSessionIDForLog(sessionID), err)
 		return fmt.Errorf("failed to create session directory: %w", err)
 	}
 
