@@ -16,6 +16,20 @@ func validPersistedIdentity(envelope *Envelope, handle, bearer, invocationID str
 	return identity
 }
 
+func TestValidatePersistedState_AcceptsEmptyState(t *testing.T) {
+	envelope := validEnvelope()
+	state := persistedState{
+		Version:    statePersistVersion,
+		Generation: 1,
+		Identities: map[string]Identity{},
+	}
+
+	validated, err := validatePersistedState(state, envelope, 1)
+
+	require.NoError(t, err)
+	assert.Empty(t, validated)
+}
+
 func TestValidatePersistedState_AcceptsAndSortsIdentities(t *testing.T) {
 	envelope := validEnvelope()
 	state := persistedState{
@@ -54,6 +68,15 @@ func TestValidatePersistedState_RejectsInvalidState(t *testing.T) {
 			name:       "invalid schema hash",
 			mutate:     func(state *persistedState, _ *Envelope) { state.DynamicSchemaHashes = []string{""} },
 			wantErrMsg: "empty dynamic schema hash",
+		},
+		{
+			name: "invalid identity",
+			mutate: func(state *persistedState, envelope *Envelope) {
+				identity := validPersistedIdentity(envelope, "handle-invalid", "bearer-invalid", "inv-invalid")
+				identity.Handle = ""
+				state.Identities = map[string]Identity{"invalid": identity}
+			},
+			wantErrMsg: "failed active-envelope validation",
 		},
 		{
 			name: "identity outside the active envelope",
