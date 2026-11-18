@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/github/gh-aw-mcpg/internal/mcpresult"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -57,9 +58,13 @@ func TestPathCollectionsPreserveEnvelope(t *testing.T) {
 				envelope := filtered.FinalResult.(map[string]interface{})
 				assert.False(t, envelope["isError"].(bool))
 				if format != "structured" {
-					content := envelope["content"].([]interface{})
+					content, ok := mcpresult.NormalizeContentItems(envelope["content"])
+					require.True(t, ok)
 					require.Len(t, content, 1)
-					require.NoError(t, json.Unmarshal([]byte(content[0].(map[string]interface{})["text"].(string)), &result))
+					require.NoError(t, json.Unmarshal([]byte(mcpresult.ExtractTextContent(envelope)), &result))
+					unwrapped, wrapped := unwrapMCPResponse(envelope)
+					assert.True(t, wrapped)
+					assert.Equal(t, result, unwrapped)
 				}
 				if format != "text" {
 					if result != nil {
