@@ -162,16 +162,13 @@ func InitProvider(ctx context.Context, cfg *config.TracingConfig) (*Provider, er
 		opts := []otlptracehttp.Option{
 			otlptracehttp.WithEndpointURL(ep.URL),
 			otlptracehttp.WithTimeout(resolveExporterTimeout(cfg)),
+			otlptracehttp.WithMaxResponseSize(64 * 1024),
 			// Retain the SDK's recommended retry policy while making it reviewable here.
 			otlptracehttp.WithRetry(otlptracehttp.RetryConfig{
 				InitialInterval: 5 * time.Second,
 				MaxInterval:     30 * time.Second,
 				MaxElapsedTime:  time.Minute,
 			}),
-			// TODO(otel >= v1.47.0): add otlptracehttp.WithMaxResponseSize to bound how
-			// much of an OTLP error response body the exporter buffers. The option is
-			// only available from v1.47.0 onwards; add it when the otel* modules are
-			// bumped past the v1.46.0 pin in go.mod.
 		}
 		if exporterHeaders != nil {
 			opts = append(opts, otlptracehttp.WithHeaders(exporterHeaders))
