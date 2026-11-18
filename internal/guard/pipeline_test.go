@@ -313,6 +313,33 @@ func TestPipelineAccessDenied_ErrorMessage(t *testing.T) {
 	assert.Contains(t, denied.Error(), "integrity tag missing")
 }
 
+func TestCoarseDenialError(t *testing.T) {
+	agentLabels := difc.NewAgentLabels("test-agent")
+	agentLabels.AddSecrecyTags([]difc.Tag{"secret"})
+	agentLabels.AddIntegrityTags([]difc.Tag{"trusted"})
+	resource := difc.NewLabeledResource("protected-resource")
+	resource.Secrecy.Label.Add("private")
+	pre := &PipelinePreResult{
+		EvalResult: &difc.EvaluationResult{
+			Decision:     difc.AccessDeny,
+			SecrecyToAdd: []difc.Tag{"private"},
+			Reason:       "secrecy violation",
+		},
+		Resource:    resource,
+		AgentLabels: agentLabels,
+	}
+
+	denied, detailedErr := CoarseDenialError(pre)
+
+	require.NotNil(t, denied)
+	assert.Same(t, pre.EvalResult, denied.EvalResult)
+	assert.Same(t, pre.Resource, denied.Resource)
+	assert.Same(t, pre.AgentLabels, denied.AgentLabels)
+	require.EqualError(t, denied, "DIFC access denied: secrecy violation")
+	expectedErr := difc.FormatViolationError(pre.EvalResult, agentLabels.Secrecy, agentLabels.Integrity, resource)
+	assert.EqualError(t, detailedErr, expectedErr.Error())
+}
+
 func TestHandlePrePhaseError_ReturnsDetailedViolationForDeniedError(t *testing.T) {
 	agentLabels := difc.NewAgentLabels("test-agent")
 	agentLabels.AddSecrecyTags([]difc.Tag{"secret"})

@@ -255,7 +255,7 @@ func GetOrLaunch(l *Launcher, serverID string) (*mcp.Connection, error) {
 // GetOrLaunchForSession returns a session-aware connection or launches a new one
 // This is used for stateful stdio backends that require persistent connections
 func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connection, error) {
-	logger.LogDebugToServer(serverID, "backend", "GetOrLaunchForSession called: server=%s, session=%s", serverID, util.FormatSessionIDForLog(sessionID))
+	logger.LogDebugToServer(serverID, "backend", "GetOrLaunchForSession called: server=%s, session=%s", serverID, util.HashIdentifierForLog(sessionID))
 
 	// Get server config first to determine backend type
 	serverCfg, err := l.getServerConfig(serverID)
@@ -271,7 +271,7 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 		return getOrLaunchWithConfig(l, serverID, serverCfg)
 	}
 
-	logLauncher.Printf("Checking session pool: serverID=%s, sessionID=%s", serverID, util.FormatSessionIDForLog(sessionID))
+	logLauncher.Printf("Checking session pool: serverID=%s, sessionID=%s", serverID, util.HashIdentifierForLog(sessionID))
 	// For stdio backends, check the session pool first
 	l.mu.RLock()
 	if l.closed {
@@ -282,12 +282,12 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 	conn, exists := l.sessionPool.Get(serverID, sessionID)
 	l.mu.RUnlock()
 	if exists {
-		logger.LogDebugToServer(serverID, "backend", "Reusing session connection: server=%s, session=%s", serverID, util.FormatSessionIDForLog(sessionID))
+		logger.LogDebugToServer(serverID, "backend", "Reusing session connection: server=%s, session=%s", serverID, util.HashIdentifierForLog(sessionID))
 		return conn, nil
 	}
 
 	// Need to launch new connection for this session
-	logLauncher.Printf("Session connection not found, creating new: serverID=%s, sessionID=%s", serverID, util.FormatSessionIDForLog(sessionID))
+	logLauncher.Printf("Session connection not found, creating new: serverID=%s, sessionID=%s", serverID, util.HashIdentifierForLog(sessionID))
 
 	// Allow tests to observe the pool miss and inject a connection before the lock.
 	if l.hookAfterFirstPoolMiss != nil {
@@ -304,13 +304,13 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 		conn, exists := l.sessionPool.Get(serverID, sessionID)
 		l.mu.RUnlock()
 		if exists {
-			logger.LogDebugToServer(serverID, "backend", "Session connection created by another goroutine: server=%s, session=%s", serverID, util.FormatSessionIDForLog(sessionID))
+			logger.LogDebugToServer(serverID, "backend", "Session connection created by another goroutine: server=%s, session=%s", serverID, util.HashIdentifierForLog(sessionID))
 			return conn, nil
 		}
 
 		conn, err := l.launchStdioConnection(serverID, sessionID, serverCfg)
 		if err != nil {
-			logLauncher.Printf("Session launch failed: serverID=%s, sessionID=%s, error=%s", serverID, util.FormatSessionIDForLog(sessionID), sanitize.SanitizeString(sanitize.RedactErrorForLogIf(err, sanitize.ShouldRedactPayload(mcp.IsEnclaveSession(l.ctx)))))
+			logLauncher.Printf("Session launch failed: serverID=%s, sessionID=%s, error=%s", serverID, util.HashIdentifierForLog(sessionID), sanitize.SanitizeString(sanitize.RedactErrorForLogIf(err, sanitize.ShouldRedactPayload(mcp.IsEnclaveSession(l.ctx)))))
 			// Record error in session pool and server state
 			l.sessionPool.RecordError(serverID, sessionID)
 			l.recordError(serverID, err.Error())
@@ -326,7 +326,7 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 		}
 		l.sessionPool.Set(serverID, sessionID, conn)
 		l.mu.Unlock()
-		logLauncher.Printf("Session connection added to pool: serverID=%s, sessionID=%s", serverID, util.FormatSessionIDForLog(sessionID))
+		logLauncher.Printf("Session connection added to pool: serverID=%s, sessionID=%s", serverID, util.HashIdentifierForLog(sessionID))
 		l.recordStart(serverID)
 		return conn, nil
 	})
@@ -372,7 +372,7 @@ func (l *Launcher) launchStdioConnection(serverID, sessionID string, serverCfg *
 	}
 
 	log.Printf("[LAUNCHER] Starting server with %v timeout", l.startupTimeout)
-	logLauncher.Printf("Starting server with timeout: serverID=%s, sessionID=%s, timeout=%v", serverID, util.FormatSessionIDForLog(sessionID), l.startupTimeout)
+	logLauncher.Printf("Starting server with timeout: serverID=%s, sessionID=%s, timeout=%v", serverID, util.HashIdentifierForLog(sessionID), l.startupTimeout)
 
 	// Create a buffered channel to receive connection result
 	// Buffer size of 1 prevents goroutine leak if timeout occurs before connection completes

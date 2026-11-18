@@ -298,8 +298,10 @@ mod tests {
 
     #[test]
     fn zero_result_commit_search_without_items_uses_metadata_fallback() {
-        let mut policy = PolicyContext::default();
-        policy.blocked_users = vec!["blocked-bot".into()];
+        let policy = PolicyContext {
+            blocked_users: vec!["blocked-bot".into()],
+            ..PolicyContext::default()
+        };
         let args = json!({"query":"repo:org/repo"});
 
         assert!(label_response_paths(

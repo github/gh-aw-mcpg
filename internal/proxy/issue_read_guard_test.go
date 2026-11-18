@@ -9,6 +9,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/github/gh-aw-mcpg/internal/guard"
+	"github.com/github/gh-aw-mcpg/internal/mcpresult"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -199,14 +200,12 @@ func TestPullRequestReadReviewThreadsPreservePagination(t *testing.T) {
 	assert.Equal(t, "PRRT_external", deniedThread["id"])
 	assert.Empty(t, deniedThread["comments"])
 
-	content, ok := envelope["content"].([]any)
+	content, ok := mcpresult.NormalizeContentItems(envelope["content"])
 	require.True(t, ok)
 	require.Len(t, content, 1)
-	text, ok := content[0].(map[string]any)
-	require.True(t, ok)
 	encoded, err := json.Marshal(response)
 	require.NoError(t, err)
-	assert.JSONEq(t, string(encoded), text["text"].(string))
+	assert.JSONEq(t, string(encoded), mcpresult.ExtractTextContent(envelope))
 	encodedEnvelope, err := json.Marshal(envelope)
 	require.NoError(t, err)
 	assert.NotContains(t, string(encodedEnvelope), "Untrusted review comment.")

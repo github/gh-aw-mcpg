@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func validPersistedIdentityForTest(handle, bearer, invocationID string) Identity {
-	identity := *validIdentityForEnvelope(validEnvelope(), 1)
+func validPersistedIdentity(envelope *Envelope, handle, bearer, invocationID string) Identity {
+	identity := *validIdentityForEnvelope(envelope, 1)
 	identity.Handle = handle
 	identity.ExecutorBearer = bearer
 	identity.InvocationID = invocationID
@@ -16,136 +16,144 @@ func validPersistedIdentityForTest(handle, bearer, invocationID string) Identity
 	return identity
 }
 
-func TestValidatePersistedState(t *testing.T) {
+func TestValidatePersistedState_AcceptsEmptyState(t *testing.T) {
+	envelope := validEnvelope()
+	state := persistedState{
+		Version:    statePersistVersion,
+		Generation: 1,
+		Identities: map[string]Identity{},
+	}
+
+	validated, err := validatePersistedState(state, envelope, 1)
+
+	require.NoError(t, err)
+	assert.Empty(t, validated)
+}
+
+func TestValidatePersistedState_AcceptsAndSortsIdentities(t *testing.T) {
+	envelope := validEnvelope()
+	state := persistedState{
+		Version:    statePersistVersion,
+		Generation: 1,
+		Identities: map[string]Identity{
+			"second": validPersistedIdentity(envelope, "handle-z", "bearer-z", "inv-2"),
+			"first":  validPersistedIdentity(envelope, "handle-a", "bearer-a", "inv-1"),
+		},
+	}
+
+	validated, err := validatePersistedState(state, envelope, 1)
+
+	require.NoError(t, err)
+	require.Len(t, validated, 2)
+	assert.Equal(t, []string{"handle-a", "handle-z"}, []string{validated[0].Handle, validated[1].Handle})
+}
+
+func TestValidatePersistedState_RejectsInvalidState(t *testing.T) {
 	tests := []struct {
-		name        string
-		state       func() persistedState
-		wantHandles []string
-		wantErr     string
+		name       string
+		mutate     func(*persistedState, *Envelope)
+		wantErrMsg string
 	}{
 		{
-			name: "empty state is valid",
-			state: func() persistedState {
-				return persistedState{
-					Version:    statePersistVersion,
-					Generation: 1,
-					Identities: map[string]Identity{},
-				}
-			},
-			wantHandles: []string{},
+			name:       "unsupported version",
+			mutate:     func(state *persistedState, _ *Envelope) { state.Version-- },
+			wantErrMsg: "unsupported state version",
 		},
 		{
-			name: "valid identities are sorted by handle",
-			state: func() persistedState {
-				return persistedState{
-					Version:    statePersistVersion,
-					Generation: 1,
-					Identities: map[string]Identity{
-						"second": validPersistedIdentityForTest("z-handle", "bearer-z", "inv-2"),
-						"first":  validPersistedIdentityForTest("a-handle", "bearer-a", "inv-1"),
-					},
-				}
-			},
-			wantHandles: []string{"a-handle", "z-handle"},
+			name:       "generation mismatch",
+			mutate:     func(state *persistedState, _ *Envelope) { state.Generation = 2 },
+			wantErrMsg: "does not match active generation",
 		},
 		{
-			name: "unsupported version is rejected",
-			state: func() persistedState {
-				return persistedState{Version: statePersistVersion - 1, Generation: 1}
-			},
-			wantErr: "unsupported state version",
+			name:       "invalid schema hash",
+			mutate:     func(state *persistedState, _ *Envelope) { state.DynamicSchemaHashes = []string{""} },
+			wantErrMsg: "empty dynamic schema hash",
 		},
 		{
-			name: "generation mismatch is rejected",
-			state: func() persistedState {
-				return persistedState{Version: statePersistVersion, Generation: 2}
-			},
-			wantErr: "state generation",
-		},
-		{
-			name: "invalid schema hash is rejected",
-			state: func() persistedState {
-				return persistedState{
-					Version:             statePersistVersion,
-					Generation:          1,
-					DynamicSchemaHashes: []string{""},
-				}
-			},
-			wantErr: "empty dynamic schema hash",
-		},
-		{
-			name: "invalid identity is rejected",
-			state: func() persistedState {
-				identity := validPersistedIdentityForTest("handle", "bearer", "inv-1")
+			name: "invalid identity",
+			mutate: func(state *persistedState, envelope *Envelope) {
+				identity := validPersistedIdentity(envelope, "handle-invalid", "bearer-invalid", "inv-invalid")
 				identity.Handle = ""
-				return persistedState{
-					Version:    statePersistVersion,
-					Generation: 1,
-					Identities: map[string]Identity{"identity": identity},
-				}
+				state.Identities = map[string]Identity{"invalid": identity}
 			},
-			wantErr: "failed active-envelope validation",
+			wantErrMsg: "failed active-envelope validation",
 		},
 		{
-			name: "duplicate invocation key is rejected",
-			state: func() persistedState {
-				first := validPersistedIdentityForTest("handle-one", "bearer-one", "inv-1")
-				second := validPersistedIdentityForTest("handle-two", "bearer-two", "inv-1")
-				return persistedState{
-					Version:    statePersistVersion,
-					Generation: 1,
-					Identities: map[string]Identity{"first": first, "second": second},
-				}
+			name: "identity outside the active envelope",
+			mutate: func(state *persistedState, envelope *Envelope) {
+				identity := validPersistedIdentity(envelope, "handle-invalid", "bearer-invalid", "inv-invalid")
+				identity.Repository = "github/not-allowed"
+				state.Identities = map[string]Identity{"invalid": identity}
 			},
-			wantErr: "duplicate invocation key",
-		},
-		{
-			name: "duplicate handle is rejected",
-			state: func() persistedState {
-				first := validPersistedIdentityForTest("same-handle", "bearer-one", "inv-1")
-				second := validPersistedIdentityForTest("same-handle", "bearer-two", "inv-2")
-				return persistedState{
-					Version:    statePersistVersion,
-					Generation: 1,
-					Identities: map[string]Identity{"first": first, "second": second},
-				}
-			},
-			wantErr: "duplicate identity handle",
-		},
-		{
-			name: "duplicate executor bearer is rejected",
-			state: func() persistedState {
-				first := validPersistedIdentityForTest("handle-one", "same-bearer", "inv-1")
-				second := validPersistedIdentityForTest("handle-two", "same-bearer", "inv-2")
-				return persistedState{
-					Version:    statePersistVersion,
-					Generation: 1,
-					Identities: map[string]Identity{"first": first, "second": second},
-				}
-			},
-			wantErr: "duplicate executor bearer",
+			wantErrMsg: "outside envelope",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			state := tt.state()
-			identities, err := validatePersistedState(state, validEnvelope(), 1)
+			envelope := validEnvelope()
+			state := persistedState{
+				Version:    statePersistVersion,
+				Generation: 1,
+				Identities: map[string]Identity{},
+			}
+			tt.mutate(&state, envelope)
 
-			if tt.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
-				assert.Nil(t, identities)
-				return
+			validated, err := validatePersistedState(state, envelope, 1)
+
+			require.Error(t, err)
+			assert.Nil(t, validated)
+			assert.Contains(t, err.Error(), tt.wantErrMsg)
+		})
+	}
+}
+
+func TestValidatePersistedState_RejectsDuplicateIdentityFields(t *testing.T) {
+	tests := []struct {
+		name       string
+		mutate     func(*Identity, *Identity)
+		wantErrMsg string
+	}{
+		{
+			name: "invocation key",
+			mutate: func(first, second *Identity) {
+				second.InvocationID = first.InvocationID
+			},
+			wantErrMsg: "duplicate invocation key",
+		},
+		{
+			name: "identity handle",
+			mutate: func(first, second *Identity) {
+				second.Handle = first.Handle
+			},
+			wantErrMsg: "duplicate identity handle",
+		},
+		{
+			name: "executor bearer",
+			mutate: func(first, second *Identity) {
+				second.ExecutorBearer = first.ExecutorBearer
+			},
+			wantErrMsg: "duplicate executor bearer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			envelope := validEnvelope()
+			first := validPersistedIdentity(envelope, "handle-first", "bearer-first", "inv-first")
+			second := validPersistedIdentity(envelope, "handle-second", "bearer-second", "inv-second")
+			tt.mutate(&first, &second)
+			state := persistedState{
+				Version:    statePersistVersion,
+				Generation: 1,
+				Identities: map[string]Identity{"first": first, "second": second},
 			}
 
-			require.NoError(t, err)
-			require.Len(t, identities, len(tt.wantHandles))
-			gotHandles := make([]string, 0, len(identities))
-			for _, identity := range identities {
-				gotHandles = append(gotHandles, identity.Handle)
-			}
-			assert.Equal(t, tt.wantHandles, gotHandles)
+			validated, err := validatePersistedState(state, envelope, 1)
+
+			require.Error(t, err)
+			assert.Nil(t, validated)
+			assert.Contains(t, err.Error(), tt.wantErrMsg)
 		})
 	}
 }

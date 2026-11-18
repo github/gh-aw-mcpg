@@ -52,7 +52,7 @@ func resolveRequestIdentity(r *http.Request, authEnabled bool) string {
 
 // NewSession creates a new Session with the given session ID and optional token
 func NewSession(sessionID, token string) *Session {
-	logSession.Printf("Creating new session: sessionID=%s, has_token=%v", util.FormatSessionIDForLog(sessionID), token != "")
+	logSession.Printf("Creating new session: sessionID=%s, has_token=%v", util.HashIdentifierForLog(sessionID), token != "")
 	return &Session{
 		Token:          token,
 		SessionID:      sessionID,
@@ -75,7 +75,7 @@ func SessionIDFromContext(ctx context.Context) string {
 // getSessionID extracts the MCP session ID from the context
 func (us *UnifiedServer) getSessionID(ctx context.Context) string {
 	sessionID := SessionIDFromContext(ctx)
-	logSession.Printf("Extracted session ID from context: %s", util.FormatSessionIDForLog(sessionID))
+	logSession.Printf("Extracted session ID from context: %s", util.HashIdentifierForLog(sessionID))
 	return sessionID
 }
 
@@ -106,16 +106,16 @@ func (us *UnifiedServer) ensureSessionDirectory(sessionID string) error {
 // Sessions are automatically created if one doesn't exist (for standard MCP client compatibility)
 func (us *UnifiedServer) requireSession(ctx context.Context) error {
 	sessionID := us.getSessionID(ctx)
-	logSession.Printf("Checking session: sessionID=%s", util.FormatSessionIDForLog(sessionID))
+	logSession.Printf("Checking session: sessionID=%s", util.HashIdentifierForLog(sessionID))
 
 	// Use syncutil.MapGetOrCreate to handle the double-checked locking pattern.
 	// The isNew flag is set inside the create callback (while the write lock is held)
 	// so that ensureSessionDirectory is called exactly once per new session.
 	isNew := false
 	if _, err := syncutil.MapGetOrCreate(&us.sessionMu, us.sessions, sessionID, func() (*Session, error) {
-		logSession.Printf("Auto-creating session for ID: %s", util.FormatSessionIDForLog(sessionID))
+		logSession.Printf("Auto-creating session for ID: %s", util.HashIdentifierForLog(sessionID))
 		s := NewSession(sessionID, "")
-		logSession.Printf("Session auto-created for ID: %s", util.FormatSessionIDForLog(sessionID))
+		logSession.Printf("Session auto-created for ID: %s", util.HashIdentifierForLog(sessionID))
 		isNew = true
 		return s, nil
 	}); err != nil {
@@ -126,12 +126,12 @@ func (us *UnifiedServer) requireSession(ctx context.Context) error {
 		// Ensure session directory exists in payload mount point.
 		// Called after GetOrCreate releases the lock to avoid holding it during I/O.
 		if err := us.ensureSessionDirectory(sessionID); err != nil {
-			logger.LogWarn("client", "Failed to create session directory for session=%s: %v", util.FormatSessionIDForLog(sessionID), err)
+			logger.LogWarn("client", "Failed to create session directory for session=%s: %v", util.HashIdentifierForLog(sessionID), err)
 			// Don't fail - payloads will attempt to create the directory when needed
 		}
 	}
 
-	logSession.Printf("Session validated for ID: %s", util.FormatSessionIDForLog(sessionID))
+	logSession.Printf("Session validated for ID: %s", util.HashIdentifierForLog(sessionID))
 	return nil
 }
 
@@ -194,7 +194,7 @@ func isSinglePathSegmentSessionID(sessionID string) bool {
 // logging reduces every payload for this request to metadata.
 // Returns the modified request with updated context.
 func injectSessionContext(r *http.Request, sessionID, backendID string, enclaveSession bool) *http.Request {
-	logSession.Printf("Injecting session context: sessionID=%s, backendID=%s, enclave=%v", util.FormatSessionIDForLog(sessionID), backendID, enclaveSession)
+	logSession.Printf("Injecting session context: sessionID=%s, backendID=%s, enclave=%v", util.HashIdentifierForLog(sessionID), backendID, enclaveSession)
 
 	ctx := context.WithValue(r.Context(), SessionIDContextKey, sessionID)
 	ctx = guard.SetAgentIDInContext(ctx, sessionID)

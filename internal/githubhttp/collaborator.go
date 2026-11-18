@@ -9,6 +9,7 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/httputil"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/mcpresult"
 	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
@@ -79,11 +80,7 @@ func WrapCollaboratorPermission(
 	} else {
 		logPrintf("get_collaborator_permission: %s/%s user %s → HTTP %d, %d bytes (JSON parse failed: %v)", ownerForLog, repoForLog, usernameForLog, statusCode, len(body), jsonErr)
 	}
-	return map[string]interface{}{
-		"content": []map[string]interface{}{
-			{"type": "text", "text": string(body)},
-		},
-	}
+	return mcpresult.NewTextResponse(string(body))
 }
 
 // FetchCollaboratorPermission executes a get_collaborator_permission REST call

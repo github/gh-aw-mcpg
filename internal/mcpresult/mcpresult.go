@@ -8,6 +8,15 @@ import (
 
 var logMCPResult = logger.ForFile()
 
+// NewTextResponse returns a raw MCP response map with a single text content item.
+func NewTextResponse(text string) map[string]any {
+	return map[string]any{
+		"content": []map[string]any{
+			{"type": "text", "text": text},
+		},
+	}
+}
+
 // IsErrorResult reports whether a raw MCP tool result map is marked as an
 // error result.
 func IsErrorResult(result map[string]interface{}) bool {
