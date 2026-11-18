@@ -89,13 +89,6 @@ func TestInitProvider_ErrorResponseSizeLimit(t *testing.T) {
 			ctx := context.Background()
 			t.Setenv("GH_AW_OTLP_ENDPOINTS", "")
 
-			exportErrors := make(chan error, 1)
-			oldHandler := otel.GetErrorHandler()
-			otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
-				exportErrors <- err
-			}))
-			t.Cleanup(func() { otel.SetErrorHandler(oldHandler) })
-
 			const marker = "collector-error-body-end"
 			body := strings.Repeat("x", size-len(marker)) + marker
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -109,25 +102,28 @@ func TestInitProvider_ErrorResponseSizeLimit(t *testing.T) {
 				SampleRate: ptrFloat64(1),
 			})
 			require.NoError(t, err)
+			defer func() {
+				shutdownCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+				defer cancel()
+				assert.NoError(t, provider.Shutdown(shutdownCtx))
+			}()
+
+			sdkProvider, ok := otel.GetTracerProvider().(*sdktrace.TracerProvider)
+			require.True(t, ok)
 
 			_, span := provider.Tracer().Start(ctx, "response-size-limit-test")
 			span.End()
 
-			shutdownCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			flushCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
-			require.NoError(t, provider.Shutdown(shutdownCtx))
+			err = sdkProvider.ForceFlush(flushCtx)
 
-			select {
-			case err := <-exportErrors:
-				if size > 64*1024 {
-					assert.ErrorContains(t, err, "response body too large: exceeded 65536 bytes")
-					assert.NotContains(t, err.Error(), marker)
-				} else {
-					assert.ErrorContains(t, err, marker)
-					assert.NotContains(t, err.Error(), "response body too large")
-				}
-			case <-time.After(3 * time.Second):
-				t.Fatal("timed out waiting for OTLP export error")
+			if size > 64*1024 {
+				require.ErrorContains(t, err, "response body too large: exceeded 65536 bytes")
+				assert.NotContains(t, err.Error(), marker)
+			} else {
+				require.ErrorContains(t, err, marker)
+				assert.NotContains(t, err.Error(), "response body too large")
 			}
 		})
 	}
