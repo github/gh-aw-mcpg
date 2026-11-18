@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/mcpresult"
 )
 
 var logPathCollections = logger.ForFile()
@@ -106,9 +107,7 @@ func (p *PathLabeledData) rebuildCollections(filtered []FilteredItemDetail) (int
 			return nil, fmt.Errorf("failed to encode filtered collections: %w", err)
 		}
 		// Replace every original content block so no unfiltered copy survives.
-		envelope["content"] = []interface{}{map[string]interface{}{
-			"type": "text", "text": string(text),
-		}}
+		envelope["content"] = mcpresult.NewTextResponse(string(text))["content"]
 	}
 	return envelope, nil
 }
