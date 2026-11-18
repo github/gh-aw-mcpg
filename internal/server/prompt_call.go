@@ -129,18 +129,9 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 			finalResult = filteredMap
 		}
 	} else if !pre.EvalResult.IsAllowed() {
-		denied := &guard.PipelineAccessDenied{
-			EvalResult:  pre.EvalResult,
-			Resource:    pre.Resource,
-			AgentLabels: pre.AgentLabels,
-		}
+		denied, detailedErr := guard.CoarseDenialError(pre)
 		logCoarseDIFCDenial(ctx, serverID, promptName, denied)
-		return nil, difc.FormatViolationError(
-			pre.EvalResult,
-			pre.AgentLabels.Secrecy,
-			pre.AgentLabels.Integrity,
-			pre.Resource,
-		)
+		return nil, detailedErr
 	}
 
 	guard.RunPipelinePhase6(pre, labeledData, enforcementMode)
