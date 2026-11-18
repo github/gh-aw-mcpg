@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -83,26 +84,28 @@ func (us *UnifiedServer) getSessionID(ctx context.Context) string {
 // ensureSessionDirectory creates the session subdirectory in the payload directory if it doesn't exist
 func (us *UnifiedServer) ensureSessionDirectory(sessionID string) error {
 	sessionDir := filepath.Join(us.payloadDir, sessionID)
+	logID := util.HashIdentifierForLog(sessionID)
 
 	// Check if directory already exists
 	if _, err := os.Stat(sessionDir); err == nil {
 		// Directory already exists
-		logSession.Printf("Session directory already exists: %s", sessionDir)
+		logSession.Printf("Session directory already exists: sessionID=%s", logID)
 		return nil
 	} else if !os.IsNotExist(err) {
-		// Some other error occurred while checking
-		sanitizedErr := strings.ReplaceAll(err.Error(), sessionID, util.FormatSessionIDForLog(sessionID))
-		logSession.Printf("Failed to stat session directory: sessionID=%s, error=%s", util.FormatSessionIDForLog(sessionID), sanitizedErr)
-		return fmt.Errorf("failed to check session directory: %w", err)
+		// Omit the PathError path: it contains the raw session ID, and callers log this error.
+		cause := errors.Unwrap(err)
+		logSession.Printf("Failed to stat session directory: sessionID=%s, error=%v", logID, cause)
+		return fmt.Errorf("failed to check session directory: %w", cause)
 	}
 
 	// Directory doesn't exist, create it with world-readable permissions (for agent access)
 	if err := os.MkdirAll(sessionDir, 0755); err != nil {
-		logSession.Printf("Failed to create session directory: payloadDir=%s, sessionID=%s, error=%v", us.payloadDir, util.FormatSessionIDForLog(sessionID), err)
-		return fmt.Errorf("failed to create session directory: %w", err)
+		cause := errors.Unwrap(err)
+		logSession.Printf("Failed to create session directory: sessionID=%s, error=%v", logID, cause)
+		return fmt.Errorf("failed to create session directory: %w", cause)
 	}
 
-	logSession.Printf("Created session directory: %s", sessionDir)
+	logSession.Printf("Created session directory: sessionID=%s", logID)
 	return nil
 }
 
@@ -127,7 +130,7 @@ func (us *UnifiedServer) requireSession(ctx context.Context) error {
 	}
 
 	if !isNew {
-		logSession.Printf("Reusing existing session: sessionID=%s", util.FormatSessionIDForLog(sessionID))
+		logSession.Printf("Reusing existing session: sessionID=%s", util.HashIdentifierForLog(sessionID))
 	} else {
 		// Ensure session directory exists in payload mount point.
 		// Called after GetOrCreate releases the lock to avoid holding it during I/O.

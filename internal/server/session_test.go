@@ -268,6 +268,8 @@ func TestEnsureSessionDirectory(t *testing.T) {
 		err := us2.ensureSessionDirectory("blocked-session")
 		require.Error(t, err, "should fail when payloadDir is not writable")
 		require.ErrorContains(t, err, "failed to create session directory")
+		assert.ErrorIs(t, err, os.ErrPermission)
+		assert.NotContains(t, err.Error(), "blocked-session")
 	})
 
 	t.Run("returns error on Stat failure that is not IsNotExist", func(t *testing.T) {
@@ -279,6 +281,7 @@ func TestEnsureSessionDirectory(t *testing.T) {
 		err := us2.ensureSessionDirectory("session\x00bad")
 		require.Error(t, err, "should fail for a session ID that makes the path invalid")
 		require.ErrorContains(t, err, "failed to check session directory")
+		assert.NotContains(t, err.Error(), "session\x00bad")
 	})
 }
 
