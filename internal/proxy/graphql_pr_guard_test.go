@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -242,6 +243,63 @@ func TestInjectGuardFieldsFollowsReviewFragments(t *testing.T) {
 			assert.Contains(t, request.Query, "nodes{author{login},authorAssociation,...Review}")
 			assert.Equal(t, 2, strings.Count(request.Query, "authorAssociation"), "parent and review fields are injected once")
 			assert.Equal(t, rewritten, InjectGuardFields(rewritten, "pull_request_read"))
+		})
+	}
+}
+
+func TestInjectPRGuardFieldsUnicodeOffsets(t *testing.T) {
+	for _, selection := range []string{
+		`body`,
+		`...Review`,
+		`... # détail 日本語 😀
+				Review`,
+		`... on PullRequestReview { body }`,
+	} {
+		t.Run(selection, func(t *testing.T) {
+			query := `# préface 日本語 😀
+					"opération 😀" query Read($text: String = "héllo 日本語 😀") {
+						repository(owner:"o",name:"r") {
+							pullRequest(number:42) {
+								title reviews(first:10) { nodes { ` + selection + ` } }
+							}
+						}
+					}
+					"""détails 日本語 😀""" fragment Review on PullRequestReview { body }`
+			rewritten := injectPRGuardFields(query)
+			expected := strings.Replace(query, "title reviews", "author{login},authorAssociation,number,merged,title reviews", 1)
+			expected = strings.Replace(expected, "nodes { ", "nodes { author{login},authorAssociation,", 1)
+			assert.Equal(t, expected, rewritten)
+			_, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: rewritten}, graphqlTokenLimit)
+			require.NoError(t, err)
+			assert.Equal(t, rewritten, injectPRGuardFields(rewritten), "injection must be idempotent")
+		})
+	}
+}
+
+func BenchmarkGraphQLPullRequestGuardPath(b *testing.B) {
+	for _, reviews := range []int{1, 25, 100} {
+		b.Run(fmt.Sprintf("reviews_%d", reviews), func(b *testing.B) {
+			query := `query Read { repository(owner:"o",name:"r") { pullRequest(number:42) { title `
+			for i := 0; i < reviews; i++ {
+				query += fmt.Sprintf("reviews(first:10,after:\"cursor%d\") { nodes { body } } ", i)
+			}
+			query += `} } }`
+			body, err := json.Marshal(GraphQLRequest{Query: query})
+			require.NoError(b, err)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				parsed := &graphQLParseCache{}
+				selected, err := selectReadOnlyGraphQLOperationParsed(body, parsed)
+				if err != nil {
+					b.Fatal(err)
+				}
+				match := matchGraphQL(selected, parsed)
+				if match == nil || match.ToolName != "pull_request_read" {
+					b.Fatal("expected pull_request_read")
+				}
+				injectGuardFields(selected, match.ToolName, parsed)
+			}
 		})
 	}
 }

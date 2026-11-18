@@ -181,8 +181,8 @@ func TestFormatFutureTime(t *testing.T) {
 	})
 }
 
-func TestFormatSessionIDForLog(t *testing.T) {
-	assert.Equal(t, "(none)", FormatSessionIDForLog(""))
+func TestHashIdentifierForLogSessionIDs(t *testing.T) {
+	assert.Equal(t, "(none)", HashIdentifierForLog(""))
 
 	for _, sessionID := range []string{
 		"abc123",
@@ -190,8 +190,8 @@ func TestFormatSessionIDForLog(t *testing.T) {
 		"abcdefgh-1234-5678-abcd-ef1234567890",
 		"session-émojis-🔑",
 	} {
-		formatted := FormatSessionIDForLog(sessionID)
-		assert.Equal(t, HashIdentifierForLog(sessionID), formatted)
+		formatted := HashIdentifierForLog(sessionID)
+		assert.Regexp(t, `^agent:[a-f0-9]{12}$`, formatted)
 		assert.NotContains(t, formatted, sessionID)
 		assert.Len(t, formatted, len("agent:")+12)
 	}

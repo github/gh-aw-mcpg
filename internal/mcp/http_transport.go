@@ -475,8 +475,8 @@ func tryPlainJSONTransport(ctx context.Context, cancel context.CancelFunc, serve
 	}
 
 	conn.httpSessionID = sessionID
-	logger.LogInfo("backend", "Plain JSON-RPC transport connected successfully with session=%s", util.FormatSessionIDForLog(sessionID))
-	logConn.Printf("Connected with plain JSON-RPC transport, session=%s", util.FormatSessionIDForLog(sessionID))
+	logger.LogInfo("backend", "Plain JSON-RPC transport connected successfully with session=%s", util.HashIdentifierForLog(sessionID))
+	logConn.Printf("Connected with plain JSON-RPC transport, session=%s", util.HashIdentifierForLog(sessionID))
 	return conn, nil
 }
 
@@ -520,12 +520,12 @@ func (c *Connection) initializeHTTPSessionContext(ctx context.Context) (string, 
 	// Capture the Mcp-Session-Id from response headers
 	sessionID := result.Header.Get("Mcp-Session-Id")
 	if sessionID != "" {
-		logConn.Printf("Captured Mcp-Session-Id from response: %s", util.FormatSessionIDForLog(sessionID))
+		logConn.Printf("Captured Mcp-Session-Id from response: %s", util.HashIdentifierForLog(sessionID))
 	} else {
 		logConn.Printf("No Mcp-Session-Id in initialize response; backend does not use session management")
 	}
 
-	logConn.Printf("Initialize response: status=%d, body_len=%d, session=%s", result.StatusCode, len(result.ResponseBody), util.FormatSessionIDForLog(sessionID))
+	logConn.Printf("Initialize response: status=%d, body_len=%d, session=%s", result.StatusCode, len(result.ResponseBody), util.HashIdentifierForLog(sessionID))
 
 	// Check for HTTP errors
 	if result.StatusCode != http.StatusOK {
@@ -560,10 +560,10 @@ func (c *Connection) buildSessionHeaderModifier(ctx context.Context) func(*http.
 		var sessionID string
 		if ctxSessionID != "" {
 			sessionID = ctxSessionID
-			logConn.Printf("Using session ID from context: %s", util.FormatSessionIDForLog(sessionID))
+			logConn.Printf("Using session ID from context: %s", util.HashIdentifierForLog(sessionID))
 		} else if id := c.getHTTPSessionID(); id != "" {
 			sessionID = id
-			logConn.Printf("Using stored session ID from initialization: %s", util.FormatSessionIDForLog(sessionID))
+			logConn.Printf("Using stored session ID from initialization: %s", util.HashIdentifierForLog(sessionID))
 		}
 		if sessionID != "" {
 			httpReq.Header.Set("Mcp-Session-Id", sessionID)

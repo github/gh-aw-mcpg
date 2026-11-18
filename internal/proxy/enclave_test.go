@@ -247,7 +247,9 @@ func TestEnclaveUniformlyDeniesNonPublicRepositories(t *testing.T) {
 		case "/repos/other/malformed":
 			_, _ = w.Write([]byte(`{"visibility":`))
 		default:
-			t.Fatalf("unexpected upstream request: %s", r.URL.Path)
+			// t.Fatalf must not run in a handler goroutine; report and fail the response instead.
+			t.Errorf("unexpected upstream request: %s", r.URL.Path)
+			http.Error(w, "unexpected upstream request", http.StatusInternalServerError)
 		}
 
 	}))
@@ -396,7 +398,9 @@ func TestEnclaveFailsClosedOnRedirectAndNonJSONSuccess(t *testing.T) {
 		case "/repos/assigned/private/issues/2":
 			_, _ = w.Write([]byte("private plain text"))
 		default:
-			t.Fatalf("unexpected upstream request: %s", r.URL.Path)
+			// t.Fatalf must not run in a handler goroutine; report and fail the response instead.
+			t.Errorf("unexpected upstream request: %s", r.URL.Path)
+			http.Error(w, "unexpected upstream request", http.StatusInternalServerError)
 		}
 
 	}))
