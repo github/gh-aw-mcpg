@@ -27,7 +27,7 @@ func (us *UnifiedServer) buildPipelineInput(
 	}
 	enforcementMode, err := us.ensureGuardInitialized(ctx, sessionID, serverID, g, backendCaller)
 	if err != nil {
-		logGuardPipeline.Printf("Guard initialization failed: serverID=%s, tool=%s, error=%s", serverID, toolName, sanitize.SanitizeString(sanitize.RedactErrorForLogIf(err, sanitize.ShouldRedactPayload(mcp.IsEnclaveSession(ctx)))))
+		logGuardPipeline.Printf("Guard initialization failed: serverID=%s, tool=%s", serverID, toolName)
 		return guard.PipelineInput{}, err
 	}
 
