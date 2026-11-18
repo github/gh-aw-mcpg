@@ -1131,7 +1131,6 @@ mod tests {
 
     #[test]
     fn serialize_and_write_preserves_serialization_error_codes() {
-
         struct Unserializable;
 
         impl Serialize for Unserializable {
