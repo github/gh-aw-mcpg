@@ -23,6 +23,7 @@ const WRITE_OPERATIONS: &[&str] = &[
     "add_reply_to_pull_request_comment",
     "assign_copilot_to_issue",
     "assign_copilot_to_issue_with_intent",
+    tool_names::CREATE_AUTOMATION,
     tool_names::CREATE_BRANCH,
     "create_gist",
     "create_issue",
@@ -31,6 +32,7 @@ const WRITE_OPERATIONS: &[&str] = &[
     "create_pull_request_with_copilot",
     tool_names::CREATE_REPOSITORY,
     "create_repository_ruleset", // creates a repository ruleset
+    tool_names::DELETE_AUTOMATION,
     tool_names::DELETE_FILE,
     tool_names::DELETE_REPOSITORY,
     tool_names::DISCUSSION_COMMENT_WRITE, // creates or edits GitHub Discussion comments
@@ -44,8 +46,10 @@ const WRITE_OPERATIONS: &[&str] = &[
     tool_names::REMOVE_ISSUE_REACTION, // DELETE /repos/.../issues/{number}/reactions/{reaction_id}
     tool_names::REMOVE_PULL_REQUEST_REVIEW_COMMENT_REACTION, // DELETE /repos/.../pulls/comments/{id}/reactions/{reaction_id}
     "request_copilot_review",
+    tool_names::RUN_AUTOMATION, // POST — starts a manual Copilot Automation run
     tool_names::STAR_REPOSITORY,
     tool_names::UNSTAR_REPOSITORY,
+    tool_names::UPDATE_AUTOMATION,
 ];
 
 /// Upstream writes omitted from the default README catalog because they are feature-gated.
@@ -796,6 +800,38 @@ mod tests {
             !is_write_operation(op),
             "{op} should not be in WRITE_OPERATIONS (it is in READ_WRITE_OPERATIONS)"
         );
+    }
+
+    #[test]
+    fn test_copilot_automation_mutations_are_write_operations() {
+        for op in [
+            tool_names::CREATE_AUTOMATION,
+            tool_names::UPDATE_AUTOMATION,
+            tool_names::DELETE_AUTOMATION,
+            tool_names::RUN_AUTOMATION,
+        ] {
+            assert!(
+                is_write_operation(op),
+                "{op} must be classified as a write operation"
+            );
+            assert!(!is_read_write_operation(op), "{op}");
+        }
+    }
+
+    #[test]
+    fn test_copilot_automation_reads_are_not_write_operations() {
+        for op in [
+            tool_names::LIST_AUTOMATIONS,
+            tool_names::GET_AUTOMATION,
+            tool_names::LIST_AUTOMATION_REVISIONS,
+            tool_names::GET_AUTOMATION_REVISION,
+            tool_names::LIST_AVAILABLE_AUTOMATION_TOOLS,
+            tool_names::LIST_AVAILABLE_AUTOMATION_TRIGGERS,
+            tool_names::GET_AUTOMATIONS_CONFIGURATION_FOR_REPOSITORY,
+        ] {
+            assert!(!is_write_operation(op), "{op}");
+            assert!(!is_read_write_operation(op), "{op}");
+        }
     }
 
     #[test]
