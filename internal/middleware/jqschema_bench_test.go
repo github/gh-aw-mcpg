@@ -236,3 +236,30 @@ func TestWalkSchemaCompileOpts_CompilesFilter(t *testing.T) {
 	require.True(t, ok, "compiled filter should produce one output")
 	assert.Equal(t, inferSchema(input), got)
 }
+
+func TestWalkSchemaCompileOpts_DoesNotMutateSharedSlice(t *testing.T) {
+	original := secureCompileOpts
+	t.Cleanup(func() { secureCompileOpts = original })
+
+	// Spare capacity exposes append operations that reuse the shared backing array.
+	secureCompileOpts = make([]gojq.CompilerOption, len(original), len(original)+1)
+	copy(secureCompileOpts, original)
+
+	opts := walkSchemaCompileOpts()
+	require.Len(t, opts, len(original)+1)
+	assert.Nil(t, secureCompileOpts[:cap(secureCompileOpts)][len(original)],
+		"registering walk_schema must not write to the shared backing array")
+
+	opts[0] = nil
+	require.NotNil(t, secureCompileOpts[0], "returned options must not alias shared options")
+
+	query, err := gojq.Parse(`[walk_schema, $ENV, env]`)
+	require.NoError(t, err)
+	code, err := gojq.Compile(query, walkSchemaCompileOpts()...)
+	require.NoError(t, err)
+
+	input := map[string]any{"name": "test"}
+	got, ok := code.RunWithContext(context.Background(), input).Next()
+	require.True(t, ok)
+	assert.Equal(t, []any{inferSchema(input), map[string]any{}, map[string]any{}}, got)
+}
