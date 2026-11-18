@@ -201,15 +201,11 @@ func getOrLaunchWithConfig(l *Launcher, serverID string, serverCfg *config.Serve
 
 			logger.LogInfoToServer(serverID, "backend", "Successfully configured HTTP MCP backend: %s", serverID)
 
-			l.mu.Lock()
-			if l.closed {
-				l.mu.Unlock()
-				conn.Close()
-				return nil, ErrLauncherClosed
+			if err := l.storeConnectionIfOpen(serverID, conn, func() {
+				l.connections[serverID] = conn
+			}); err != nil {
+				return nil, err
 			}
-			l.connections[serverID] = conn
-			l.mu.Unlock()
-			l.recordStart(serverID)
 			return conn, nil
 		}
 
@@ -219,15 +215,11 @@ func getOrLaunchWithConfig(l *Launcher, serverID string, serverCfg *config.Serve
 			l.recordError(serverID, err.Error())
 			return nil, err
 		}
-		l.mu.Lock()
-		if l.closed {
-			l.mu.Unlock()
-			conn.Close()
-			return nil, ErrLauncherClosed
+		if err := l.storeConnectionIfOpen(serverID, conn, func() {
+			l.connections[serverID] = conn
+		}); err != nil {
+			return nil, err
 		}
-		l.connections[serverID] = conn
-		l.mu.Unlock()
-		l.recordStart(serverID)
 		return conn, nil
 	})
 	if err != nil {
@@ -318,22 +310,34 @@ func GetOrLaunchForSession(l *Launcher, serverID, sessionID string) (*mcp.Connec
 		}
 
 		// Add to session pool and record start
-		l.mu.Lock()
-		if l.closed {
-			l.mu.Unlock()
-			conn.Close()
-			return nil, ErrLauncherClosed
+		if err := l.storeConnectionIfOpen(serverID, conn, func() {
+			l.sessionPool.Set(serverID, sessionID, conn)
+		}); err != nil {
+			return nil, err
 		}
-		l.sessionPool.Set(serverID, sessionID, conn)
-		l.mu.Unlock()
 		logLauncher.Printf("Session connection added to pool: serverID=%s, sessionID=%s", serverID, util.FormatSessionIDForLog(sessionID))
-		l.recordStart(serverID)
 		return conn, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return result.(*mcp.Connection), nil
+}
+
+// storeConnectionIfOpen runs store under l.mu unless shutdown has begun.
+func (l *Launcher) storeConnectionIfOpen(serverID string, conn *mcp.Connection, store func()) error {
+	l.mu.Lock()
+	if l.closed {
+		l.mu.Unlock()
+		conn.Close()
+		return ErrLauncherClosed
+	}
+	store()
+	l.mu.Unlock()
+
+	// recordStart acquires l.mu, so it must run after unlocking.
+	l.recordStart(serverID)
+	return nil
 }
 
 // launchStdioConnection creates a new stdio connection using a goroutine+timeout pattern.

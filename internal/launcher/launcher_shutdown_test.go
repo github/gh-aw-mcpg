@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,10 +11,60 @@ import (
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
+	"github.com/github/gh-aw-mcpg/internal/mcp"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestLauncher_StoreConnectionIfOpen(t *testing.T) {
+	for _, closed := range []bool{false, true} {
+		for _, session := range []bool{false, true} {
+			t.Run(fmt.Sprintf("closed=%t/session=%t", closed, session), func(t *testing.T) {
+				l := New(context.Background(), newTestConfig(nil))
+				defer l.Close()
+				if closed {
+					l.Close()
+				}
+				conn := &mcp.Connection{}
+				stored := false
+				err := l.storeConnectionIfOpen("backend", conn, func() {
+					stored = true
+					unlocked := l.mu.TryLock()
+					if unlocked {
+						l.mu.Unlock()
+					}
+					assert.False(t, unlocked, "store must run under the launcher lock")
+					assert.Empty(t, l.serverStartTimes, "start must be recorded after storing")
+					if session {
+						l.sessionPool.Set("backend", "session", conn)
+					} else {
+						l.connections["backend"] = conn
+					}
+				})
+
+				if closed {
+					require.ErrorIs(t, err, ErrLauncherClosed)
+					assert.False(t, stored)
+					assert.Empty(t, l.connections)
+					assert.Empty(t, l.sessionPool.List())
+					assert.Empty(t, l.serverStartTimes)
+					return
+				}
+				require.NoError(t, err)
+				assert.True(t, stored)
+				assert.NotZero(t, l.serverStartTimes["backend"])
+				if session {
+					actual, ok := l.sessionPool.Get("backend", "session")
+					assert.True(t, ok)
+					assert.Same(t, conn, actual)
+				} else {
+					assert.Same(t, conn, l.connections["backend"])
+				}
+			})
+		}
+	}
+}
 
 // TestLauncherStdioServer re-executes the test binary as an MCP backend, waiting
 // for the parent test to release initialization before serving the handshake.
