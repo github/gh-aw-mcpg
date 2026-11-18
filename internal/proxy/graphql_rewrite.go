@@ -9,7 +9,6 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/lexer"
-	"github.com/vektah/gqlparser/v2/parser"
 )
 
 var logGraphQLRewrite = logger.ForFile()
@@ -113,6 +112,10 @@ func missingFields(query string, fields []guardFieldSet) []string {
 // Returns the (possibly modified) body. If injection is not needed or fails,
 // the original body is returned unchanged.
 func InjectGuardFields(body []byte, toolName string) []byte {
+	return injectGuardFields(body, toolName, &graphQLParseCache{})
+}
+
+func injectGuardFields(body []byte, toolName string, parsed *graphQLParseCache) []byte {
 	fields, safeParents := fieldsForTool(toolName)
 	if fields == nil {
 		logGraphQLRewrite.Printf("No guard field injection needed for tool=%s", toolName)
@@ -126,7 +129,7 @@ func InjectGuardFields(body []byte, toolName string) []byte {
 	}
 
 	if toolName == "pull_request_read" {
-		modified := injectPRGuardFields(gql.Query)
+		modified := injectPRGuardFieldsParsed(gql.Query, parsed)
 		if modified == gql.Query {
 			return body
 		}
@@ -164,7 +167,11 @@ func InjectGuardFields(body []byte, toolName string) []byte {
 // injectPRGuardFields checks each resource selection independently: a nested
 // review's author fields must not satisfy the enclosing PR's requirements.
 func injectPRGuardFields(query string) string {
-	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, graphqlTokenLimit)
+	return injectPRGuardFieldsParsed(query, &graphQLParseCache{})
+}
+
+func injectPRGuardFieldsParsed(query string, parsed *graphQLParseCache) string {
+	doc, err := parsed.parse(query)
 	if err != nil {
 		return query
 	}

@@ -141,14 +141,15 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		graphQLBody, err = selectReadOnlyGraphQLOperation(graphQLBody)
+		parsed := &graphQLParseCache{}
+		graphQLBody, err = selectReadOnlyGraphQLOperationParsed(graphQLBody, parsed)
 		if err != nil {
 			rejectProxyRequest(w, oteltrace.SpanFromContext(r.Context()), http.StatusForbidden,
 				"github_api_write_denied", "access denied: unclassified GitHub API write", nil)
 			return
 		}
 
-		match := MatchGraphQL(graphQLBody)
+		match := matchGraphQL(graphQLBody, parsed)
 		if match == nil {
 			// Unknown GraphQL query — fail closed: deny rather than risk leaking unfiltered data
 			logHandler.Printf("unknown GraphQL query, blocking request: %s", util.Truncate(string(graphQLBody), 500))
@@ -174,7 +175,7 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// Inject guard-required fields (author{login}, authorAssociation) into
 		// the GraphQL query so the guard can label items without enrichment.
-		graphQLBody = InjectGuardFields(graphQLBody, toolName)
+		graphQLBody = injectGuardFields(graphQLBody, toolName, parsed)
 	} else {
 		match := MatchRoute(rawPath)
 		if match == nil {

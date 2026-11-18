@@ -16,6 +16,22 @@ var logGraphQL = logger.ForFile()
 
 const graphqlTokenLimit = 100000
 
+// graphQLParseCache is request-local and only reuses positions for identical
+// source text. Selecting an operation may rebuild the source and invalidate it.
+type graphQLParseCache struct {
+	query string
+	doc   *ast.QueryDocument
+	err   error
+}
+
+func (c *graphQLParseCache) parse(query string) (*ast.QueryDocument, error) {
+	if (c.doc == nil && c.err == nil) || c.query != query {
+		c.query = query
+		c.doc, c.err = parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, graphqlTokenLimit)
+	}
+	return c.doc, c.err
+}
+
 func hasGraphQLQueryOverride(rawQuery string) bool {
 	values, err := url.ParseQuery(rawQuery)
 	if err != nil {
@@ -100,6 +116,10 @@ var (
 
 // MatchGraphQL matches a GraphQL request body to a guard tool name.
 func MatchGraphQL(body []byte) *GraphQLRouteMatch {
+	return matchGraphQL(body, &graphQLParseCache{})
+}
+
+func matchGraphQL(body []byte, parsed *graphQLParseCache) *GraphQLRouteMatch {
 	var gql GraphQLRequest
 	if err := json.Unmarshal(body, &gql); err != nil {
 		logGraphQL.Printf("failed to parse GraphQL request: %v", err)
@@ -114,7 +134,7 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 	// These sensitive/safe classifications require parsing the top-level
 	// selection set, rather than matching arbitrary query text.
 	var toolName string
-	rootFields, hasRepositoryFields, operationQuery, parsedRootFields := graphqlRootFields(gql.Query, gql.OperationName)
+	rootFields, hasRepositoryFields, operationQuery, parsedRootFields := graphqlRootFieldsParsed(gql.Query, gql.OperationName, parsed)
 	if !parsedRootFields && graphqlOrganizationPattern.MatchString(gql.Query) {
 		logGraphQL.Print("unparseable organization GraphQL query, blocking request")
 		return nil
@@ -159,7 +179,7 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 		logGraphQL.Printf("no GraphQL pattern match for query: %.100s", gql.Query)
 		return nil
 	}
-	if toolName == "pull_request_read" && hasAliasedPRResource(gql.Query) {
+	if toolName == "pull_request_read" && hasAliasedPRResourceParsed(gql.Query, parsed) {
 		logGraphQL.Print("aliased PR fields cannot be labeled safely, blocking request")
 		return nil
 	}
@@ -208,7 +228,11 @@ func MatchGraphQL(body []byte) *GraphQLRouteMatch {
 }
 
 func hasAliasedPRResource(query string) bool {
-	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, graphqlTokenLimit)
+	return hasAliasedPRResourceParsed(query, &graphQLParseCache{})
+}
+
+func hasAliasedPRResourceParsed(query string, parsed *graphQLParseCache) bool {
+	doc, err := parsed.parse(query)
 	if err != nil {
 		return true
 	}
@@ -246,7 +270,11 @@ func hasAliasedPRResource(query string) bool {
 
 // graphqlRootFields returns the root fields of the selected query operation.
 func graphqlRootFields(query, operationName string) ([]string, bool, string, bool) {
-	doc, err := parser.ParseQueryWithTokenLimit(&ast.Source{Input: query}, graphqlTokenLimit)
+	return graphqlRootFieldsParsed(query, operationName, &graphQLParseCache{})
+}
+
+func graphqlRootFieldsParsed(query, operationName string, parsed *graphQLParseCache) ([]string, bool, string, bool) {
+	doc, err := parsed.parse(query)
 	if err != nil || doc == nil || len(doc.Operations) == 0 {
 		logGraphQL.Printf("graphqlRootFields: parse failed or no operations: parseErr=%v", err != nil)
 		return nil, false, "", false
