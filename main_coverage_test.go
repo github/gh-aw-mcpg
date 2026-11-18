@@ -21,7 +21,7 @@ func TestMain_ExecutesVersionCommand(t *testing.T) {
 		GitCommit = originalGitCommit
 		BuildDate = originalBuildDate
 		os.Args = originalArgs
-cmd.SetVersion("dev")
+		cmd.SetVersion("dev")
 		version.Set(originalGatewayVersion)
 	})
 
