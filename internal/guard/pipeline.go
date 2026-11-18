@@ -73,6 +73,16 @@ func (e *PipelineAccessDenied) Error() string {
 	return fmt.Sprintf("DIFC access denied: %s", e.EvalResult.Reason)
 }
 
+// CoarseDenialError builds a denial from the pipeline state and returns it
+// together with the canonical formatted violation error.
+func CoarseDenialError(pre *PipelinePreResult) (*PipelineAccessDenied, error) {
+	return HandlePrePhaseError(&PipelineAccessDenied{
+		EvalResult:  pre.EvalResult,
+		Resource:    pre.Resource,
+		AgentLabels: pre.AgentLabels,
+	})
+}
+
 // HandlePrePhaseError classifies a RunPipelinePrePhases error.
 //
 // When err represents a coarse-grained access denial, it returns the canonical
