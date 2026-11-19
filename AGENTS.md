@@ -13,7 +13,6 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 **Coverage**: `make coverage` (unit tests with coverage report)  
 **Format**: `make format` (auto-format code with gofmt)  
 **Clean**: `make clean` (remove build artifacts)  
-**Agent-Finished**: `make agent-finished` (run format, build, lint, and all tests (unit, integration, Rust guard) - ALWAYS run before completion)  
 **Run**: `./awmg --config config.toml`  
 **Run sequentially**: `./awmg --config config.toml --sequential-launch`  
 **Run with Custom Log Directory**: `./awmg --config config.toml --log-dir /path/to/logs`  
