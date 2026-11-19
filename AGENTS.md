@@ -243,7 +243,7 @@ This command runs the complete verification pipeline:
 1. **Format** - Auto-formats all Go code with gofmt
 2. **Build** - Ensures the project compiles successfully
 3. **Lint** - Runs go vet and golangci-lint when installed
-4. **Test All** - Runs `go test ./...` (including tests under `test/integration/`) and Rust guard unit tests. Some integration tests may skip when optional credentials or services are unavailable. Use `make test-integration` for a targeted run of binary integration tests.
+4. **Test All** - Runs `go test ./...` (including tests under `test/integration/`) and Rust guard unit tests when cargo is installed. Some integration tests may skip when optional credentials or services are unavailable. Use `make test-integration` for a targeted run of binary integration tests.
 
 **Requirements:**
 - **ALL failures must be fixed** before completion
