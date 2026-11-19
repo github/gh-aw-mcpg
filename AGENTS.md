@@ -173,7 +173,7 @@ assert.ElementsMatch(t, expected, actual, "Slices should contain same elements")
 
 // Nil checking
 assert.NotNil(t, obj, "Object should not be nil")
-assert.Nil(t, err, "Error should be nil")
+assert.NoError(t, err, "Error should be nil")
 
 // Error checking (prefer NoError over Nil for errors)
 assert.NoError(t, err, "Operation should succeed")
