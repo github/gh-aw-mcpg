@@ -118,7 +118,7 @@ const (
 func preRun(cmd *cobra.Command, args []string) error {
 	// Apply verbosity level to logging (if DEBUG is not already set)
 	// -v (1): info level, -vv (2): debug level, -vvv (3): trace level
-	debugEnv := os.Getenv(logger.EnvDebug)
+	debugEnv := envutil.GetEnvString(logger.EnvDebug, "")
 	if verbosity > 0 && debugEnv == "" {
 		// Set DEBUG env var based on verbosity level
 		// Level 1: basic info (no special DEBUG setting needed, handled by logger)
@@ -249,7 +249,7 @@ func run(cmd *cobra.Command, args []string) error {
 		logger.StartupInfo("Guard policy override configured (source=%s)", policySource)
 	}
 
-	if envSinkServerIDs, exists := os.LookupEnv("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS"); exists {
+	if envSinkServerIDs, exists := envutil.LookupEnv("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS"); exists {
 		logger.StartupInfo("MCP_GATEWAY_GUARDS_SINK_SERVER_IDS=%q", envSinkServerIDs)
 	}
 
@@ -329,7 +329,7 @@ func run(cmd *cobra.Command, args []string) error {
 			// When GH_AW_OTLP_ENDPOINTS is set, InitProvider uses fan-out mode and
 			// it takes precedence over the primary endpoint; use the env var as the
 			// display value to accurately reflect what is actually receiving spans.
-			displayEndpoint := os.Getenv("GH_AW_OTLP_ENDPOINTS")
+			displayEndpoint := envutil.GetEnvString("GH_AW_OTLP_ENDPOINTS", "")
 			if displayEndpoint == "" {
 				displayEndpoint = endpoint
 			}
@@ -422,12 +422,14 @@ func resolveServerMode(_ bool, unified bool) string {
 
 func applyLaunchAndGuardsOverrides(cmd *cobra.Command, cfg *config.Config) error {
 	guardsModeFlagChanged := cmd.Flags().Changed("guards-mode")
-	_, guardsModeEnvSet := os.LookupEnv("MCP_GATEWAY_GUARDS_MODE")
-	if guardsModeFlagChanged || guardsModeEnvSet {
+	envMode, guardsModeEnvSet := difc.EnforcementModeFromEnv()
+	if guardsModeFlagChanged {
 		if _, err := difc.ParseEnforcementMode(difcMode); err != nil {
 			return fmt.Errorf("invalid --guards-mode flag: %w", err)
 		}
 		cfg.DIFCMode = difcMode
+	} else if guardsModeEnvSet {
+		cfg.DIFCMode = envMode
 	}
 
 	if cmd.Flags().Changed("sequential-launch") {

@@ -3,7 +3,6 @@ package envutil
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
@@ -37,7 +36,7 @@ func LookupGitHubToken() string {
 	}
 	logGitHub.Printf("Looking up GitHub token: checking %d candidate env vars", len(candidates))
 	for _, key := range candidates {
-		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		if v := strings.TrimSpace(GetEnvString(key, "")); v != "" {
 			logGitHub.Printf("GitHub token found: source=%s", key)
 			return v
 		}
@@ -50,7 +49,7 @@ func LookupGitHubToken() string {
 // environment variable. If the variable is not set or empty, it returns
 // defaultURL. Any trailing slash is stripped from the result.
 func LookupGitHubAPIURL(defaultURL string) string {
-	if v := strings.TrimSpace(os.Getenv("GITHUB_API_URL")); v != "" {
+	if v := strings.TrimSpace(GetEnvString("GITHUB_API_URL", "")); v != "" {
 		url := strings.TrimRight(v, "/")
 		logGitHub.Printf("GitHub API URL from GITHUB_API_URL: %s", url)
 		return url
@@ -68,7 +67,7 @@ func DeriveGitHubAPIURL(defaultURL string) string {
 	if apiURL := LookupGitHubAPIURL(""); apiURL != "" {
 		return apiURL
 	}
-	if serverURL := strings.TrimSpace(os.Getenv("GITHUB_SERVER_URL")); serverURL != "" {
+	if serverURL := strings.TrimSpace(GetEnvString("GITHUB_SERVER_URL", "")); serverURL != "" {
 		derived := deriveAPIFromServerURL(serverURL)
 		if derived != "" {
 			logGitHub.Printf("GitHub API URL derived from GITHUB_SERVER_URL=%s: %s", sanitize.RedactURL(serverURL), sanitize.RedactURL(derived))

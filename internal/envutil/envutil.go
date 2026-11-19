@@ -42,14 +42,21 @@ func getEnvWithValidator[T any](
 // HasEnvVar reports whether the named environment variable is present in the
 // process environment, regardless of whether its value is empty.
 func HasEnvVar(key string) bool {
-	_, ok := os.LookupEnv(key)
+	_, ok := LookupEnv(key)
 	return ok
+}
+
+// LookupEnv returns the value of the named environment variable and whether it
+// is present in the process environment. Unlike GetEnvString, it preserves an
+// explicitly empty value.
+func LookupEnv(key string) (string, bool) {
+	return os.LookupEnv(key)
 }
 
 // GetEnvString returns the value of the environment variable specified by envKey.
 // If the environment variable is not set or is empty, it returns the defaultValue.
 func GetEnvString(envKey, defaultValue string) string {
-	if value := os.Getenv(envKey); value != "" {
+	if value, ok := LookupEnv(envKey); ok && value != "" {
 		return value
 	}
 	return defaultValue

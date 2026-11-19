@@ -22,6 +22,31 @@ func TestHasEnvVar(t *testing.T) {
 	})
 }
 
+func TestLookupEnv(t *testing.T) {
+	const key = "TEST_LOOKUP_ENV"
+
+	t.Run("unset", func(t *testing.T) {
+		require.NoError(t, os.Unsetenv(key))
+		value, ok := LookupEnv(key)
+		assert.Empty(t, value)
+		assert.False(t, ok)
+	})
+
+	t.Run("set to empty string", func(t *testing.T) {
+		t.Setenv(key, "")
+		value, ok := LookupEnv(key)
+		assert.Empty(t, value)
+		assert.True(t, ok)
+	})
+
+	t.Run("set to non-empty string", func(t *testing.T) {
+		t.Setenv(key, "value")
+		value, ok := LookupEnv(key)
+		assert.Equal(t, "value", value)
+		assert.True(t, ok)
+	})
+}
+
 func TestGetEnvDuration(t *testing.T) {
 	tests := []struct {
 		name         string

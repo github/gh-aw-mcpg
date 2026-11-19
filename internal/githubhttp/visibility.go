@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/envutil"
@@ -39,7 +38,7 @@ type WorkflowRepoVisibility struct {
 // token is empty. Missing repository/token settings skip the lookup without error.
 // API errors are returned to the caller; caching and fallback policy are caller-owned.
 func FetchWorkflowRepoVisibility(ctx context.Context, apiBaseURL, token string) (WorkflowRepoVisibility, error) {
-	result := WorkflowRepoVisibility{Repository: os.Getenv("GITHUB_REPOSITORY")}
+	result := WorkflowRepoVisibility{Repository: envutil.GetEnvString("GITHUB_REPOSITORY", "")}
 	if result.Repository == "" {
 		logVisibility.Print("Workflow repo visibility lookup skipped: GITHUB_REPOSITORY not set")
 		return result, nil

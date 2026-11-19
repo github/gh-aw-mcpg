@@ -2,9 +2,9 @@ package difc
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
+	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
@@ -15,6 +15,7 @@ const (
 	ModeStrict    = "strict"
 	ModeFilter    = "filter"
 	ModePropagate = "propagate"
+	EnvGuardsMode = "MCP_GATEWAY_GUARDS_MODE"
 )
 
 // ValidModes contains all valid DIFC enforcement mode strings
@@ -90,18 +91,27 @@ func ParseEnforcementMode(s string) (EnforcementMode, error) {
 	}
 }
 
+// EnforcementModeFromEnv returns the normalized enforcement mode and whether
+// MCP_GATEWAY_GUARDS_MODE is present. Empty and invalid values resolve to strict.
+func EnforcementModeFromEnv() (string, bool) {
+	envMode, set := envutil.LookupEnv(EnvGuardsMode)
+	if !set || envMode == "" {
+		return ModeStrict, set
+	}
+	mode := strings.ToLower(envMode)
+	if _, err := ParseEnforcementMode(mode); err == nil {
+		logEvaluator.Printf("Guards mode set from %s: %s", EnvGuardsMode, mode)
+		return mode, true
+	}
+	logEvaluator.Printf("%s value %q is invalid, falling back to default: %s", EnvGuardsMode, envMode, ModeStrict)
+	return ModeStrict, true
+}
+
 // DefaultEnforcementMode returns the default guards mode, checking
 // MCP_GATEWAY_GUARDS_MODE first and falling back to strict.
 func DefaultEnforcementMode() string {
-	if envMode := os.Getenv("MCP_GATEWAY_GUARDS_MODE"); envMode != "" {
-		mode := strings.ToLower(envMode)
-		if _, err := ParseEnforcementMode(mode); err == nil {
-			logEvaluator.Printf("Guards mode set from MCP_GATEWAY_GUARDS_MODE: %s", mode)
-			return mode
-		}
-		logEvaluator.Printf("MCP_GATEWAY_GUARDS_MODE value %q is invalid, falling back to default: %s", envMode, ModeStrict)
-	}
-	return ModeStrict
+	mode, _ := EnforcementModeFromEnv()
+	return mode
 }
 
 // DIFCComponents holds the set of DIFC objects needed by a server or proxy.
