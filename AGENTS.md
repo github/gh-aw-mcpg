@@ -6,7 +6,6 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 
 **Install**: `make install` (install toolchains and dependencies)  
 **Build**: `make build` (builds `awmg` binary)  
-**Test**: `make test` (run unit tests, no build required)  
 **Test-Unit**: `make test-unit` (run unit tests only)  
 **Test-Integration**: `make test-integration` (run binary integration tests, auto-builds binary if not present)  
 **Test-All**: `make test-all` (run both unit and integration tests; always builds the binary first)  
