@@ -207,7 +207,6 @@ assert.JSONEq(t, expectedJSON, actualJSON)
   - Suggests `assert.True(t, x)` instead of `assert.Equal(t, true, x)`
   - Suggests `assert.NoError(t, err)` instead of `assert.Nil(t, err)`
 - To run on specific files: `golangci-lint run --enable=testifylint --timeout=5m <files>`
-- To run on the entire codebase: `golangci-lint run --enable=testifylint --timeout=5m`
 
 **Note**: Some linters (`gosec`, `errcheck`) are disabled to minimize noise. Enable them for stricter checks:
 ```bash
