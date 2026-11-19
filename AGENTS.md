@@ -226,8 +226,6 @@ golangci-lint run --enable=gosec,errcheck --timeout=5m
 - Require building the binary first
 - Test actual server behavior and CLI flags
 
-**All Tests**: `make test-all` runs both unit and integration tests; always builds the binary first
-
 ## Common Tasks
 
 **Add MCP Server**: Update config.toml with new server entry  
