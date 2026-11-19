@@ -34,12 +34,7 @@ func TestUnifiedServerRun(t *testing.T) {
 		require.NoError(t, err)
 
 		cancel()
-		select {
-		case runErr := <-done:
-			require.ErrorIs(t, runErr, context.Canceled)
-		case <-time.After(5 * time.Second):
-			t.Fatal("Run did not return after context cancellation")
-		}
+		require.ErrorIs(t, waitForRun(t, done), context.Canceled, "Run should report context cancellation")
 	})
 
 	t.Run("returns when the client disconnects", func(t *testing.T) {
@@ -59,12 +54,7 @@ func TestUnifiedServerRun(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, session.Close())
 
-		select {
-		case runErr := <-done:
-			require.NoError(t, runErr)
-		case <-time.After(5 * time.Second):
-			t.Fatal("Run did not return after client disconnect")
-		}
+		require.NoError(t, waitForRun(t, done), "Run should return cleanly after client disconnect")
 	})
 
 	t.Run("returns an already-cancelled context promptly", func(t *testing.T) {
@@ -76,10 +66,6 @@ func TestUnifiedServerRun(t *testing.T) {
 		done := make(chan error, 1)
 		go func() { done <- us.Run(serverTransport) }()
 
-		select {
-		case <-done:
-		case <-time.After(5 * time.Second):
-			t.Fatal("Run did not return for a cancelled context")
-		}
+		require.ErrorIs(t, waitForRun(t, done), context.Canceled, "Run should report context cancellation")
 	})
 }
