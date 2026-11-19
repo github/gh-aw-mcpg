@@ -112,6 +112,10 @@ func (us *UnifiedServer) ensureSessionDirectory(sessionID string) error {
 // requireSession checks that a session has been initialized for this request
 // Sessions are automatically created if one doesn't exist (for standard MCP client compatibility)
 func (us *UnifiedServer) requireSession(ctx context.Context) error {
+	if us.sessions == nil {
+		return fmt.Errorf("session store is not initialized")
+	}
+
 	sessionID := us.getSessionID(ctx)
 	logSession.Printf("Checking session: sessionID=%s", util.HashIdentifierForLog(sessionID))
 
