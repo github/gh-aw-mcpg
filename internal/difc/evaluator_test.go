@@ -801,6 +801,7 @@ func TestDefaultEnforcementMode(t *testing.T) {
 
 func TestEnforcementModeFromEnv(t *testing.T) {
 	t.Run("unset reports no environment override", func(t *testing.T) {
+		t.Setenv(EnvGuardsMode, "")
 		require.NoError(t, os.Unsetenv(EnvGuardsMode))
 		mode, set := EnforcementModeFromEnv()
 		assert.Equal(t, ModeStrict, mode)
