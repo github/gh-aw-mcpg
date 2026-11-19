@@ -194,7 +194,7 @@ assert.JSONEq(t, expectedJSON, actualJSON)
 
 ## Linting
 
-**golangci-lint** is integrated and runs as part of `make lint`:
+**golangci-lint** is integrated and runs as part of `make lint` when installed:
 - Configuration: `.golangci.yml` (version 2 format)
 - Enabled linters: `misspell`, `testifylint`, `unconvert`
 - Disabled linters: `gosec`, `errcheck`, `gocritic`, `revive`
