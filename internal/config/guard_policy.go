@@ -293,28 +293,6 @@ func (p *AllowOnlyPolicy) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON serializes all AllowOnlyPolicy fields under their canonical
-// hyphenated JSON keys (e.g. "min-integrity", "tool-call-limits").
-func (p AllowOnlyPolicy) MarshalJSON() ([]byte, error) {
-	type serializedAllowOnly struct {
-		Repos                interface{}    `json:"repos"`
-		MinIntegrity         string         `json:"min-integrity"`
-		ToolCallLimits       map[string]int `json:"tool-call-limits,omitempty"`
-		BlockedUsers         []string       `json:"blocked-users,omitempty"`
-		RefusalLabels        []string       `json:"refusal-labels,omitempty"`
-		ApprovalLabels       []string       `json:"approval-labels,omitempty"`
-		TrustedUsers         []string       `json:"trusted-users,omitempty"`
-		EndorsementReactions []string       `json:"endorsement-reactions,omitempty"`
-		DisapprovalReactions []string       `json:"disapproval-reactions,omitempty"`
-		DisapprovalIntegrity string         `json:"disapproval-integrity,omitempty"`
-		EndorserMinIntegrity string         `json:"endorser-min-integrity,omitempty"`
-		PromotionLabel       string         `json:"promotion-label,omitempty"`
-		DemotionLabel        string         `json:"demotion-label,omitempty"`
-	}
-
-	return json.Marshal(serializedAllowOnly(p))
-}
-
 func unmarshalStringListOrExpression(raw json.RawMessage) ([]string, error) {
 	var values []string
 	if err := json.Unmarshal(raw, &values); err == nil {
