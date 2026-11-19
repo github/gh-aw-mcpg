@@ -660,4 +660,17 @@ func TestSysListServersHandler_Branches(t *testing.T) {
 		assert.NotNil(t, data)
 		assert.Contains(t, us.getSessionKeys(), "default")
 	})
+
+	t.Run("uninitialized session store returns an MCP error", func(t *testing.T) {
+		us := &UnifiedServer{}
+		ctx := context.WithValue(context.Background(), SessionIDContextKey, "missing-store")
+
+		result, data, err := us.sysListServersHandler(ctx, &sdk.CallToolRequest{}, nil)
+
+		require.Error(t, err)
+		require.NotNil(t, result)
+		assert.True(t, result.IsError)
+		assert.Nil(t, data)
+		assert.Contains(t, err.Error(), "session store is not initialized")
+	})
 }
