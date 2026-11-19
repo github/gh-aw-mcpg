@@ -310,7 +310,7 @@ pub fn apply_tool_labels(
         | tool_names::UPDATE_AUTOMATION
         | tool_names::DELETE_AUTOMATION
         | tool_names::RUN_AUTOMATION => {
-            secrecy = apply_repo_visibility_secrecy(&owner, &repo, repo_id, secrecy, ctx);
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
             // These operations can return personal definitions, even in public repositories.
             if matches!(
                 tool_name,
@@ -337,7 +337,8 @@ pub fn apply_tool_labels(
             desc = format!("{tool_name}:{repo_id}");
             let automation_id = get_str_or(tool_args, "automation_id", "");
             if !automation_id.is_empty() {
-                desc.push_str(&format!("/{automation_id}"));
+                desc.push('/');
+                desc.push_str(automation_id);
             }
         }
 
