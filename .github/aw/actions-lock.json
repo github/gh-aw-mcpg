@@ -125,10 +125,10 @@
       "version": "v2.2.0",
       "sha": "0c5077e51419868618aeaa5fe8019c62421857d6"
     },
-    "ruby/setup-ruby@v1.341.0": {
+    "ruby/setup-ruby@v1.342.0": {
       "repo": "ruby/setup-ruby",
-      "version": "v1.341.0",
-      "sha": "20eb24b0d509e2b9ed9b6d42ddfeb992915e0564"
+      "version": "v1.342.0",
+      "sha": "f9c4492e86def3e644ab32a0ef185eda5b0c20d0"
     }
   },
   "containers": {
