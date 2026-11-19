@@ -6,16 +6,13 @@ Quick reference for AI agents working with MCP Gateway (Go-based MCP proxy serve
 
 **Install**: `make install` (install toolchains and dependencies)  
 **Build**: `make build` (builds `awmg` binary)  
-**Test**: `make test` (run unit tests, no build required)  
-**Test-Unit**: `make test-unit` (run unit tests only)  
 **Test-Integration**: `make test-integration` (run binary integration tests, auto-builds binary if not present)  
 **Test-All**: `make test-all` (run both unit and integration tests; always builds the binary first)  
 **Test-CI**: `make test-ci` (unit tests with coverage and JSON output for CI)  
-**Lint**: `make lint` (runs go vet, gofmt checks, and golangci-lint)  
+**Lint**: `make lint` (runs go vet, gofmt checks, and golangci-lint when installed)  
 **Coverage**: `make coverage` (unit tests with coverage report)  
 **Format**: `make format` (auto-format code with gofmt)  
 **Clean**: `make clean` (remove build artifacts)  
-**Agent-Finished**: `make agent-finished` (run format, build, lint, and all tests (unit, integration, Rust guard) - ALWAYS run before completion)  
 **Run**: `./awmg --config config.toml`  
 **Run sequentially**: `./awmg --config config.toml --sequential-launch`  
 **Run with Custom Log Directory**: `./awmg --config config.toml --log-dir /path/to/logs`  
@@ -176,7 +173,7 @@ assert.ElementsMatch(t, expected, actual, "Slices should contain same elements")
 
 // Nil checking
 assert.NotNil(t, obj, "Object should not be nil")
-assert.Nil(t, err, "Error should be nil")
+assert.NoError(t, err, "Error should be nil")
 
 // Error checking (prefer NoError over Nil for errors)
 assert.NoError(t, err, "Operation should succeed")
@@ -197,7 +194,7 @@ assert.JSONEq(t, expectedJSON, actualJSON)
 
 ## Linting
 
-**golangci-lint** is integrated and runs as part of `make lint`:
+**golangci-lint** is integrated and runs as part of `make lint` when installed:
 - Configuration: `.golangci.yml` (version 2 format)
 - Enabled linters: `misspell`, `testifylint`, `unconvert`
 - Disabled linters: `gosec`, `errcheck`, `gocritic`, `revive`
@@ -210,7 +207,6 @@ assert.JSONEq(t, expectedJSON, actualJSON)
   - Suggests `assert.True(t, x)` instead of `assert.Equal(t, true, x)`
   - Suggests `assert.NoError(t, err)` instead of `assert.Nil(t, err)`
 - To run on specific files: `golangci-lint run --enable=testifylint --timeout=5m <files>`
-- To run on the entire codebase: `golangci-lint run --enable=testifylint --timeout=5m`
 
 **Note**: Some linters (`gosec`, `errcheck`) are disabled to minimize noise. Enable them for stricter checks:
 ```bash
@@ -229,9 +225,6 @@ golangci-lint run --enable=gosec,errcheck --timeout=5m
 - Test the compiled `awmg` binary end-to-end
 - Require building the binary first
 - Test actual server behavior and CLI flags
-- Run with: `make test-integration`
-
-**All Tests**: `make test-all` runs both unit and integration tests; always builds the binary first
 
 ## Common Tasks
 
@@ -249,8 +242,8 @@ golangci-lint run --enable=gosec,errcheck --timeout=5m
 This command runs the complete verification pipeline:
 1. **Format** - Auto-formats all Go code with gofmt
 2. **Build** - Ensures the project compiles successfully
-3. **Lint** - Runs go vet and gofmt checks
-4. **Test All** - Runs `go test ./...` (including tests under `test/integration/`) and Rust guard unit tests. Some integration tests may skip when optional credentials or services are unavailable. Use `make test-integration` for a targeted run of binary integration tests.
+3. **Lint** - Runs go vet and golangci-lint when installed
+4. **Test All** - Runs `go test ./...` (including tests under `test/integration/`) and Rust guard unit tests when cargo is installed. Some integration tests may skip when optional credentials or services are unavailable. Use `make test-integration` for a targeted run of binary integration tests.
 
 **Requirements:**
 - **ALL failures must be fixed** before completion
