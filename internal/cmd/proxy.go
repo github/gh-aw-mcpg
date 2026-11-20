@@ -60,11 +60,11 @@ func init() {
 }
 
 func resolveDelegationProxyConfig() (*delegation.RuntimeConfig, string, error) {
-	envelopeJSON := os.Getenv("MCP_GATEWAY_DELEGATION_ENVELOPE")
-	capabilityKey := os.Getenv(delegation.EnvControlCapabilityKey)
-	statePath := os.Getenv("MCP_GATEWAY_DELEGATION_STATE_PATH")
-	generationRaw := os.Getenv("MCP_GATEWAY_DELEGATION_GENERATION")
-	controlListenAddr := os.Getenv(delegation.EnvControlListenAddr)
+	envelopeJSON := envutil.GetEnvString("MCP_GATEWAY_DELEGATION_ENVELOPE", "")
+	capabilityKey := envutil.GetEnvString(delegation.EnvControlCapabilityKey, "")
+	statePath := envutil.GetEnvString("MCP_GATEWAY_DELEGATION_STATE_PATH", "")
+	generationRaw := envutil.GetEnvString("MCP_GATEWAY_DELEGATION_GENERATION", "")
+	controlListenAddr := envutil.GetEnvString(delegation.EnvControlListenAddr, "")
 	if envelopeJSON == "" && capabilityKey == "" && statePath == "" && generationRaw == "" && controlListenAddr == "" {
 		logProxyCmd.Print("Delegation proxy config: no delegation environment configured, delegation disabled")
 		return nil, "", nil
@@ -255,8 +255,8 @@ func runProxy(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--tls-dns-name requires --tls")
 	}
 
-	enclavePolicyRaw := os.Getenv(enclavegithub.EnvPolicyJSON)
-	enclaveCapabilityKey := os.Getenv(enclavegithub.EnvCapabilityKey)
+	enclavePolicyRaw := envutil.GetEnvString(enclavegithub.EnvPolicyJSON, "")
+	enclaveCapabilityKey := envutil.GetEnvString(enclavegithub.EnvCapabilityKey, "")
 	enclaveConfig, enclaveGuardPolicy, enclaveEnabled, err := resolveEnclaveProxyConfig(
 		enclavePolicyRaw,
 		enclaveCapabilityKey,

@@ -2,7 +2,6 @@ package envutil
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
@@ -19,7 +18,7 @@ func WalkDockerEnvArgs(args []string, fn func(index int, varName, value string, 
 		if arg == "-e" && i+1 < len(args) {
 			nextArg := args[i+1]
 			if nextArg != "" && !strings.Contains(nextArg, "=") {
-				value, found := os.LookupEnv(nextArg)
+				value, found := LookupEnv(nextArg)
 				fn(i, nextArg, value, found)
 			}
 			i++ // Skip the next arg since we processed it

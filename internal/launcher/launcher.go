@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -87,9 +86,9 @@ func New(ctx context.Context, cfg *config.Config) *Launcher {
 
 	// Initialize OIDC provider from environment if available
 	var oidcProvider *oidc.Provider
-	if reqURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL"); reqURL != "" {
-		reqToken := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
-		oidcProvider = oidc.NewProvider(reqURL, reqToken)
+	oidcCredentials := oidc.RequestCredentialsFromEnv()
+	if oidcCredentials.RequestURL != "" {
+		oidcProvider = oidc.NewProvider(oidcCredentials.RequestURL, oidcCredentials.RequestToken)
 		logLauncher.Printf("OIDC provider initialized from ACTIONS_ID_TOKEN_REQUEST_URL")
 		logger.LogInfo("startup", "GitHub Actions OIDC provider initialized")
 	}

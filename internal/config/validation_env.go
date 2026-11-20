@@ -2,10 +2,10 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/sys"
 )
@@ -130,7 +130,7 @@ func ValidateContainerizedEnvironmentForRuntime(containerID, runtimeCommand stri
 	}
 
 	// Validate port mapping
-	port := os.Getenv("MCP_GATEWAY_PORT")
+	port := envutil.GetEnvString("MCP_GATEWAY_PORT", "")
 	if port != "" {
 		logEnv.Printf("Checking port mapping: port=%s", port)
 		hostNetwork, err := sys.IsHostNetwork(containerID)
@@ -165,7 +165,7 @@ func ValidateContainerizedEnvironmentForRuntime(containerID, runtimeCommand stri
 	}
 
 	// Check if log directory is mounted (warning only)
-	logDir := os.Getenv("MCP_GATEWAY_LOG_DIR")
+	logDir := envutil.GetEnvString("MCP_GATEWAY_LOG_DIR", "")
 	if logDir == "" {
 		logDir = DefaultLogDir
 	}
@@ -190,7 +190,7 @@ func checkRequiredEnvVars() []string {
 			}
 			continue
 		}
-		if os.Getenv(envVar) == "" {
+		if envutil.GetEnvString(envVar, "") == "" {
 			missing = append(missing, envVar)
 		}
 	}

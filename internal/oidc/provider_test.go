@@ -17,6 +17,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRequestCredentialsFromEnv(t *testing.T) {
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://token.actions.example.com")
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "request-token")
+
+	credentials := oidc.RequestCredentialsFromEnv()
+	assert.Equal(t, "https://token.actions.example.com", credentials.RequestURL)
+	assert.Equal(t, "request-token", credentials.RequestToken)
+}
+
 // makeJWT builds a minimal JWT (header.payload.signature) for testing.
 // The signature is a dummy value; the token is not cryptographically valid.
 func makeJWT(exp int64) string {

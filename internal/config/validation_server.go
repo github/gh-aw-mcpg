@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 
@@ -224,7 +223,7 @@ func validateAuthConfig(auth *AuthConfig, serverName, jsonPath string) error {
 	// Fail-fast: check that required OIDC environment variables are present.
 	// This catches misconfigurations at config-load time rather than deferring
 	// the error to the first request against this server.
-	if os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL") == "" {
+	if oidc.RequestCredentialsFromEnv().RequestURL == "" {
 		return validator.fail(
 			"ACTIONS_ID_TOKEN_REQUEST_URL is not set",
 			MissingRequired(

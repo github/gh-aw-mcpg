@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
@@ -20,7 +21,7 @@ var containerIDPattern = regexp.MustCompile(`^[a-f0-9]{12,64}$`)
 // CheckDockerAccessible verifies that the Docker daemon is accessible.
 func CheckDockerAccessible() bool {
 	// First check if the Docker socket exists
-	socketPath := os.Getenv("DOCKER_HOST")
+	socketPath := envutil.GetEnvString("DOCKER_HOST", "")
 	if socketPath == "" {
 		socketPath = "/var/run/docker.sock"
 	} else {

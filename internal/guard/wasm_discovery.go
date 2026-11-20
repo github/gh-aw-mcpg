@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/github/gh-aw-mcpg/internal/envutil"
 )
 
 // WASMGuardsDirEnvVar is the environment variable name for the root directory
@@ -16,7 +18,7 @@ const ContainerGuardWasmPath = "/guards/github/00-github-guard.wasm"
 
 // GetWASMGuardsRootDir returns the trimmed value of MCP_GATEWAY_WASM_GUARDS_DIR.
 func GetWASMGuardsRootDir() string {
-	return strings.TrimSpace(os.Getenv(WASMGuardsDirEnvVar))
+	return strings.TrimSpace(envutil.GetEnvString(WASMGuardsDirEnvVar, ""))
 }
 
 // FindServerWASMGuardFile discovers the first .wasm file for a server under
@@ -67,7 +69,7 @@ func findGuardFile(serverID string, statFn func(string) (os.FileInfo, error)) (s
 	if serverID == "github" {
 		// Preserve explicit opt-out behavior used by container runners:
 		// when MCP_GATEWAY_WASM_GUARDS_DIR is set but blank, skip baked-in discovery.
-		if guardDir, ok := os.LookupEnv(WASMGuardsDirEnvVar); ok && guardDir == "" {
+		if guardDir, ok := envutil.LookupEnv(WASMGuardsDirEnvVar); ok && guardDir == "" {
 			logWasm.Printf("Skipping baked-in guard discovery: %s is explicitly set but blank", WASMGuardsDirEnvVar)
 			return "", false, nil
 		}

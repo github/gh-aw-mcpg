@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
@@ -25,6 +26,21 @@ var logOIDC = logger.ForFile()
 
 // tokenRefreshMargin is how far before expiry we proactively refresh a cached token.
 const tokenRefreshMargin = 60 * time.Second
+
+// RequestCredentials contains the GitHub Actions OIDC request URL and token.
+type RequestCredentials struct {
+	RequestURL   string
+	RequestToken string
+}
+
+// RequestCredentialsFromEnv resolves the GitHub Actions OIDC request
+// credentials from their standard environment variables.
+func RequestCredentialsFromEnv() RequestCredentials {
+	return RequestCredentials{
+		RequestURL:   envutil.GetEnvString("ACTIONS_ID_TOKEN_REQUEST_URL", ""),
+		RequestToken: envutil.GetEnvString("ACTIONS_ID_TOKEN_REQUEST_TOKEN", ""),
+	}
+}
 
 // cachedToken holds a cached OIDC token with its expiry time.
 type cachedToken struct {

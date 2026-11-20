@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
@@ -70,7 +71,7 @@ func detectContainerIDWithPaths(dockerEnv string, cgroupPaths []string) (bool, s
 	}
 
 	// Method 3: Check environment variable (set by Dockerfile)
-	if os.Getenv("RUNNING_IN_CONTAINER") == "true" {
+	if envutil.GetEnvString("RUNNING_IN_CONTAINER", "") == "true" {
 		logSys.Print("Container detected via RUNNING_IN_CONTAINER env var")
 		return true, ""
 	}

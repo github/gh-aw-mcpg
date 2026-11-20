@@ -3,11 +3,11 @@ package tracing
 import (
 	"encoding/json"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
+	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/sanitize"
 )
 
@@ -124,7 +124,7 @@ func resolveHeaders(cfg *config.TracingConfig) map[string]string {
 		raw = cfg.Headers
 	}
 	if raw == "" {
-		raw = os.Getenv("OTEL_EXPORTER_OTLP_HEADERS")
+		raw = envutil.GetEnvString("OTEL_EXPORTER_OTLP_HEADERS", "")
 		if raw != "" {
 			logTracing.Printf("Using OTEL_EXPORTER_OTLP_HEADERS env var for OTLP export headers")
 		}
@@ -160,7 +160,7 @@ type extraEndpointJSONConfig struct {
 }
 
 func resolveExtraEndpointConfigs(cfg *config.TracingConfig) []extraEndpointConfig {
-	raw := strings.TrimSpace(os.Getenv("GH_AW_OTLP_ENDPOINTS"))
+	raw := strings.TrimSpace(envutil.GetEnvString("GH_AW_OTLP_ENDPOINTS", ""))
 	if raw == "" {
 		return nil
 	}

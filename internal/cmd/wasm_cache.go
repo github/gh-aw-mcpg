@@ -8,11 +8,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
+	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/guard"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
@@ -31,7 +31,7 @@ func resolveWasmCacheDir(flagChanged bool, flagValue, effectiveLogDir string) st
 		return trimmed
 	}
 
-	if envValue, exists := os.LookupEnv(wasmCacheDirEnvVar); exists {
+	if envValue, exists := envutil.LookupEnv(wasmCacheDirEnvVar); exists {
 		if trimmed := strings.TrimSpace(envValue); trimmed != "" {
 			debugLog.Printf("WASM cache dir resolved from %s: %q", wasmCacheDirEnvVar, trimmed)
 			return trimmed

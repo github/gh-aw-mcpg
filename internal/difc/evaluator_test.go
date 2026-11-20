@@ -1,6 +1,7 @@
 package difc
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -794,6 +795,33 @@ func TestDefaultEnforcementMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("MCP_GATEWAY_GUARDS_MODE", tt.envValue)
 			assert.Equal(t, tt.want, DefaultEnforcementMode())
+		})
+	}
+}
+
+func TestEnforcementModeFromEnv(t *testing.T) {
+	t.Run("unset reports no environment override", func(t *testing.T) {
+		t.Setenv(EnvGuardsMode, "")
+		require.NoError(t, os.Unsetenv(EnvGuardsMode))
+		mode, set := EnforcementModeFromEnv()
+		assert.Equal(t, ModeStrict, mode)
+		assert.False(t, set)
+	})
+
+	for _, tt := range []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "valid mode is normalized", value: "FILTER", want: ModeFilter},
+		{name: "empty value uses strict", value: "", want: ModeStrict},
+		{name: "invalid value uses strict", value: "invalid", want: ModeStrict},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(EnvGuardsMode, tt.value)
+			mode, set := EnforcementModeFromEnv()
+			assert.Equal(t, tt.want, mode)
+			assert.True(t, set)
 		})
 	}
 }

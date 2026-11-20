@@ -61,7 +61,7 @@ func DefaultMountPolicy() MountPolicy {
 	}
 
 	var roots []MountRoot
-	if workspace := strings.TrimSpace(os.Getenv("GITHUB_WORKSPACE")); workspace != "" {
+	if workspace := strings.TrimSpace(envutil.GetEnvString("GITHUB_WORKSPACE", "")); workspace != "" {
 		roots = append(roots, MountRoot{Path: workspace, Writable: false})
 	}
 	if cwd, err := os.Getwd(); err == nil && cwd != "" {
