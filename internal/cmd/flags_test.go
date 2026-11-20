@@ -120,7 +120,7 @@ func TestCoreFlagParsing(t *testing.T) {
 				cmd := newTestCmd()
 				registerCoreFlags(cmd)
 
-				assert.Error(t, cmd.Flags().Parse([]string{shorthand}))
+				require.Error(t, cmd.Flags().Parse([]string{shorthand}))
 				assert.Equal(t, defaultListenAddr, listenAddr)
 				assert.Equal(t, defaultConfigFile, configFile)
 			})
