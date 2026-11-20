@@ -64,7 +64,7 @@ func setFlagsForTest(t *testing.T, cmd *cobra.Command, values map[string]string)
 		if _, ok := f.Value.(pflag.SliceValue); ok {
 			// Copy pflag's slice value so Set cannot change its private first-set bit.
 			original := reflect.ValueOf(f.Value)
-			require.Equal(t, reflect.Ptr, original.Kind())
+			require.Equal(t, reflect.Pointer, original.Kind())
 			copy := reflect.New(original.Elem().Type())
 			copy.Elem().Set(original.Elem())
 			f.Value = copy.Interface().(pflag.Value)
