@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,6 +25,66 @@ func TestRequestCredentialsFromEnv(t *testing.T) {
 	credentials := oidc.RequestCredentialsFromEnv()
 	assert.Equal(t, "https://token.actions.example.com", credentials.RequestURL)
 	assert.Equal(t, "request-token", credentials.RequestToken)
+}
+
+func TestProviderFromEnv(t *testing.T) {
+	tests := []struct {
+		name      string
+		url       string
+		token     string
+		unset     bool
+		available bool
+	}{
+		{name: "unset", unset: true},
+		{name: "empty"},
+		{name: "token without URL", token: "request-token"},
+		{name: "URL without token", url: "https://token.actions.example.com", available: true},
+		{name: "URL and token", url: "https://token.actions.example.com", token: "request-token", available: true},
+		{name: "whitespace is not trimmed", url: " ", available: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(oidc.EnvActionsIDTokenRequestURL, tt.url)
+			t.Setenv(oidc.EnvActionsIDTokenRequestToken, tt.token)
+			if tt.unset {
+				require.NoError(t, os.Unsetenv(oidc.EnvActionsIDTokenRequestURL))
+				require.NoError(t, os.Unsetenv(oidc.EnvActionsIDTokenRequestToken))
+			}
+
+			credentials := oidc.RequestCredentialsFromEnv()
+			assert.Equal(t, tt.url, credentials.RequestURL)
+			assert.Equal(t, tt.token, credentials.RequestToken)
+			assert.Equal(t, tt.available, credentials.Available())
+			provider := oidc.ProviderFromEnv()
+			if tt.available {
+				assert.NotNil(t, provider)
+			} else {
+				assert.Nil(t, provider)
+			}
+		})
+	}
+}
+
+func TestProviderFromEnv_TokenAcquisition(t *testing.T) {
+	const requestToken = "request-token"
+	token := makeJWT(time.Now().Add(10 * time.Minute).Unix())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer "+requestToken, r.Header.Get("Authorization"))
+		assert.Equal(t, "https://example.com", r.URL.Query().Get("audience"))
+		assert.NoError(t, json.NewEncoder(w).Encode(map[string]string{"value": token}))
+	}))
+	defer server.Close()
+
+	t.Setenv(oidc.EnvActionsIDTokenRequestURL, server.URL)
+	t.Setenv(oidc.EnvActionsIDTokenRequestToken, requestToken)
+	provider := oidc.ProviderFromEnv()
+	require.NotNil(t, provider)
+	t.Setenv(oidc.EnvActionsIDTokenRequestURL, "")
+	t.Setenv(oidc.EnvActionsIDTokenRequestToken, "")
+
+	got, err := provider.Token(context.Background(), "https://example.com")
+	require.NoError(t, err)
+	assert.Equal(t, token, got)
 }
 
 // makeJWT builds a minimal JWT (header.payload.signature) for testing.

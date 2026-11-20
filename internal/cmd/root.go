@@ -129,11 +129,11 @@ func preRun(cmd *cobra.Command, args []string) error {
 			// Info level - no special DEBUG setting.
 		case 2:
 			// Debug level - enable debug logs for main packages
-			os.Setenv("DEBUG", debugMainPackages)
+			os.Setenv(logger.EnvDebug, debugMainPackages)
 			log.Printf("Logging level: debug (-vv), DEBUG=%s", debugMainPackages)
 		default:
 			// Trace level (3+) - enable all debug logs
-			os.Setenv("DEBUG", debugAllPackages)
+			os.Setenv(logger.EnvDebug, debugAllPackages)
 			log.Printf("Logging level: trace (-vvv), DEBUG=%s", debugAllPackages)
 		}
 	} else if debugEnv != "" {
@@ -329,7 +329,7 @@ func run(cmd *cobra.Command, args []string) error {
 			// When GH_AW_OTLP_ENDPOINTS is set, InitProvider uses fan-out mode and
 			// it takes precedence over the primary endpoint; use the env var as the
 			// display value to accurately reflect what is actually receiving spans.
-			displayEndpoint := envutil.GetEnvString("GH_AW_OTLP_ENDPOINTS", "")
+			displayEndpoint := envutil.GetEnvString(tracing.EnvOTLPEndpoints, "")
 			if displayEndpoint == "" {
 				displayEndpoint = endpoint
 			}

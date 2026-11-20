@@ -85,10 +85,8 @@ func New(ctx context.Context, cfg *config.Config) *Launcher {
 	logLauncher.Printf("Using startup timeout: %v", startupTimeout)
 
 	// Initialize OIDC provider from environment if available
-	var oidcProvider *oidc.Provider
-	oidcCredentials := oidc.RequestCredentialsFromEnv()
-	if oidcCredentials.RequestURL != "" {
-		oidcProvider = oidc.NewProvider(oidcCredentials.RequestURL, oidcCredentials.RequestToken)
+	oidcProvider := oidc.ProviderFromEnv()
+	if oidcProvider != nil {
 		logLauncher.Printf("OIDC provider initialized from ACTIONS_ID_TOKEN_REQUEST_URL")
 		logger.LogInfo("startup", "GitHub Actions OIDC provider initialized")
 	}

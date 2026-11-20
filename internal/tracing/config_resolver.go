@@ -14,6 +14,9 @@ import (
 // defaultSignalPath is the OTLP traces signal path per the OpenTelemetry spec.
 const defaultSignalPath = "/v1/traces"
 
+// EnvOTLPEndpoints configures the OTLP fan-out export endpoints.
+const EnvOTLPEndpoints = "GH_AW_OTLP_ENDPOINTS"
+
 // resolveEndpoint returns the OTLP endpoint from config.
 // CLI flags set the config value using env vars as defaults, so config already
 // reflects the correct precedence: CLI flag > env var > config file.
@@ -160,7 +163,7 @@ type extraEndpointJSONConfig struct {
 }
 
 func resolveExtraEndpointConfigs(cfg *config.TracingConfig) []extraEndpointConfig {
-	raw := strings.TrimSpace(envutil.GetEnvString("GH_AW_OTLP_ENDPOINTS", ""))
+	raw := strings.TrimSpace(envutil.GetEnvString(EnvOTLPEndpoints, ""))
 	if raw == "" {
 		return nil
 	}

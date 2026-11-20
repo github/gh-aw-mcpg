@@ -102,7 +102,7 @@ func resolveDelegationProxyConfig() (*delegation.RuntimeConfig, string, error) {
 
 func newProxyCmd() *cobra.Command {
 	defaultGuard := detectGuardWasm()
-	defaultProxyLogDir := envutil.GetEnvString("MCP_GATEWAY_LOG_DIR", config.DefaultLogDir)
+	defaultProxyLogDir := envutil.GetEnvString(config.EnvLogDir, config.DefaultLogDir)
 
 	cmd := &cobra.Command{
 		Use:     "proxy",

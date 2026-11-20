@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
+	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
@@ -470,6 +471,9 @@ func TestResolveServerMode(t *testing.T) {
 }
 
 func TestApplyLaunchAndGuardsOverrides(t *testing.T) {
+	t.Setenv(difc.EnvGuardsMode, "")
+	require.NoError(t, os.Unsetenv(difc.EnvGuardsMode))
+
 	origDIFCMode := difcMode
 	origSequentialLaunch := sequentialLaunch
 	t.Cleanup(func() {
@@ -533,6 +537,31 @@ func TestApplyLaunchAndGuardsOverrides(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "filter", cfg.DIFCMode)
 	})
+
+	for _, tt := range []struct {
+		name string
+		env  string
+		flag string
+		want string
+	}{
+		{name: "empty env overrides config with strict", want: "strict"},
+		{name: "invalid env overrides config with strict", env: "invalid", want: "strict"},
+		{name: "env is normalized", env: "FILTER", want: "filter"},
+		{name: "flag overrides env", env: "propagate", flag: "filter", want: "filter"},
+		{name: "flag overrides invalid env", env: "invalid", flag: "filter", want: "filter"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(difc.EnvGuardsMode, tt.env)
+			cfg := &config.Config{DIFCMode: "propagate"}
+			cmd := newCmd()
+			if tt.flag != "" {
+				require.NoError(t, cmd.Flags().Set("guards-mode", tt.flag))
+			}
+
+			require.NoError(t, applyLaunchAndGuardsOverrides(cmd, cfg))
+			assert.Equal(t, tt.want, cfg.DIFCMode)
+		})
+	}
 
 	t.Run("returns error for invalid explicit guards mode", func(t *testing.T) {
 		cfg := &config.Config{
