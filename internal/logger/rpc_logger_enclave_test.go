@@ -43,7 +43,7 @@ func TestLogRPCForSession_EnclaveSessionRedactsEverySink(t *testing.T) {
 	request := []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"issue_read","arguments":{"owner":"acme","repo":"secret","query":"` + privateSentinel + `"}}}`)
 	response := []byte(`{"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"` + privateSentinel + `"}]}}`)
 
-	LogRPCRequestForSession(RPCDirectionOutbound, "github", "tools/call", request, []string{"private:acme/secret"}, nil, true)
+	LogRPCRequestForSession(RPCDirectionOutbound, "github", "tools/call", request, []string{"private:acme/secret"}, []string{"approved"}, true)
 	LogRPCResponseForSession(RPCDirectionInbound, "github", response, errors.New(privateSentinel), nil, nil, true)
 
 	CloseAllLoggers()
@@ -59,6 +59,11 @@ func TestLogRPCForSession_EnclaveSessionRedactsEverySink(t *testing.T) {
 	assert.Contains(textLog, "tool:issue_read")
 	assert.Contains(textLog, "[REDACTED enclave payload")
 
+	markdownLog := readSink(t, logDir, "test.md")
+	assert.Contains(markdownLog, "rpc **github**→`tools/call` `issue_read`")
+	assert.Contains(markdownLog, "[REDACTED enclave payload")
+	assert.Contains(markdownLog, "rpc **github**←`resp`")
+
 	jsonl := readSink(t, logDir, "test.jsonl")
 	lines := strings.Split(strings.TrimSpace(jsonl), "\n")
 	require.Len(lines, 2)
@@ -66,12 +71,15 @@ func TestLogRPCForSession_EnclaveSessionRedactsEverySink(t *testing.T) {
 	var requestEntry JSONLRPCMessage
 	require.NoError(json.Unmarshal([]byte(lines[0]), &requestEntry))
 	assert.Equal("rpc_request", requestEntry.Event)
+	assert.Equal("rpc-message/v2", requestEntry.Schema)
+	assert.Equal("OUT", requestEntry.Direction)
 	assert.Equal("github", requestEntry.ServerID)
 	assert.Equal("tools/call", requestEntry.Method)
 	assert.Equal("issue_read", requestEntry.ToolName)
 	assert.True(requestEntry.Redacted)
 	assert.Equal(len(request), requestEntry.PayloadSize)
 	assert.ElementsMatch([]string{"private:acme/secret"}, requestEntry.AgentSecrecy)
+	assert.Equal([]string{"approved"}, requestEntry.AgentIntegrity)
 
 	var payload map[string]any
 	require.NoError(json.Unmarshal(requestEntry.Payload, &payload))
@@ -82,6 +90,8 @@ func TestLogRPCForSession_EnclaveSessionRedactsEverySink(t *testing.T) {
 	var responseEntry JSONLRPCMessage
 	require.NoError(json.Unmarshal([]byte(lines[1]), &responseEntry))
 	assert.Equal("rpc_response", responseEntry.Event)
+	assert.Equal("rpc-message/v2", responseEntry.Schema)
+	assert.Equal("IN", responseEntry.Direction)
 	assert.True(responseEntry.Redacted)
 	assert.NotEmpty(responseEntry.Error, "error category should remain recorded")
 	assert.NotContains(responseEntry.Error, privateSentinel)

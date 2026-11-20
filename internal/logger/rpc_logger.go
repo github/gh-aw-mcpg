@@ -96,6 +96,12 @@ func newRPCMessageInfoFromSanitized(direction RPCMessageDirection, messageType R
 	return info
 }
 
+func logRPCMarkdown(info *RPCMessageInfo) {
+	withGlobalLogger(&globalMarkdownMu, &globalMarkdownLogger, func(logger *MarkdownLogger) {
+		logger.Log(LogLevelDebug, "rpc", "%s", formatRPCMessageMarkdown(info))
+	})
+}
+
 // logRPCMessageToAll routes a single RPC message to all log sinks (text, markdown, JSONL).
 // It uses the withGlobalLogger helper from global_helpers.go to handle mutex locking and nil-checking.
 // When enclaveSession is set (or process-wide payload redaction is active), the payload never
@@ -117,9 +123,7 @@ func logRPCMessageToAll(direction RPCMessageDirection, messageType RPCMessageTyp
 
 	// Log to markdown file (with shorter payload preview)
 	infoMarkdown := newRPCMessageInfoFromSanitized(direction, messageType, serverID, method, payload, err, sanitized, MaxPayloadPreviewLengthMarkdown)
-	withGlobalLogger(&globalMarkdownMu, &globalMarkdownLogger, func(logger *MarkdownLogger) {
-		logger.Log(LogLevelDebug, "rpc", "%s", formatRPCMessageMarkdown(infoMarkdown))
-	})
+	logRPCMarkdown(infoMarkdown)
 
 	// Log to JSONL file (full payload, sanitized).
 	// Use the pre-sanitized string variant to avoid running the 10 regex patterns again.
@@ -146,9 +150,7 @@ func logRedactedRPCMessageToAll(direction RPCMessageDirection, messageType RPCMe
 
 	LogDebug("rpc", "%s", formatRPCMessage(info))
 
-	withGlobalLogger(&globalMarkdownMu, &globalMarkdownLogger, func(logger *MarkdownLogger) {
-		logger.Log(LogLevelDebug, "rpc", "%s", formatRPCMessageMarkdown(info))
-	})
+	logRPCMarkdown(info)
 
 	logRPCMessageJSONLRedacted(direction, messageType, serverID, method, toolName, len(payload), sanitize.RedactedPayloadJSON(payload), info.Error, agentSecrecy, agentIntegrity)
 }
@@ -184,7 +186,5 @@ func LogRPCMessage(info *RPCMessageInfo) {
 	LogDebug("rpc", "%s", formatRPCMessage(info))
 
 	// Log to markdown file using withGlobalLogger helper
-	withGlobalLogger(&globalMarkdownMu, &globalMarkdownLogger, func(logger *MarkdownLogger) {
-		logger.Log(LogLevelDebug, "rpc", "%s", formatRPCMessageMarkdown(info))
-	})
+	logRPCMarkdown(info)
 }
