@@ -167,6 +167,7 @@ func expandAuthVariables(auth *AuthConfig, serverName string) error {
 		{name: "azureTenantId", value: &auth.AzureTenantID},
 		{name: "azureClientId", value: &auth.AzureClientID},
 		{name: "azureScope", value: &auth.AzureScope},
+		{name: "azureCloud", value: &auth.AzureCloud},
 	}
 	for _, field := range fields {
 		if *field.value == "" {

@@ -318,7 +318,6 @@ func intPtrOrDefault(ptr *int, defaultValue int) int {
 // Fields stripped:
 //   - Top-level "guards": gateway-specific guard configuration
 //   - Per-server "guard": reference to a named guard
-//   - Per-server "auth": upstream authentication configuration (OIDC etc.)
 //   - Per-server "tool_response_filters": gateway-side jq response shaping config
 //
 // Note: "guard-policies" and "registry" are already injected into the upstream schema
@@ -332,14 +331,13 @@ func stripExtensionFieldsForValidation(data []byte) ([]byte, error) {
 	// Strip top-level "guards" extension field
 	delete(config, "guards")
 
-	// Strip per-server "guard" and "auth" extension fields
+	// Strip per-server gateway extensions not present in the embedded schema.
 	serverCount := 0
 	if servers, ok := config["mcpServers"].(map[string]interface{}); ok {
 		serverCount = len(servers)
 		for _, server := range servers {
 			if serverMap, ok := server.(map[string]interface{}); ok {
 				delete(serverMap, "guard")
-				delete(serverMap, "auth")
 				delete(serverMap, "tool_response_filters")
 			}
 		}
@@ -592,12 +590,10 @@ func convertStdinServerConfigWithRuntime(name string, server *StdinServerConfig,
 			logStdin.Printf("HTTP server %q: custom timeouts configured: connectTimeout=%v, toolTimeout=%v", name, connectTimeout, toolTimeout)
 		}
 		if server.Auth != nil {
-			serverCfg.Auth = &AuthConfig{
-				Type:     server.Auth.Type,
-				Audience: server.Auth.Audience,
-			}
-			// Default audience to server URL if not specified
-			if serverCfg.Auth.Audience == "" {
+			auth := *server.Auth
+			serverCfg.Auth = &auth
+			// Direct GitHub OIDC defaults to the server URL; Azure selects its own default.
+			if serverCfg.Auth.Provider == "" && serverCfg.Auth.Audience == "" {
 				serverCfg.Auth.Audience = server.URL
 			}
 			logStdin.Printf("HTTP server %q: authentication configured: type=%s, audience=%s", name, serverCfg.Auth.Type, serverCfg.Auth.Audience)

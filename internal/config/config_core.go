@@ -317,6 +317,9 @@ type AuthConfig struct {
 
 	// AzureScope is the scope requested for the Entra access token.
 	AzureScope string `toml:"azure_scope" json:"azureScope,omitempty"`
+
+	// AzureCloud selects the Azure cloud used for token exchange.
+	AzureCloud string `toml:"azure_cloud" json:"azureCloud,omitempty"`
 }
 
 // ServerConfig represents an individual MCP server configuration.

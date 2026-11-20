@@ -87,6 +87,23 @@ func TestProviderFromEnv_TokenAcquisition(t *testing.T) {
 	assert.Equal(t, token, got)
 }
 
+func TestProviderErrorDoesNotExposeResponseBody(t *testing.T) {
+	for _, status := range []int{http.StatusBadRequest, http.StatusFound} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(status)
+				_, _ = w.Write([]byte(`{"value":"sensitive-assertion"}`))
+			}))
+			defer server.Close()
+
+			_, err := oidc.NewProvider(server.URL, "request-token").Token(context.Background(), "audience")
+			require.Error(t, err)
+			require.ErrorContains(t, err, fmt.Sprintf("HTTP %d", status))
+			assert.NotContains(t, err.Error(), "sensitive-assertion")
+		})
+	}
+}
+
 // makeJWT builds a minimal JWT (header.payload.signature) for testing.
 // The signature is a dummy value; the token is not cryptographically valid.
 func makeJWT(exp int64) string {

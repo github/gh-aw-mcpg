@@ -12,14 +12,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/envutil"
+	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
@@ -168,7 +167,12 @@ func (p *Provider) fetchToken(ctx context.Context, audience string) (string, tim
 		logOIDC.Printf("OIDC token HTTP request failed: audience=%s, err=%v", audience, err)
 		return "", time.Time{}, fmt.Errorf("OIDC token request failed: %w", err)
 	}
-	body, err := httputil.ReadResponseBodyStrict(resp, http.StatusOK, "OIDC token request")
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		logOIDC.Printf("OIDC token response rejected: audience=%s, status=%d", audience, resp.StatusCode)
+		return "", time.Time{}, fmt.Errorf("OIDC token request returned HTTP %d", resp.StatusCode)
+	}
+	body, err := httputil.ReadResponseBody(resp, "OIDC token request")
 	if err != nil {
 		logOIDC.Printf("OIDC token response rejected: audience=%s, status=%d", audience, resp.StatusCode)
 		return "", time.Time{}, err

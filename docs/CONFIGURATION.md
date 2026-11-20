@@ -218,7 +218,9 @@ Non-absolute entries and the filesystem root (`/`) are ignored. When the resulti
   - **`audience`** (optional): Audience requested for the GitHub OIDC assertion. Defaults to the server URL for direct authentication, or `api://AzureADTokenExchange` for Azure.
   - **`azureTenantId`** and **`azureClientId`** (required when `provider` is `"azure"`): Entra tenant ID and federated application client ID.
   - **`azureScope`** (optional for Azure): Scope requested for the Entra access token. Defaults to `https://cognitiveservices.azure.com/.default`.
+  - **`azureCloud`** (optional for Azure; TOML `azure_cloud`): Authority cloud for token exchange: `public` (default), `usgovernment`, or `china`. For sovereign clouds, configure `audience` and `azureScope` to match your federated credential and target resource; the defaults are for public Azure. For example, Azure US Government commonly uses `api://AzureADTokenExchangeUSGov` as the audience.
   - GitHub assertions and Entra access tokens are cached and refreshed before expiry. The gateway handles the exchange; OIDC request credentials and access tokens are not passed to the MCP agent.
+  - OIDC-authenticated MCP connections reject HTTP redirects; configure the final MCP endpoint URL directly.
   - Example:
     ```json
     "my-http-server": {
@@ -242,6 +244,7 @@ Non-absolute entries and the filesystem root (`/`) are ignored. When the resulti
     azure_tenant_id = "${AZURE_TENANT_ID}"
     azure_client_id = "${AZURE_CLIENT_ID}"
     azure_scope = "${AZURE_AI_GATEWAY_SCOPE}"
+    # azure_cloud = "usgovernment"
     ```
     Configure the Entra application's federated credential to trust the workflow's GitHub OIDC issuer, subject, and `api://AzureADTokenExchange` audience, and grant the application access to the gateway. Set the three referenced variables in the gateway process environment.
 

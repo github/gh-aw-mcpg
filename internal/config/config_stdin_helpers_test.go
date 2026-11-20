@@ -50,7 +50,7 @@ func TestStripExtensionFieldsForValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "removes per-server auth field",
+			name: "preserves per-server auth field",
 			input: `{
 				"mcpServers": {
 					"myserver": {
@@ -64,7 +64,7 @@ func TestStripExtensionFieldsForValidation(t *testing.T) {
 				t.Helper()
 				server, ok := servers["myserver"].(map[string]interface{})
 				require.True(t, ok, "myserver should be a map")
-				assert.NotContains(t, server, "auth", "auth field should be removed")
+				assert.Contains(t, server, "auth", "auth field must be schema validated")
 				assert.Contains(t, server, "type", "type field should remain")
 				assert.Contains(t, server, "url", "url field should remain")
 			},
@@ -108,7 +108,7 @@ func TestStripExtensionFieldsForValidation(t *testing.T) {
 				s1, ok := servers["s1"].(map[string]interface{})
 				require.True(t, ok)
 				assert.NotContains(t, s1, "guard")
-				assert.NotContains(t, s1, "auth")
+				assert.Contains(t, s1, "auth")
 				assert.NotContains(t, s1, "tool_response_filters")
 				assert.Contains(t, s1, "type")
 				assert.Contains(t, s1, "container")
@@ -153,7 +153,7 @@ func TestStripExtensionFieldsForValidation(t *testing.T) {
 				a, ok := servers["a"].(map[string]interface{})
 				require.True(t, ok)
 				assert.NotContains(t, a, "guard")
-				assert.NotContains(t, a, "auth")
+				assert.Contains(t, a, "auth")
 
 				b, ok := servers["b"].(map[string]interface{})
 				require.True(t, ok)

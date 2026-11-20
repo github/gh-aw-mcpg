@@ -184,7 +184,7 @@ func getOrLaunchWithConfig(l *Launcher, serverID string, serverCfg *config.Serve
 						scope = oidc.AzureDefaultScope
 					}
 					if l.oidcProvider != nil {
-						oidcProvider = oidc.NewAzureProvider(l.oidcProvider, serverCfg.Auth.AzureTenantID, serverCfg.Auth.AzureClientID, scope)
+						oidcProvider = oidc.NewAzureProvider(l.oidcProvider, serverCfg.Auth.AzureTenantID, serverCfg.Auth.AzureClientID, scope, serverCfg.Auth.AzureCloud)
 					}
 				} else {
 					if oidcAudience == "" {

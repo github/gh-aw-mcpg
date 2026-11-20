@@ -62,6 +62,7 @@ func TestLoadFromFileExpandsAzureOIDCAuthVariables(t *testing.T) {
 	t.Setenv("AZURE_TENANT_ID", "tenant-id")
 	t.Setenv("AZURE_CLIENT_ID", "client-id")
 	t.Setenv("AZURE_AI_GATEWAY_SCOPE", "api://gateway/.default")
+	t.Setenv("AZURE_CLOUD", "china")
 
 	path := writeTempTOML(t, `
 [gateway]
@@ -77,6 +78,7 @@ provider = "azure"
 azure_tenant_id = "${AZURE_TENANT_ID}"
 azure_client_id = "${AZURE_CLIENT_ID}"
 azure_scope = "${AZURE_AI_GATEWAY_SCOPE}"
+azure_cloud = "${AZURE_CLOUD}"
 `)
 
 	cfg, err := LoadFromFile(path)
@@ -84,6 +86,7 @@ azure_scope = "${AZURE_AI_GATEWAY_SCOPE}"
 	assert.Equal(t, "tenant-id", cfg.Servers["azure"].Auth.AzureTenantID)
 	assert.Equal(t, "client-id", cfg.Servers["azure"].Auth.AzureClientID)
 	assert.Equal(t, "api://gateway/.default", cfg.Servers["azure"].Auth.AzureScope)
+	assert.Equal(t, "china", cfg.Servers["azure"].Auth.AzureCloud)
 }
 
 func TestContainerRuntimeArgsRecognizesValueOptions(t *testing.T) {

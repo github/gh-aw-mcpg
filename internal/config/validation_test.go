@@ -1062,6 +1062,19 @@ func TestValidateAuthConfig(t *testing.T) {
 			shouldErr: false,
 		},
 		{
+			name: "unsupported Azure cloud",
+			server: &StdinServerConfig{
+				Type: "http",
+				URL:  "https://example.com/mcp",
+				Auth: &AuthConfig{
+					Type: "github-oidc", Provider: "azure", AzureTenantID: "tenant",
+					AzureClientID: "client", AzureCloud: "invalid",
+				},
+			},
+			shouldErr: true,
+			errMsg:    "azureCloud",
+		},
+		{
 			name: "Azure provider requires tenant ID",
 			server: &StdinServerConfig{
 				Type: "http",

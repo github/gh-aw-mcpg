@@ -108,9 +108,13 @@ func (rt *oidcRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 // token overwrites the Authorization header.
 func buildHTTPClientWithOIDC(baseClient *http.Client, provider oidc.TokenSource, audience string) *http.Client {
 	logHTTPClient.Printf("Wrapping HTTP client with OIDC provider: audience=%s", audience)
-	return cloneClientWithTransport(baseClient, &oidcRoundTripper{
+	client := cloneClientWithTransport(baseClient, &oidcRoundTripper{
 		base:     resolveBaseTransport(baseClient),
 		provider: provider,
 		audience: audience,
 	})
+	client.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	return client
 }

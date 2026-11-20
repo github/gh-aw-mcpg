@@ -225,6 +225,11 @@ func validateAuthConfig(auth *AuthConfig, serverName, jsonPath string) error {
 			fmt.Sprintf("unsupported auth.provider: %s", auth.Provider),
 			UnsupportedType("provider", auth.Provider, authPath, fmt.Sprintf("Unsupported auth provider %q. Currently only \"azure\" is supported", auth.Provider)))
 	}
+	switch auth.AzureCloud {
+	case "", "public", "usgovernment", "china":
+	default:
+		return validator.fail("unsupported Azure cloud", UnsupportedType("azureCloud", auth.AzureCloud, authPath, "Supported Azure clouds are public, usgovernment, and china"))
+	}
 	if auth.Provider == "azure" {
 		if strings.TrimSpace(auth.AzureTenantID) == "" {
 			return validator.fail("Azure OIDC tenant ID is empty", MissingRequired("azureTenantId", "auth", authPath, "Specify auth.azureTenantId when auth.provider is \"azure\""))

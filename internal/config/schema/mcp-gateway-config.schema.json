@@ -279,6 +279,11 @@
               "type": "string",
               "minLength": 1,
               "description": "Entra access-token scope. Defaults to https://cognitiveservices.azure.com/.default."
+            },
+            "azureCloud": {
+              "type": "string",
+              "enum": ["public", "usgovernment", "china"],
+              "description": "Azure cloud used for token exchange. Defaults to public."
             }
           },
           "required": [
