@@ -93,7 +93,7 @@ func TestNormalizedGuardPolicyMarshalJSONOmitsRawRepos(t *testing.T) {
 	normalized.Repos = []string{"private/repo"}
 	data, err := json.Marshal(*normalized)
 	require.NoError(t, err)
-	assert.Equal(t, `{"scope_kind":"public","min-integrity":"none"}`, string(data))
+	assert.JSONEq(t, `{"scope_kind":"public","min-integrity":"none"}`, string(data))
 }
 
 func TestGuardPolicyToMap(t *testing.T) {
