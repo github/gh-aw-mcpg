@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
 	"github.com/github/gh-aw-mcpg/internal/delegation"
@@ -69,7 +68,7 @@ func (us *UnifiedServer) agentPolicyAllows(agentID, serverID, toolName string, a
 }
 
 func unifiedToolIdentity(toolInfo ToolInfo) (string, string) {
-	return toolInfo.BackendID, strings.TrimPrefix(toolInfo.Name, toolInfo.BackendID+"___")
+	return toolInfo.BackendID, util.StripToolPrefix(toolInfo.BackendID, toolInfo.Name)
 }
 
 // createAgentFilteredUnifiedServer builds an SDK server that exposes only the
@@ -138,7 +137,7 @@ func createDelegationFilteredServer(unifiedServer *UnifiedServer, backendID stri
 		func(toolInfo ToolInfo) func(context.Context, *sdk.CallToolRequest, interface{}) (*sdk.CallToolResult, interface{}, error) {
 			handler := unifiedServer.GetToolHandler(backendID, toolInfo.Name)
 			if handler == nil {
-				logRouted.Printf("WARNING: No handler found for %s___%s", backendID, toolInfo.Name)
+				logRouted.Printf("WARNING: No handler found for %s", util.PrefixToolName(backendID, toolInfo.Name))
 				return nil
 			}
 			return func(ctx context.Context, req *sdk.CallToolRequest, _ interface{}) (*sdk.CallToolResult, interface{}, error) {

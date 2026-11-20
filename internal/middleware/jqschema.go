@@ -704,7 +704,7 @@ func wrapToolHandler(
 // Currently applies to all tools, but can be configured to filter specific tools
 func ShouldApplyMiddleware(toolName string) bool {
 	// Apply to all tools except sys tools
-	applies := !strings.HasPrefix(toolName, "sys___")
+	applies := !strings.HasPrefix(toolName, util.PrefixToolName("sys", ""))
 	logMiddleware.Printf("ShouldApplyMiddleware: tool=%s, applies=%v", toolName, applies)
 	return applies
 }

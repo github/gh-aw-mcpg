@@ -243,6 +243,8 @@ func TestToolNamePreservation_SpecialCharacters(t *testing.T) {
 		"tool123WithNumbers",
 		"TOOL_IN_CAPS",
 		"tool-with_mixed.characters123",
+		"tool___with___separators",
+		"special___nested",
 	}
 
 	us.toolsMu.Lock()
@@ -283,7 +285,7 @@ func TestToolNamePreservation_HandlerIntegration(t *testing.T) {
 	require.NoError(t, err, "NewUnified() failed")
 	defer us.Close()
 
-	backendToolName := "test_tool_handler"
+	backendToolName := "test___tool_handler"
 
 	// Create a mock handler
 	mockHandler := func(ctx context.Context, req *sdk.CallToolRequest, state interface{}) (*sdk.CallToolResult, interface{}, error) {

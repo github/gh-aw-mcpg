@@ -8,6 +8,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/util"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -61,7 +62,7 @@ func createAgentFilteredServer(unifiedServer *UnifiedServer, backendID, agentID 
 		func(toolInfo ToolInfo) func(context.Context, *sdk.CallToolRequest, interface{}) (*sdk.CallToolResult, interface{}, error) {
 			handler := unifiedServer.GetToolHandler(backendID, toolInfo.Name)
 			if handler == nil {
-				logRouted.Printf("WARNING: No handler found for %s___%s", backendID, toolInfo.Name)
+				logRouted.Printf("WARNING: No handler found for %s", util.PrefixToolName(backendID, toolInfo.Name))
 				return nil
 			}
 

@@ -323,6 +323,62 @@ func TestNormalizeStringCI(t *testing.T) {
 	}
 }
 
+func TestPrefixToolName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		serverID string
+		toolName string
+		want     string
+	}{
+		{"normal", "github", "search_code", "github___search_code"},
+		{"sys tool", "sys", "init", "sys___init"},
+		{"embedded separator", "github", "owner___list_repos", "github___owner___list_repos"},
+		{"repeated prefix", "github", "github___list_repos", "github___github___list_repos"},
+		{"empty server", "", "list_repos", "___list_repos"},
+		{"empty tool", "github", "", "github___"},
+		{"both empty", "", "", "___"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := PrefixToolName(tt.serverID, tt.toolName)
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.toolName, StripToolPrefix(tt.serverID, got))
+		})
+	}
+}
+
+func TestStripToolPrefix(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		serverID     string
+		prefixedName string
+		want         string
+	}{
+		{"normal", "github", "github___list_repos", "list_repos"},
+		{"embedded separator", "github", "github___owner___list_repos", "owner___list_repos"},
+		{"repeated prefix", "github", "github___github___list_repos", "github___list_repos"},
+		{"unprefixed", "github", "list_repos", "list_repos"},
+		{"mismatched prefix", "github", "fetch___get", "fetch___get"},
+		{"case sensitive", "github", "GitHub___list_repos", "GitHub___list_repos"},
+		{"partial separator", "github", "github__list_repos", "github__list_repos"},
+		{"prefix not at start", "github", "other_github___list_repos", "other_github___list_repos"},
+		{"empty server", "", "___list_repos", "list_repos"},
+		{"empty tool", "github", "github___", ""},
+		{"empty name", "github", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, StripToolPrefix(tt.serverID, tt.prefixedName))
+		})
+	}
+}
+
 func TestParseServerIDFromToolName(t *testing.T) {
 	t.Parallel()
 
