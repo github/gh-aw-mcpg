@@ -153,3 +153,31 @@ func expandTracingVariables(cfg *TracingConfig) error {
 	logExpand.Print("Tracing config variable expansion completed")
 	return nil
 }
+
+func expandAuthVariables(auth *AuthConfig, serverName string) error {
+	if auth == nil {
+		return nil
+	}
+
+	fields := []struct {
+		name  string
+		value *string
+	}{
+		{name: "audience", value: &auth.Audience},
+		{name: "azureTenantId", value: &auth.AzureTenantID},
+		{name: "azureClientId", value: &auth.AzureClientID},
+		{name: "azureScope", value: &auth.AzureScope},
+	}
+	for _, field := range fields {
+		if *field.value == "" {
+			continue
+		}
+		path := fmt.Sprintf("servers.%s.auth.%s", serverName, field.name)
+		expanded, err := expandVariables(*field.value, path)
+		if err != nil {
+			return err
+		}
+		*field.value = expanded
+	}
+	return nil
+}

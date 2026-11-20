@@ -212,10 +212,13 @@ Non-absolute entries and the filesystem root (`/`) are ignored. When the resulti
 
 - **`auth`** (optional, HTTP servers only): Upstream authentication configuration
   - Only supported for `type: "http"` servers; using `auth` with stdio servers returns a validation error
-  - Currently supports one `type`:
+  - Currently supports this `type`:
     - `"github-oidc"` — Obtains a GitHub Actions OIDC token and attaches it as `Authorization: Bearer <token>` on every request to the HTTP backend. Requires the GitHub Actions job to have `permissions: { id-token: write }`.
-  - **`audience`** (optional): OIDC token audience. Defaults to the server's `url` value.
-  - Tokens are cached per audience and automatically refreshed before expiry.
+  - **`provider`** (optional): Set to `"azure"` to exchange the GitHub assertion for a Microsoft Entra access token. Omit it to preserve direct GitHub OIDC authentication.
+  - **`audience`** (optional): Audience requested for the GitHub OIDC assertion. Defaults to the server URL for direct authentication, or `api://AzureADTokenExchange` for Azure.
+  - **`azureTenantId`** and **`azureClientId`** (required when `provider` is `"azure"`): Entra tenant ID and federated application client ID.
+  - **`azureScope`** (optional for Azure): Scope requested for the Entra access token. Defaults to `https://cognitiveservices.azure.com/.default`.
+  - GitHub assertions and Entra access tokens are cached and refreshed before expiry. The gateway handles the exchange; OIDC request credentials and access tokens are not passed to the MCP agent.
   - Example:
     ```json
     "my-http-server": {
@@ -227,6 +230,20 @@ Non-absolute entries and the filesystem root (`/`) are ignored. When the resulti
       }
     }
     ```
+  - Azure AI Gateway example:
+    ```toml
+    [servers.azure-ai-gateway]
+    type = "http"
+    url = "https://YOUR_GATEWAY_HOST/default/toolservers/YOUR_SERVER_NAME/mcp"
+
+    [servers.azure-ai-gateway.auth]
+    type = "github-oidc"
+    provider = "azure"
+    azure_tenant_id = "${AZURE_TENANT_ID}"
+    azure_client_id = "${AZURE_CLIENT_ID}"
+    azure_scope = "${AZURE_AI_GATEWAY_SCOPE}"
+    ```
+    Configure the Entra application's federated credential to trust the workflow's GitHub OIDC issuer, subject, and `api://AzureADTokenExchange` audience, and grant the application access to the gateway. Set the three referenced variables in the gateway process environment.
 
 - **`tools`** (optional): List of tool names to allow for this server
   - Enforced at runtime: tools not in this list are hidden from `tools/list` responses and rejected when invoked via `tools/call` (for example, as an MCP/tool error)

@@ -1,4 +1,5 @@
-// Package oidc provides GitHub Actions OIDC token acquisition and caching.
+// Package oidc provides GitHub Actions OIDC token acquisition and caching,
+// along with Entra access-token exchange.
 //
 // The Provider fetches short-lived JWTs from the GitHub Actions OIDC endpoint
 // (ACTIONS_ID_TOKEN_REQUEST_URL) and caches them per audience, refreshing
@@ -30,6 +31,11 @@ const (
 	// EnvActionsIDTokenRequestToken names the bearer token for OIDC requests.
 	EnvActionsIDTokenRequestToken = "ACTIONS_ID_TOKEN_REQUEST_TOKEN"
 )
+
+// TokenSource returns an access token for the requested GitHub OIDC audience.
+type TokenSource interface {
+	Token(context.Context, string) (string, error)
+}
 
 // tokenRefreshMargin is how far before expiry we proactively refresh a cached token.
 const tokenRefreshMargin = 60 * time.Second

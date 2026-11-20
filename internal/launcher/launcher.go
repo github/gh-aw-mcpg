@@ -171,13 +171,28 @@ func getOrLaunchWithConfig(l *Launcher, serverID string, serverCfg *config.Serve
 			logger.LogInfoToServer(serverID, "backend", "Configuring HTTP MCP backend: %s, url=%s", serverID, serverCfg.URL)
 
 			// Determine OIDC provider and audience for this server
-			var oidcProvider *oidc.Provider
+			var oidcProvider oidc.TokenSource
 			var oidcAudience string
 			if serverCfg.Auth != nil && serverCfg.Auth.Type == "github-oidc" {
-				oidcProvider = l.oidcProvider
 				oidcAudience = serverCfg.Auth.Audience
-				if oidcAudience == "" {
-					oidcAudience = serverCfg.URL
+				if serverCfg.Auth.Provider == "azure" {
+					if oidcAudience == "" {
+						oidcAudience = oidc.AzureDefaultAudience
+					}
+					scope := serverCfg.Auth.AzureScope
+					if scope == "" {
+						scope = oidc.AzureDefaultScope
+					}
+					if l.oidcProvider != nil {
+						oidcProvider = oidc.NewAzureProvider(l.oidcProvider, serverCfg.Auth.AzureTenantID, serverCfg.Auth.AzureClientID, scope)
+					}
+				} else {
+					if oidcAudience == "" {
+						oidcAudience = serverCfg.URL
+					}
+					if l.oidcProvider != nil {
+						oidcProvider = l.oidcProvider
+					}
 				}
 				if oidcProvider == nil {
 					oidcErr := oidc.ErrMissingOIDCEnvVar(serverID)

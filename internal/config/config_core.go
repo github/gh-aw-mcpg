@@ -302,9 +302,21 @@ type AuthConfig struct {
 	// Type is the authentication type. Currently only "github-oidc" is supported.
 	Type string `toml:"type" json:"type"`
 
-	// Audience is the intended audience for the OIDC token.
-	// If empty, defaults to the server URL.
+	// Provider optionally exchanges the GitHub OIDC assertion for a provider token.
+	Provider string `toml:"provider" json:"provider,omitempty"`
+
+	// Audience is the intended audience for the GitHub OIDC assertion.
+	// If empty, defaults to the server URL for direct auth or the Azure exchange audience.
 	Audience string `toml:"audience" json:"audience,omitempty"`
+
+	// AzureTenantID is the Entra tenant used for GitHub OIDC federation.
+	AzureTenantID string `toml:"azure_tenant_id" json:"azureTenantId,omitempty"`
+
+	// AzureClientID is the Entra application client ID used for GitHub OIDC federation.
+	AzureClientID string `toml:"azure_client_id" json:"azureClientId,omitempty"`
+
+	// AzureScope is the scope requested for the Entra access token.
+	AzureScope string `toml:"azure_scope" json:"azureScope,omitempty"`
 }
 
 // ServerConfig represents an individual MCP server configuration.
@@ -580,6 +592,9 @@ func LoadFromFile(path string) (*Config, error) {
 	logConfig.Printf("Validating shared server configuration for %d servers", len(cfg.Servers))
 	for name, serverCfg := range cfg.Servers {
 		jsonPath := fmt.Sprintf("servers.%s", name)
+		if err := expandAuthVariables(serverCfg.Auth, name); err != nil {
+			return nil, err
+		}
 		if serverCfg.CACertFile != "" && serverCfg.Type != "http" {
 			return nil, fmt.Errorf("%s.ca_cert_file is only supported for HTTP servers", jsonPath)
 		}
