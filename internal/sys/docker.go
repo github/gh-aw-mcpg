@@ -1,18 +1,22 @@
 package sys
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
 var logDocker = logger.ForFile()
+
+const containerRuntimeCommandTimeout = 2 * time.Second
 
 // containerIDPattern validates that a container ID only contains valid characters (hex digits).
 // Container IDs are 64 character hex strings, but short form (12 chars) is also valid.
@@ -36,7 +40,10 @@ func CheckDockerAccessible() bool {
 	}
 
 	// Try to run docker info to verify connectivity
-	cmd := exec.Command("docker", "info")
+	ctx, cancel := context.WithTimeout(context.Background(), containerRuntimeCommandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "info")
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	accessible := cmd.Run() == nil
@@ -51,7 +58,10 @@ func CheckContainerRuntimeAccessible(command string) bool {
 	}
 
 	logDocker.Printf("Checking container runtime accessibility: command=%s", command)
-	cmd := exec.Command(command, "info")
+	ctx, cancel := context.WithTimeout(context.Background(), containerRuntimeCommandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, command, "info")
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	accessible := cmd.Run() == nil
@@ -93,9 +103,16 @@ func runDockerInspect(containerID, formatTemplate string) (string, error) {
 
 	logDocker.Printf("Running docker inspect: containerID=%s, format=%s", containerID, formatTemplate)
 
-	cmd := exec.Command("docker", "inspect", "--format", formatTemplate, containerID)
+	ctx, cancel := context.WithTimeout(context.Background(), containerRuntimeCommandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "inspect", "--format", formatTemplate, containerID)
 	output, err := cmd.Output()
 	if err != nil {
+		if ctx.Err() != nil {
+			logDocker.Printf("Docker inspect timed out: containerID=%s, format=%s, timeout=%s", containerID, formatTemplate, containerRuntimeCommandTimeout)
+			return "", fmt.Errorf("docker inspect timed out after %s: %w", containerRuntimeCommandTimeout, ctx.Err())
+		}
 		logDocker.Printf("Docker inspect failed: containerID=%s, format=%s, err=%v", containerID, formatTemplate, err)
 		return "", fmt.Errorf("docker inspect failed: %w", err)
 	}

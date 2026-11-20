@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -266,4 +267,23 @@ func TestRunDockerInspect_SuccessPath(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, output)
 	})
+}
+
+func TestRunDockerInspect_TimesOut(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mock docker binary requires a Unix-like shell (/bin/sh)")
+	}
+
+	dir := t.TempDir()
+	script := filepath.Join(dir, "docker")
+	require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\nexec sleep 60\n"), 0o755))
+	prependPath(t, dir)
+
+	start := time.Now()
+	output, err := runDockerInspect("abc123def4567890", "{{.Config}}")
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "timed out")
+	assert.Empty(t, output)
+	assert.Less(t, time.Since(start), 2*containerRuntimeCommandTimeout)
 }
