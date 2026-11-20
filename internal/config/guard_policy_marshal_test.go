@@ -83,6 +83,19 @@ func TestGuardPolicyJSONCompatibility(t *testing.T) {
 	}
 }
 
+func TestNormalizedGuardPolicyMarshalJSONOmitsRawRepos(t *testing.T) {
+	normalized, err := NormalizeGuardPolicy(&GuardPolicy{AllowOnly: &AllowOnlyPolicy{
+		Repos:        "public",
+		MinIntegrity: "none",
+	}})
+	require.NoError(t, err)
+
+	normalized.Repos = []string{"private/repo"}
+	data, err := json.Marshal(*normalized)
+	require.NoError(t, err)
+	assert.Equal(t, `{"scope_kind":"public","min-integrity":"none"}`, string(data))
+}
+
 func TestGuardPolicyToMap(t *testing.T) {
 	t.Run("returns deep copy for map input", func(t *testing.T) {
 		policy := map[string]interface{}{

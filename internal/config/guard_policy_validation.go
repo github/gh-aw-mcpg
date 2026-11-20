@@ -131,7 +131,9 @@ func NormalizeGuardPolicy(policy *GuardPolicy) (*NormalizedGuardPolicy, error) {
 		return nil, err
 	}
 
-	normalized := &NormalizedGuardPolicy{MinIntegrity: integrity}
+	normalized := &NormalizedGuardPolicy{
+		normalizedAllowOnlyPolicy: normalizedAllowOnlyPolicy{MinIntegrity: integrity},
+	}
 
 	logGuardPolicy.Printf("Normalizing guard policy: integrity=%s, reposType=%T", integrity, policy.AllowOnly.Repos)
 
