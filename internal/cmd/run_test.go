@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -29,25 +30,83 @@ func setFlagsForTest(t *testing.T, cmd *cobra.Command, values map[string]string)
 	type savedFlag struct {
 		flag    *pflag.Flag
 		value   string
+		slice   []string
 		changed bool
 	}
 	saved := make([]savedFlag, 0, len(values))
 	for name := range values {
 		f := cmd.Flags().Lookup(name)
 		require.NotNilf(t, f, "flag %q not found", name)
-		saved = append(saved, savedFlag{flag: f, value: f.Value.String(), changed: f.Changed})
-	}
-
-	for name, value := range values {
-		require.NoError(t, cmd.Flags().Set(name, value))
+		s := savedFlag{flag: f, value: f.Value.String(), changed: f.Changed}
+		if slice, ok := f.Value.(pflag.SliceValue); ok {
+			s.slice = slices.Clone(slice.GetSlice())
+		}
+		saved = append(saved, s)
 	}
 
 	t.Cleanup(func() {
 		for _, s := range saved {
-			_ = s.flag.Value.Set(s.value)
+			// Slice String() output is not valid Set() input, and Set() may append.
+			if slice, ok := s.flag.Value.(pflag.SliceValue); ok {
+				assert.NoError(t, slice.Replace(s.slice))
+			} else {
+				assert.NoError(t, s.flag.Value.Set(s.value))
+			}
 			s.flag.Changed = s.changed
 		}
 	})
+
+	for name, value := range values {
+		require.NoError(t, cmd.Flags().Set(name, value))
+	}
+}
+
+func TestSetFlagsForTest(t *testing.T) {
+	tests := []struct {
+		name    string
+		initial []string
+		changed bool
+	}{
+		{"nil slice", nil, false},
+		{"empty slice", []string{}, false},
+		{"default slice", []string{"original", "values"}, false},
+		{"changed slice", []string{"original", "values"}, true},
+		{"special characters", []string{"a,b", `"quoted"`, "", "[brackets]"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := newTestCmd()
+			var items []string
+			var scalar string
+			cmd.Flags().StringSliceVar(&items, "items", slices.Clone(tt.initial), "test slice")
+			cmd.Flags().StringVar(&scalar, "scalar", "original", "test scalar")
+			if tt.changed {
+				require.NoError(t, cmd.Flags().Set("items", `"original","values"`))
+				require.NoError(t, cmd.Flags().Lookup("items").Value.(pflag.SliceValue).Replace(slices.Clone(tt.initial)))
+				require.NoError(t, cmd.Flags().Set("scalar", "original"))
+			}
+			originalItems := items
+
+			t.Run("override", func(t *testing.T) {
+				setFlagsForTest(t, cmd, map[string]string{"items": "temporary", "scalar": "temporary"})
+
+				assert.Contains(t, items, "temporary")
+				assert.Equal(t, "temporary", scalar)
+				assert.True(t, cmd.Flags().Changed("items"))
+				assert.True(t, cmd.Flags().Changed("scalar"))
+				// Mutating the backing slice must not corrupt the saved snapshot.
+				items[0] = "mutated"
+				if len(originalItems) > 0 {
+					originalItems[0] = "mutated original"
+				}
+			})
+
+			assert.Equal(t, tt.initial, items)
+			assert.Equal(t, "original", scalar)
+			assert.Equal(t, tt.changed, cmd.Flags().Changed("items"))
+			assert.Equal(t, tt.changed, cmd.Flags().Changed("scalar"))
+		})
+	}
 }
 
 // runWithStdin temporarily replaces os.Stdin with a pipe fed with the given

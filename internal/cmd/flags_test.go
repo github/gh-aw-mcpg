@@ -72,6 +72,92 @@ func TestRegisterAllFlags(t *testing.T) {
 	})
 }
 
+func TestCoreFlagParsing(t *testing.T) {
+	resetRunFlagsForTest(t)
+	originalVerbosity, originalValidateEnv := verbosity, validateEnv
+	t.Cleanup(func() {
+		verbosity, validateEnv = originalVerbosity, originalValidateEnv
+	})
+
+	t.Run("shorthand values", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			args  []string
+			flag  string
+			value string
+		}{
+			{"listen separated", []string{"-l", ":4321"}, "listen", ":4321"},
+			{"listen attached", []string{"-l:4321"}, "listen", ":4321"},
+			{"listen equals", []string{"-l=:4321"}, "listen", ":4321"},
+			{"config separated", []string{"-c", "custom config.toml"}, "config", "custom config.toml"},
+			{"config attached", []string{"-ccustom.toml"}, "config", "custom.toml"},
+			{"config equals", []string{"-c=custom.toml"}, "config", "custom.toml"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cmd := newTestCmd()
+				registerCoreFlags(cmd)
+
+				require.NoError(t, cmd.Flags().Parse(tt.args))
+
+				value, err := cmd.Flags().GetString(tt.flag)
+				require.NoError(t, err)
+				assert.Equal(t, tt.value, value)
+				assert.True(t, cmd.Flags().Changed(tt.flag))
+				assert.Empty(t, cmd.Flags().Args())
+				if tt.flag == "listen" {
+					assert.Equal(t, tt.value, listenAddr)
+				} else {
+					assert.Equal(t, tt.value, configFile)
+				}
+			})
+		}
+	})
+
+	t.Run("shorthand requires a value", func(t *testing.T) {
+		for _, shorthand := range []string{"-l", "-c"} {
+			t.Run(shorthand, func(t *testing.T) {
+				cmd := newTestCmd()
+				registerCoreFlags(cmd)
+
+				assert.Error(t, cmd.Flags().Parse([]string{shorthand}))
+				assert.Equal(t, defaultListenAddr, listenAddr)
+				assert.Equal(t, defaultConfigFile, configFile)
+			})
+		}
+	})
+
+	t.Run("verbosity count", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			args  []string
+			count int
+		}{
+			{"default", nil, 0},
+			{"info", []string{"-v"}, 1},
+			{"debug", []string{"-vv"}, 2},
+			{"trace", []string{"-vvv"}, 3},
+			{"repeated", []string{"-v", "-v", "-v"}, 3},
+			{"long", []string{"--verbose"}, 1},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cmd := newTestCmd()
+				registerCoreFlags(cmd)
+
+				require.NoError(t, cmd.Flags().Parse(tt.args))
+
+				count, err := cmd.Flags().GetCount("verbose")
+				require.NoError(t, err)
+				assert.Equal(t, tt.count, count)
+				assert.Equal(t, tt.count, verbosity)
+				assert.Equal(t, tt.count > 0, cmd.Flags().Changed("verbose"))
+				assert.Empty(t, cmd.Flags().Args())
+			})
+		}
+	})
+}
+
 func TestRegisterFlagCompletions(t *testing.T) {
 	// Build a properly-initialized command with all flags registered first,
 	// since RegisterFlagCompletionFunc requires the flag to exist.
