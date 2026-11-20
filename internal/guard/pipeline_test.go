@@ -287,6 +287,33 @@ func TestRunPipelinePhase5(t *testing.T) {
 	}
 }
 
+func TestRunPipelinePhase5_PreservesSecrecyPropagationMax(t *testing.T) {
+	evaluator := difc.NewEvaluatorWithMode(difc.EnforcementPropagate).
+		WithSecrecyPropagationMax("private:assigned/repo")
+	assigned := difc.NewLabeledResource("assigned")
+	assigned.Secrecy.Label.Add("private:assigned/repo")
+	other := difc.NewLabeledResource("other")
+	other.Secrecy.Label.Add("private:other/repo")
+	collection := &difc.CollectionLabeledData{
+		Items: []difc.LabeledItem{
+			{Data: "assigned", Labels: assigned},
+			{Data: "other", Labels: other},
+		},
+	}
+	pre := &PipelinePreResult{
+		AgentLabels: difc.NewAgentRegistry().GetOrCreate("test-agent"),
+		Operation:   difc.OperationRead,
+	}
+
+	result, err := RunPipelinePhase5(evaluator, pre, collection, difc.EnforcementPropagate)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, []interface{}{"assigned"}, result.FinalResult)
+	assert.False(t, result.Blocked)
+	require.NotNil(t, result.Filtered)
+	assert.Equal(t, 1, result.Filtered.GetFilteredCount())
+}
+
 func TestRunPipelinePhase5_ReturnsConversionError(t *testing.T) {
 	conversionErr := errors.New("conversion failed")
 	collection := &difc.CollectionLabeledData{
