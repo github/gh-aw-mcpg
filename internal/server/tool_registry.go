@@ -270,7 +270,7 @@ func (us *UnifiedServer) registerToolsFromBackendContext(ctx context.Context, se
 	// Register each tool with prefixed name
 	toolNames := []string{}
 	for _, tool := range listResult.Tools {
-		prefixedName := fmt.Sprintf("%s___%s", serverID, tool.Name)
+		prefixedName := util.PrefixToolName(serverID, tool.Name)
 		toolDesc := fmt.Sprintf("[%s] %s", serverID, tool.Description)
 		logName := fmt.Sprintf("%s-%s", serverID, tool.Name)
 		toolNames = append(toolNames, logName)
@@ -474,7 +474,7 @@ func (us *UnifiedServer) registerPromptsFromBackend(ctx context.Context, serverI
 	// distinguish prompts from different backends.
 	promptNames := make([]string, 0, len(listResult.Prompts))
 	for _, prompt := range listResult.Prompts {
-		prefixedName := fmt.Sprintf("%s___%s", serverID, prompt.Name)
+		prefixedName := util.PrefixToolName(serverID, prompt.Name)
 		promptDesc := fmt.Sprintf("[%s] %s", serverID, prompt.Description)
 		promptNames = append(promptNames, prompt.Name)
 
@@ -502,7 +502,7 @@ func (us *UnifiedServer) registerPromptsFromBackend(ctx context.Context, serverI
 			return result, nil
 		})
 
-		logUnified.Printf("Registered prompt: %s___%s", serverID, promptNameCopy)
+		logUnified.Printf("Registered prompt: %s", prefixedName)
 	}
 
 	logUnified.Printf("Registered %d prompts from %s: %s", len(listResult.Prompts), serverID, strings.Join(promptNames, ", "))
@@ -552,7 +552,7 @@ func (us *UnifiedServer) callAndLogSysTool(sessionID, operationName, sysToolName
 func (us *UnifiedServer) registerSysTools() error {
 	// Register sys_init tool using helper
 	us.registerSysTool(
-		"sys___init",
+		util.PrefixToolName("sys", "init"),
 		"Initialize the MCPG system and get available MCP servers",
 		map[string]interface{}{
 			"type": "object",
@@ -568,7 +568,7 @@ func (us *UnifiedServer) registerSysTools() error {
 
 	// Register sys_list_servers tool using helper
 	us.registerSysTool(
-		"sys___list_servers",
+		util.PrefixToolName("sys", "list_servers"),
 		"List all configured MCP backend servers",
 		map[string]interface{}{
 			"type":       "object",

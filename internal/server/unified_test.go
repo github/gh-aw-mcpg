@@ -275,6 +275,40 @@ func TestGetToolsForBackend_EdgeCases(t *testing.T) {
 			description: "should correctly strip backend___ prefix",
 		},
 		{
+			name: "embedded and repeated separators",
+			setupTools: map[string]*ToolInfo{
+				"backend___owner___tool": {
+					Name:      "backend___owner___tool",
+					BackendID: "backend",
+				},
+				"backend___backend___tool": {
+					Name:      "backend___backend___tool",
+					BackendID: "backend",
+				},
+			},
+			backendID:   "backend",
+			wantCount:   2,
+			wantNames:   []string{"owner___tool", "backend___tool"},
+			description: "should strip only the first matching prefix",
+		},
+		{
+			name: "nonmatching names",
+			setupTools: map[string]*ToolInfo{
+				"fetch___get": {
+					Name:      "fetch___get",
+					BackendID: "backend",
+				},
+				"x": {
+					Name:      "x",
+					BackendID: "backend",
+				},
+			},
+			backendID:   "backend",
+			wantCount:   2,
+			wantNames:   []string{"fetch___get", "x"},
+			description: "should preserve names without the expected prefix",
+		},
+		{
 			name: "case sensitive backend",
 			setupTools: map[string]*ToolInfo{
 				"GitHub___read": {

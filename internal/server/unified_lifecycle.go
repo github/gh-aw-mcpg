@@ -6,6 +6,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/guard"
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/util"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -67,14 +68,13 @@ func (us *UnifiedServer) GetToolsForBackend(backendID string) []ToolInfo {
 	us.toolsMu.RLock()
 	defer us.toolsMu.RUnlock()
 
-	prefix := backendID + "___"
 	filtered := make([]ToolInfo, 0)
 
 	for _, tool := range us.tools {
 		if tool.BackendID == backendID {
 			// Create a copy with the prefix stripped from the name
 			filteredTool := *tool
-			filteredTool.Name = tool.Name[len(prefix):] // Strip prefix
+			filteredTool.Name = util.StripToolPrefix(backendID, tool.Name)
 			filtered = append(filtered, filteredTool)
 		}
 	}
@@ -89,7 +89,7 @@ func (us *UnifiedServer) GetToolHandler(backendID string, toolName string) func(
 	us.toolsMu.RLock()
 	defer us.toolsMu.RUnlock()
 
-	prefixedName := backendID + "___" + toolName
+	prefixedName := util.PrefixToolName(backendID, toolName)
 	if toolInfo, ok := us.tools[prefixedName]; ok {
 		return toolInfo.Handler
 	}

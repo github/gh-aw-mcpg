@@ -791,6 +791,26 @@ func TestShouldApplyMiddleware(t *testing.T) {
 			toolName: "mysys___tool",
 			expected: true,
 		},
+		{
+			name:     "bare sys name",
+			toolName: "sys",
+			expected: true,
+		},
+		{
+			name:     "partial sys separator",
+			toolName: "sys__init",
+			expected: true,
+		},
+		{
+			name:     "sys prefix with empty tool",
+			toolName: "sys___",
+			expected: false,
+		},
+		{
+			name:     "sys prefix with nested separator",
+			toolName: "sys___nested___tool",
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
