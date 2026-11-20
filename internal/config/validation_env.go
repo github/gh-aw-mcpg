@@ -165,7 +165,7 @@ func ValidateContainerizedEnvironmentForRuntime(containerID, runtimeCommand stri
 	}
 
 	// Check if log directory is mounted (warning only)
-	logDir := envutil.GetEnvString("MCP_GATEWAY_LOG_DIR", "")
+	logDir := envutil.GetEnvString(EnvLogDir, "")
 	if logDir == "" {
 		logDir = DefaultLogDir
 	}

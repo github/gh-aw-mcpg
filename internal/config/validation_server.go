@@ -223,11 +223,11 @@ func validateAuthConfig(auth *AuthConfig, serverName, jsonPath string) error {
 	// Fail-fast: check that required OIDC environment variables are present.
 	// This catches misconfigurations at config-load time rather than deferring
 	// the error to the first request against this server.
-	if oidc.RequestCredentialsFromEnv().RequestURL == "" {
+	if !oidc.RequestCredentialsFromEnv().Available() {
 		return validator.fail(
-			"ACTIONS_ID_TOKEN_REQUEST_URL is not set",
+			oidc.EnvActionsIDTokenRequestURL+" is not set",
 			MissingRequired(
-				"ACTIONS_ID_TOKEN_REQUEST_URL", "github-oidc", authPath,
+				oidc.EnvActionsIDTokenRequestURL, "github-oidc", authPath,
 				oidc.ErrMissingOIDCEnvVar(serverName).Error()))
 	}
 

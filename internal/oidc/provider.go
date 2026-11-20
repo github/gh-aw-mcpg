@@ -24,6 +24,13 @@ import (
 
 var logOIDC = logger.ForFile()
 
+const (
+	// EnvActionsIDTokenRequestURL names the GitHub Actions OIDC request endpoint.
+	EnvActionsIDTokenRequestURL = "ACTIONS_ID_TOKEN_REQUEST_URL"
+	// EnvActionsIDTokenRequestToken names the bearer token for OIDC requests.
+	EnvActionsIDTokenRequestToken = "ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+)
+
 // tokenRefreshMargin is how far before expiry we proactively refresh a cached token.
 const tokenRefreshMargin = 60 * time.Second
 
@@ -33,13 +40,29 @@ type RequestCredentials struct {
 	RequestToken string
 }
 
+// Available reports whether an OIDC request endpoint is configured.
+// The request token is not required until token acquisition.
+func (c RequestCredentials) Available() bool {
+	return c.RequestURL != ""
+}
+
 // RequestCredentialsFromEnv resolves the GitHub Actions OIDC request
 // credentials from their standard environment variables.
 func RequestCredentialsFromEnv() RequestCredentials {
 	return RequestCredentials{
-		RequestURL:   envutil.GetEnvString("ACTIONS_ID_TOKEN_REQUEST_URL", ""),
-		RequestToken: envutil.GetEnvString("ACTIONS_ID_TOKEN_REQUEST_TOKEN", ""),
+		RequestURL:   envutil.GetEnvString(EnvActionsIDTokenRequestURL, ""),
+		RequestToken: envutil.GetEnvString(EnvActionsIDTokenRequestToken, ""),
 	}
+}
+
+// ProviderFromEnv creates a provider from the GitHub Actions environment, or
+// returns nil when no OIDC request endpoint is configured.
+func ProviderFromEnv() *Provider {
+	credentials := RequestCredentialsFromEnv()
+	if !credentials.Available() {
+		return nil
+	}
+	return NewProvider(credentials.RequestURL, credentials.RequestToken)
 }
 
 // cachedToken holds a cached OIDC token with its expiry time.

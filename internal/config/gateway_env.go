@@ -27,6 +27,9 @@ import (
 // ToolTimeoutMin is the minimum allowed value for toolTimeout (seconds).
 const ToolTimeoutMin = 10
 
+// EnvLogDir selects the gateway log directory.
+const EnvLogDir = "MCP_GATEWAY_LOG_DIR"
+
 func parseAndValidateIntEnv(envKey string, validate func(int) *ValidationError) (int, bool, error) {
 	value, present, err := envutil.GetEnvIntRaw(envKey)
 	if !present {

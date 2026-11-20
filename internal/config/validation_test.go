@@ -1015,6 +1015,8 @@ func TestValidateTOMLStdioContainerization(t *testing.T) {
 
 // TestValidateAuthConfig tests auth configuration validation.
 func TestValidateAuthConfig(t *testing.T) {
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
+
 	tests := []struct {
 		name      string
 		server    *StdinServerConfig

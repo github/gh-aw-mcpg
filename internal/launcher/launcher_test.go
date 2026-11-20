@@ -717,6 +717,7 @@ func TestLauncher_OIDCProviderNotInitializedWithoutEnv(t *testing.T) {
 	ctx := context.Background()
 	// Do NOT set ACTIONS_ID_TOKEN_REQUEST_URL
 	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "")
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "request-token")
 
 	cfg := &config.Config{
 		Servers: map[string]*config.ServerConfig{
@@ -731,6 +732,16 @@ func TestLauncher_OIDCProviderNotInitializedWithoutEnv(t *testing.T) {
 	defer l.Close()
 
 	assert.Nil(t, l.oidcProvider, "OIDC provider should be nil when ACTIONS_ID_TOKEN_REQUEST_URL is not set")
+}
+
+func TestLauncher_OIDCProviderInitializedWithoutToken(t *testing.T) {
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://token.actions.example.com")
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
+
+	l := New(context.Background(), &config.Config{})
+	defer l.Close()
+
+	assert.NotNil(t, l.oidcProvider)
 }
 
 func TestGetOrLaunch_OIDCMissingProvider(t *testing.T) {
