@@ -434,14 +434,7 @@ func (h *proxyHandler) handleWithDIFC(w http.ResponseWriter, r *http.Request, pa
 	// **Phase 5: Fine-grained filtering**
 	var finalData interface{}
 	var useOriginalBody bool // GraphQL responses need original format preserved
-	filterResult, err := difc.FilterAndConvertLabeledData(
-		pipelineIn.Evaluator,
-		pre.AgentLabels.Secrecy,
-		pre.AgentLabels.Integrity,
-		pre.Operation,
-		labeledData,
-		s.Mode,
-	)
+	filterResult, err := guard.RunPipelinePhase5(pipelineIn.Evaluator, pre, labeledData, s.Mode)
 	if err != nil {
 		logHandler.Printf("[DIFC] Phase 5 ToResult failed: %v", err)
 		if s.enclave != nil {
