@@ -420,6 +420,11 @@ func detailForKeyword(keyword string) (string, []string) {
 			"Details: Configuration contains field(s) that are not defined in the schema",
 			"  → Check for typos in field names or remove unsupported fields",
 		}
+	case "additionalItems":
+		return "additionalItems", []string{
+			"Details: Array contains additional item(s) that are not allowed by the schema",
+			"  → Remove excess entries from the array",
+		}
 	case "type":
 		return "type", []string{
 			"Details: Type mismatch - the value type doesn't match what's expected",
@@ -550,7 +555,7 @@ func formatErrorContext(ve *jsonschema.ValidationError, prefix string) string {
 			addFromKeyword("additionalProperties")
 		}
 	case *kind.AdditionalItems:
-		addFromKeyword("additionalProperties")
+		addFromKeyword("additionalItems")
 	case *kind.Type:
 		if len(k.Want) > 0 {
 			addDetail("type",
