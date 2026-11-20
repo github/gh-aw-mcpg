@@ -63,6 +63,50 @@ func TestJSONLRPCMessage_SetAgentTags(t *testing.T) {
 	}
 }
 
+func TestNewJSONLRPCMessage(t *testing.T) {
+	tests := []struct {
+		name        string
+		messageType RPCMessageType
+		event       string
+	}{
+		{"request", RPCMessageRequest, "rpc_request"},
+		{"response", RPCMessageResponse, "rpc_response"},
+		{"unknown", RPCMessageType("UNKNOWN"), "rpc_unknown"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert := assert.New(t)
+			require := require.New(t)
+			payload := json.RawMessage(`{"result":{}}`)
+			secrecy := []string{"private"}
+			integrity := []string{"approved"}
+
+			entry := newJSONLRPCMessage(RPCDirectionInbound, tt.messageType, "github", "tools/call", payload, secrecy, integrity)
+
+			timestamp, err := time.Parse(jsonTimestampLayout, entry.Timestamp)
+			require.NoError(err)
+			assert.WithinDuration(time.Now(), timestamp, time.Second)
+			assert.Equal(timestamp.UTC().Format(jsonTimestampLayout), entry.Timestamp)
+			assert.Equal(&JSONLRPCMessage{
+				Timestamp:      entry.Timestamp,
+				Event:          tt.event,
+				Schema:         "rpc-message/v2",
+				Direction:      "IN",
+				ServerID:       "github",
+				Method:         "tools/call",
+				Payload:        payload,
+				AgentSecrecy:   []string{"private"},
+				AgentIntegrity: []string{"approved"},
+			}, entry)
+
+			secrecy[0] = "changed"
+			integrity[0] = "changed"
+			assert.Equal([]string{"private"}, entry.AgentSecrecy)
+			assert.Equal([]string{"approved"}, entry.AgentIntegrity)
+		})
+	}
+}
+
 func TestJSONLLoggerClose(t *testing.T) {
 	require := require.New(t)
 	tmpDir := t.TempDir()

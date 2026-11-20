@@ -50,6 +50,20 @@ type JSONLRPCMessage struct {
 	Payload        json.RawMessage `json:"payload"`                 // Full sanitized payload as raw JSON
 }
 
+func newJSONLRPCMessage(direction RPCMessageDirection, messageType RPCMessageType, serverID, method string, payload json.RawMessage, agentSecrecy, agentIntegrity []string) *JSONLRPCMessage {
+	entry := &JSONLRPCMessage{
+		Timestamp: time.Now().UTC().Format(jsonTimestampLayout),
+		Event:     messageType.JSONLEvent(),
+		Schema:    rpcMessageSchemaV2,
+		Direction: string(direction),
+		ServerID:  serverID,
+		Method:    method,
+		Payload:   payload,
+	}
+	entry.setAgentTags(agentSecrecy, agentIntegrity)
+	return entry
+}
+
 func (entry *JSONLRPCMessage) setAgentTags(agentSecrecy, agentIntegrity []string) {
 	entry.AgentSecrecy = append([]string(nil), agentSecrecy...)
 	entry.AgentIntegrity = append([]string(nil), agentIntegrity...)
@@ -126,17 +140,7 @@ func LogRPCMessageJSONLWithTags(direction RPCMessageDirection, messageType RPCMe
 // payload to avoid redundant regex passes when the caller already holds a sanitized copy.
 func logRPCMessageJSONLWithTagsAndSanitized(direction RPCMessageDirection, messageType RPCMessageType, serverID, method string, sanitizedPayload json.RawMessage, err error, agentSecrecy, agentIntegrity []string) {
 	withGlobalLogger(&globalJSONLMu, &globalJSONLLogger, func(logger *JSONLLogger) {
-		entry := &JSONLRPCMessage{
-			Timestamp: time.Now().UTC().Format(jsonTimestampLayout),
-			Event:     messageType.JSONLEvent(),
-			Schema:    rpcMessageSchemaV2,
-			Direction: string(direction),
-			ServerID:  serverID,
-			Method:    method,
-			Payload:   sanitizedPayload,
-		}
-
-		entry.setAgentTags(agentSecrecy, agentIntegrity)
+		entry := newJSONLRPCMessage(direction, messageType, serverID, method, sanitizedPayload, agentSecrecy, agentIntegrity)
 
 		if err != nil {
 			entry.Error = err.Error()
@@ -152,21 +156,11 @@ func logRPCMessageJSONLWithTagsAndSanitized(direction RPCMessageDirection, messa
 // tags, and a sanitized error category, but never the payload content.
 func logRPCMessageJSONLRedacted(direction RPCMessageDirection, messageType RPCMessageType, serverID, method, toolName string, payloadSize int, redactedPayload json.RawMessage, errCategory string, agentSecrecy, agentIntegrity []string) {
 	withGlobalLogger(&globalJSONLMu, &globalJSONLLogger, func(logger *JSONLLogger) {
-		entry := &JSONLRPCMessage{
-			Timestamp:   time.Now().UTC().Format(jsonTimestampLayout),
-			Event:       messageType.JSONLEvent(),
-			Schema:      rpcMessageSchemaV2,
-			Direction:   string(direction),
-			ServerID:    serverID,
-			Method:      method,
-			ToolName:    toolName,
-			Redacted:    true,
-			PayloadSize: payloadSize,
-			Payload:     redactedPayload,
-			Error:       errCategory,
-		}
-
-		entry.setAgentTags(agentSecrecy, agentIntegrity)
+		entry := newJSONLRPCMessage(direction, messageType, serverID, method, redactedPayload, agentSecrecy, agentIntegrity)
+		entry.ToolName = toolName
+		entry.Redacted = true
+		entry.PayloadSize = payloadSize
+		entry.Error = errCategory
 
 		// Best effort logging - don't fail if JSONL logging fails
 		_ = logger.LogMessage(entry)
