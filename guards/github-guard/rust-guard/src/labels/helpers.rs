@@ -500,7 +500,7 @@ fn promote_to_writer(
     item: &Value,
     resource_type: &str,
     repo_full_name: &str,
-    integrity: Vec<String>,
+    integrity: &[String],
     ctx: &PolicyContext,
     reason: &str,
 ) -> Vec<String> {
@@ -510,7 +510,7 @@ fn promote_to_writer(
     ));
     max_integrity(
         repo_full_name,
-        &integrity,
+        integrity,
         &writer_integrity(repo_full_name, ctx),
         ctx,
     )
@@ -520,7 +520,7 @@ fn demote_to_none(
     item: &Value,
     resource_type: &str,
     repo_full_name: &str,
-    integrity: Vec<String>,
+    integrity: &[String],
     ctx: &PolicyContext,
     reason: &str,
 ) -> Vec<String> {
@@ -530,7 +530,7 @@ fn demote_to_none(
     ));
     cap_integrity(
         repo_full_name,
-        &integrity,
+        integrity,
         &none_integrity(repo_full_name, ctx),
         ctx,
     )
@@ -550,7 +550,7 @@ fn apply_approval_label_promotion(
             item,
             resource_type,
             repo_full_name,
-            integrity,
+            &integrity,
             ctx,
             &format!("label '{label}' in approval-labels"),
         )
@@ -573,7 +573,7 @@ fn apply_refusal_label_demotion(
             item,
             resource_type,
             repo_full_name,
-            integrity,
+            &integrity,
             ctx,
             &format!("label '{label}' in refusal-labels"),
         )
@@ -623,7 +623,7 @@ fn apply_promotion_label_promotion(
             item,
             resource_type,
             repo_full_name,
-            integrity,
+            &integrity,
             ctx,
             &format!("built-in promotion-label '{}'", ctx.promotion_label),
         )
@@ -647,7 +647,7 @@ fn apply_demotion_label_demotion(
             item,
             resource_type,
             repo_full_name,
-            integrity,
+            &integrity,
             ctx,
             &format!("built-in demotion-label '{}'", ctx.demotion_label),
         )

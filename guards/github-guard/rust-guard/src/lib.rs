@@ -498,14 +498,14 @@ fn infer_scope_for_baseline<'a>(
         | "manage_notification_subscription"
         | "manage_repository_notification_subscription"
         | tool_names::STAR_REPOSITORY
-        | tool_names::UNSTAR_REPOSITORY => Cow::Borrowed(scope_names::USER),
-        tool_names::CREATE_REPOSITORY | tool_names::FORK_REPOSITORY => {
-            Cow::Borrowed(scope_names::GITHUB)
-        }
-        tool_names::CREATE_CODESPACE
+        | tool_names::UNSTAR_REPOSITORY
+        | tool_names::CREATE_CODESPACE
         | tool_names::UPDATE_CODESPACE
         | tool_names::DELETE_CODESPACE
         | tool_names::STOP_CODESPACE => Cow::Borrowed(scope_names::USER),
+        tool_names::CREATE_REPOSITORY | tool_names::FORK_REPOSITORY => {
+            Cow::Borrowed(scope_names::GITHUB)
+        }
         tool_names::SET_SECRET
         | tool_names::DELETE_SECRET
         | tool_names::SET_VARIABLE
