@@ -100,10 +100,10 @@
       "version": "v1.24.1",
       "sha": "54075bcc5e249e4758d363f27d099f55d843f124"
     },
-    "github/codeql-action/upload-sarif@v4.39.3": {
+    "github/codeql-action/upload-sarif@v4.39.4": {
       "repo": "github/codeql-action/upload-sarif",
-      "version": "v4.39.3",
-      "sha": "33d7b85da1a04171e211befe2c739303b9a4c066"
+      "version": "v4.39.4",
+      "sha": "1bd86f2fdb4b86187fa4059f16f31a3202acc9ea"
     },
     "github/gh-aw-actions/setup-cli@v1.3.1": {
       "repo": "github/gh-aw-actions/setup-cli",
@@ -125,10 +125,10 @@
       "version": "v2.2.0",
       "sha": "0c5077e51419868618aeaa5fe8019c62421857d6"
     },
-    "ruby/setup-ruby@v1.342.0": {
+    "ruby/setup-ruby@v1.343.0": {
       "repo": "ruby/setup-ruby",
-      "version": "v1.342.0",
-      "sha": "f9c4492e86def3e644ab32a0ef185eda5b0c20d0"
+      "version": "v1.343.0",
+      "sha": "be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18"
     }
   },
   "containers": {
