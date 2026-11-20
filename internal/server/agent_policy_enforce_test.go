@@ -27,6 +27,26 @@ func agentPolicyTestConfig(agentIDs []string, policies map[string]*config.AgentP
 	}
 }
 
+func TestUnifiedToolIdentity(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		tool     ToolInfo
+		toolName string
+	}{
+		{"prefixed", ToolInfo{BackendID: "github", Name: "github___issue_read"}, "issue_read"},
+		{"repeated prefix", ToolInfo{BackendID: "github", Name: "github___github___issue_read"}, "github___issue_read"},
+		{"unprefixed", ToolInfo{BackendID: "github", Name: "issue_read"}, "issue_read"},
+		{"mismatched prefix", ToolInfo{BackendID: "github", Name: "fetch___get"}, "fetch___get"},
+		{"empty", ToolInfo{}, ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			backendID, toolName := unifiedToolIdentity(tt.tool)
+			assert.Equal(t, tt.tool.BackendID, backendID)
+			assert.Equal(t, tt.toolName, toolName)
+		})
+	}
+}
+
 func TestUnifiedServer_AgentPolicyEnforcementDecisions(t *testing.T) {
 	cfg := agentPolicyTestConfig(
 		[]string{"a", "b"},
