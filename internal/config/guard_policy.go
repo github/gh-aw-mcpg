@@ -98,22 +98,26 @@ type AllowOnlyPolicy struct {
 	DemotionLabel        string         `toml:"demotion-label" json:"demotion-label,omitempty"`
 }
 
+// normalizedAllowOnlyPolicy shares the policy fields without inheriting the
+// configuration-specific UnmarshalJSON method.
+type normalizedAllowOnlyPolicy AllowOnlyPolicy
+
 // NormalizedGuardPolicy is a canonical policy representation for caching and observability.
 type NormalizedGuardPolicy struct {
-	ScopeKind            string         `json:"scope_kind"`
-	ScopeValues          []string       `json:"scope_values,omitempty"`
-	MinIntegrity         string         `json:"min-integrity"`
-	ToolCallLimits       map[string]int `json:"tool-call-limits,omitempty"`
-	BlockedUsers         []string       `json:"blocked-users,omitempty"`
-	RefusalLabels        []string       `json:"refusal-labels,omitempty"`
-	ApprovalLabels       []string       `json:"approval-labels,omitempty"`
-	TrustedUsers         []string       `json:"trusted-users,omitempty"`
-	EndorsementReactions []string       `json:"endorsement-reactions,omitempty"`
-	DisapprovalReactions []string       `json:"disapproval-reactions,omitempty"`
-	DisapprovalIntegrity string         `json:"disapproval-integrity,omitempty"`
-	EndorserMinIntegrity string         `json:"endorser-min-integrity,omitempty"`
-	PromotionLabel       string         `json:"promotion-label,omitempty"`
-	DemotionLabel        string         `json:"demotion-label,omitempty"`
+	ScopeKind   string   `json:"scope_kind"`
+	ScopeValues []string `json:"scope_values,omitempty"`
+	normalizedAllowOnlyPolicy
+}
+
+// MarshalJSON uses the normalized scope fields instead of the raw repos field.
+func (p NormalizedGuardPolicy) MarshalJSON() ([]byte, error) {
+	type normalizedPolicy NormalizedGuardPolicy
+	return json.Marshal(struct {
+		normalizedPolicy
+		Repos interface{} `json:"repos,omitempty"`
+	}{
+		normalizedPolicy: normalizedPolicy(p),
+	})
 }
 
 // UnmarshalJSON parses a GuardPolicy from either an "allow-only"/"allowonly"
