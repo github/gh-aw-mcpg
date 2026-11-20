@@ -61,6 +61,33 @@ func TestLoadStore_NoPriorFileIsFreshStartNotIncomplete(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoadStoreAt_FailsClosedOnInitializationAndReadErrors(t *testing.T) {
+	t.Run("returns envelope validation errors before reading state", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "state.json")
+
+		store, err := loadStoreAt(path, &Envelope{}, 1, time.Now())
+
+		assert.Nil(t, store)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "envelope run id is required")
+	})
+
+	t.Run("fails closed when the state path is not a regular file", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "state-dir")
+		require.NoError(t, os.Mkdir(path, 0o700))
+
+		store, err := loadStoreAt(path, validEnvelope(), 1, time.Now())
+
+		require.NoError(t, err)
+		require.NotNil(t, store)
+		assert.True(t, store.IsRecoveryIncomplete())
+		assert.Empty(t, store.byHandle)
+		assert.Empty(t, store.byBearer)
+		assert.Empty(t, store.byInvocation)
+		assert.Empty(t, store.byLabel)
+	})
+}
+
 func TestLoadStore_CorruptFileFailsClosed(t *testing.T) {
 	envelope := validEnvelope()
 	dir := t.TempDir()
