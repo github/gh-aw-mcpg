@@ -14,10 +14,10 @@ var logPipeline = logger.ForFile()
 
 const issueArtifactWriteToolName = "issue_artifact_write"
 
-// PipelineInput holds the shared inputs used across DIFC pipeline phases 0–2, 4, and 6.
+// PipelineInput holds the shared inputs used across DIFC pipeline phases 0–2 and 4–6.
 // Both the HTTP proxy and the MCP unified server populate this struct and pass it to
-// the shared phase helpers, providing their context-specific Phase 3 and Phase 5 logic
-// as inline code in their respective callers.
+// the shared phase helpers, keeping backend execution and response handling in
+// their respective callers.
 type PipelineInput struct {
 	// AgentID identifies the agent in the registry (e.g. "proxy" or an MCP session agent ID).
 	AgentID string
@@ -187,6 +187,20 @@ func RunPipelinePhase4(ctx context.Context, in PipelineInput, pre *PipelinePreRe
 	}
 	logPipeline.Printf("[DIFC] Phase 4: LabelResponse completed, hasLabeledData=%v", labeledData != nil)
 	return labeledData, nil
+}
+
+// RunPipelinePhase5 executes Phase 5 of the DIFC pipeline: fine-grained filtering
+// and result conversion using the agent labels and operation from phases 0–2.
+// Callers retain responsibility for handling errors and blocked or filtered responses.
+func RunPipelinePhase5(evaluator *difc.Evaluator, pre *PipelinePreResult, labeledData difc.LabeledData, enforcementMode difc.EnforcementMode) (*difc.FilterResult, error) {
+	return difc.FilterAndConvertLabeledData(
+		evaluator,
+		pre.AgentLabels.Secrecy,
+		pre.AgentLabels.Integrity,
+		pre.Operation,
+		labeledData,
+		enforcementMode,
+	)
 }
 
 // RunPipelinePhase6 executes Phase 6 of the DIFC pipeline: label accumulation.

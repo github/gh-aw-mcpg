@@ -209,6 +209,128 @@ func TestRunPipelinePhase4_ReturnsErrorOnLabelResponseFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "response labeling failed")
 }
 
+// --- RunPipelinePhase5 tests ---
+
+func TestRunPipelinePhase5(t *testing.T) {
+	public := difc.NewLabeledResource("public")
+	public.Integrity.Label.Add("approved")
+	private := difc.NewLabeledResource("private")
+	private.Secrecy.Label.Add("secret")
+	collection := &difc.CollectionLabeledData{
+		Items: []difc.LabeledItem{
+			{Data: "public", Labels: public},
+			{Data: "private", Labels: private},
+		},
+	}
+
+	tests := []struct {
+		name         string
+		mode         difc.EnforcementMode
+		operation    difc.OperationType
+		secrecy      []difc.Tag
+		integrity    []difc.Tag
+		data         difc.LabeledData
+		wantResult   interface{}
+		wantFiltered int
+		wantBlocked  bool
+	}{
+		{name: "nil data", mode: difc.EnforcementStrict, operation: difc.OperationRead},
+		{
+			name: "simple data", mode: difc.EnforcementStrict, operation: difc.OperationRead,
+			data: &difc.SimpleLabeledData{Data: "result", Labels: public}, wantResult: "result",
+		},
+		{
+			name: "strict blocks", mode: difc.EnforcementStrict, operation: difc.OperationRead,
+			data: collection, wantFiltered: 1, wantBlocked: true,
+		},
+		{
+			name: "filter removes inaccessible items", mode: difc.EnforcementFilter, operation: difc.OperationRead,
+			data: collection, wantFiltered: 1, wantResult: []interface{}{"public"},
+		},
+		{
+			name: "propagate permits reads", mode: difc.EnforcementPropagate, operation: difc.OperationRead,
+			data: collection, wantResult: []interface{}{"public", "private"},
+		},
+		{
+			name: "agent secrecy is forwarded", mode: difc.EnforcementFilter, operation: difc.OperationRead,
+			secrecy: []difc.Tag{"secret"}, data: collection, wantResult: []interface{}{"public", "private"},
+		},
+		{
+			name: "agent integrity is forwarded", mode: difc.EnforcementFilter, operation: difc.OperationRead,
+			secrecy: []difc.Tag{"secret"}, integrity: []difc.Tag{"approved"},
+			data: collection, wantFiltered: 1, wantResult: []interface{}{"public"},
+		},
+		{
+			name: "write operation is forwarded", mode: difc.EnforcementFilter, operation: difc.OperationWrite,
+			data: collection, wantFiltered: 1, wantResult: []interface{}{"private"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := difc.NewAgentRegistry().GetOrCreate("test-agent")
+			agent.AddSecrecyTags(tt.secrecy)
+			agent.AddIntegrityTags(tt.integrity)
+			pre := &PipelinePreResult{AgentLabels: agent, Operation: tt.operation}
+
+			result, err := RunPipelinePhase5(difc.NewEvaluatorWithMode(tt.mode), pre, tt.data, tt.mode)
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Equal(t, tt.wantResult, result.FinalResult)
+			assert.Equal(t, tt.wantBlocked, result.Blocked)
+			if tt.data == collection {
+				require.NotNil(t, result.Filtered)
+				assert.Equal(t, tt.wantFiltered, result.Filtered.GetFilteredCount())
+			} else {
+				assert.Nil(t, result.Filtered)
+			}
+		})
+	}
+}
+
+func TestRunPipelinePhase5_PreservesSecrecyPropagationMax(t *testing.T) {
+	evaluator := difc.NewEvaluatorWithMode(difc.EnforcementPropagate).
+		WithSecrecyPropagationMax("private:assigned/repo")
+	assigned := difc.NewLabeledResource("assigned")
+	assigned.Secrecy.Label.Add("private:assigned/repo")
+	other := difc.NewLabeledResource("other")
+	other.Secrecy.Label.Add("private:other/repo")
+	collection := &difc.CollectionLabeledData{
+		Items: []difc.LabeledItem{
+			{Data: "assigned", Labels: assigned},
+			{Data: "other", Labels: other},
+		},
+	}
+	pre := &PipelinePreResult{
+		AgentLabels: difc.NewAgentRegistry().GetOrCreate("test-agent"),
+		Operation:   difc.OperationRead,
+	}
+
+	result, err := RunPipelinePhase5(evaluator, pre, collection, difc.EnforcementPropagate)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, []interface{}{"assigned"}, result.FinalResult)
+	assert.False(t, result.Blocked)
+	require.NotNil(t, result.Filtered)
+	assert.Equal(t, 1, result.Filtered.GetFilteredCount())
+}
+
+func TestRunPipelinePhase5_ReturnsConversionError(t *testing.T) {
+	conversionErr := errors.New("conversion failed")
+	collection := &difc.CollectionLabeledData{
+		Rebuild: func([]difc.FilteredItemDetail) (interface{}, error) {
+			return nil, conversionErr
+		},
+	}
+	pre := &PipelinePreResult{
+		AgentLabels: difc.NewAgentRegistry().GetOrCreate("test-agent"),
+		Operation:   difc.OperationRead,
+	}
+
+	result, err := RunPipelinePhase5(difc.NewEvaluator(), pre, collection, difc.EnforcementFilter)
+	require.ErrorIs(t, err, conversionErr)
+	assert.Nil(t, result)
+}
+
 // --- RunPipelinePhase6 tests ---
 
 func TestRunPipelinePhase6_NoAccumulationInStrictMode(t *testing.T) {

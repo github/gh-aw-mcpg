@@ -90,14 +90,7 @@ func (us *UnifiedServer) callBackendPrompt(ctx context.Context, serverID, prompt
 	if err != nil {
 		return nil, fmt.Errorf("response labeling failed: %w", err)
 	}
-	filterResult, err := difc.FilterAndConvertLabeledData(
-		requestEvaluator,
-		pre.AgentLabels.Secrecy,
-		pre.AgentLabels.Integrity,
-		pre.Operation,
-		labeledData,
-		enforcementMode,
-	)
+	filterResult, err := guard.RunPipelinePhase5(requestEvaluator, pre, labeledData, enforcementMode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert labeled data: %w", err)
 	}

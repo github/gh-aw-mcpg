@@ -399,14 +399,7 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 	// **Phase 5: Reference Monitor performs fine-grained filtering (if applicable)**
 	var finalResult interface{}
 	var difcFiltered *difc.FilteredCollectionLabeledData // tracks items removed in filter/propagate mode
-	filterResult, err := difc.FilterAndConvertLabeledData(
-		requestEvaluator,
-		pre.AgentLabels.Secrecy,
-		pre.AgentLabels.Integrity,
-		pre.Operation,
-		labeledData,
-		enforcementMode,
-	)
+	filterResult, err := guard.RunPipelinePhase5(requestEvaluator, pre, labeledData, enforcementMode)
 	if err != nil {
 		httpStatusCode = 500
 		return mcp.NewErrorCallToolResult(fmt.Errorf("failed to convert labeled data: %w", err))
