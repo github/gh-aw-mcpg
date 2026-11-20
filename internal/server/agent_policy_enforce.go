@@ -68,6 +68,10 @@ func (us *UnifiedServer) agentPolicyAllows(agentID, serverID, toolName string, a
 	return allowed
 }
 
+func unifiedToolIdentity(toolInfo ToolInfo) (string, string) {
+	return toolInfo.BackendID, strings.TrimPrefix(toolInfo.Name, toolInfo.BackendID+"___")
+}
+
 // createAgentFilteredUnifiedServer builds an SDK server that exposes only the
 // prefixed tools the given agent is permitted to use, reusing the unified server's
 // handlers. It is used in unified mode when per-agent policies are in effect so
@@ -76,20 +80,11 @@ func createAgentFilteredUnifiedServer(us *UnifiedServer, agentID string) *sdk.Se
 	logUnified.Printf("createAgentFilteredUnifiedServer: building filtered tool view for agent=%s", util.HashIdentifierForLog(agentID))
 	server := newSDKServer("awmg-unified", logTransport)
 
-	us.toolsMu.RLock()
-	tools := make([]ToolInfo, 0, len(us.tools))
-	for _, t := range us.tools {
-		tools = append(tools, *t)
-	}
-	us.toolsMu.RUnlock()
-
 	registered := registerFilteredTools(
 		server,
-		tools,
+		us.snapshotTools(),
 		agentID,
-		func(toolInfo ToolInfo) (string, string) {
-			return toolInfo.BackendID, strings.TrimPrefix(toolInfo.Name, toolInfo.BackendID+"___")
-		},
+		unifiedToolIdentity,
 		us.agentCanUseTool,
 		func(toolInfo ToolInfo) func(context.Context, *sdk.CallToolRequest, interface{}) (*sdk.CallToolResult, interface{}, error) {
 			return toolInfo.Handler
@@ -105,20 +100,11 @@ func createDelegationFilteredUnifiedServer(us *UnifiedServer) *sdk.Server {
 	logUnified.Print("createDelegationFilteredUnifiedServer: building delegated github-repository-read-v1 tool view")
 	server := newSDKServer("awmg-unified-delegation", logTransport)
 
-	us.toolsMu.RLock()
-	tools := make([]ToolInfo, 0, len(us.tools))
-	for _, t := range us.tools {
-		tools = append(tools, *t)
-	}
-	us.toolsMu.RUnlock()
-
 	registered := registerFilteredTools(
 		server,
-		tools,
+		us.snapshotTools(),
 		"delegation",
-		func(toolInfo ToolInfo) (string, string) {
-			return toolInfo.BackendID, strings.TrimPrefix(toolInfo.Name, toolInfo.BackendID+"___")
-		},
+		unifiedToolIdentity,
 		func(_ string, serverID, toolName string) bool {
 			return serverID == "github" && delegation.IsDelegatedTool(toolName)
 		},

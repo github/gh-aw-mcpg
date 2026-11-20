@@ -50,6 +50,18 @@ func (us *UnifiedServer) GetServerStatus() map[string]ServerStatus {
 	return status
 }
 
+// snapshotTools returns value copies of all registered tools under the read lock.
+func (us *UnifiedServer) snapshotTools() []ToolInfo {
+	us.toolsMu.RLock()
+	defer us.toolsMu.RUnlock()
+
+	tools := make([]ToolInfo, 0, len(us.tools))
+	for _, tool := range us.tools {
+		tools = append(tools, *tool)
+	}
+	return tools
+}
+
 // GetToolsForBackend returns tools for a specific backend with prefix stripped
 func (us *UnifiedServer) GetToolsForBackend(backendID string) []ToolInfo {
 	us.toolsMu.RLock()

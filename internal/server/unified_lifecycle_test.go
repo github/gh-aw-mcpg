@@ -30,6 +30,42 @@ func waitForRun(t *testing.T, errCh <-chan error) error {
 	}
 }
 
+func TestUnifiedServerSnapshotTools(t *testing.T) {
+	githubTool := ToolInfo{
+		Name:        "github___issue_read",
+		Description: "Read an issue",
+		BackendID:   "github",
+		InputSchema: map[string]interface{}{"type": "object"},
+		Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true},
+	}
+	fetchTool := ToolInfo{Name: "fetch___get", BackendID: "fetch"}
+	us := &UnifiedServer{tools: map[string]*ToolInfo{
+		githubTool.Name: &githubTool,
+		fetchTool.Name:  &fetchTool,
+	}}
+
+	tools := us.snapshotTools()
+	require.Len(t, tools, 2)
+	assert.ElementsMatch(t, []ToolInfo{githubTool, fetchTool}, tools)
+
+	originalName := tools[0].Name
+	tools[0].Name = "changed"
+	assert.Equal(t, originalName, us.tools[originalName].Name, "snapshot entries must be value copies")
+
+	us.RegisterTestTool("new___tool", &ToolInfo{Name: "new___tool", BackendID: "new"})
+	assert.Len(t, tools, 2, "later registrations must not change the snapshot")
+	assert.Len(t, us.snapshotTools(), 3)
+}
+
+func TestUnifiedServerSnapshotTools_Empty(t *testing.T) {
+	for _, tools := range []map[string]*ToolInfo{nil, {}} {
+		us := &UnifiedServer{tools: tools}
+		snapshot := us.snapshotTools()
+		assert.NotNil(t, snapshot)
+		assert.Empty(t, snapshot)
+	}
+}
+
 func TestUnifiedServerRun_ServesClientUntilClientCloses(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
