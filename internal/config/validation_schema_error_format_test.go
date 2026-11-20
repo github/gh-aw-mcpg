@@ -65,10 +65,11 @@ func TestFormatErrorContext(t *testing.T) {
 			wantContains: []string{"Configuration contains field(s)", "typos"},
 		},
 		{
-			name:         "additionalItems error kind",
-			errorKind:    &kind.AdditionalItems{Count: 1},
-			prefix:       "",
-			wantContains: []string{"Configuration contains field(s)", "typos"},
+			name:           "additionalItems error kind",
+			errorKind:      &kind.AdditionalItems{Count: 1},
+			prefix:         "",
+			wantContains:   []string{"Array contains additional item(s)", "Remove excess entries from the array"},
+			wantNotContain: []string{"Configuration contains field(s)", "typos"},
 		},
 		{
 			name:         "type mismatch error kind",
