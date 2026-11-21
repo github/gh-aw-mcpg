@@ -1,9 +1,13 @@
 package proxy
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRewriteUpstreamAPIURL(t *testing.T) {
@@ -28,6 +32,7 @@ func TestRewriteUpstreamAPIURL(t *testing.T) {
 		{"different host unchanged", "https://objects.githubusercontent.com/a.zip", "https://api.github.com", client, "https://objects.githubusercontent.com/a.zip"},
 		{"different scheme unchanged", "http://api.github.com/repos", "https://api.github.com", client, "http://api.github.com/repos"},
 		{"different port unchanged", "https://api.github.com:8443/repos", "https://api.github.com", client, "https://api.github.com:8443/repos"},
+		{"default port normalized", "https://api.github.com/repos/o/r", "https://api.github.com:443", client, "https://localhost:18443/api/v3/repos/o/r"},
 		{"invalid upstream URL returns value", "https://api.github.com/repos", "http://[::1", client, "https://api.github.com/repos"},
 		{"invalid client URL returns value", "https://api.github.com/repos", "https://api.github.com", "http://[::1", "https://api.github.com/repos"},
 		{"invalid value URL returns value", "http://[::1", "https://api.github.com", client, "http://[::1"},
@@ -37,6 +42,43 @@ func TestRewriteUpstreamAPIURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, rewriteUpstreamAPIURL(tt.value, tt.upstream, tt.client))
+		})
+	}
+}
+
+func TestCopyResponseHeaders_ClientFollowsAPIRedirectReferences(t *testing.T) {
+	for _, location := range []string{
+		"https://api.github.com/repos/o/r/issues",
+		"//api.github.com/repos/o/r/issues",
+		"../r/issues",
+	} {
+		t.Run(location, func(t *testing.T) {
+			var followedPath string
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/v3/start" {
+					followedPath = r.URL.Path
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				upstreamRequestURL, err := url.Parse("https://api.github.com/repos/o/r/old")
+				require.NoError(t, err)
+				resp := &http.Response{
+					StatusCode: http.StatusMovedPermanently,
+					Header:     http.Header{"Location": []string{location}},
+					Request:    &http.Request{URL: upstreamRequestURL},
+				}
+				copyResponseHeaders(w, r, resp, "https://api.github.com:443")
+				w.WriteHeader(resp.StatusCode)
+			})
+			proxy := httptest.NewServer(handler)
+			defer proxy.Close()
+
+			resp, err := http.Get(proxy.URL + "/api/v3/start")
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+			assert.Equal(t, "/api/v3/repos/o/r/issues", followedPath)
 		})
 	}
 }

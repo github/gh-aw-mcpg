@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -922,3 +924,62 @@ func TestRestBackendCaller_UpstreamUnreachable(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "REST call failed")
 }
+
+type enrichmentRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f enrichmentRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+type enrichmentResponseBody struct {
+	*strings.Reader
+	closed bool
+}
+
+func (b *enrichmentResponseBody) Close() error {
+	b.closed = true
+	return nil
+}
+
+func TestRestBackendCaller_RejectsRedirectEnrichmentResponses(t *testing.T) {
+	tests := []struct {
+		name string
+		tool string
+		args map[string]interface{}
+	}{
+		{
+			name: "issue read",
+			tool: "issue_read",
+			args: map[string]interface{}{"owner": "org", "repo": "repo", "issue_number": "1"},
+		},
+		{
+			name: "collaborator permission",
+			tool: "get_collaborator_permission",
+			args: map[string]interface{}{"owner": "org", "repo": "repo", "username": "user"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := &enrichmentResponseBody{Reader: strings.NewReader(`{"message":"Moved Permanently"}`)}
+			server := &Server{
+				githubAPIURL: "https://api.github.com",
+				httpClient: &http.Client{Transport: enrichmentRoundTripper(func(req *http.Request) (*http.Response, error) {
+					return &http.Response{
+						StatusCode: http.StatusMovedPermanently,
+						Header:     http.Header{"Location": []string{"https://api.github.com/repos/org/new"}},
+						Body:       body,
+						Request:    req,
+					}, nil
+				})},
+			}
+			caller := &restBackendCaller{server: server}
+
+			_, err := caller.CallTool(context.Background(), tt.tool, tt.args)
+			require.ErrorContains(t, err, "redirect status 301")
+			assert.True(t, body.closed, "redirect body must be closed")
+		})
+	}
+}
+
+var _ io.ReadCloser = (*enrichmentResponseBody)(nil)

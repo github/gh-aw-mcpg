@@ -420,11 +420,7 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 			collabRepo,
 			collabUsername,
 			func(ctx context.Context, collabAPIPath string) (*http.Response, error) {
-				resp, err := r.server.forwardToGitHub(ctx, "GET", collabAPIPath, nil, "", enrichmentAuth)
-				if err != nil {
-					return nil, fmt.Errorf("REST call failed: %w", err)
-				}
-				return resp, nil
+				return r.server.fetchEnrichmentResponse(ctx, collabAPIPath, enrichmentAuth)
 			},
 			logProxy.Printf,
 			sensitive,
@@ -436,9 +432,10 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 		return result, nil
 	}
 
-	resp, err := r.server.forwardToGitHub(ctx, "GET", apiPath, nil, "", enrichmentAuth)
+	resp, err := r.server.fetchEnrichmentResponse(ctx, apiPath, enrichmentAuth)
 	if err != nil {
-		return nil, fmt.Errorf("REST call failed: %w", err)
+		logProxy.Printf("restBackendCaller: %s returned error: %v", toolName, err)
+		return nil, err
 	}
 	body, err := httputil.ReadResponseBody(resp, "GitHub API")
 	if err != nil {
@@ -448,6 +445,24 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 
 	// Wrap in MCP response format: {content: [{type: "text", text: "..."}]}
 	return mcpresult.NewTextResponse(string(body)), nil
+}
+
+func (s *Server) fetchEnrichmentResponse(ctx context.Context, apiPath, auth string) (*http.Response, error) {
+	resp, err := s.forwardToGitHub(ctx, http.MethodGet, apiPath, nil, "", auth)
+	if err != nil {
+		return nil, fmt.Errorf("REST call failed: %w", err)
+	}
+	return s.rejectEnrichmentRedirect(resp)
+}
+
+func (*Server) rejectEnrichmentRedirect(resp *http.Response) (*http.Response, error) {
+	if resp.StatusCode >= http.StatusMultipleChoices && resp.StatusCode < http.StatusBadRequest {
+		if resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		return nil, fmt.Errorf("GitHub API returned redirect status %d", resp.StatusCode)
+	}
+	return resp, nil
 }
 
 // upstreamHost returns the hostname of the upstream GitHub API URL.

@@ -44,11 +44,15 @@ func copyResponseHeaders(w http.ResponseWriter, r *http.Request, resp *http.Resp
 	clientBase := clientAPIURL(r)
 	logHandler.Printf("copyResponseHeaders: status=%d, linkHeaders=%d, hasLocation=%t",
 		resp.StatusCode, len(resp.Header.Values("Link")), resp.Header.Get("Location") != "")
+	var upstreamRequestURL *url.URL
+	if resp.Request != nil {
+		upstreamRequestURL = resp.Request.URL
+	}
 	if location := resp.Header.Get("Location"); location != "" {
-		w.Header().Set("Location", rewriteUpstreamAPIURL(location, upstreamAPIURL, clientBase))
+		w.Header().Set("Location", rewriteUpstreamAPIURLFrom(location, upstreamAPIURL, clientBase, upstreamRequestURL))
 	}
 	for _, link := range resp.Header.Values("Link") {
-		w.Header().Add("Link", rewriteLinkHeader(link, upstreamAPIURL, clientBase))
+		w.Header().Add("Link", rewriteLinkHeaderFrom(link, upstreamAPIURL, clientBase, upstreamRequestURL))
 	}
 }
 
@@ -70,6 +74,13 @@ func clientAPIURL(r *http.Request) string {
 // rewriteUpstreamAPIURL replaces an upstream API URL prefix with the client API base.
 // URLs outside the configured upstream API base are returned unchanged.
 func rewriteUpstreamAPIURL(value, upstreamAPIURL, clientAPIURL string) string {
+	return rewriteUpstreamAPIURLFrom(value, upstreamAPIURL, clientAPIURL, nil)
+}
+
+func rewriteUpstreamAPIURLFrom(value, upstreamAPIURL, clientAPIURL string, reference *url.URL) string {
+	if value == "" {
+		return value
+	}
 	upstream, err := url.Parse(strings.TrimRight(upstreamAPIURL, "/"))
 	if err != nil {
 		logHandler.Print("rewriteUpstreamAPIURL: invalid upstream API URL, leaving value unchanged")
@@ -85,7 +96,11 @@ func rewriteUpstreamAPIURL(value, upstreamAPIURL, clientAPIURL string) string {
 		logHandler.Printf("rewriteUpstreamAPIURL: unparsable value, leaving unchanged: %v", err)
 		return value
 	}
-	if !strings.EqualFold(target.Scheme, upstream.Scheme) || !strings.EqualFold(target.Host, upstream.Host) {
+	if reference == nil {
+		reference = upstream
+	}
+	target = reference.ResolveReference(target)
+	if !sameURLOrigin(target, upstream) {
 		logHandler.Print("rewriteUpstreamAPIURL: value targets a different origin, leaving unchanged")
 		return value
 	}
@@ -105,9 +120,33 @@ func rewriteUpstreamAPIURL(value, upstreamAPIURL, clientAPIURL string) string {
 	return target.String()
 }
 
+func sameURLOrigin(a, b *url.URL) bool {
+	return strings.EqualFold(a.Scheme, b.Scheme) &&
+		strings.EqualFold(a.Hostname(), b.Hostname()) &&
+		normalizedURLPort(a) == normalizedURLPort(b)
+}
+
+func normalizedURLPort(u *url.URL) string {
+	if port := u.Port(); port != "" {
+		return port
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http":
+		return "80"
+	case "https":
+		return "443"
+	default:
+		return ""
+	}
+}
+
 // rewriteLinkHeader rewrites only upstream API URLs enclosed in a Link header's
 // angle brackets, preserving link parameters and external URLs.
 func rewriteLinkHeader(value, upstreamAPIURL, clientAPIURL string) string {
+	return rewriteLinkHeaderFrom(value, upstreamAPIURL, clientAPIURL, nil)
+}
+
+func rewriteLinkHeaderFrom(value, upstreamAPIURL, clientAPIURL string, reference *url.URL) string {
 	logHandler.Printf("rewriteLinkHeader: rewriting Link header of %d bytes", len(value))
 	var rewritten strings.Builder
 	for {
@@ -123,7 +162,7 @@ func rewriteLinkHeader(value, upstreamAPIURL, clientAPIURL string) string {
 		}
 		end += start
 		rewritten.WriteString(value[:start+1])
-		rewritten.WriteString(rewriteUpstreamAPIURL(value[start+1:end], upstreamAPIURL, clientAPIURL))
+		rewritten.WriteString(rewriteUpstreamAPIURLFrom(value[start+1:end], upstreamAPIURL, clientAPIURL, reference))
 		rewritten.WriteByte('>')
 		value = value[end+1:]
 	}

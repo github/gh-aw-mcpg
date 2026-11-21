@@ -41,11 +41,14 @@ client or a fallback token. Redirect responses require coarse resource
 authorization; authorized clients receive the upstream 3xx, while enclave mode
 denies redirects.
 
-Absolute `Location` URLs within the configured upstream API base are rewritten
-to the proxy's API address (including `/api/v3` when used by `gh`). A client
-following that URL makes a new request through the proxy, where the target
-repository is authorized independently. External download URLs, such as
-artifact ZIP locations, are preserved after authorization.
+`Location` URLs within the configured upstream API base—including absolute,
+protocol-relative, and relative references—are resolved against the upstream
+request and rewritten to the proxy's API address (including `/api/v3` when used
+by `gh`). A client following that URL makes a new request through the proxy,
+where the target repository is authorized independently. Numeric-ID repository
+routes that cannot be mapped to a guarded owner/repository route are denied
+rather than passed through. External download URLs, such as artifact ZIP
+locations, are preserved after authorization.
 
 ### With `gh` CLI (TLS mode)
 

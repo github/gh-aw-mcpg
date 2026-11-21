@@ -189,6 +189,30 @@ func TestHandleWithDIFC_DelegatedRenameRedirect(t *testing.T) {
 	assert.Equal(t, []string{"/repos/a/x/issues"}, requestedPaths)
 }
 
+func TestServeHTTP_NumericRepositoryRedirectRequiresGuardedRoute(t *testing.T) {
+	var upstreamRequests int
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamRequests++
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Location", "http://"+r.Host+"/repositories/123/issues")
+		w.WriteHeader(http.StatusMovedPermanently)
+		_, _ = w.Write([]byte(`{"message":"repository renamed"}`))
+	}))
+	defer upstream.Close()
+
+	g := &stubGuard{labelResourceResult: publicResource(), labelResourceOp: difc.OperationRead}
+	s := newTestServerWithStub(t, upstream.URL, g, difc.EnforcementFilter)
+	proxy := httptest.NewServer(s.Handler())
+	defer proxy.Close()
+
+	resp, err := http.Get(proxy.URL + "/api/v3/repos/a/x/issues")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	assert.Equal(t, 1, upstreamRequests)
+}
+
 // ─── Phase 1: LabelResource error → 502 ──────────────────────────────────────
 
 func TestHandleWithDIFC_LabelResourceError(t *testing.T) {

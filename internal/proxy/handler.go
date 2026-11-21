@@ -177,6 +177,11 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		match := MatchRoute(rawPath)
 		if match == nil {
+			if isNumericRepositoryPath(rawPath) {
+				rejectProxyRequest(w, oteltrace.SpanFromContext(r.Context()), http.StatusForbidden,
+					"github_api_route_denied", "access denied: numeric repository routes require guarded repository selectors", nil)
+				return
+			}
 			h.handleUnrecognizedPassthrough(w, r, rawPath, fullPath)
 			return
 		}
@@ -204,6 +209,23 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Run the DIFC pipeline
 	h.handleWithDIFC(w, r, fullPath, toolName, args, graphQLBody)
+}
+
+func isNumericRepositoryPath(path string) bool {
+	remainder, ok := strings.CutPrefix(path, "/repositories/")
+	if !ok {
+		return false
+	}
+	id, _, _ := strings.Cut(remainder, "/")
+	if id == "" {
+		return false
+	}
+	for _, char := range id {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *proxyHandler) validateReadOnlyRequest(r *http.Request, path string) ([]byte, error) {
