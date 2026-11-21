@@ -240,19 +240,14 @@ func (us *UnifiedServer) registerToolsFromBackendContext(ctx context.Context, se
 	// This prevents non-allowed tools from appearing in tools/list responses
 	// and is defense-in-depth alongside the callBackendTool enforcement.
 	if allowedSet, ok := us.allowedToolSets[serverID]; ok && len(allowedSet) > 0 {
-		n := 0
-		for _, tool := range listResult.Tools {
-			if allowedSet[tool.Name] {
-				listResult.Tools[n] = tool
-				n++
-			}
-
-		}
-		if n < len(listResult.Tools) {
+		kept, removed := util.FilterByAllowlist(listResult.Tools, allowedSet, func(tool backendToolDefinition) string {
+			return tool.Name
+		})
+		if removed > 0 {
 			logger.LogInfo("backend", "[allowed-tools] Filtered %d tools from %s: keeping %d of %d",
-				len(listResult.Tools)-n, serverID, n, len(listResult.Tools))
+				removed, serverID, len(kept), len(listResult.Tools))
 		}
-		listResult.Tools = listResult.Tools[:n]
+		listResult.Tools = kept
 	}
 
 	// Collect tools for logging
@@ -455,19 +450,15 @@ func (us *UnifiedServer) registerPromptsFromBackend(ctx context.Context, serverI
 		return nil
 	}
 
-	if allowedSet, ok := us.allowedPromptSets[serverID]; ok {
-		n := 0
-		for _, prompt := range listResult.Prompts {
-			if allowedSet[prompt.Name] {
-				listResult.Prompts[n] = prompt
-				n++
-			}
-		}
-		if n < len(listResult.Prompts) {
+	if allowedSet, ok := us.allowedPromptSets[serverID]; ok && len(allowedSet) > 0 {
+		kept, removed := util.FilterByAllowlist(listResult.Prompts, allowedSet, func(prompt *sdk.Prompt) string {
+			return prompt.Name
+		})
+		if removed > 0 {
 			logger.LogInfo("backend", "[allowed-prompts] Filtered %d prompts from %s: keeping %d of %d",
-				len(listResult.Prompts)-n, serverID, n, len(listResult.Prompts))
+				removed, serverID, len(kept), len(listResult.Prompts))
 		}
-		listResult.Prompts = listResult.Prompts[:n]
+		listResult.Prompts = kept
 	}
 
 	// Register each prompt with a prefixed name so front-end clients can

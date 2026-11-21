@@ -211,57 +211,76 @@ func TestRegisterPromptsFromBackend_EmptyPromptsList(t *testing.T) {
 // backend are registered on the unified server. The function should return nil and the
 // SDK server should have the prompt added.
 func TestRegisterPromptsFromBackend_RegistersPrompts(t *testing.T) {
-	promptsListCalled := make(chan struct{}, 10)
-	t.Cleanup(func() {
-		assert.Len(t, promptsListCalled, 1, "expected prompts/list to be called exactly once")
-	})
-
-	srv := newStreamableBackendWithPromptsCapability(t, func(w http.ResponseWriter, reqID interface{}) {
-		promptsListCalled <- struct{}{}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"jsonrpc": "2.0",
-			"id":      reqID,
-			"result": map[string]interface{}{
-				"prompts": []map[string]interface{}{
-					{
-						"name":        "summarize",
-						"description": "Summarizes the given text",
-					},
-					{
-						"name":        "translate",
-						"description": "Translates text to another language",
-					},
-				},
-			},
-		})
-	})
-	defer srv.Close()
-
-	conn := connectStreamableBackend(t, srv)
-	us := minimalPromptsTestServer(t)
-	us.allowedPromptSets = map[string]map[string]bool{
-		"prompts-server": {"summarize": true},
+	tests := []struct {
+		name    string
+		allowed map[string]bool
+		want    []string
+	}{
+		{name: "nil set is unrestricted", want: []string{"prompts-server___summarize", "prompts-server___translate"}},
+		{name: "empty set is unrestricted", allowed: map[string]bool{}, want: []string{"prompts-server___summarize", "prompts-server___translate"}},
+		{name: "subset", allowed: map[string]bool{"summarize": true}, want: []string{"prompts-server___summarize"}},
+		{name: "all allowed", allowed: map[string]bool{"summarize": true, "translate": true}, want: []string{"prompts-server___summarize", "prompts-server___translate"}},
+		{name: "none allowed", allowed: map[string]bool{"other": true}},
+		{name: "false entry is denied", allowed: map[string]bool{"summarize": false, "translate": true}, want: []string{"prompts-server___translate"}},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			promptsListCalled := make(chan struct{}, 10)
+			t.Cleanup(func() {
+				assert.Len(t, promptsListCalled, 1, "expected prompts/list to be called exactly once")
+			})
 
-	err := us.registerPromptsFromBackend(context.Background(), "prompts-server", conn)
-	require.NoError(t, err, "should return nil when prompts are successfully registered")
+			srv := newStreamableBackendWithPromptsCapability(t, func(w http.ResponseWriter, reqID interface{}) {
+				promptsListCalled <- struct{}{}
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"jsonrpc": "2.0",
+					"id":      reqID,
+					"result": map[string]interface{}{
+						"prompts": []map[string]interface{}{
+							{
+								"name":        "summarize",
+								"description": "Summarizes the given text",
+							},
+							{
+								"name":        "translate",
+								"description": "Translates text to another language",
+							},
+						},
+					},
+				})
+			})
+			defer srv.Close()
 
-	serverTransport, clientTransport := sdk.NewInMemoryTransports()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	go func() { _ = us.server.Run(ctx, serverTransport) }()
+			conn := connectStreamableBackend(t, srv)
+			us := minimalPromptsTestServer(t)
+			us.allowedPromptSets = map[string]map[string]bool{
+				"prompts-server": tt.allowed,
+			}
 
-	client := sdk.NewClient(&sdk.Implementation{Name: "prompt-list-test-client", Version: "1.0"}, nil)
-	clientSession, err := client.Connect(ctx, clientTransport, nil)
-	require.NoError(t, err)
-	defer clientSession.Close()
+			err := us.registerPromptsFromBackend(context.Background(), "prompts-server", conn)
+			require.NoError(t, err, "should return nil when prompts are successfully registered")
 
-	listResult, err := clientSession.ListPrompts(ctx, &sdk.ListPromptsParams{})
-	require.NoError(t, err)
-	require.Len(t, listResult.Prompts, 1)
-	assert.Equal(t, "prompts-server___summarize", listResult.Prompts[0].Name,
-		"prompts outside the configured allowlist must be hidden from prompts/list")
+			serverTransport, clientTransport := sdk.NewInMemoryTransports()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			go func() { _ = us.server.Run(ctx, serverTransport) }()
+
+			client := sdk.NewClient(&sdk.Implementation{Name: "prompt-list-test-client", Version: "1.0"}, nil)
+			clientSession, err := client.Connect(ctx, clientTransport, nil)
+			require.NoError(t, err)
+			defer clientSession.Close()
+
+			listResult, err := clientSession.ListPrompts(ctx, &sdk.ListPromptsParams{})
+			require.NoError(t, err)
+			names := make([]string, 0, len(listResult.Prompts))
+			for _, prompt := range listResult.Prompts {
+				names = append(names, prompt.Name)
+			}
+			assert.ElementsMatch(t, tt.want, names,
+				"prompts outside the configured allowlist must be hidden from prompts/list")
+		})
+	}
 }
 
 // TestRegisterPromptsFromBackend_JSONRPCErrorResponse verifies that a JSON-RPC-level

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
+	"github.com/github/gh-aw-mcpg/internal/launcher"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -143,6 +144,50 @@ func TestRegisterToolsFromBackend_Success(t *testing.T) {
 
 	// Verify total tool count
 	assert.Len(us.tools, 2, "Should have registered exactly 2 tools")
+}
+
+func TestRegisterToolsFromBackend_Allowlist(t *testing.T) {
+	tests := []struct {
+		name    string
+		allowed map[string]bool
+		want    []string
+	}{
+		{name: "nil set is unrestricted", want: []string{"test-backend___a", "test-backend___b"}},
+		{name: "empty set is unrestricted", allowed: map[string]bool{}, want: []string{"test-backend___a", "test-backend___b"}},
+		{name: "subset", allowed: map[string]bool{"b": true}, want: []string{"test-backend___b"}},
+		{name: "all allowed", allowed: map[string]bool{"a": true, "b": true}, want: []string{"test-backend___a", "test-backend___b"}},
+		{name: "none allowed", allowed: map[string]bool{"c": true}},
+		{name: "false entry is denied", allowed: map[string]bool{"a": false, "b": true}, want: []string{"test-backend___b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			backend := newMockBackend(t, "test-backend", []string{"a", "b"})
+			defer backend.Close()
+			cfg := &config.Config{Servers: map[string]*config.ServerConfig{
+				"test-backend": {Type: "http", URL: backend.URL},
+			}}
+			ctx := context.Background()
+			l := launcher.New(ctx, cfg)
+			defer l.Close()
+			us := &UnifiedServer{
+				ctx:             ctx,
+				cfg:             cfg,
+				launcher:        l,
+				server:          newSDKServer("test-tools", logUnified),
+				tools:           make(map[string]*ToolInfo),
+				allowedToolSets: map[string]map[string]bool{"test-backend": tt.allowed},
+			}
+
+			require.NoError(t, us.registerToolsFromBackend("test-backend"))
+			us.toolsMu.RLock()
+			names := make([]string, 0, len(us.tools))
+			for name := range us.tools {
+				names = append(names, name)
+			}
+			us.toolsMu.RUnlock()
+			assert.ElementsMatch(t, tt.want, names)
+		})
+	}
 }
 
 // TestRegisterToolsFromBackend_ConnectionFailure tests that registration
