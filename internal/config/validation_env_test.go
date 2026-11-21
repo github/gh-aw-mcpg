@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -576,15 +577,18 @@ func TestValidateContainerizedEnvironment(t *testing.T) {
 func TestValidateContainerizedEnvironmentForRuntime_PodmanSkipsDockerInspection(t *testing.T) {
 	tempDir := t.TempDir()
 	podmanPath := filepath.Join(tempDir, "podman")
-	require.NoError(t, os.WriteFile(podmanPath, []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Skip("native true executable is unavailable")
+	}
+	require.NoError(t, os.Symlink(truePath, podmanPath))
 
-	t.Setenv("PATH", tempDir)
 	t.Setenv("MCP_GATEWAY_PORT", "8080")
 	t.Setenv("MCP_GATEWAY_DOMAIN", "localhost")
 	t.Setenv("MCP_GATEWAY_AGENT_ID", "test-key")
 	t.Setenv("DOCKER_HOST", "unix:///definitely/missing/docker.sock")
 
-	result := ValidateContainerizedEnvironmentForRuntime("abcdef123456", "podman")
+	result := ValidateContainerizedEnvironmentForRuntime("abcdef123456", podmanPath)
 
 	assert.True(t, result.IsValid())
 	assert.True(t, result.DockerAccessible)
