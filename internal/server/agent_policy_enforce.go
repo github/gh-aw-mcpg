@@ -134,17 +134,7 @@ func createDelegationFilteredServer(unifiedServer *UnifiedServer, backendID stri
 		func(_ string, _ string, toolName string) bool {
 			return delegation.IsDelegatedTool(toolName)
 		},
-		func(toolInfo ToolInfo) func(context.Context, *sdk.CallToolRequest, interface{}) (*sdk.CallToolResult, interface{}, error) {
-			handler := unifiedServer.GetToolHandler(backendID, toolInfo.Name)
-			if handler == nil {
-				logRouted.Printf("WARNING: No handler found for %s", util.PrefixToolName(backendID, toolInfo.Name))
-				return nil
-			}
-			return func(ctx context.Context, req *sdk.CallToolRequest, _ interface{}) (*sdk.CallToolResult, interface{}, error) {
-				logRouted.Printf("[ROUTED] Calling delegated unified handler for: %s", toolInfo.Name)
-				return handler(ctx, req, nil)
-			}
-		},
+		unifiedHandlerFor(unifiedServer, backendID, "delegated unified"),
 	)
 
 	return server
