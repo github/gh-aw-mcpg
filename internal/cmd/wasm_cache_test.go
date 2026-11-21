@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -122,6 +123,22 @@ func TestConfigureWasmCompilationCache(t *testing.T) {
 }
 
 func TestSetupWasmCompilationCache(t *testing.T) {
+	t.Run("returns configuration error without cleanup when setup fails", func(t *testing.T) {
+		setupErr := errors.New("cache setup failed")
+		originalConfigure := configureWasmCacheForSetup
+		configureWasmCacheForSetup = func(context.Context, bool, string, string, func(string, ...interface{})) (string, error) {
+			return "", setupErr
+		}
+		t.Cleanup(func() {
+			configureWasmCacheForSetup = originalConfigure
+		})
+
+		resolvedDir, cleanup, err := setupWasmCompilationCache(context.Background(), true, "/cache", "/logs")
+		require.ErrorIs(t, err, setupErr)
+		assert.Empty(t, resolvedDir)
+		assert.Nil(t, cleanup)
+	})
+
 	t.Run("returns resolved dir and non-nil cleanup on success", func(t *testing.T) {
 		ctx := context.Background()
 		cacheDir := t.TempDir()
@@ -156,6 +173,31 @@ func TestSetupWasmCompilationCache(t *testing.T) {
 			cleanup()
 			require.NoError(t, guard.ConfigureGlobalCompilationCache(ctx, ""))
 		})
+	})
+
+	t.Run("cleanup logs close errors and ignores cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		cacheDir := t.TempDir()
+		closeErr := errors.New("cache close failed")
+		originalClose := closeWasmCacheForSetup
+		var cleanupCtx context.Context
+		closeWasmCacheForSetup = func(ctx context.Context) error {
+			cleanupCtx = ctx
+			return closeErr
+		}
+		t.Cleanup(func() {
+			closeWasmCacheForSetup = originalClose
+			require.NoError(t, guard.ConfigureGlobalCompilationCache(context.Background(), ""))
+		})
+
+		_, cleanup, err := setupWasmCompilationCache(ctx, true, cacheDir, "/tmp/logs")
+		require.NoError(t, err)
+		require.NotNil(t, cleanup)
+		cleanup()
+
+		require.NotNil(t, cleanupCtx)
+		assert.NoError(t, cleanupCtx.Err(), "cleanup must use a non-cancelable context")
 	})
 
 	t.Run("cleanup function does not panic when called", func(t *testing.T) {
