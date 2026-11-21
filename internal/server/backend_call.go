@@ -170,11 +170,7 @@ func (us *UnifiedServer) getCircuitBreaker(serverID string) *circuitBreaker {
 // allowed-tools list. When no list is configured (empty), all tools are allowed.
 // Uses the pre-computed allowedToolSets map for O(1) lookup.
 func (us *UnifiedServer) isToolAllowed(serverID, toolName string) bool {
-	set, ok := us.allowedToolSets[serverID]
-	if !ok || set == nil {
-		return true
-	}
-	allowed := set[toolName]
+	allowed := allowedByServerSet(us.allowedToolSets, serverID, toolName)
 	if !allowed {
 		logUnified.Printf("isToolAllowed: tool blocked by allowlist: serverID=%s, toolName=%s", serverID, toolName)
 	}
