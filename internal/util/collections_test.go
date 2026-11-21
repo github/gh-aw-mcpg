@@ -109,6 +109,57 @@ func TestGetStringFromMap(t *testing.T) {
 	}
 }
 
+func TestFilterByAllowlist(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		items   []string
+		allowed map[string]bool
+		want    []string
+		removed int
+	}{
+		{name: "nil items", allowed: map[string]bool{"a": true}},
+		{name: "empty items", items: []string{}, want: []string{}},
+		{name: "nil allowlist", items: []string{"a", "b"}, want: []string{}, removed: 2},
+		{name: "empty allowlist", items: []string{"a", "b"}, allowed: map[string]bool{}, want: []string{}, removed: 2},
+		{name: "all allowed", items: []string{"a", "b"}, allowed: map[string]bool{"a": true, "b": true}, want: []string{"a", "b"}},
+		{name: "none allowed", items: []string{"a", "b"}, allowed: map[string]bool{"c": true}, want: []string{}, removed: 2},
+		{name: "preserves order and duplicates", items: []string{"x", "b", "a", "x", "b"}, allowed: map[string]bool{"a": true, "b": true}, want: []string{"b", "a", "b"}, removed: 2},
+		{name: "false entry is denied", items: []string{"a", "b"}, allowed: map[string]bool{"a": false, "b": true}, want: []string{"b"}, removed: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			kept, removed := FilterByAllowlist(tt.items, tt.allowed, func(name string) string { return name })
+			assert.Equal(t, tt.want, kept)
+			assert.Equal(t, tt.removed, removed)
+			if len(kept) > 0 {
+				assert.Same(t, &tt.items[0], &kept[0], "filter must reuse the input backing array")
+			}
+		})
+	}
+}
+
+func TestFilterByAllowlist_Pointers(t *testing.T) {
+	t.Parallel()
+
+	type item struct {
+		name string
+	}
+	first, second := &item{name: "a"}, &item{name: "b"}
+	items := []*item{first, second, first}
+
+	kept, removed := FilterByAllowlist(items, map[string]bool{"a": true}, func(item *item) string {
+		return item.name
+	})
+	require.Len(t, kept, 2)
+	assert.Same(t, first, kept[0])
+	assert.Same(t, first, kept[1])
+	assert.Same(t, &items[0], &kept[0])
+	assert.Equal(t, 1, removed)
+}
+
 func TestDeduplicateStrings(t *testing.T) {
 	tests := []struct {
 		name     string

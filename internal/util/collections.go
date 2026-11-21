@@ -74,6 +74,21 @@ func DeduplicateStrings(input []string, sorted bool) []string {
 	return out
 }
 
+// FilterByAllowlist compacts items in place, preserving the order of items whose
+// names map to true in allowed, and returns the kept slice and removal count.
+// A nil or empty allowlist removes all items; callers must skip filtering when
+// an empty allowlist means unrestricted access.
+func FilterByAllowlist[T any](items []T, allowed map[string]bool, nameOf func(T) string) (kept []T, removed int) {
+	n := 0
+	for _, item := range items {
+		if allowed[nameOf(item)] {
+			items[n] = item
+			n++
+		}
+	}
+	return items[:n], len(items) - n
+}
+
 // FindDuplicate returns the first item that occurs more than once, if any.
 func FindDuplicate[T comparable](items []T) (T, bool) {
 	seen := make(map[T]struct{}, len(items))
