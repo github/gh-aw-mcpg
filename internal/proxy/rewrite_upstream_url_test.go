@@ -54,14 +54,14 @@ func TestCopyResponseHeaders_ClientFollowsAPIRedirectReferences(t *testing.T) {
 	} {
 		t.Run(location, func(t *testing.T) {
 			var followedPath string
+			upstreamRequestURL, err := url.Parse("https://api.github.com/repos/o/r/old")
+			require.NoError(t, err)
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path != "/api/v3/start" {
 					followedPath = r.URL.Path
 					w.WriteHeader(http.StatusNoContent)
 					return
 				}
-				upstreamRequestURL, err := url.Parse("https://api.github.com/repos/o/r/old")
-				require.NoError(t, err)
 				resp := &http.Response{
 					StatusCode: http.StatusMovedPermanently,
 					Header:     http.Header{"Location": []string{location}},
