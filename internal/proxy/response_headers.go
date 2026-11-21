@@ -18,7 +18,11 @@ func isArtifactDownload(toolName string, args map[string]interface{}) bool {
 		return false
 	}
 	method, _ := args["method"].(string)
-	return method == "download_workflow_run_artifact"
+	isDownload := method == "download_workflow_run_artifact"
+	if isDownload {
+		logHandler.Print("isArtifactDownload: actions_get artifact download detected, response will be streamed")
+	}
+	return isDownload
 }
 
 // copyResponseHeaders copies relevant headers from upstream to the client response.
@@ -56,8 +60,10 @@ func clientAPIURL(r *http.Request) string {
 	}
 	apiURL := scheme + "://" + r.Host
 	if r.URL.Path == ghHostPathPrefix || strings.HasPrefix(r.URL.Path, ghHostPathPrefix+"/") {
+		logHandler.Printf("clientAPIURL: request path uses %s prefix, appending to client API base", ghHostPathPrefix)
 		apiURL += ghHostPathPrefix
 	}
+	logHandler.Printf("clientAPIURL: resolved client API base: scheme=%s, host=%s", scheme, r.Host)
 	return apiURL
 }
 
@@ -102,6 +108,7 @@ func rewriteUpstreamAPIURL(value, upstreamAPIURL, clientAPIURL string) string {
 // rewriteLinkHeader rewrites only upstream API URLs enclosed in a Link header's
 // angle brackets, preserving link parameters and external URLs.
 func rewriteLinkHeader(value, upstreamAPIURL, clientAPIURL string) string {
+	logHandler.Printf("rewriteLinkHeader: rewriting Link header of %d bytes", len(value))
 	var rewritten strings.Builder
 	for {
 		start := strings.IndexByte(value, '<')
@@ -129,12 +136,14 @@ func rewriteLinkHeader(value, upstreamAPIURL, clientAPIURL string) string {
 func injectRetryAfterIfRateLimited(w http.ResponseWriter, resp *http.Response) {
 	isRateLimited, resetHeader, remaining := githubhttp.RateLimitSignal(resp)
 	if !isRateLimited {
+		logHandler.Printf("injectRetryAfterIfRateLimited: no rate-limit signal, status=%d", resp.StatusCode)
 		return
 	}
 
 	resetAt := githubhttp.ParseRateLimitResetHeader(resetHeader)
 	retryAfter := githubhttp.ComputeRetryAfter(resetAt)
 
+	logHandler.Printf("injectRetryAfterIfRateLimited: rate limited, injecting Retry-After=%ds", retryAfter)
 	w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
 
 	logger.LogError("client",
