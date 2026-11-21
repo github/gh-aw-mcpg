@@ -319,3 +319,20 @@ func TestProxyForcePublicReposIfNeeded_AllowOnlyWithNullValue(t *testing.T) {
 	assert.Equal(t, "public", allowOnly["repos"])
 	assert.Equal(t, "none", allowOnly["min-integrity"])
 }
+
+func TestProxyForcePublicReposIfNeeded_PublicRepo_WriteSinkUnchanged(t *testing.T) {
+	withForcePublicRepo(t, true)
+	t.Setenv("GITHUB_REPOSITORY", "octo/repo")
+	clearAllTokenEnvVars(t)
+
+	srv := repoVisibilityServer(t, "octo/repo", "public", http.StatusOK, "token test-token")
+	defer srv.Close()
+
+	for _, key := range []string{"write-sink", "writesink", "Write-Sink"} {
+		t.Run(key, func(t *testing.T) {
+			policy := `{"` + key + `":{"accept":["private:octo/repo"],"sink-visibility":"private"}}`
+			result := proxyForcePublicReposIfNeeded(context.Background(), policy, "test-token", srv.URL)
+			assert.Equal(t, policy, result, "write-sink-only policies must not acquire an allow-only section")
+		})
+	}
+}

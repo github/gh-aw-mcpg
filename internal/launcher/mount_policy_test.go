@@ -359,8 +359,8 @@ func TestCanonicalizeRootsRejectsFilesystemRoot(t *testing.T) {
 	assert.NotEqual(t, "/", roots[0].Path)
 }
 
-func TestParseMountDeclarationRejectsConflictingModes(t *testing.T) {
-	_, err := parseMountDeclaration("/srv/data:/data:ro,rw")
+func TestValidateMountRejectsConflictingModes(t *testing.T) {
+	err := (MountPolicy{}).ValidateMount("/srv/data:/data:ro,rw")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "conflicting mount options")
 }
@@ -443,11 +443,10 @@ func TestCanonicalizePathWalksUpToFilesystemRoot(t *testing.T) {
 	assert.Equal(t, missing, got)
 }
 
-// TestParseMountDeclarationRejectsEmptyModeOption covers the opt == "" branch
-// in parseMountDeclaration's mode-option loop, triggered by a stray comma
-// within the mode segment (e.g. "ro,,").
-func TestParseMountDeclarationRejectsEmptyModeOption(t *testing.T) {
-	_, err := parseMountDeclaration("/srv/data:/data:ro,,rw")
+// TestValidateMountRejectsEmptyModeOption verifies a stray comma within the mode
+// segment is rejected by the shared mount parser.
+func TestValidateMountRejectsEmptyModeOption(t *testing.T) {
+	err := (MountPolicy{}).ValidateMount("/srv/data:/data:ro,,rw")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty mount option")
 }

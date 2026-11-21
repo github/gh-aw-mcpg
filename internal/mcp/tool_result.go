@@ -72,7 +72,7 @@ func convertMapToCallToolResult(m map[string]any) (*sdk.CallToolResult, error) {
 	}
 
 	// Collect content items from either []any (produced by json.Unmarshal) or
-	// []map[string]any (produced by helpers like BuildMCPTextResponse).
+	// []map[string]any (produced by helpers like mcpresult.NewTextResponse).
 	//
 	// Note: This switch intentionally returns an error when a non-map item is encountered
 	// (strict semantics), unlike mcpresult.NormalizeContentItems which silently skips
@@ -207,9 +207,4 @@ func NewErrorCallToolResult(err error) (*sdk.CallToolResult, any, error) {
 		err = fmt.Errorf("unknown error")
 	}
 	return NewErrorTextCallToolResult(err.Error()), nil, err
-}
-
-// BuildMCPTextResponse returns a raw MCP response map with a single text content item.
-func BuildMCPTextResponse(text string) map[string]any {
-	return mcpresult.NewTextResponse(text)
 }

@@ -42,26 +42,9 @@ func (r *Registry[K, V]) Has(key K) bool {
 // create is called while the registry write lock is held and must not call a
 // method on the same Registry.
 func (r *Registry[K, V]) GetOrCreate(key K, create func() V) V {
-	r.mu.RLock()
-	value, ok := r.entries[key]
-	r.mu.RUnlock()
-	if ok {
-		return value
-	}
-
-	return r.getOrCreateAfterMiss(key, create)
-}
-
-// getOrCreateAfterMiss performs the write-locked double-check after a read miss.
-func (r *Registry[K, V]) getOrCreateAfterMiss(key K, create func() V) V {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if value, ok := r.entries[key]; ok {
-		return value
-	}
-
-	value := create()
-	r.entries[key] = value
+	value, _ := MapGetOrCreate(&r.mu, r.entries, key, func() (V, error) {
+		return create(), nil
+	})
 	return value
 }
 

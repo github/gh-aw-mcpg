@@ -361,13 +361,13 @@ func TestLogObservedURLDomains_WriteError_WarningLogged(t *testing.T) {
 // handler (handleObservedURLDomainsLoggerError) is called instead of setup.
 //
 // To cover the branch we call setupObservedURLDomainsLogger directly with a logDir
-// where the target file name already exists as a directory.  atomicWriteFile can
+// where the target file name already exists as a directory. util.AtomicWriteFile can
 // still create the temp file (filePath+".tmp") in the parent dir, but os.Rename will
 // return EISDIR on Linux, causing writeToFile to fail.
 func TestObservedURLDomainsLoggerFactory_Setup_WriteToFileFails(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a directory at the target file path so atomicWriteFile's Rename fails.
+	// Create a directory at the target file path so util.AtomicWriteFile's Rename fails.
 	targetDir := filepath.Join(tmpDir, observedURLDomainsFileName)
 	require.NoError(t, os.MkdirAll(targetDir, 0755))
 

@@ -40,7 +40,7 @@ func IsErrorResult(result map[string]interface{}) bool {
 //
 // Both normalization paths handle the same wire format variations:
 //   - []interface{}      — produced by json.Unmarshal on the raw backend response
-//   - []map[string]interface{} — produced by helper constructors (e.g. BuildMCPTextResponse)
+//   - []map[string]interface{} — produced by helper constructors (e.g. NewTextResponse)
 //
 // When adding new content type variants, update both paths consistently.
 func NormalizeContentItems(contentVal interface{}) ([]map[string]interface{}, bool) {

@@ -27,7 +27,7 @@ func TestHasAliasedPRResource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, hasAliasedPRResource(tt.query))
+			assert.Equal(t, tt.want, hasAliasedPRResourceParsed(tt.query, &graphQLParseCache{}))
 		})
 	}
 }

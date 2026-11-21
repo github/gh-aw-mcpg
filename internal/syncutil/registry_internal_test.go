@@ -1,7 +1,3 @@
-// Package syncutil tests – internal test file to allow direct access to the
-// unexported Registry.mu field, needed to deterministically force the
-// write-locked double-check branch in GetOrCreate (see
-// TestRegistryGetOrCreateDoubleCheckPreventsRedundantCreate below).
 package syncutil
 
 import (
@@ -14,11 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRegistryGetOrCreateDoubleCheckPreventsRedundantCreate deterministically
-// exercises the write-locked double-check branch in GetOrCreate by waiting
-// until both goroutines observe the initial miss before allowing either to
-// acquire the write lock.
-func TestRegistryGetOrCreateDoubleCheckPreventsRedundantCreate(t *testing.T) {
+// TestRegistryGetOrCreateConcurrentMissesCreateOnce verifies concurrent calls
+// populate a key only once after both callers have observed it missing.
+func TestRegistryGetOrCreateConcurrentMissesCreateOnce(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 	registry := NewRegistry[string, int]()
@@ -35,7 +29,7 @@ func TestRegistryGetOrCreateDoubleCheckPreventsRedundantCreate(t *testing.T) {
 			_, ok := registry.Get("key")
 			initialLookups <- ok
 			<-release
-			results <- registry.getOrCreateAfterMiss("key", func() int {
+			results <- registry.GetOrCreate("key", func() int {
 				createCount.Add(1)
 				return 42
 			})

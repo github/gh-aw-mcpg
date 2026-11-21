@@ -291,7 +291,7 @@ func TestCheckPortMapping(t *testing.T) {
 	}
 }
 
-func TestIsHostNetworkMode(t *testing.T) {
+func TestIsHostNetwork_InvalidContainer(t *testing.T) {
 	tests := []struct {
 		name        string
 		containerID string
@@ -322,7 +322,7 @@ func TestIsHostNetworkMode(t *testing.T) {
 			if tt.dockerHost != "" {
 				t.Setenv("DOCKER_HOST", tt.dockerHost)
 			}
-			hostNetwork, err := IsHostNetworkMode(tt.containerID)
+			hostNetwork, err := IsHostNetwork(tt.containerID)
 
 			if tt.shouldError {
 				require.Error(t, err, "Expected error for %s", tt.name)
@@ -410,13 +410,14 @@ func TestCheckLogDirMounted(t *testing.T) {
 	}
 }
 
-func TestIsHostNetworkMode_WithDockerShim(t *testing.T) {
+func TestIsHostNetwork_WithDockerShim(t *testing.T) {
 	tests := []struct {
 		name     string
 		output   string
 		expected bool
 	}{
 		{name: "host network", output: "host", expected: true},
+		{name: "case-insensitive host network", output: "HOST", expected: true},
 		{name: "host network with trailing whitespace", output: "host  ", expected: true},
 		{name: "bridge network", output: "bridge", expected: false},
 		{name: "default network", output: "default", expected: false},
@@ -429,7 +430,7 @@ func TestIsHostNetworkMode_WithDockerShim(t *testing.T) {
 			dir := mockDockerBinary(t, tt.output+"\n", 0)
 			prependPath(t, dir)
 
-			hostNetwork, err := IsHostNetworkMode("abc123def4567890")
+			hostNetwork, err := IsHostNetwork("abc123def4567890")
 			require.NoError(t, err)
 			assert.Equal(t, tt.expected, hostNetwork)
 		})

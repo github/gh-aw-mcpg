@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/githubhttp"
-	"github.com/github/gh-aw-mcpg/internal/mcp"
+	"github.com/github/gh-aw-mcpg/internal/mcpresult"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -422,9 +422,9 @@ func TestExtractRateLimitErrorText(t *testing.T) {
 		assert.Equal(t, "rate limit exceeded", extractRateLimitErrorText(result))
 	})
 
-	t.Run("extracts text from BuildMCPTextResponse output", func(t *testing.T) {
+	t.Run("extracts text from mcpresult.NewTextResponse output", func(t *testing.T) {
 		t.Parallel()
-		result := mcp.BuildMCPTextResponse("API rate limit exceeded")
+		result := mcpresult.NewTextResponse("API rate limit exceeded")
 		assert.Equal(t, "API rate limit exceeded", extractRateLimitErrorText(result))
 	})
 }

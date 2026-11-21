@@ -174,33 +174,17 @@ func isUnderRoot(path, root string) bool {
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
-// mountDeclaration is a parsed "source:dest:mode" bind-mount declaration.
-type mountDeclaration struct {
-	source   string
-	dest     string
-	writable bool
-}
-
-// parseMountDeclaration parses a structured bind-mount specification.
-func parseMountDeclaration(spec string) (mountDeclaration, error) {
-	mount, err := mountspec.Parse(spec)
-	if err != nil {
-		return mountDeclaration{}, err
-	}
-	return mountDeclaration{source: mount.Source, dest: mount.Destination, writable: mount.Writable}, nil
-}
-
 // ValidateMount checks a single "source:dest:mode" declaration against the policy.
 func (p MountPolicy) ValidateMount(spec string) error {
-	decl, err := parseMountDeclaration(spec)
+	decl, err := mountspec.Parse(spec)
 	if err != nil {
 		return fmt.Errorf("invalid mount declaration %q: %w", spec, err)
 	}
 
-	source, err := canonicalizePath(decl.source)
+	source, err := canonicalizePath(decl.Source)
 	if err != nil {
-		logMountPolicy.Printf("Mount %q rejected: cannot canonicalize host source", decl.source)
-		return fmt.Errorf("mount %q rejected: host source cannot be canonicalized", decl.source)
+		logMountPolicy.Printf("Mount %q rejected: cannot canonicalize host source", decl.Source)
+		return fmt.Errorf("mount %q rejected: host source cannot be canonicalized", decl.Source)
 	}
 
 	// Roots are ordered most-specific first, so the closest enclosing root wins.
@@ -210,16 +194,16 @@ func (p MountPolicy) ValidateMount(spec string) error {
 		if !isUnderRoot(source, root.Path) {
 			continue
 		}
-		if decl.writable && !root.Writable {
-			logMountPolicy.Printf("Mount %q rejected: read-write access denied under root %q", decl.source, root.Path)
-			return fmt.Errorf("mount %q rejected: read-write access to this host root is not permitted by mount policy", decl.source)
+		if decl.Writable && !root.Writable {
+			logMountPolicy.Printf("Mount %q rejected: read-write access denied under root %q", decl.Source, root.Path)
+			return fmt.Errorf("mount %q rejected: read-write access to this host root is not permitted by mount policy", decl.Source)
 		}
-		logMountPolicy.Printf("Mount %q allowed under root %q (writable=%t)", decl.source, root.Path, decl.writable)
+		logMountPolicy.Printf("Mount %q allowed under root %q (writable=%t)", decl.Source, root.Path, decl.Writable)
 		return nil
 	}
 
-	logMountPolicy.Printf("Mount %q rejected: outside all allowed mount roots", decl.source)
-	return fmt.Errorf("mount %q rejected: host source is outside the allowed mount roots", decl.source)
+	logMountPolicy.Printf("Mount %q rejected: outside all allowed mount roots", decl.Source)
+	return fmt.Errorf("mount %q rejected: host source is outside the allowed mount roots", decl.Source)
 }
 
 // ValidateContainerArgs validates the container runtime arguments used to launch

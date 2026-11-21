@@ -6,6 +6,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/mcp"
+	"github.com/github/gh-aw-mcpg/internal/mcpresult"
 	"github.com/github/gh-aw-mcpg/internal/util"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -28,7 +29,7 @@ func NewSysServer(serverIDs []string) *SysServer {
 // SysInit returns the system initialization response used by sys___init.
 func (s *SysServer) SysInit() (interface{}, error) {
 	logSys.Printf("Initializing MCPG system with %d servers", len(s.serverIDs))
-	response := mcp.BuildMCPTextResponse(fmt.Sprintf("MCPG initialized. Available servers: %v", s.serverIDs))
+	response := mcpresult.NewTextResponse(fmt.Sprintf("MCPG initialized. Available servers: %v", s.serverIDs))
 	logSys.Printf("MCPG system initialized: availableServers=%v", s.serverIDs)
 	return response, nil
 }
@@ -41,7 +42,7 @@ func (s *SysServer) ListServers() (interface{}, error) {
 		serverList += fmt.Sprintf("%d. %s\n", i+1, id)
 	}
 
-	return mcp.BuildMCPTextResponse(fmt.Sprintf("Configured MCP Servers:\n%s", serverList)), nil
+	return mcpresult.NewTextResponse(fmt.Sprintf("Configured MCP Servers:\n%s", serverList)), nil
 }
 
 // sysListServersHandler handles sys___list_servers tool calls.

@@ -190,20 +190,12 @@ func (us *UnifiedServer) overrideToPublicScope(serverID string) {
 	// Case 1: global policy override (set via CLI or env flags).
 	if us.cfg != nil && us.cfg.GuardPolicy != nil {
 		gp := us.cfg.GuardPolicy
-		if gp.AllowOnly == nil && gp.WriteSink != nil {
+		if !gp.ForcePublicRepos() {
 			// Write-sink-only global policy: AllowOnly and WriteSink are mutually
 			// exclusive. The write-sink guard uses SinkVisibility for public-repo
 			// enforcement; no AllowOnly override needed.
 			logGuardInit.Printf("overrideToPublicScope: skipping write-sink-only global policy for serverID=%s", serverID)
 			return
-		}
-		if gp.AllowOnly == nil {
-			gp.AllowOnly = &config.AllowOnlyPolicy{
-				Repos:        "public",
-				MinIntegrity: config.IntegrityNone,
-			}
-		} else {
-			gp.AllowOnly.Repos = "public"
 		}
 		logger.LogWarnToServer(serverID, "difc",
 			"FORCED REPOS=PUBLIC: workflow repo %s is public — overriding allow-only scope to 'public' to prevent private data reads (source: global policy)",
@@ -226,12 +218,8 @@ func (us *UnifiedServer) overrideToPublicScope(serverID string) {
 		// No existing per-server policy — inject a minimal allow-only policy so
 		// the WASM guard (if loaded) will restrict reads to public repos.
 		logGuardInit.Printf("overrideToPublicScope: no per-server policy for serverID=%s, injecting allow-only repos=public", serverID)
-		serverCfg.GuardPolicies = map[string]interface{}{
-			"allow-only": map[string]interface{}{
-				"repos":         "public",
-				"min-integrity": config.IntegrityNone,
-			},
-		}
+		serverCfg.GuardPolicies = make(map[string]interface{})
+		config.ForcePublicReposInMap(serverCfg.GuardPolicies)
 	} else {
 		policy, err := config.ParseServerGuardPolicy(serverID, serverCfg.GuardPolicies)
 		if err != nil {
@@ -243,28 +231,15 @@ func (us *UnifiedServer) overrideToPublicScope(serverID string) {
 			// Unrecognized policy format — inject allow-only directly into the map
 			// only if there is no write-sink key present (to avoid creating an
 			// invalid combined policy).
-			if _, hasWriteSink := serverCfg.GuardPolicies["write-sink"]; !hasWriteSink {
-				serverCfg.GuardPolicies["allow-only"] = map[string]interface{}{
-					"repos":         "public",
-					"min-integrity": config.IntegrityNone,
-				}
-			} else {
+			if !config.ForcePublicReposInMap(serverCfg.GuardPolicies) {
 				logGuardInit.Printf("overrideToPublicScope: skipping write-sink-only per-server policy for serverID=%s", serverID)
 				return
 			}
-		} else if policy.AllowOnly == nil && policy.WriteSink != nil {
+		} else if !policy.ForcePublicRepos() {
 			// Write-sink-only per-server policy: see note above.
 			logGuardInit.Printf("overrideToPublicScope: skipping write-sink-only per-server policy for serverID=%s", serverID)
 			return
 		} else {
-			if policy.AllowOnly == nil {
-				policy.AllowOnly = &config.AllowOnlyPolicy{
-					Repos:        "public",
-					MinIntegrity: config.IntegrityNone,
-				}
-			} else {
-				policy.AllowOnly.Repos = "public"
-			}
 			newMap, err := config.GuardPolicyToMap(policy)
 			if err != nil {
 				logger.LogWarnToServer(serverID, "difc",
