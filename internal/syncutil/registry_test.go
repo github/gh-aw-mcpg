@@ -81,6 +81,16 @@ func TestRegistryGetOrCreate(t *testing.T) {
 	assert.Equal(2, registry.Len())
 }
 
+func TestRegistryGetOrCreateCachesZeroValue(t *testing.T) {
+	registry := syncutil.NewRegistry[string, int]()
+	assert.Zero(t, registry.GetOrCreate("key", func() int { return 0 }))
+	assert.Zero(t, registry.GetOrCreate("key", func() int {
+		assert.Fail(t, "creator must not run for an existing zero value")
+		return 1
+	}))
+	assert.True(t, registry.Has("key"))
+}
+
 // TestRegistryGetOrCreateManyGoroutinesForcesDoubleCheck stress-tests
 // GetOrCreate with a burst of concurrent callers all missing the initial
 // read-locked check at once. This drives many goroutines into the write-lock

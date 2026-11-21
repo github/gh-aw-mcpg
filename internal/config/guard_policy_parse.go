@@ -288,8 +288,10 @@ func NormalizeScopeKind(policy map[string]interface{}) map[string]interface{} {
 // hasMapKeyVariants reports whether any of the given key variants is present in m.
 func hasMapKeyVariants(m map[string]interface{}, keys ...string) bool {
 	for _, k := range keys {
-		if _, ok := m[k]; ok {
-			return true
+		for actualKey := range m {
+			if strings.EqualFold(actualKey, k) {
+				return true
+			}
 		}
 	}
 	return false

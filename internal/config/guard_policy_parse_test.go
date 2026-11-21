@@ -59,11 +59,34 @@ func TestParsePolicyMap(t *testing.T) {
 				assert.Equal(t, "approved", p.AllowOnly.MinIntegrity)
 			},
 		},
+		{
+			name: "case-insensitive allow-only spelling with unsupported sibling is rejected",
+			raw: map[string]interface{}{
+				"AllowOnly": map[string]interface{}{
+					"repos":         "all",
+					"min-integrity": "approved",
+				},
+				"custom": "value",
+			},
+			wantErr: `unsupported field "custom"`,
+		},
 		// ── modern write-sink format ─────────────────────────────────────────────
 		{
 			name: "write-sink key: valid write-sink policy",
 			raw: map[string]interface{}{
 				"write-sink": map[string]interface{}{
+					"accept": []interface{}{"public"},
+				},
+			},
+			check: func(t *testing.T, p *GuardPolicy) {
+				require.NotNil(t, p.WriteSink)
+				assert.Equal(t, []string{"public"}, p.WriteSink.Accept)
+			},
+		},
+		{
+			name: "case-insensitive write-sink key",
+			raw: map[string]interface{}{
+				"Write-Sink": map[string]interface{}{
 					"accept": []interface{}{"public"},
 				},
 			},
@@ -230,6 +253,31 @@ func TestParseServerGuardPolicy(t *testing.T) {
 				require.NotNil(t, p.AllowOnly)
 				assert.Equal(t, "public", p.AllowOnly.Repos)
 			},
+		},
+		{
+			name:     "case-insensitive write-sink policy is parsed directly",
+			serverID: "github",
+			raw: map[string]interface{}{
+				"Write-Sink": map[string]interface{}{
+					"accept": []interface{}{"public"},
+				},
+			},
+			check: func(t *testing.T, p *GuardPolicy) {
+				require.NotNil(t, p.WriteSink)
+				assert.Equal(t, []string{"public"}, p.WriteSink.Accept)
+			},
+		},
+		{
+			name:     "case-insensitive allow-only policy with unsupported sibling is rejected",
+			serverID: "github",
+			raw: map[string]interface{}{
+				"AllowOnly": map[string]interface{}{
+					"repos":         "all",
+					"min-integrity": "approved",
+				},
+				"custom": "value",
+			},
+			wantErr: `unsupported field "custom"`,
 		},
 		{
 			name:     "top-level legacy repos policy is parsed directly",

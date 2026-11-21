@@ -103,7 +103,7 @@ func TestWriteJSONToFile(t *testing.T) {
 		missingDir := filepath.Join(t.TempDir(), "missing")
 		err := writeJSONToFile(missingDir, "out.json", map[string]string{}, 0o644)
 		require.Error(t, err)
-		// The error surfaces from util.AtomicWriteFile's os.WriteFile call.
+		// The error surfaces from util.AtomicWriteFile's os.CreateTemp call.
 		assert.Contains(t, err.Error(), "failed to write temp file")
 	})
 

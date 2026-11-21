@@ -181,7 +181,7 @@ Assigned private repository responses use the existing `private:<owner>/<repo>` 
 | `--wasm-cache-dir` | `<parent-of-log-dir>/wazero-cache` | Directory for disk-backed wazero compilation cache; defaults to `MCP_GATEWAY_WASM_CACHE_DIR` when set, otherwise a sibling `wazero-cache` directory next to `--log-dir` |
 | `--guards-mode` | `filter` | DIFC mode: `strict`, `filter`, or `propagate` |
 | `--github-api-url` | `https://api.github.com` | Upstream GitHub API URL |
-| `--force-public-repos` | `true` | Force `repos="public"` at runtime if the workflow repository is public; defaults to `MCP_GATEWAY_FORCE_PUBLIC_REPOS` when set. Set to `false` to disable |
+| `--force-public-repos` | `true` | Force `repos="public"` in allow-only policies at runtime if the workflow repository is public; write-sink-only policies are left unchanged. Defaults to `MCP_GATEWAY_FORCE_PUBLIC_REPOS` when set. Set to `false` to disable |
 | `--read-only` | `false` | Reject writes and unsupported requests before forwarding; can also be enabled with `MCP_GATEWAY_PROXY_READ_ONLY=1` |
 | `--tls` | `false` | Enable HTTPS with auto-generated self-signed certificates |
 | `--tls-dir` | `<log-dir>/proxy-tls` | Directory for generated TLS certificate files |

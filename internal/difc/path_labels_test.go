@@ -553,7 +553,7 @@ func TestUnwrapMCPResponse(t *testing.T) {
 		assert.Equal(t, mcpData, unwrapped)
 	})
 
-	t.Run("unwraps BuildMCPTextResponse output", func(t *testing.T) {
+	t.Run("unwraps NewTextResponse output", func(t *testing.T) {
 		mcpData := map[string]interface{}{
 			"content": []map[string]interface{}{
 				{"type": "text", "text": `{"items":[{"id":1}]}`},

@@ -545,21 +545,8 @@ func proxyForcePublicReposIfNeeded(ctx context.Context, policyJSON, token, apiUR
 		return policyJSON
 	}
 
-	// Find the allow-only section (canonical or legacy key)
-	var allowOnly map[string]interface{}
-	if ao, ok := policyMap["allow-only"]; ok {
-		allowOnly, _ = ao.(map[string]interface{})
-	} else if ao, ok := policyMap["allowonly"]; ok {
-		allowOnly, _ = ao.(map[string]interface{})
-	}
-
-	if allowOnly == nil {
-		policyMap["allow-only"] = map[string]interface{}{
-			"repos":         "public",
-			"min-integrity": "none",
-		}
-	} else {
-		allowOnly["repos"] = "public"
+	if !config.ForcePublicReposInMap(policyMap) {
+		return policyJSON
 	}
 
 	overridden, err := json.Marshal(policyMap)

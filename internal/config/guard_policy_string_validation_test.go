@@ -8,6 +8,13 @@ import (
 )
 
 // TestValidateStringArrayField covers all branches of ValidateStringArrayField.
+func TestLowercaseASCII(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, " owner/répo* ", lowercaseASCII(" Owner/RéPO* "))
+	assert.Equal(t, "owner/Äbc", lowercaseASCII("OWNER/ÄBC"))
+}
+
 func TestValidateStringArrayField(t *testing.T) {
 	tests := []struct {
 		name            string
