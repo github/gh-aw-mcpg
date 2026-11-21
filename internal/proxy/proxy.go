@@ -23,7 +23,7 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/guard"
 	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
-	"github.com/github/gh-aw-mcpg/internal/mcp"
+	"github.com/github/gh-aw-mcpg/internal/mcpresult"
 	"github.com/github/gh-aw-mcpg/internal/sanitize"
 	"github.com/github/gh-aw-mcpg/internal/tracing"
 	"github.com/github/gh-aw-mcpg/internal/util"
@@ -452,7 +452,7 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 	}
 
 	// Wrap in MCP response format: {content: [{type: "text", text: "..."}]}
-	return mcp.BuildMCPTextResponse(string(body)), nil
+	return mcpresult.NewTextResponse(string(body)), nil
 }
 
 // upstreamHost returns the hostname of the upstream GitHub API URL.

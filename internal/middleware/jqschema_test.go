@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/github/gh-aw-mcpg/internal/mcp"
+	"github.com/github/gh-aw-mcpg/internal/mcpresult"
 	"github.com/github/gh-aw-mcpg/internal/urlutil"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
@@ -398,7 +398,7 @@ func TestWrapToolHandlerWithFilter_RewritesMCPTextEnvelope(t *testing.T) {
 			Content: []sdk.Content{
 				&sdk.TextContent{Text: string(payloadJSON)},
 			},
-		}, mcp.BuildMCPTextResponse(string(payloadJSON)), nil
+		}, mcpresult.NewTextResponse(string(payloadJSON)), nil
 	}
 
 	wrapped := WrapToolHandlerWithFilter(

@@ -13,13 +13,13 @@ import (
 //
 // writeJSONToFile:
 //  1. Marshals data as indented JSON (fails on unmarshalable types like channels).
-//  2. Delegates to atomicWriteFile to persist the result.
+//  2. Delegates to util.AtomicWriteFile to persist the result.
 //
 // Coverage targets:
 //   - Success path: marshalable data written to a new file.
 //   - Success path: existing file is overwritten atomically.
 //   - Error path: json.MarshalIndent fails for an unmarshalable value (channel).
-//   - Error path: atomicWriteFile fails when the destination directory does not exist.
+//   - Error path: util.AtomicWriteFile fails when the destination directory does not exist.
 func TestWriteJSONToFile(t *testing.T) {
 	t.Run("success – simple map written to file", func(t *testing.T) {
 		tmpDir := t.TempDir()
@@ -98,12 +98,12 @@ func TestWriteJSONToFile(t *testing.T) {
 		assert.True(t, os.IsNotExist(statErr), "file must not be created when marshal fails")
 	})
 
-	t.Run("error – atomicWriteFile fails when directory does not exist", func(t *testing.T) {
-		// Pass a logDir that does not exist so atomicWriteFile cannot create the temp file.
+	t.Run("error – util.AtomicWriteFile fails when directory does not exist", func(t *testing.T) {
+		// Pass a logDir that does not exist so util.AtomicWriteFile cannot create the temp file.
 		missingDir := filepath.Join(t.TempDir(), "missing")
 		err := writeJSONToFile(missingDir, "out.json", map[string]string{}, 0o644)
 		require.Error(t, err)
-		// The error surfaces from atomicWriteFile's os.WriteFile call.
+		// The error surfaces from util.AtomicWriteFile's os.WriteFile call.
 		assert.Contains(t, err.Error(), "failed to write temp file")
 	})
 

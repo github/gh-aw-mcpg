@@ -208,8 +208,3 @@ func NewErrorCallToolResult(err error) (*sdk.CallToolResult, any, error) {
 	}
 	return NewErrorTextCallToolResult(err.Error()), nil, err
 }
-
-// BuildMCPTextResponse returns a raw MCP response map with a single text content item.
-func BuildMCPTextResponse(text string) map[string]any {
-	return mcpresult.NewTextResponse(text)
-}
