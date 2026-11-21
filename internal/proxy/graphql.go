@@ -227,10 +227,6 @@ func matchGraphQL(body []byte, parsed *graphQLParseCache) *GraphQLRouteMatch {
 	}
 }
 
-func hasAliasedPRResource(query string) bool {
-	return hasAliasedPRResourceParsed(query, &graphQLParseCache{})
-}
-
 func hasAliasedPRResourceParsed(query string, parsed *graphQLParseCache) bool {
 	doc, err := parsed.parse(query)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/github/gh-aw-mcpg/internal/mcpresult"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -283,10 +284,10 @@ func TestConvertToCallToolResult(t *testing.T) {
 		require.NotNil(t, result)
 	})
 
-	t.Run("content as []map[string]interface{} (BuildMCPTextResponse output) is handled correctly", func(t *testing.T) {
-		// BuildMCPTextResponse returns content as []map[string]interface{}, not []interface{}.
+	t.Run("content as []map[string]interface{} (mcpresult.NewTextResponse output) is handled correctly", func(t *testing.T) {
+		// mcpresult.NewTextResponse returns content as []map[string]interface{}, not []interface{}.
 		// Passing its output directly to ConvertToCallToolResult must yield proper TextContent items.
-		input := BuildMCPTextResponse("hello from BuildMCPTextResponse")
+		input := mcpresult.NewTextResponse("hello from mcpresult.NewTextResponse")
 
 		result, err := ConvertToCallToolResult(input)
 
@@ -297,7 +298,7 @@ func TestConvertToCallToolResult(t *testing.T) {
 
 		text, ok := result.Content[0].(*sdk.TextContent)
 		require.True(t, ok, "Expected TextContent")
-		assert.Equal(t, "hello from BuildMCPTextResponse", text.Text)
+		assert.Equal(t, "hello from mcpresult.NewTextResponse", text.Text)
 	})
 
 	// This test exercises the fallback path in ConvertToCallToolResult where
@@ -724,23 +725,6 @@ func TestConvertToCallToolResult_ContentItemErrorPropagation(t *testing.T) {
 			assert.ErrorContains(t, err, tt.wantErrMsg)
 		})
 	}
-}
-
-func TestBuildMCPTextResponse(t *testing.T) {
-	t.Parallel()
-
-	text := `{"permission":"write"}`
-
-	result := BuildMCPTextResponse(text)
-
-	require := require.New(t)
-	assert := assert.New(t)
-
-	content, ok := result["content"].([]map[string]interface{})
-	require.True(ok)
-	require.Len(content, 1)
-	assert.Equal("text", content[0]["type"])
-	assert.Equal(text, content[0]["text"])
 }
 
 // BenchmarkConvertToCallToolResult_TextContent benchmarks the common case:

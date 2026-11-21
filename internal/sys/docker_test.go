@@ -291,49 +291,6 @@ func TestCheckPortMapping(t *testing.T) {
 	}
 }
 
-func TestIsHostNetworkMode(t *testing.T) {
-	tests := []struct {
-		name        string
-		containerID string
-		port        string
-		shouldError bool
-		dockerHost  string // if set, DOCKER_HOST is overridden for this subtest
-	}{
-		{
-			name:        "empty container ID",
-			containerID: "",
-			shouldError: true,
-		},
-		{
-			name:        "invalid container ID",
-			containerID: "invalid;id",
-			shouldError: true,
-		},
-		{
-			name:        "valid container ID format - container absent",
-			containerID: "abc123def4567890",
-			shouldError: true, // docker inspect will fail: socket doesn't exist
-			dockerHost:  "unix:///nonexistent/docker.sock",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.dockerHost != "" {
-				t.Setenv("DOCKER_HOST", tt.dockerHost)
-			}
-			hostNetwork, err := IsHostNetworkMode(tt.containerID)
-
-			if tt.shouldError {
-				require.Error(t, err, "Expected error for %s", tt.name)
-				assert.False(t, hostNetwork, "Should not be reported as host network on error")
-			} else {
-				require.NoError(t, err, "Unexpected error")
-			}
-		})
-	}
-}
-
 func TestCheckStdinInteractive(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -406,32 +363,6 @@ func TestCheckLogDirMounted(t *testing.T) {
 			}
 			result := CheckLogDirMounted(tt.containerID, tt.logDir)
 			assert.Equal(t, tt.expected, result, "Unexpected result for %s", tt.name)
-		})
-	}
-}
-
-func TestIsHostNetworkMode_WithDockerShim(t *testing.T) {
-	tests := []struct {
-		name     string
-		output   string
-		expected bool
-	}{
-		{name: "host network", output: "host", expected: true},
-		{name: "host network with trailing whitespace", output: "host  ", expected: true},
-		{name: "bridge network", output: "bridge", expected: false},
-		{name: "default network", output: "default", expected: false},
-		{name: "custom network", output: "my-network", expected: false},
-		{name: "empty output", output: "", expected: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dir := mockDockerBinary(t, tt.output+"\n", 0)
-			prependPath(t, dir)
-
-			hostNetwork, err := IsHostNetworkMode("abc123def4567890")
-			require.NoError(t, err)
-			assert.Equal(t, tt.expected, hostNetwork)
 		})
 	}
 }

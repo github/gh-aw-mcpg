@@ -122,21 +122,6 @@ func runDockerInspect(containerID, formatTemplate string) (string, error) {
 	return result, nil
 }
 
-// IsHostNetworkMode uses docker inspect to determine whether the container was
-// started with `--network host`. Host-networked containers do not have published
-// port mappings in NetworkSettings.Ports (Docker discards them), so port-mapping
-// checks must be skipped for them.
-func IsHostNetworkMode(containerID string) (bool, error) {
-	output, err := runDockerInspect(containerID, "{{.HostConfig.NetworkMode}}")
-	if err != nil {
-		return false, err
-	}
-
-	hostNetwork := output == "host"
-	logDocker.Printf("Network mode check: containerID=%s, networkMode=%s, host=%v", containerID, output, hostNetwork)
-	return hostNetwork, nil
-}
-
 // CheckPortMapping uses docker inspect to verify that the specified port is mapped.
 func CheckPortMapping(containerID, port string) (bool, error) {
 	logDocker.Printf("Checking port mapping: containerID=%s, port=%s", containerID, port)

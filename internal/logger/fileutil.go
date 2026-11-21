@@ -94,12 +94,6 @@ func initLogFile(logDir, fileName string, flags int) (*os.File, error) {
 	return file, nil
 }
 
-// atomicWriteFile writes data to filePath atomically using a synced temp-file
-// and rename strategy.
-func atomicWriteFile(filePath string, data []byte, perm os.FileMode) error {
-	return util.AtomicWriteFile(filePath, data, perm)
-}
-
 // writeJSONToFile marshals data as indented JSON and atomically writes it to
 // filepath.Join(logDir, fileName) with the given file permissions.
 // It is a shared helper used by logger types that periodically persist state
@@ -109,7 +103,7 @@ func writeJSONToFile(logDir, fileName string, data any, perm os.FileMode) error 
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON data for %s: %w", filepath.Join(logDir, fileName), err)
 	}
-	return atomicWriteFile(filepath.Join(logDir, fileName), jsonData, perm)
+	return util.AtomicWriteFile(filepath.Join(logDir, fileName), jsonData, perm)
 }
 
 // jsonFileSink holds the shared state common to stateful JSON-file loggers
