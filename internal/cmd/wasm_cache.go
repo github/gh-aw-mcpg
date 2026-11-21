@@ -72,18 +72,25 @@ func configureWasmCompilationCache(ctx context.Context, flagChanged bool, flagVa
 	}
 }
 
+// Keep setup dependencies replaceable so startup and shutdown error paths can
+// be tested without requiring a real cache failure.
+var (
+	configureWasmCacheForSetup = configureWasmCompilationCache
+	closeWasmCacheForSetup     = guard.CloseGlobalCompilationCache
+)
+
 // setupWasmCompilationCache configures the WASM compilation cache and returns
 // a cleanup function that must be deferred by the caller to release cache
 // resources on shutdown. resolvedDir is the cache directory that was configured;
 // an empty string indicates an in-memory cache is in use.
 func setupWasmCompilationCache(ctx context.Context, flagChanged bool, cacheDir, logDir string) (resolvedDir string, cleanup func(), err error) {
-	resolvedDir, err = configureWasmCompilationCache(ctx, flagChanged, cacheDir, logDir, logger.StartupWarn)
+	resolvedDir, err = configureWasmCacheForSetup(ctx, flagChanged, cacheDir, logDir, logger.StartupWarn)
 	if err != nil {
 		return "", nil, err
 	}
 	cleanupCtx := context.WithoutCancel(ctx)
 	return resolvedDir, func() {
-		if err := guard.CloseGlobalCompilationCache(cleanupCtx); err != nil {
+		if err := closeWasmCacheForSetup(cleanupCtx); err != nil {
 			logger.LogError("shutdown", "Failed to close WASM compilation cache: %v", err)
 		}
 	}, nil
