@@ -25,6 +25,7 @@ func ForcePublicReposInMap(raw map[string]interface{}) bool {
 	}
 
 	allowOnlyKeys := make([]string, 0, 1)
+	var existingAllowOnly map[string]interface{}
 	policy := &GuardPolicy{}
 	for key, value := range raw {
 		switch strings.ToLower(key) {
@@ -32,6 +33,9 @@ func ForcePublicReposInMap(raw map[string]interface{}) bool {
 			allowOnlyKeys = append(allowOnlyKeys, key)
 			if allowOnly, ok := value.(map[string]interface{}); ok && allowOnly != nil {
 				policy.AllowOnly = &AllowOnlyPolicy{}
+				if existingAllowOnly == nil {
+					existingAllowOnly = allowOnly
+				}
 			}
 		case "write-sink", "writesink":
 			policy.WriteSink = &WriteSinkPolicy{}
@@ -45,13 +49,35 @@ func ForcePublicReposInMap(raw map[string]interface{}) bool {
 	}
 	for _, key := range allowOnlyKeys {
 		if allowOnly, ok := raw[key].(map[string]interface{}); ok && allowOnly != nil {
-			allowOnly["repos"] = policy.AllowOnly.Repos
-		} else {
-			raw[key] = map[string]interface{}{
-				"repos":         policy.AllowOnly.Repos,
-				"min-integrity": IntegrityNone,
+			setPublicRepos(allowOnly)
+		}
+	}
+	for _, key := range allowOnlyKeys {
+		if allowOnly, ok := raw[key].(map[string]interface{}); !ok || allowOnly == nil {
+			replacement := make(map[string]interface{})
+			if existingAllowOnly != nil {
+				for field, value := range existingAllowOnly {
+					replacement[field] = value
+				}
+			} else {
+				replacement["min-integrity"] = IntegrityNone
 			}
+			setPublicRepos(replacement)
+			raw[key] = replacement
 		}
 	}
 	return true
+}
+
+func setPublicRepos(allowOnly map[string]interface{}) {
+	foundRepos := false
+	for key := range allowOnly {
+		if strings.EqualFold(key, "repos") {
+			allowOnly[key] = "public"
+			foundRepos = true
+		}
+	}
+	if !foundRepos {
+		allowOnly["repos"] = "public"
+	}
 }
