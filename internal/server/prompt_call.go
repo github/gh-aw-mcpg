@@ -15,11 +15,7 @@ import (
 )
 
 func (us *UnifiedServer) isPromptAllowed(serverID, promptName string) bool {
-	set, ok := us.allowedPromptSets[serverID]
-	if !ok || set == nil {
-		return true
-	}
-	allowed := set[promptName]
+	allowed := allowedByServerSet(us.allowedPromptSets, serverID, promptName)
 	if !allowed {
 		logUnified.Printf("isPromptAllowed: prompt blocked by allowlist: serverID=%s, promptName=%s", serverID, promptName)
 	}

@@ -1048,6 +1048,74 @@ func TestValidateAuthConfig(t *testing.T) {
 			shouldErr: false,
 		},
 		{
+			name: "valid Azure provider configuration",
+			server: &StdinServerConfig{
+				Type: "http",
+				URL:  "https://example.com/mcp",
+				Auth: &AuthConfig{
+					Type:          "github-oidc",
+					Provider:      "azure",
+					AzureTenantID: "tenant-id",
+					AzureClientID: "client-id",
+				},
+			},
+			shouldErr: false,
+		},
+		{
+			name: "unsupported Azure cloud",
+			server: &StdinServerConfig{
+				Type: "http",
+				URL:  "https://example.com/mcp",
+				Auth: &AuthConfig{
+					Type: "github-oidc", Provider: "azure", AzureTenantID: "tenant",
+					AzureClientID: "client", AzureCloud: "invalid",
+				},
+			},
+			shouldErr: true,
+			errMsg:    "azureCloud",
+		},
+		{
+			name: "Azure provider requires tenant ID",
+			server: &StdinServerConfig{
+				Type: "http",
+				URL:  "https://example.com/mcp",
+				Auth: &AuthConfig{
+					Type:          "github-oidc",
+					Provider:      "azure",
+					AzureClientID: "client-id",
+				},
+			},
+			shouldErr: true,
+			errMsg:    "azureTenantId",
+		},
+		{
+			name: "Azure provider requires client ID",
+			server: &StdinServerConfig{
+				Type: "http",
+				URL:  "https://example.com/mcp",
+				Auth: &AuthConfig{
+					Type:          "github-oidc",
+					Provider:      "azure",
+					AzureTenantID: "tenant-id",
+				},
+			},
+			shouldErr: true,
+			errMsg:    "azureClientId",
+		},
+		{
+			name: "unknown github-oidc provider is rejected",
+			server: &StdinServerConfig{
+				Type: "http",
+				URL:  "https://example.com/mcp",
+				Auth: &AuthConfig{
+					Type:     "github-oidc",
+					Provider: "unknown",
+				},
+			},
+			shouldErr: true,
+			errMsg:    "unknown",
+		},
+		{
 			name: "auth on stdio server is rejected",
 			server: &StdinServerConfig{
 				Type:      "stdio",

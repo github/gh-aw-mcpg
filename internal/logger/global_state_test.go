@@ -299,24 +299,46 @@ func TestInitLogFile_InvalidDirectory(t *testing.T) {
 	assert.ErrorContains(err, "failed to create log directory", "Error should mention directory creation failure")
 }
 
-func TestInitLogFile_UnwritableDirectory(t *testing.T) {
-	assert := assert.New(t)
-
-	// Use a non-writable directory path
-	// On most systems, /root or similar paths are not writable by regular users
-	logDir := "/root/nonexistent/directory"
-	fileName := "test.log"
-
-	file, err := initLogFile(logDir, fileName, os.O_APPEND)
-	if err == nil {
-		file.Close()
-		// If we succeeded, we might have unexpected permissions
-		// This is OK - just skip the test
-		t.Skip("Test requires non-writable directory, but directory was writable")
+func TestInitLogFile_DirectoryCreationFailures(t *testing.T) {
+	// Each case makes MkdirAll fail deterministically, independent of the
+	// user's privileges (a regular file cannot act as a directory component,
+	// even for root), so the test never depends on the host's permissions.
+	tests := []struct {
+		name   string
+		setup  func(t *testing.T) string
+		wantIn string
+	}{
+		{
+			name: "log directory path is a regular file",
+			setup: func(t *testing.T) string {
+				blocker := filepath.Join(t.TempDir(), "blocker")
+				require.NoError(t, os.WriteFile(blocker, []byte("x"), 0644))
+				return blocker
+			},
+			wantIn: "failed to create log directory",
+		},
+		{
+			name: "log directory nested under a regular file",
+			setup: func(t *testing.T) string {
+				blocker := filepath.Join(t.TempDir(), "blocker")
+				require.NoError(t, os.WriteFile(blocker, []byte("x"), 0644))
+				return filepath.Join(blocker, "nested", "logs")
+			},
+			wantIn: "failed to create log directory",
+		},
 	}
 
-	// Verify error message includes "failed to create log directory"
-	assert.ErrorContains(err, "failed to create log directory", "Error should mention directory creation failure")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file, err := initLogFile(tt.setup(t), "test.log", os.O_APPEND)
+			if file != nil {
+				file.Close()
+			}
+			require.Error(t, err)
+			assert.Nil(t, file)
+			assert.ErrorContains(t, err, tt.wantIn)
+		})
+	}
 }
 
 func TestInitLogFile_EmptyFileName(t *testing.T) {

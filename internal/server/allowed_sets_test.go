@@ -39,3 +39,45 @@ func TestAllowedSets_BuilderSemantics(t *testing.T) {
 		})
 	}
 }
+
+func TestAllowedByServerSet(t *testing.T) {
+	tests := []struct {
+		name      string
+		sets      map[string]map[string]bool
+		wantAllow bool
+	}{
+		{"nil map allows all", nil, true},
+		{"empty map allows all", map[string]map[string]bool{}, true},
+		{"missing server allows all", map[string]map[string]bool{"other": {"name": false}}, true},
+		{"nil set allows all", map[string]map[string]bool{"s": nil}, true},
+		{"empty set denies all", map[string]map[string]bool{"s": {}}, false},
+		{"listed name allowed", map[string]map[string]bool{"s": {"name": true}}, true},
+		{"unlisted name denied", map[string]map[string]bool{"s": {"other": true}}, false},
+		{"false entry denied", map[string]map[string]bool{"s": {"name": false}}, false},
+		{"other server entry ignored", map[string]map[string]bool{"s": {}, "other": {"name": true}}, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.wantAllow, allowedByServerSet(tc.sets, "s", "name"))
+
+			us := &UnifiedServer{
+				allowedToolSets:   tc.sets,
+				allowedPromptSets: tc.sets,
+			}
+			assert.Equal(t, tc.wantAllow, us.isToolAllowed("s", "name"))
+			assert.Equal(t, tc.wantAllow, us.isPromptAllowed("s", "name"))
+		})
+	}
+}
+
+func TestUnifiedServer_SeparateAllowlists(t *testing.T) {
+	us := &UnifiedServer{
+		allowedToolSets:   map[string]map[string]bool{"s": {"tool": true}},
+		allowedPromptSets: map[string]map[string]bool{"s": {"prompt": true}},
+	}
+	assert.True(t, us.isToolAllowed("s", "tool"))
+	assert.False(t, us.isToolAllowed("s", "prompt"))
+	assert.True(t, us.isPromptAllowed("s", "prompt"))
+	assert.False(t, us.isPromptAllowed("s", "tool"))
+}

@@ -57,6 +57,38 @@ args = ["run", "--rm", "-e", "NO_COLOR=1", "ghcr.io/github/github-mcp-server:lat
 	assert.Equal(t, []string{"run", "--rm", "-e", "NO_COLOR=1"}, cfg.Servers["github"].ContainerRuntimeArgs)
 }
 
+func TestLoadFromFileExpandsAzureOIDCAuthVariables(t *testing.T) {
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://token.actions.example.com")
+	t.Setenv("AZURE_TENANT_ID", "tenant-id")
+	t.Setenv("AZURE_CLIENT_ID", "client-id")
+	t.Setenv("AZURE_AI_GATEWAY_SCOPE", "api://gateway/.default")
+	t.Setenv("AZURE_CLOUD", "china")
+
+	path := writeTempTOML(t, `
+[gateway]
+agent_id = "test-agent"
+
+[servers.azure]
+type = "http"
+url = "https://gateway.example.com/mcp"
+
+[servers.azure.auth]
+type = "github-oidc"
+provider = "azure"
+azure_tenant_id = "${AZURE_TENANT_ID}"
+azure_client_id = "${AZURE_CLIENT_ID}"
+azure_scope = "${AZURE_AI_GATEWAY_SCOPE}"
+azure_cloud = "${AZURE_CLOUD}"
+`)
+
+	cfg, err := LoadFromFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "tenant-id", cfg.Servers["azure"].Auth.AzureTenantID)
+	assert.Equal(t, "client-id", cfg.Servers["azure"].Auth.AzureClientID)
+	assert.Equal(t, "api://gateway/.default", cfg.Servers["azure"].Auth.AzureScope)
+	assert.Equal(t, "china", cfg.Servers["azure"].Auth.AzureCloud)
+}
+
 func TestContainerRuntimeArgsRecognizesValueOptions(t *testing.T) {
 	args := []string{"run", "--ipc", "host", "--pids-limit", "100", "--volume", "/tmp:/tmp", "image:latest", "--privileged"}
 

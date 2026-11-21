@@ -1295,6 +1295,23 @@ func TestConvertStdinServerConfig_HTTPWithAuth(t *testing.T) {
 			"Audience should default to the server URL")
 	})
 
+	t.Run("Azure auth preserves all fields without defaulting audience", func(t *testing.T) {
+		auth := &AuthConfig{
+			Type: "github-oidc", Provider: "azure", AzureTenantID: "tenant-id",
+			AzureClientID: "client-id", AzureScope: "api://gateway/.default", AzureCloud: "china",
+		}
+		server := &StdinServerConfig{Type: "http", URL: "https://my-server.example.com/mcp", Auth: auth}
+		result, err := convertStdinServerConfig("azure", server, nil)
+		require.NoError(t, err)
+		require.NotNil(t, result.Auth)
+		assert.Equal(t, auth, result.Auth)
+		assert.NotSame(t, auth, result.Auth)
+		auth.Audience = "api://custom"
+		result, err = convertStdinServerConfig("azure", server, nil)
+		require.NoError(t, err)
+		assert.Equal(t, "api://custom", result.Auth.Audience)
+	})
+
 	t.Run("HTTP server without auth has nil Auth", func(t *testing.T) {
 		server := &StdinServerConfig{
 			Type: "http",
@@ -1365,6 +1382,38 @@ func TestStdinServerConfig_AuthJSON(t *testing.T) {
 		_, exists := server.AdditionalProperties["auth"]
 		assert.False(t, exists, "auth should be a known field, not an additional property")
 	})
+}
+
+func TestLoadFromStdinAzureAuth(t *testing.T) {
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://token.actions.example.com")
+	t.Setenv("AZURE_CLOUD", "china")
+	for _, tt := range []struct {
+		name    string
+		auth    string
+		wantErr string
+	}{
+		{"valid", `{"type":"github-oidc","provider":"azure","azureTenantId":"tenant","azureClientId":"client","azureScope":"api://gateway/.default","azureCloud":"${AZURE_CLOUD}"}`, ""},
+		{"unknown key", `{"type":"github-oidc","provider":"azure","azureTenantId":"tenant","azureClientId":"client","azureCluod":"china"}`, "azureCluod"},
+		{"missing tenant", `{"type":"github-oidc","provider":"azure","azureClientId":"client"}`, "azureTenantId"},
+		{"unsupported cloud", `{"type":"github-oidc","provider":"azure","azureTenantId":"tenant","azureClientId":"client","azureCloud":"other"}`, "azureCloud"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanup := setupStdinTest(t, `{"gateway":{"port":8080,"domain":"localhost","agentId":"test"},"mcpServers":{"azure":{"type":"http","url":"https://gateway.example.com/mcp","auth":`+tt.auth+`}}}`)
+			defer cleanup()
+			cfg, err := LoadFromStdin()
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, cfg.Servers["azure"].Auth)
+			assert.Equal(t, &AuthConfig{
+				Type: "github-oidc", Provider: "azure", AzureTenantID: "tenant",
+				AzureClientID: "client", AzureScope: "api://gateway/.default", AzureCloud: "china",
+			}, cfg.Servers["azure"].Auth)
+		})
+	}
 }
 
 func TestStdinServerConfig_TimeoutJSONAliases(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/config"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/mcp"
+	"github.com/github/gh-aw-mcpg/internal/util"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -55,6 +56,21 @@ func registerToolWithoutValidation(server *sdk.Server, tool *sdk.Tool, handler f
 		result, _, err := handler(ctx, req, nil)
 		return result, err
 	})
+}
+
+// unifiedHandlerFor resolves and wraps backend handlers for filtered routed tool views.
+func unifiedHandlerFor(us *UnifiedServer, backendID, handlerLabel string) func(ToolInfo) func(context.Context, *sdk.CallToolRequest, interface{}) (*sdk.CallToolResult, interface{}, error) {
+	return func(toolInfo ToolInfo) func(context.Context, *sdk.CallToolRequest, interface{}) (*sdk.CallToolResult, interface{}, error) {
+		handler := us.GetToolHandler(backendID, toolInfo.Name)
+		if handler == nil {
+			logRouted.Printf("WARNING: No handler found for %s", util.PrefixToolName(backendID, toolInfo.Name))
+			return nil
+		}
+		return func(ctx context.Context, req *sdk.CallToolRequest, _ interface{}) (*sdk.CallToolResult, interface{}, error) {
+			logRouted.Printf("[ROUTED] Calling %s handler for: %s", handlerLabel, toolInfo.Name)
+			return handler(ctx, req, nil)
+		}
+	}
 }
 
 // registerFilteredTools registers tools allowed for an agent and returns their count.
@@ -188,6 +204,15 @@ func buildAllowedSets(cfg *config.Config, kind string, namesFor func(*config.Ser
 	}
 	logToolRegistryHelpers.Printf("Built allowed %s sets: %d server(s) with %s restrictions", kind, len(sets), kind)
 	return sets
+}
+
+// allowedByServerSet permits every name when the server's set is missing or nil.
+func allowedByServerSet(sets map[string]map[string]bool, serverID, name string) bool {
+	set := sets[serverID]
+	if set == nil {
+		return true
+	}
+	return set[name]
 }
 
 // hasWildcard reports whether the tools list contains a "*" entry.

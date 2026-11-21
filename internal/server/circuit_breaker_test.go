@@ -422,7 +422,7 @@ func TestExtractRateLimitErrorText(t *testing.T) {
 		assert.Equal(t, "rate limit exceeded", extractRateLimitErrorText(result))
 	})
 
-	t.Run("extracts text from mcpresult.NewTextResponse output", func(t *testing.T) {
+	t.Run("extracts text from NewTextResponse output", func(t *testing.T) {
 		t.Parallel()
 		result := mcpresult.NewTextResponse("API rate limit exceeded")
 		assert.Equal(t, "API rate limit exceeded", extractRateLimitErrorText(result))

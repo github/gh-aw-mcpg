@@ -287,7 +287,7 @@ func TestConvertToCallToolResult(t *testing.T) {
 	t.Run("content as []map[string]interface{} (mcpresult.NewTextResponse output) is handled correctly", func(t *testing.T) {
 		// mcpresult.NewTextResponse returns content as []map[string]interface{}, not []interface{}.
 		// Passing its output directly to ConvertToCallToolResult must yield proper TextContent items.
-		input := mcpresult.NewTextResponse("hello from NewTextResponse")
+		input := mcpresult.NewTextResponse("hello from mcpresult.NewTextResponse")
 
 		result, err := ConvertToCallToolResult(input)
 
@@ -298,7 +298,7 @@ func TestConvertToCallToolResult(t *testing.T) {
 
 		text, ok := result.Content[0].(*sdk.TextContent)
 		require.True(t, ok, "Expected TextContent")
-		assert.Equal(t, "hello from NewTextResponse", text.Text)
+		assert.Equal(t, "hello from mcpresult.NewTextResponse", text.Text)
 	})
 
 	// This test exercises the fallback path in ConvertToCallToolResult where

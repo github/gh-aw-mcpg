@@ -220,6 +220,28 @@ func validateAuthConfig(auth *AuthConfig, serverName, jsonPath string) error {
 			UnsupportedType("type", auth.Type, authPath, fmt.Sprintf("Unsupported auth type %q. Currently only \"github-oidc\" is supported", auth.Type)))
 	}
 
+	if auth.Provider != "" && auth.Provider != "azure" {
+		return validator.fail(
+			fmt.Sprintf("unsupported auth.provider: %s", auth.Provider),
+			UnsupportedType("provider", auth.Provider, authPath, fmt.Sprintf("Unsupported auth provider %q. Currently only \"azure\" is supported", auth.Provider)))
+	}
+	switch auth.AzureCloud {
+	case "", "public", "usgovernment", "china":
+	default:
+		return validator.fail("unsupported Azure cloud", UnsupportedType("azureCloud", auth.AzureCloud, authPath, "Supported Azure clouds are public, usgovernment, and china"))
+	}
+	if auth.Provider == "azure" {
+		if strings.TrimSpace(auth.AzureTenantID) == "" {
+			return validator.fail("Azure OIDC tenant ID is empty", MissingRequired("azureTenantId", "auth", authPath, "Specify auth.azureTenantId when auth.provider is \"azure\""))
+		}
+		if strings.TrimSpace(auth.AzureClientID) == "" {
+			return validator.fail("Azure OIDC client ID is empty", MissingRequired("azureClientId", "auth", authPath, "Specify auth.azureClientId when auth.provider is \"azure\""))
+		}
+		if auth.AzureScope != "" && strings.TrimSpace(auth.AzureScope) == "" {
+			return validator.fail("Azure OIDC scope is empty", MissingRequired("azureScope", "auth", authPath, "Set auth.azureScope to a non-empty scope or omit it to use the default"))
+		}
+	}
+
 	// Fail-fast: check that required OIDC environment variables are present.
 	// This catches misconfigurations at config-load time rather than deferring
 	// the error to the first request against this server.

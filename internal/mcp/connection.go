@@ -210,17 +210,17 @@ func NewConnection(ctx context.Context, serverID, command string, args []string,
 // custom http.RoundTripper, so the SDK transports are used even when authentication
 // headers are configured.
 //
-// When oidcProvider is non-nil, a GitHub Actions OIDC token is dynamically acquired
+// When oidcProvider is non-nil, an access token is dynamically acquired
 // and injected as Authorization: Bearer on every request, overriding any static
 // Authorization header from the headers map.
 //
 // This ensures compatibility with all types of HTTP MCP servers.
-func NewHTTPConnection(ctx context.Context, serverID, url string, headers map[string]string, oidcProvider *oidc.Provider, oidcAudience string, keepAlive time.Duration, connectTimeout time.Duration) (*Connection, error) {
+func NewHTTPConnection(ctx context.Context, serverID, url string, headers map[string]string, oidcProvider oidc.TokenSource, oidcAudience string, keepAlive time.Duration, connectTimeout time.Duration) (*Connection, error) {
 	return NewHTTPConnectionWithCA(ctx, serverID, url, headers, oidcProvider, oidcAudience, keepAlive, connectTimeout, "")
 }
 
 // NewHTTPConnectionWithCA creates an HTTP MCP connection with an optional per-server CA certificate file.
-func NewHTTPConnectionWithCA(ctx context.Context, serverID, url string, headers map[string]string, oidcProvider *oidc.Provider, oidcAudience string, keepAlive time.Duration, connectTimeout time.Duration, caCertFile string) (*Connection, error) {
+func NewHTTPConnectionWithCA(ctx context.Context, serverID, url string, headers map[string]string, oidcProvider oidc.TokenSource, oidcAudience string, keepAlive time.Duration, connectTimeout time.Duration, caCertFile string) (*Connection, error) {
 	// Apply default connect timeout when not specified
 	connectTimeout = normalizeConnectTimeout(connectTimeout)
 	rootCAs, err := loadServerCARoots(serverID, caCertFile)
