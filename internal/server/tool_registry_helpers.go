@@ -190,6 +190,15 @@ func buildAllowedSets(cfg *config.Config, kind string, namesFor func(*config.Ser
 	return sets
 }
 
+// allowedByServerSet permits every name when the server's set is missing or nil.
+func allowedByServerSet(sets map[string]map[string]bool, serverID, name string) bool {
+	set := sets[serverID]
+	if set == nil {
+		return true
+	}
+	return set[name]
+}
+
 // hasWildcard reports whether the tools list contains a "*" entry.
 func hasWildcard(tools []string) bool {
 	for _, t := range tools {
