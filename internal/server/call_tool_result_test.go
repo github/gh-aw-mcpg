@@ -95,6 +95,49 @@ func TestConvertToCallToolResult_VariousFormats(t *testing.T) {
 			expectIsError:  false,
 			expectContents: 1,
 		},
+		{
+			name: "non-map content item is rejected",
+			input: map[string]interface{}{
+				"content": []interface{}{"not-a-map"},
+			},
+			expectError: true,
+		},
+		{
+			name: "image content without data is rejected",
+			input: map[string]interface{}{
+				"content": []interface{}{
+					map[string]interface{}{
+						"type":     "image",
+						"mimeType": "image/png",
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "image content with invalid base64 data is rejected",
+			input: map[string]interface{}{
+				"content": []interface{}{
+					map[string]interface{}{
+						"type": "image",
+						"data": "!!!not-base64",
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "image content with unsupported data type is rejected",
+			input: map[string]interface{}{
+				"content": []interface{}{
+					map[string]interface{}{
+						"type": "image",
+						"data": 42,
+					},
+				},
+			},
+			expectError: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -159,22 +202,22 @@ func TestNewErrorCallToolResult(t *testing.T) {
 	tests := []struct {
 		name        string
 		err         error
-		expectError bool
+		expectedMsg string
 	}{
 		{
 			name:        "simple error",
 			err:         fmt.Errorf("test error"),
-			expectError: true,
+			expectedMsg: "test error",
 		},
 		{
 			name:        "formatted error",
 			err:         fmt.Errorf("formatted error: %s", "test"),
-			expectError: true,
+			expectedMsg: "formatted error: test",
 		},
 		{
 			name:        "nil error fallback",
 			err:         nil,
-			expectError: true,
+			expectedMsg: "unknown error",
 		},
 	}
 
@@ -182,11 +225,11 @@ func TestNewErrorCallToolResult(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, data, err := mcp.NewErrorCallToolResult(tt.err)
 
-			// Verify the error is returned
-			if tt.err == nil {
-				require.Error(t, err, "nil error input should return a fallback error")
-			} else {
-				assert.Equal(t, tt.err, err, "Error should be returned as-is")
+			// The returned error is the input error as-is, or a fallback when the input is nil
+			require.Error(t, err, "NewErrorCallToolResult should always return a non-nil error")
+			assert.EqualError(t, err, tt.expectedMsg, "Returned error message should match")
+			if tt.err != nil {
+				assert.Equal(t, tt.err, err, "Non-nil error should be returned as-is")
 			}
 
 			// Verify data is nil
@@ -200,7 +243,7 @@ func TestNewErrorCallToolResult(t *testing.T) {
 			require.Len(t, result.Content, 1, "Should have one content item with error message")
 			textContent, ok := result.Content[0].(*sdk.TextContent)
 			require.True(t, ok, "Content should be TextContent")
-			assert.Equal(t, err.Error(), textContent.Text, "Error message should be in content")
+			assert.Equal(t, tt.expectedMsg, textContent.Text, "Error message should be in content")
 
 			t.Logf("✓ Error CallToolResult properly created with IsError=%v, message=%q", result.IsError, textContent.Text)
 		})
