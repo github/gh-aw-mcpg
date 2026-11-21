@@ -233,6 +233,19 @@ args = [
 # type = "github-oidc"
 # audience = "https://example.com/mcp"
 
+# Optional: Exchange a GitHub Actions OIDC assertion for a Microsoft Entra token
+# [servers.azure-ai-gateway]
+# type = "http"
+# url = "https://YOUR_GATEWAY_HOST/default/toolservers/YOUR_SERVER_NAME/mcp"
+# [servers.azure-ai-gateway.auth]
+# type = "github-oidc"
+# provider = "azure"
+# azure_tenant_id = "${AZURE_TENANT_ID}"
+# azure_client_id = "${AZURE_CLIENT_ID}"
+# azure_scope = "${AZURE_AI_GATEWAY_SCOPE}"
+# azure_cloud = "public" # public (default), usgovernment, or china
+# For sovereign clouds, set audience and azure_scope for the cloud and target resource.
+
 # ============================================================================
 # Advanced Options
 # ============================================================================

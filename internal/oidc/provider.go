@@ -1,4 +1,5 @@
-// Package oidc provides GitHub Actions OIDC token acquisition and caching.
+// Package oidc provides GitHub Actions OIDC token acquisition and caching,
+// along with Entra access-token exchange.
 //
 // The Provider fetches short-lived JWTs from the GitHub Actions OIDC endpoint
 // (ACTIONS_ID_TOKEN_REQUEST_URL) and caches them per audience, refreshing
@@ -11,14 +12,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/envutil"
+	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
@@ -30,6 +30,11 @@ const (
 	// EnvActionsIDTokenRequestToken names the bearer token for OIDC requests.
 	EnvActionsIDTokenRequestToken = "ACTIONS_ID_TOKEN_REQUEST_TOKEN"
 )
+
+// TokenSource returns an access token for the requested GitHub OIDC audience.
+type TokenSource interface {
+	Token(context.Context, string) (string, error)
+}
 
 // tokenRefreshMargin is how far before expiry we proactively refresh a cached token.
 const tokenRefreshMargin = 60 * time.Second
@@ -162,7 +167,12 @@ func (p *Provider) fetchToken(ctx context.Context, audience string) (string, tim
 		logOIDC.Printf("OIDC token HTTP request failed: audience=%s, err=%v", audience, err)
 		return "", time.Time{}, fmt.Errorf("OIDC token request failed: %w", err)
 	}
-	body, err := httputil.ReadResponseBodyStrict(resp, http.StatusOK, "OIDC token request")
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		logOIDC.Printf("OIDC token response rejected: audience=%s, status=%d", audience, resp.StatusCode)
+		return "", time.Time{}, fmt.Errorf("OIDC token request returned HTTP %d", resp.StatusCode)
+	}
+	body, err := httputil.ReadResponseBody(resp, "OIDC token request")
 	if err != nil {
 		logOIDC.Printf("OIDC token response rejected: audience=%s, status=%d", audience, resp.StatusCode)
 		return "", time.Time{}, err

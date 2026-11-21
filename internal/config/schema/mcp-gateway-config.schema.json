@@ -246,23 +246,68 @@
         },
         "auth": {
           "type": "object",
-          "description": "Upstream authentication configuration for the HTTP MCP server. When configured, the gateway dynamically acquires tokens and injects them as Authorization headers on every outgoing request to this server. Currently only GitHub Actions OIDC is supported.",
+          "description": "Upstream authentication configuration for the HTTP MCP server. When configured, the gateway dynamically acquires tokens and injects them as Authorization headers on every outgoing request to this server. GitHub Actions OIDC can be used directly or exchanged for an Entra token.",
           "properties": {
             "type": {
               "type": "string",
+              "const": "github-oidc",
+              "description": "Authentication type. 'github-oidc' acquires short-lived JWTs from the GitHub Actions OIDC endpoint."
+            },
+            "provider": {
+              "type": "string",
               "enum": [
-                "github-oidc"
+                "azure"
               ],
-              "description": "Authentication type. Currently only 'github-oidc' is supported, which acquires short-lived JWTs from the GitHub Actions OIDC endpoint."
+              "description": "Optional token exchange provider. 'azure' exchanges the GitHub Actions OIDC assertion for an Entra access token."
             },
             "audience": {
               "type": "string",
-              "description": "The intended audience for the OIDC token (the 'aud' claim). If omitted, defaults to the server's url field.",
+              "description": "The intended audience for the GitHub OIDC assertion. Defaults to the server URL for direct authentication or api://AzureADTokenExchange for Azure.",
               "format": "uri"
+            },
+            "azureTenantId": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Entra tenant ID. Required when provider is 'azure'."
+            },
+            "azureClientId": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Entra application client ID. Required when provider is 'azure'."
+            },
+            "azureScope": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Entra access-token scope. Defaults to https://cognitiveservices.azure.com/.default."
+            },
+            "azureCloud": {
+              "type": "string",
+              "enum": ["public", "usgovernment", "china"],
+              "description": "Azure cloud used for token exchange. Defaults to public."
             }
           },
           "required": [
             "type"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "provider": {
+                    "const": "azure"
+                  }
+                },
+                "required": [
+                  "provider"
+                ]
+              },
+              "then": {
+                "required": [
+                  "azureTenantId",
+                  "azureClientId"
+                ]
+              }
+            }
           ],
           "additionalProperties": false
         },

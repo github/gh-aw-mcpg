@@ -102,6 +102,53 @@ func TestValidateJSONSchema(t *testing.T) {
 			shouldErr: false,
 		},
 		{
+			name: "valid Azure OIDC auth config",
+			config: `{
+				"mcpServers": {
+					"remote": {
+						"type": "http",
+						"url": "https://api.example.com/mcp",
+						"auth": {
+							"type": "github-oidc",
+							"provider": "azure",
+							"azureTenantId": "tenant-id",
+							"azureClientId": "client-id",
+							"azureScope": "api://gateway/.default"
+						}
+					}
+				},
+				"gateway": {
+					"port": 8080,
+					"domain": "localhost",
+					"agentId": "test-key"
+				}
+			}`,
+			shouldErr: false,
+		},
+		{
+			name: "Azure OIDC schema requires tenant and client IDs",
+			config: `{
+				"mcpServers": {
+					"remote": {
+						"type": "http",
+						"url": "https://api.example.com/mcp",
+						"auth": {
+							"type": "github-oidc",
+							"provider": "azure",
+							"azureClientId": "client-id"
+						}
+					}
+				},
+				"gateway": {
+					"port": 8080,
+					"domain": "localhost",
+					"agentId": "test-key"
+				}
+			}`,
+			shouldErr: true,
+			errorMsg:  "validation error",
+		},
+		{
 			name: "valid topology hostname domain (network-isolation)",
 			config: `{
 				"mcpServers": {

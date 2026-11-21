@@ -1241,6 +1241,29 @@ func TestOIDCRoundTripper_SetsAuthorizationHeader(t *testing.T) {
 	assert.Equal(t, "Bearer "+jwtToken, receivedAuth, "OIDC token should be injected as Authorization: Bearer")
 }
 
+func TestOIDCClientRejectsRedirect(t *testing.T) {
+	oidcServer := newTestOIDCServer(t, makeTestJWT(time.Now().Add(10*time.Minute).Unix()))
+	defer oidcServer.Close()
+	redirected := make(chan struct{}, 1)
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		redirected <- struct{}{}
+	}))
+	defer target.Close()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusFound)
+	}))
+	defer server.Close()
+
+	base := &http.Client{}
+	client := buildHTTPClientWithOIDC(base, oidc.NewProvider(oidcServer.URL, "request-token"), "audience")
+	resp, err := client.Get(server.URL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusFound, resp.StatusCode)
+	assert.Empty(t, redirected)
+	assert.Nil(t, base.CheckRedirect)
+}
+
 // TestOIDCRoundTripper_StaticHeadersCoexist verifies that static headers are preserved
 // while the OIDC token overrides the Authorization header.
 // This test mirrors the layering order used in NewHTTPConnection:

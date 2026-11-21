@@ -144,7 +144,7 @@ These variables are set automatically by the GitHub Actions runner. The gateway 
 
 ## GitHub Actions OIDC Variables
 
-When any HTTP server uses `auth.type = "github-oidc"`, the gateway reads these environment variables (set automatically by the GitHub Actions runner when `permissions: { id-token: write }` is granted):
+When any HTTP server uses `auth.type = "github-oidc"`, the gateway reads these environment variables (set automatically by the GitHub Actions runner when `permissions: { id-token: write }` is granted). Azure provider credentials are configured per server as `azureTenantId`, `azureClientId`, and optionally `azureScope` (or `azure_tenant_id`, `azure_client_id`, and `azure_scope` in TOML).
 
 | Variable | Description | Default |
 |----------|-------------|---------|
