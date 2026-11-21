@@ -31,6 +31,7 @@ type stubGuard struct {
 	labelResponseErr    error
 	labelResourceTool   string
 	labelResourceArgs   interface{}
+	labelResponseCalls  int
 }
 
 func (g *stubGuard) Name() string { return "stub" }
@@ -49,6 +50,7 @@ func (g *stubGuard) LabelResource(_ context.Context, toolName string, args inter
 }
 
 func (g *stubGuard) LabelResponse(_ context.Context, _ string, _ interface{}, _ guard.BackendCaller, _ *difc.Capabilities) (difc.LabeledData, error) {
+	g.labelResponseCalls++
 	return g.labelResponseData, g.labelResponseErr
 }
 
@@ -100,6 +102,91 @@ func newTestServerWithPrivateAgent(t *testing.T, upstreamURL string, g *stubGuar
 		httpClient:       &http.Client{},
 		guardInitialized: true,
 	}
+}
+
+func TestHandleWithDIFC_RedirectRequiresCoarseAuthorization(t *testing.T) {
+	for _, delegated := range []bool{false, true} {
+		for _, allowed := range []bool{false, true} {
+			t.Run(fmt.Sprintf("delegated=%t/allowed=%t", delegated, allowed), func(t *testing.T) {
+				var requestedPaths, authorizationHeaders []string
+				upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					requestedPaths = append(requestedPaths, r.URL.Path)
+					authorizationHeaders = append(authorizationHeaders, r.Header.Get("Authorization"))
+					w.Header().Set("Content-Type", "application/json")
+					if r.URL.Path == "/repos/a/x" {
+						w.Header().Set("Location", "http://"+r.Host+"/repos/a/y")
+						w.WriteHeader(http.StatusMovedPermanently)
+						_, _ = w.Write([]byte(`{"message":"repository renamed"}`))
+						return
+					}
+					_, _ = w.Write([]byte(`{"secret":"redirect target body"}`))
+				}))
+				defer upstream.Close()
+
+				resource := privateResource()
+				if allowed {
+					resource = publicResource()
+				}
+				g := &stubGuard{labelResourceResult: resource, labelResourceOp: difc.OperationRead}
+				s := newTestServerWithStub(t, upstream.URL, g, difc.EnforcementFilter)
+				s.githubToken = "server-token"
+				if delegated {
+					s.delegation = &DelegationConfig{}
+				}
+				req := httptest.NewRequest(http.MethodGet, "http://proxy.test/api/v3/repos/a/x", nil)
+				req.Header.Set("Authorization", "token client-token")
+				w := httptest.NewRecorder()
+				(&proxyHandler{server: s}).handleWithDIFC(w, req, "/repos/a/x", "get_file_contents",
+					map[string]interface{}{"owner": "a", "repo": "x"}, nil)
+
+				assert.Equal(t, []string{"/repos/a/x"}, requestedPaths)
+				expectedAuth := "token client-token"
+				if delegated {
+					expectedAuth = "token server-token"
+				}
+				assert.Equal(t, []string{expectedAuth}, authorizationHeaders)
+				assert.Zero(t, g.labelResponseCalls, "redirects must not enter response filtering")
+				assert.NotContains(t, w.Body.String(), "redirect target body")
+				if allowed {
+					assert.Equal(t, http.StatusMovedPermanently, w.Code)
+					assert.JSONEq(t, `{"message":"repository renamed"}`, w.Body.String())
+					assert.Equal(t, "http://proxy.test/api/v3/repos/a/y", w.Header().Get("Location"))
+				} else {
+					assert.Equal(t, http.StatusForbidden, w.Code)
+					assert.Contains(t, w.Body.String(), "response requires resource access")
+					assert.Empty(t, w.Header().Get("Location"))
+				}
+			})
+		}
+	}
+}
+
+func TestHandleWithDIFC_DelegatedRenameRedirect(t *testing.T) {
+	var requestedPaths []string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestedPaths = append(requestedPaths, r.URL.Path)
+		if r.URL.Path == "/repos/a/x/issues" {
+			w.Header().Set("Location", "http://"+r.Host+"/repos/a/y/issues")
+			w.WriteHeader(http.StatusMovedPermanently)
+			return
+		}
+		_, _ = w.Write([]byte(`[{"secret":"redirect target body"}]`))
+	}))
+	defer upstream.Close()
+
+	h, store := newDelegatedTestHandler(t, upstream.URL, "a/x")
+	bearer := createDelegatedIdentity(t, store, "a/x")
+	w := delegatedRequest(h, http.MethodGet, "http://proxy.test/api/v3/repos/a/x/issues", bearer)
+
+	assert.Equal(t, http.StatusMovedPermanently, w.Code)
+	assert.Equal(t, []string{"/repos/a/x/issues"}, requestedPaths)
+	assert.Equal(t, "http://proxy.test/api/v3/repos/a/y/issues", w.Header().Get("Location"))
+	assert.NotContains(t, w.Body.String(), "redirect target body")
+
+	// Following the rewritten URL must reauthorize the renamed repository.
+	denied := delegatedRequest(h, http.MethodGet, "http://proxy.test/api/v3/repos/a/y/issues", bearer)
+	assert.Equal(t, http.StatusForbidden, denied.Code)
+	assert.Equal(t, []string{"/repos/a/x/issues"}, requestedPaths)
 }
 
 // ─── Phase 1: LabelResource error → 502 ──────────────────────────────────────

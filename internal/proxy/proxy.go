@@ -12,7 +12,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
@@ -28,8 +27,6 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/tracing"
 	"github.com/github/gh-aw-mcpg/internal/util"
 )
-
-var artifactZipDownloadPathPattern = regexp.MustCompile(`^/repos/[^/]+/[^/]+/actions/artifacts/\d+/zip$`)
 
 var logProxy = logger.ForFile()
 
@@ -189,10 +186,8 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	if cfg.Enclave != nil {
 		s.enclave = newEnclaveState(cfg.Enclave.Policy, cfg.Enclave.Verifier)
 	}
-	if cfg.Enclave != nil || cfg.ReadOnly {
-		s.httpClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
-			return http.ErrUseLastResponse
-		}
+	s.httpClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
 	}
 
 	// Initialize guard policy (LabelAgent)
@@ -545,14 +540,7 @@ func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body 
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	if s.readOnly {
-		return doWithoutFollowingRedirects(s.httpClient, req)
-	}
-	if method == http.MethodGet && artifactZipDownloadPathPattern.MatchString(pathOnly) {
-		logProxy.Print("forwardToGitHub: artifact zip download, not following redirects")
-		return doWithoutFollowingRedirects(s.httpClient, req)
-	}
-	return s.httpClient.Do(req)
+	return doWithoutFollowingRedirects(s.httpClient, req)
 }
 
 func buildUpstreamRequestURL(baseURL, requestPath, query string, hasQuery bool) (string, error) {

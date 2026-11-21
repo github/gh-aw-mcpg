@@ -25,15 +25,27 @@ when configured by the environment. In read-only mode, only supported GET REST
 routes and structurally valid GraphQL queries are forwarded. Mutating HTTP
 methods, GraphQL mutations/subscriptions, ambiguous or malformed GraphQL
 documents, unsupported routes, and method-override headers are rejected before
-forwarding. Upstream redirects are not followed. This applies regardless of
-whether authentication comes from the client or a fallback token, including
-enclave and delegated forwarding paths.
+forwarding.
 
 For `gh aw compile --dry-run`, run the separate `awmg proxy` process with
 `--read-only` (or set `MCP_GATEWAY_PROXY_READ_ONLY=1`) in addition to the
 GitHub MCP server's `GITHUB_READ_ONLY=1`; the MCP setting does not configure
 this CLI proxy. The flag constrains this proxy's API requests, not credential
 permissions or other workflow side effects.
+
+### Upstream redirects
+
+Upstream redirects are never followed in any proxy mode: default, read-only,
+enclave, or delegation, regardless of whether authentication comes from the
+client or a fallback token. Redirect responses require coarse resource
+authorization; authorized clients receive the upstream 3xx, while enclave mode
+denies redirects.
+
+Absolute `Location` URLs within the configured upstream API base are rewritten
+to the proxy's API address (including `/api/v3` when used by `gh`). A client
+following that URL makes a new request through the proxy, where the target
+repository is authorized independently. External download URLs, such as
+artifact ZIP locations, are preserved after authorization.
 
 ### With `gh` CLI (TLS mode)
 
