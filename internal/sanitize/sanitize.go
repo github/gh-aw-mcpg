@@ -35,6 +35,8 @@ import (
 	"encoding/json"
 	"regexp"
 	"strings"
+
+	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 // SecretPatterns contains regex patterns for detecting potential secrets
@@ -133,22 +135,13 @@ func hasHexRun(s string, n int) bool {
 	return false
 }
 
-func isASCII(s string) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] >= 0x80 {
-			return false
-		}
-	}
-	return true
-}
-
 // SanitizeString replaces potential secrets in a string with [REDACTED].
 // When private-selector redaction is enabled (enclave and delegation proxy
 // profiles), repository selectors, repository API paths, and runtime
 // delegation identifiers are additionally replaced with stable hashes.
 func SanitizeString(message string) string {
 	result := message
-	filter := isASCII(message)
+	filter := util.IsASCII(message)
 	var lower string
 	if filter {
 		lower = strings.ToLower(result)

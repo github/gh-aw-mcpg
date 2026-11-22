@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 var logReposelector = logger.ForFile()
@@ -48,7 +49,7 @@ const repoNameRejectionTraversal = "traversal"
 // IsCanonicalOwner reports whether owner is the exact canonical ASCII byte
 // sequence required for a repository owner: ^[a-z0-9](?:[a-z0-9-]{0,38})$.
 func IsCanonicalOwner(owner string) bool {
-	valid := isASCII(owner) && matchesCanonicalOwner(owner)
+	valid := util.IsASCII(owner) && matchesCanonicalOwner(owner)
 	if !valid {
 		logReposelector.Print("rejected owner selector: not a canonical ASCII owner segment")
 	}
@@ -87,15 +88,6 @@ func canonicalRepoNameRejection(name string) string {
 	return ""
 }
 
-func isASCII(s string) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] > 0x7f {
-			return false
-		}
-	}
-	return true
-}
-
 // IsTraversalRepoName reports whether name is one of the traversal-like
 // repository names IsCanonicalRepoName rejects: "." or any name containing
 // "..", which also covers "..".
@@ -106,7 +98,7 @@ func IsTraversalRepoName(name string) bool {
 // IsCanonicalRepositorySelector reports whether selector is an exact canonical
 // "owner/repo" selector, combining IsCanonicalOwner and IsCanonicalRepoName.
 func IsCanonicalRepositorySelector(selector string) bool {
-	if !isASCII(selector) {
+	if !util.IsASCII(selector) {
 		logReposelector.Print("rejected repository selector: non-ASCII bytes present")
 		return false
 	}

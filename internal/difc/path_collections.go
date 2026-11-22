@@ -138,7 +138,3 @@ func pruneJSONPaths(value interface{}, path string, denied map[string]bool) inte
 		return value
 	}
 }
-
-func escapeJSONPointerToken(token string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(token, "~", "~0"), "/", "~1")
-}

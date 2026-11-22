@@ -10,21 +10,6 @@ import (
 
 var logAuth = logger.New("server:auth")
 
-// applyIfConfigured wraps handler with middleware(key, handler) when key is non-empty.
-// If key is empty the handler is returned unchanged. Used by single-value-keyed
-// middleware (e.g. HMAC) that is unrelated to the multi-key API key auth handled
-// by applyAuthIfConfigured below.
-func applyIfConfigured(key string, handler http.HandlerFunc, middleware func(string, http.HandlerFunc) http.HandlerFunc) http.HandlerFunc {
-	return applyIfConfiguredWithLog(
-		key,
-		handler,
-		middleware,
-		logAuth.Print,
-		"Wrapping handler with configured middleware",
-		"No key configured, returning handler unwrapped",
-	)
-}
-
 // applyIfConfiguredWithLog logs whether a middleware is active before applying it.
 // Used by single-value-keyed middleware (e.g. HMAC) that is unrelated to the
 // multi-key API key auth handled by applyAuthIfConfigured below.

@@ -10,6 +10,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// applyIfConfigured supplies default logging for tests of single-value-keyed middleware.
+func applyIfConfigured(key string, handler http.HandlerFunc, middleware func(string, http.HandlerFunc) http.HandlerFunc) http.HandlerFunc {
+	return applyIfConfiguredWithLog(
+		key,
+		handler,
+		middleware,
+		logAuth.Print,
+		"Wrapping handler with configured middleware",
+		"No key configured, returning handler unwrapped",
+	)
+}
+
 func TestAuthMiddleware_ValidAPIKey(t *testing.T) {
 	t.Parallel()
 
