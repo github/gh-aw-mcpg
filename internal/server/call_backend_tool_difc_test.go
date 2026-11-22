@@ -604,6 +604,111 @@ func TestCallBackendTool_Phase5_NilLabeledData_PassesBackendResult(t *testing.T)
 	assert.Equal("tool result", text.Text)
 }
 
+func TestCallBackendTool_SecurityAlertUpdateWithheldResponseIsDistinct(t *testing.T) {
+	for _, mode := range []string{"strict", "filter"} {
+		t.Run(mode, func(t *testing.T) {
+			var calls atomic.Int32
+			response := map[string]interface{}{
+				"content": []map[string]interface{}{{"type": "text", "text": `{"number":42,"state":"dismissed"}`}},
+				"isError": false,
+			}
+			backend := newBackendWithToolResponseAndCounter(t, "update_code_scanning_alert", response, &calls)
+			defer backend.Close()
+
+			labels := difc.NewLabeledResource("private alert")
+			labels.Secrecy.Label.Add(difc.Tag("private:restricted/repo"))
+			g := &difcTestGuard{
+				name:                "security-alert-withheld-" + mode,
+				labelResourceResult: difc.NewLabeledResource("repository"),
+				labelResourceOp:     difc.OperationWrite,
+				labelResponseResult: &difc.CollectionLabeledData{
+					Items: []difc.LabeledItem{{
+						Data:   map[string]interface{}{"number": 42, "state": "dismissed"},
+						Labels: labels,
+					}},
+				},
+			}
+			us := makeUnifiedWithGuard(t, "security-alert-withheld-"+mode, g, backend, mode)
+
+			result, data, err := us.callBackendTool(
+				callCtx("security-alert-withheld"), "test-server", "update_code_scanning_alert",
+				map[string]interface{}{"owner": "org", "repo": "repo", "alert_number": 42},
+			)
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.False(t, result.IsError)
+			assert.Nil(t, data)
+			require.Len(t, result.Content, 1)
+			assert.Equal(t, securityAlertResponseWithheldMessage, result.Content[0].(*sdk.TextContent).Text)
+			assert.EqualValues(t, 1, calls.Load(), "the backend mutation should have been sent")
+		})
+	}
+}
+
+func TestCallBackendTool_SecurityAlertUpdateLabelingFailureReportsWithheldResponse(t *testing.T) {
+	var calls atomic.Int32
+	backend := newBackendWithToolResponseAndCounter(t, "update_dependabot_alert", defaultToolResponse, &calls)
+	defer backend.Close()
+
+	g := &difcTestGuard{
+		name:                "security-alert-labeling-error",
+		labelResourceResult: difc.NewLabeledResource("repository"),
+		labelResourceOp:     difc.OperationWrite,
+		labelResponseErr:    fmt.Errorf("response labeling unavailable"),
+	}
+	us := makeUnifiedWithGuard(t, "security-alert-labeling-error", g, backend, "strict")
+
+	result, data, err := us.callBackendTool(
+		callCtx("security-alert-labeling-error"), "test-server", "update_dependabot_alert",
+		map[string]interface{}{"owner": "org", "repo": "repo", "alert_number": 42},
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.False(t, result.IsError)
+	assert.Nil(t, data)
+	require.Len(t, result.Content, 1)
+	assert.Equal(t, securityAlertResponseWithheldMessage, result.Content[0].(*sdk.TextContent).Text)
+	assert.EqualValues(t, 1, calls.Load(), "the backend mutation should have been sent")
+}
+
+func TestCallBackendTool_SecurityAlertUpdatePreservesReadableErrorEnvelope(t *testing.T) {
+	response := map[string]interface{}{
+		"content": []map[string]interface{}{{"type": "text", "text": `{"message":"upstream error"}`}},
+		"isError": true,
+	}
+	backend := newBackendWithToolResponse(t, "update_code_scanning_alert", response)
+	defer backend.Close()
+
+	g := &difcTestGuard{
+		name:                "security-alert-error-envelope",
+		labelResourceResult: difc.NewLabeledResource("repository"),
+		labelResourceOp:     difc.OperationWrite,
+		labelResponseResult: &difc.CollectionLabeledData{
+			Items: []difc.LabeledItem{{
+				Data:   map[string]interface{}{"message": "upstream error"},
+				Labels: difc.NewLabeledResource("readable alert"),
+			}},
+		},
+	}
+	us := makeUnifiedWithGuard(t, "security-alert-error-envelope", g, backend, "filter")
+
+	result, data, err := us.callBackendTool(
+		callCtx("security-alert-error-envelope"), "test-server", "update_code_scanning_alert",
+		map[string]interface{}{"owner": "org", "repo": "repo", "alert_number": 42},
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.IsError, "the upstream error status must be retained")
+	expectedJSON, marshalErr := json.Marshal(response)
+	require.NoError(t, marshalErr)
+	actualJSON, marshalErr := json.Marshal(data)
+	require.NoError(t, marshalErr)
+	assert.JSONEq(t, string(expectedJSON), string(actualJSON), "the original singleton MCP envelope must be retained")
+}
+
 // TestCallBackendTool_Phase5_FilterMode_AllItemsFiltered_NoticePresent verifies that
 // when all items in a multi-item collection are filtered in filter mode the result is
 // not an error but the DIFC filter notice IS present so the agent knows items exist

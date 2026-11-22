@@ -420,6 +420,30 @@ fn apply_singleton_fallback_if_needed(
     // no repository data — pass through with approved integrity so the agent can
     // see instructional messages and empty-result confirmations.
     let actual_response = labels::extract_mcp_response(&input.tool_result);
+
+    if matches!(
+        input.tool_name.as_str(),
+        tool_names::UPDATE_CODE_SCANNING_ALERT
+            | tool_names::UPDATE_DEPENDABOT_ALERT
+            | tool_names::UPDATE_SECRET_SCANNING_ALERT
+    ) {
+        let (owner, repo) = repo_id.split_once('/').unwrap_or(("", ""));
+        let secrecy = labels::policy_private_scope_label(owner, repo, &repo_id, ctx);
+        let integrity = if input.tool_name == tool_names::UPDATE_CODE_SCANNING_ALERT {
+            labels::writer_integrity(&repo_id, ctx)
+        } else {
+            labels::reader_integrity(&repo_id, ctx)
+        };
+        let number = labels::extract_resource_number(&actual_response, "alert", &repo_id);
+        labeled_items.push(LabeledItem::from_result(
+            input,
+            format!("security-alert:{repo_id}#{number}"),
+            secrecy,
+            integrity,
+        ));
+        return FallbackAction::ContinueProcessing;
+    }
+
     // Log bytes are content even when their shape resembles a server message
     // or an empty search result; the wrapper does not establish endorsement.
     let is_server_metadata = input.tool_name != labels::constants::tool_names::GET_JOB_LOGS
@@ -1346,6 +1370,58 @@ mod tests {
     }
 
     #[test]
+    fn security_alert_update_fallbacks_keep_private_response_labels() {
+        let ctx = PolicyContext::default();
+        for response in [
+            json!({
+                "isError": true,
+                "content": [{"type": "text", "text": "synthetic upstream error"}]
+            }),
+            json!({
+                "content": [{"type": "text", "text": "opaque update status"}]
+            }),
+        ] {
+            for (tool_name, expected_integrity) in [
+                (
+                    tool_names::UPDATE_CODE_SCANNING_ALERT,
+                    labels::writer_integrity("org/repo", &ctx),
+                ),
+                (
+                    tool_names::UPDATE_DEPENDABOT_ALERT,
+                    labels::reader_integrity("org/repo", &ctx),
+                ),
+                (
+                    tool_names::UPDATE_SECRET_SCANNING_ALERT,
+                    labels::reader_integrity("org/repo", &ctx),
+                ),
+            ] {
+                let input = LabelResponseInput {
+                    tool_name: tool_name.to_string(),
+                    tool_args: json!({"owner": "org", "repo": "repo", "alert_number": 42}),
+                    tool_result: response.clone(),
+                };
+                let mut items = Vec::new();
+
+                assert!(matches!(
+                    apply_singleton_fallback_if_needed(&input, &ctx, &mut items),
+                    FallbackAction::ContinueProcessing
+                ));
+                assert_eq!(items.len(), 1, "{tool_name}: {response}");
+                assert_eq!(
+                    items[0].labels.secrecy,
+                    vec!["private:org/repo".to_string()],
+                    "{tool_name}: {response}"
+                );
+                assert_eq!(
+                    items[0].labels.integrity, expected_integrity,
+                    "{tool_name}: {response}"
+                );
+                assert_eq!(items[0].data, response, "{tool_name}");
+            }
+        }
+    }
+
+    #[test]
     fn mcp_text_envelope_top_level_array_skips_single_item_fallback() {
         let input = LabelResponseInput {
             tool_name: "custom_list".to_string(),
@@ -2075,6 +2151,48 @@ mod tests {
                     output.resource.description,
                     format!("{tool_name}:{repo_id}/automation-123"),
                     "{tool_name}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn security_alert_updates_are_repo_scoped_writes() {
+        let ctx = PolicyContext::default();
+        let repo_id = "security-alert-owner/security-alert-repo";
+        for private in [false, true] {
+            let _guard = labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            for tool in [
+                tool_names::UPDATE_CODE_SCANNING_ALERT,
+                tool_names::UPDATE_DEPENDABOT_ALERT,
+                tool_names::UPDATE_SECRET_SCANNING_ALERT,
+            ] {
+                let output = build_label_resource_output(
+                    &LabelResourceInput {
+                        tool_name: tool.to_string(),
+                        tool_args: json!({
+                            "owner": "security-alert-owner",
+                            "repo": "security-alert-repo",
+                            "alert_number": 42,
+                            "state": "dismissed",
+                        }),
+                    },
+                    &ctx,
+                );
+                assert_eq!(output.operation, "write", "{tool}");
+                assert_eq!(
+                    output.resource.secrecy,
+                    if private {
+                        labels::private_scope_label(repo_id)
+                    } else {
+                        vec![]
+                    },
+                    "{tool}, private={private}"
+                );
+                assert_eq!(
+                    output.resource.integrity,
+                    labels::writer_integrity(repo_id, &ctx),
+                    "{tool}"
                 );
             }
         }

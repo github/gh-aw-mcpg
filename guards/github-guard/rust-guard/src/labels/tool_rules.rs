@@ -904,6 +904,10 @@ pub fn apply_tool_labels(
         | tool_names::UPDATE_ISSUE_TITLE
         | tool_names::UPDATE_ISSUE_TYPE
         | "set_issue_fields"
+        // Security alerts
+        | tool_names::UPDATE_CODE_SCANNING_ALERT
+        | tool_names::UPDATE_DEPENDABOT_ALERT
+        | tool_names::UPDATE_SECRET_SCANNING_ALERT
         // Sub-issues
         | "add_sub_issue"
         | "remove_sub_issue"

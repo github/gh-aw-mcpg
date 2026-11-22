@@ -41,9 +41,9 @@ pub(crate) mod tool_rules;
 // Re-export helpers consumed by lib.rs within this crate.
 pub(crate) use helpers::{
     blocked_integrity, ensure_integrity_baseline, extract_repo_id,
-    extract_repo_info_from_search_query, get_first_non_empty_field, get_str_or, reader_integrity,
-    search_result_total_count, writer_integrity, MinIntegrity, PolicyContext, PolicyScopeEntry,
-    ScopeKind,
+    extract_repo_info_from_search_query, extract_resource_number, get_first_non_empty_field,
+    get_str_or, policy_private_scope_label, reader_integrity, search_result_total_count,
+    writer_integrity, MinIntegrity, PolicyContext, PolicyScopeEntry, ScopeKind,
 };
 // Crate-internal re-exports: consumed only within this crate (e.g. lib.rs),
 // so kept at pub(crate) visibility rather than fully public.
@@ -2865,6 +2865,50 @@ mod tests {
             "get_secret_scanning_alert must always have private scope"
         );
         assert_eq!(integrity, reader_integrity("github/copilot", &ctx));
+    }
+
+    #[test]
+    fn security_alert_updates_preserve_private_response_labels() {
+        let ctx = default_ctx();
+        let repo_id = "security-alert-owner/security-alert-repo";
+        let args = json!({"owner": "security-alert-owner", "repo": "security-alert-repo"});
+        let alert = json!({"number": 42, "state": "dismissed"});
+        for private in [false, true] {
+            let _guard = backend::cache_repo_visibility_for_tests(repo_id, private);
+            for (tool, expected_integrity) in [
+                (
+                    tool_names::UPDATE_CODE_SCANNING_ALERT,
+                    writer_integrity(repo_id, &ctx),
+                ),
+                (
+                    tool_names::UPDATE_DEPENDABOT_ALERT,
+                    reader_integrity(repo_id, &ctx),
+                ),
+                (
+                    tool_names::UPDATE_SECRET_SCANNING_ALERT,
+                    reader_integrity(repo_id, &ctx),
+                ),
+            ] {
+                for response in [
+                    alert.clone(),
+                    json!({"content": [{"type": "text", "text": alert.to_string()}]}),
+                ] {
+                    let items = label_response_items(tool, &args, &response, &ctx);
+                    assert_eq!(items.len(), 1, "{tool}, private={private}");
+                    assert_eq!(items[0].data, alert);
+                    assert_eq!(
+                        items[0].labels.secrecy,
+                        vec![format!("private:{repo_id}")],
+                        "{tool}, private={private}"
+                    );
+                    assert_eq!(items[0].labels.integrity, expected_integrity, "{tool}");
+                    assert_eq!(
+                        items[0].labels.description,
+                        format!("security-alert:{repo_id}#42")
+                    );
+                }
+            }
+        }
     }
 
     #[test]

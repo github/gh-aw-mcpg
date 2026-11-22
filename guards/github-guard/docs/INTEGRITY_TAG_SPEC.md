@@ -134,6 +134,7 @@ Resource labels are coarse pre-check labels by tool call.
 | `list_gists`, `get_gist` | unapproved:user | unapproved:user |
 | `list_notifications`, `get_notification_details` | none | none |
 | `list_secret_scanning_alerts`, `get_secret_scanning_alert`, `list_code_scanning_alerts`, `get_code_scanning_alert`, `list_dependabot_alerts`, `get_dependabot_alert` | reader (none + unapproved) | reader (none + unapproved) |
+| `update_code_scanning_alert`, `update_dependabot_alert`, `update_secret_scanning_alert` | writer (none + unapproved + approved) | writer (none + unapproved + approved) |
 | `list_issue_types`, `list_issue_fields`, `search_users`, `search_orgs`, `get_me`, `get_teams`, `get_team_members`, `list_starred_repositories` (GitHub-global/user metadata) | approved:github | approved:github |
 | `list_global_security_advisories`, `get_global_security_advisory` (public CVE data) | approved:github | approved:github |
 | `list_repository_security_advisories`, `list_org_repository_security_advisories` | approved | approved |

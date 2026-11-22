@@ -162,6 +162,95 @@ func TestRunPipelinePrePhases_Phase2_BypassForRead_ReturnsNilError(t *testing.T)
 
 // --- RunPipelinePhase4 tests ---
 
+func TestSecurityAlertUpdateResponseReadChecks(t *testing.T) {
+	for _, tool := range []string{
+		"update_code_scanning_alert", "update_dependabot_alert", "update_secret_scanning_alert",
+	} {
+		t.Run(tool, func(t *testing.T) {
+			for _, mode := range []difc.EnforcementMode{
+				difc.EnforcementStrict, difc.EnforcementFilter, difc.EnforcementPropagate,
+			} {
+				t.Run(mode.String(), func(t *testing.T) {
+					private := difc.NewLabeledResource("private-alert")
+					private.Secrecy.Label.Add("secret")
+					data := &difc.CollectionLabeledData{
+						Items: []difc.LabeledItem{{Data: "alert", Labels: private}},
+					}
+					g := &pipelineGuard{
+						labelResourceResource: difc.NewLabeledResource("public-repo"),
+						labelResourceOp:       difc.OperationWrite,
+						labelResponseData:     data,
+					}
+					in := newPipelineInput(g, difc.OperationWrite, mode)
+					in.ToolName = tool
+					ctx, pre, err := RunPipelinePrePhases(context.Background(), in)
+					require.NoError(t, err)
+					assert.Equal(t, difc.OperationWrite, pre.Operation)
+					require.True(t, pre.ResponseIsRead)
+					labeled, err := RunPipelinePhase4(ctx, in, pre, "response")
+					require.NoError(t, err)
+					require.Same(t, data, labeled)
+					filtered, err := RunPipelinePhase5(in.Evaluator, pre, labeled, mode)
+					require.NoError(t, err)
+					if mode == difc.EnforcementPropagate {
+						assert.Zero(t, filtered.Filtered.GetFilteredCount())
+						RunPipelinePhase6(pre, labeled, mode)
+						assert.Contains(t, pre.AgentLabels.GetSecrecyTags(), difc.Tag("secret"))
+						_, _, err = RunPipelinePrePhases(ctx, in)
+						require.Error(t, err, "private response data must not flow into a subsequent public write")
+					} else {
+						assert.Equal(t, 1, filtered.Filtered.GetFilteredCount())
+						assert.Equal(t, mode == difc.EnforcementStrict, filtered.Blocked)
+					}
+
+					g.labelResponseData = nil
+					labeled, err = RunPipelinePhase4(ctx, in, pre, "unlabeled-alert")
+					require.ErrorContains(t, err, "response labeling required")
+					assert.Nil(t, labeled)
+				})
+			}
+
+			resource := difc.NewLabeledResource("writer-only-repo")
+			resource.Integrity.Label.Add("approved")
+			g := &pipelineGuard{labelResourceResource: resource, labelResourceOp: difc.OperationWrite}
+			in := newPipelineInput(g, difc.OperationWrite, difc.EnforcementStrict)
+			in.ToolName = tool
+			_, pre, err := RunPipelinePrePhases(context.Background(), in)
+			require.Error(t, err, "read response semantics must not bypass mutation admission")
+			assert.Nil(t, pre)
+		})
+	}
+}
+
+func TestRequiresResponseReadSkipsNonLabelingGuards(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		guard Guard
+	}{
+		{name: "noop", guard: NewNoopGuard()},
+		{name: "write sink", guard: NewWriteSinkGuard(nil)},
+		{name: "labeling guard", guard: &pipelineGuard{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := requiresResponseRead("update_code_scanning_alert", test.guard)
+			assert.Equal(t, test.name == "labeling guard", got)
+		})
+	}
+}
+
+func TestNoopGuardSecurityAlertUpdateDoesNotRequireResponseLabels(t *testing.T) {
+	in := newPipelineInput(NewNoopGuard(), difc.OperationReadWrite, difc.EnforcementStrict)
+	in.ToolName = "update_code_scanning_alert"
+
+	ctx, pre, err := RunPipelinePrePhases(context.Background(), in)
+	require.NoError(t, err)
+	require.False(t, pre.ResponseIsRead)
+
+	labeled, err := RunPipelinePhase4(ctx, in, pre, "response")
+	require.NoError(t, err)
+	assert.Nil(t, labeled)
+}
+
 func TestRunPipelinePhase4_SkipsLabelResponseForWriteInStrictMode(t *testing.T) {
 	g := &pipelineGuard{
 		labelResponseData: &difc.CollectionLabeledData{},
