@@ -402,6 +402,6 @@ func TestForwardToGitHub_ArtifactDownloadDoesNotFollowRedirect(t *testing.T) {
 	assert.Equal(t, []string{"/repos/org/repo/actions/artifacts/123/zip"}, requestedPaths)
 	assert.False(t, redirectPolicyCalled, "the per-request policy must override the client's redirect policy")
 	require.NotNil(t, s.httpClient.CheckRedirect)
-	assert.NoError(t, s.httpClient.CheckRedirect(nil, nil))
+	require.NoError(t, s.httpClient.CheckRedirect(nil, nil))
 	assert.True(t, redirectPolicyCalled, "the original client's redirect policy must remain unchanged")
 }

@@ -14,7 +14,7 @@ import (
 )
 
 func TestNoRedirectPolicy(t *testing.T) {
-	assert.ErrorIs(t, NoRedirectPolicy(nil, nil), http.ErrUseLastResponse)
+	require.ErrorIs(t, NoRedirectPolicy(nil, nil), http.ErrUseLastResponse)
 
 	for _, status := range []int{
 		http.StatusMovedPermanently,
