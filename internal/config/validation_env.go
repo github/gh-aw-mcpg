@@ -79,15 +79,16 @@ func ValidateExecutionEnvironmentForRuntime(runtimeCommand string) *EnvValidatio
 	logEnv.Printf("Containerization check: isContainerized=%v, containerID=%s", result.IsContainerized, result.ContainerID)
 
 	// Check selected container runtime accessibility.
-	result.DockerAccessible = sys.CheckContainerRuntimeAccessible(runtimeCommand)
+	runtimeErr := sys.ContainerRuntimeAccessError(runtimeCommand)
+	result.DockerAccessible = runtimeErr == nil
 	if !result.DockerAccessible {
-		logEnv.Printf("Container runtime is not accessible: command=%s", runtimeCommand)
+		logEnv.Printf("Container runtime is not accessible: command=%s, err=%v", runtimeCommand, runtimeErr)
 		if filepath.Base(runtimeCommand) == "docker" {
 			result.ValidationErrors = append(result.ValidationErrors,
-				"Docker daemon is not accessible. Ensure the Docker socket is mounted or Docker is running.")
+				fmt.Sprintf("Docker daemon is not accessible (%v). Ensure the Docker socket is mounted or Docker is running.", runtimeErr))
 		} else {
 			result.ValidationErrors = append(result.ValidationErrors,
-				fmt.Sprintf("Container runtime %q is not accessible. Ensure it is installed, running, and usable.", runtimeCommand))
+				fmt.Sprintf("Container runtime %q is not accessible (%v). Ensure it is installed, running, and usable.", runtimeCommand, runtimeErr))
 		}
 	}
 

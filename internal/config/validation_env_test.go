@@ -383,7 +383,7 @@ func TestValidateExecutionEnvironmentForRuntime_DockerPathError(t *testing.T) {
 	result := ValidateExecutionEnvironmentForRuntime("/usr/bin/docker")
 
 	assert.False(t, result.DockerAccessible)
-	assert.Contains(t, result.ValidationErrors, "Docker daemon is not accessible. Ensure the Docker socket is mounted or Docker is running.")
+	assert.Contains(t, result.ValidationErrors, "Docker daemon is not accessible (docker socket not found at /nonexistent/docker.sock). Ensure the Docker socket is mounted or Docker is running.")
 }
 
 func TestValidateContainerizedEnvironment(t *testing.T) {
