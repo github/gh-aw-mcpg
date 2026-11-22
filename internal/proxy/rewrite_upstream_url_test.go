@@ -46,6 +46,31 @@ func TestRewriteUpstreamAPIURL(t *testing.T) {
 	}
 }
 
+func TestNormalizedURLPort(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "explicit port", raw: "https://example.com:8443", want: "8443"},
+		{name: "HTTP default port", raw: "http://example.com", want: "80"},
+		{name: "HTTPS default port", raw: "https://example.com", want: "443"},
+		{name: "unknown scheme without port", raw: "ftp://example.com", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			u, err := url.Parse(tt.raw)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, normalizedURLPort(u))
+		})
+	}
+}
+
 func TestCopyResponseHeaders_ClientFollowsAPIRedirectReferences(t *testing.T) {
 	for _, location := range []string{
 		"https://api.github.com/repos/o/r/issues",
