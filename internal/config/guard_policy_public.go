@@ -1,17 +1,26 @@
 package config
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/github/gh-aw-mcpg/internal/logger"
+)
+
+var logGuardPolicyPublic = logger.ForFile()
 
 // ForcePublicRepos overrides the allow-only scope, preserving all other fields.
 // It returns false for nil or write-sink-only policies, which enforce public
 // output restrictions through sink visibility instead.
 func (p *GuardPolicy) ForcePublicRepos() bool {
 	if p == nil || (p.AllowOnly == nil && p.WriteSink != nil) {
+		logGuardPolicyPublic.Print("Skipping force-public-repos: policy is nil or write-sink-only")
 		return false
 	}
 	if p.AllowOnly == nil {
+		logGuardPolicyPublic.Print("No allow-only policy present, creating one with min-integrity=none")
 		p.AllowOnly = &AllowOnlyPolicy{MinIntegrity: IntegrityNone}
 	}
+	logGuardPolicyPublic.Print("Forcing allow-only repos scope to public")
 	p.AllowOnly.Repos = "public"
 	return true
 }
@@ -21,9 +30,11 @@ func (p *GuardPolicy) ForcePublicRepos() bool {
 // A write-sink key, even with a null value, prevents injecting allow-only.
 func ForcePublicReposInMap(raw map[string]interface{}) bool {
 	if raw == nil {
+		logGuardPolicyPublic.Print("Skipping force-public-repos in map: raw policy is nil")
 		return false
 	}
 
+	logGuardPolicyPublic.Printf("Forcing public repos in raw policy map: keys=%d", len(raw))
 	allowOnlyKeys := make([]string, 0, 1)
 	var existingAllowOnly map[string]interface{}
 	policy := &GuardPolicy{}
@@ -42,9 +53,11 @@ func ForcePublicReposInMap(raw map[string]interface{}) bool {
 		}
 	}
 	if !policy.ForcePublicRepos() {
+		logGuardPolicyPublic.Print("Raw policy map left unchanged: force-public-repos not applicable")
 		return false
 	}
 	if len(allowOnlyKeys) == 0 {
+		logGuardPolicyPublic.Print("No allow-only key found in raw policy map, injecting canonical allow-only key")
 		allowOnlyKeys = append(allowOnlyKeys, "allow-only")
 	}
 	for _, key := range allowOnlyKeys {
