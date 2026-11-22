@@ -49,6 +49,9 @@ const WRITE_OPERATIONS: &[&str] = &[
     tool_names::RUN_AUTOMATION, // POST — starts a manual Copilot Automation run
     tool_names::STAR_REPOSITORY,
     tool_names::UNSTAR_REPOSITORY,
+    tool_names::UPDATE_CODE_SCANNING_ALERT,
+    tool_names::UPDATE_DEPENDABOT_ALERT,
+    tool_names::UPDATE_SECRET_SCANNING_ALERT,
 ];
 
 /// Upstream writes omitted from the default README catalog because they are feature-gated.
@@ -297,6 +300,19 @@ mod tests {
             assert!(!contains_sorted(list, name), "{name} must not be found");
         }
         assert!(!contains_sorted(&[], "alpha"));
+    }
+
+    #[test]
+    fn security_alert_updates_are_upstream_write_operations() {
+        for tool in [
+            tool_names::UPDATE_CODE_SCANNING_ALERT,
+            tool_names::UPDATE_DEPENDABOT_ALERT,
+            tool_names::UPDATE_SECRET_SCANNING_ALERT,
+        ] {
+            assert!(WRITE_OPERATIONS.contains(&tool), "{tool}");
+            assert!(is_write_operation(tool), "{tool}");
+            assert!(!is_read_write_operation(tool), "{tool}");
+        }
     }
 
     #[test]

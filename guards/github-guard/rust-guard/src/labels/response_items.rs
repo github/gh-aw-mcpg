@@ -140,7 +140,10 @@ pub fn label_response_items(
         | tool_names::LIST_CODE_SCANNING_ALERTS
         | tool_names::GET_CODE_SCANNING_ALERT
         | tool_names::LIST_DEPENDABOT_ALERTS
-        | tool_names::GET_DEPENDABOT_ALERT => {
+        | tool_names::GET_DEPENDABOT_ALERT
+        | tool_names::UPDATE_CODE_SCANNING_ALERT
+        | tool_names::UPDATE_DEPENDABOT_ALERT
+        | tool_names::UPDATE_SECRET_SCANNING_ALERT => {
             let (arg_owner, arg_repo, arg_repo_full) =
                 extract_repo_scope_with_query_fallback(tool_args);
             let items = extract_items_slice(&actual_response, "alerts");
@@ -169,6 +172,7 @@ pub fn label_response_items(
                             tool_name,
                             tool_names::LIST_CODE_SCANNING_ALERTS
                                 | tool_names::GET_CODE_SCANNING_ALERT
+                                | tool_names::UPDATE_CODE_SCANNING_ALERT
                         ) {
                             writer_integrity(&repo_full, ctx)
                         } else {

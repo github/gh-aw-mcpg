@@ -2081,6 +2081,48 @@ mod tests {
     }
 
     #[test]
+    fn security_alert_updates_are_repo_scoped_writes() {
+        let ctx = PolicyContext::default();
+        let repo_id = "security-alert-owner/security-alert-repo";
+        for private in [false, true] {
+            let _guard = labels::backend::cache_repo_visibility_for_tests(repo_id, private);
+            for tool in [
+                tool_names::UPDATE_CODE_SCANNING_ALERT,
+                tool_names::UPDATE_DEPENDABOT_ALERT,
+                tool_names::UPDATE_SECRET_SCANNING_ALERT,
+            ] {
+                let output = build_label_resource_output(
+                    &LabelResourceInput {
+                        tool_name: tool.to_string(),
+                        tool_args: json!({
+                            "owner": "security-alert-owner",
+                            "repo": "security-alert-repo",
+                            "alert_number": 42,
+                            "state": "dismissed",
+                        }),
+                    },
+                    &ctx,
+                );
+                assert_eq!(output.operation, "write", "{tool}");
+                assert_eq!(
+                    output.resource.secrecy,
+                    if private {
+                        labels::private_scope_label(repo_id)
+                    } else {
+                        vec![]
+                    },
+                    "{tool}, private={private}"
+                );
+                assert_eq!(
+                    output.resource.integrity,
+                    labels::writer_integrity(repo_id, &ctx),
+                    "{tool}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn build_label_resource_output_preserves_scope_sensitive_writer_integrity() {
         let ctx = PolicyContext::default();
         let cases = [

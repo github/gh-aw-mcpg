@@ -2868,6 +2868,50 @@ mod tests {
     }
 
     #[test]
+    fn security_alert_updates_preserve_private_response_labels() {
+        let ctx = default_ctx();
+        let repo_id = "security-alert-owner/security-alert-repo";
+        let args = json!({"owner": "security-alert-owner", "repo": "security-alert-repo"});
+        let alert = json!({"number": 42, "state": "dismissed"});
+        for private in [false, true] {
+            let _guard = backend::cache_repo_visibility_for_tests(repo_id, private);
+            for (tool, expected_integrity) in [
+                (
+                    tool_names::UPDATE_CODE_SCANNING_ALERT,
+                    writer_integrity(repo_id, &ctx),
+                ),
+                (
+                    tool_names::UPDATE_DEPENDABOT_ALERT,
+                    reader_integrity(repo_id, &ctx),
+                ),
+                (
+                    tool_names::UPDATE_SECRET_SCANNING_ALERT,
+                    reader_integrity(repo_id, &ctx),
+                ),
+            ] {
+                for response in [
+                    alert.clone(),
+                    json!({"content": [{"type": "text", "text": alert.to_string()}]}),
+                ] {
+                    let items = label_response_items(tool, &args, &response, &ctx);
+                    assert_eq!(items.len(), 1, "{tool}, private={private}");
+                    assert_eq!(items[0].data, alert);
+                    assert_eq!(
+                        items[0].labels.secrecy,
+                        vec![format!("private:{repo_id}")],
+                        "{tool}, private={private}"
+                    );
+                    assert_eq!(items[0].labels.integrity, expected_integrity, "{tool}");
+                    assert_eq!(
+                        items[0].labels.description,
+                        format!("security-alert:{repo_id}#42")
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn test_security_alert_response_records_keep_private_tool_specific_integrity() {
         let ctx = default_ctx();
         let args = json!({"owner": "github", "repo": "copilot"});

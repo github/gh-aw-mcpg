@@ -86,6 +86,7 @@ Resource labels are coarse pre-check labels by tool call.
 | Secret scanning alerts (`list_secret_scanning_alerts`, `get_secret_scanning_alert`) | `private:<owner>/<repo>` | `private:<owner>/<repo>` |
 | Artifact downloads (`actions_get` with method `download_workflow_run_artifact`) | `private:<owner>/<repo>` | `[]` |
 | Code scanning & Dependabot alerts (`list_code_scanning_alerts`, `get_code_scanning_alert`, `list_dependabot_alerts`, `get_dependabot_alert`) | `private:<owner>`, `private:<owner>/<repo>` | `private:<owner>`, `private:<owner>/<repo>` |
+| Security alert updates (`update_code_scanning_alert`, `update_dependabot_alert`, `update_secret_scanning_alert`) | `private:<owner>/<repo>` | `[]` (returned alerts remain private) |
 | Repo/org security advisories (`list_repository_security_advisories`, `list_org_repository_security_advisories`) | `private:<owner>`, `private:<owner>/<repo>` | `private:<owner>`, `private:<owner>/<repo>` |
 | User-scoped tools (`get_me`, `get_teams`, `get_team_members`, `list_starred_repositories`) | `private:user` | `private:user` |
 | Gist tools (`list_gists`, `get_gist`) | `private:user` (conservative; response refines per-item) | `private:user` (conservative; response refines per-item) |
