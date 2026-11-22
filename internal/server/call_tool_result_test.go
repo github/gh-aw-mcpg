@@ -227,7 +227,7 @@ func TestNewErrorCallToolResult(t *testing.T) {
 
 			// The returned error is the input error as-is, or a fallback when the input is nil
 			require.Error(t, err, "NewErrorCallToolResult should always return a non-nil error")
-			assert.EqualError(t, err, tt.expectedMsg, "Returned error message should match")
+			require.EqualError(t, err, tt.expectedMsg, "Returned error message should match")
 			if tt.err != nil {
 				assert.Equal(t, tt.err, err, "Non-nil error should be returned as-is")
 			}
