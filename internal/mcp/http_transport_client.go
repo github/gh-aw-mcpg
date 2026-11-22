@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/oidc"
 	"github.com/github/gh-aw-mcpg/internal/version"
@@ -113,8 +114,6 @@ func buildHTTPClientWithOIDC(baseClient *http.Client, provider oidc.TokenSource,
 		provider: provider,
 		audience: audience,
 	})
-	client.CheckRedirect = func(*http.Request, []*http.Request) error {
-		return http.ErrUseLastResponse
-	}
+	client.CheckRedirect = httputil.NoRedirectPolicy
 	return client
 }

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 )
 
@@ -78,10 +79,8 @@ func NewAzureProvider(assertions TokenSource, tenantID, clientID, scope, cloud s
 		endpoint:   endpoint,
 		cloudErr:   cloudErr,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-			CheckRedirect: func(*http.Request, []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
+			Timeout:       10 * time.Second,
+			CheckRedirect: httputil.NoRedirectPolicy,
 		},
 		cache:      make(map[string]azureCachedToken),
 		refreshing: make(map[string]*azureRefresh),

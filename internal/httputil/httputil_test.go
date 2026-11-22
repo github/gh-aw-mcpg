@@ -3,13 +3,56 @@ package httputil
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestNoRedirectPolicy(t *testing.T) {
+	require.ErrorIs(t, NoRedirectPolicy(nil, nil), http.ErrUseLastResponse)
+
+	for _, status := range []int{
+		http.StatusMovedPermanently,
+		http.StatusFound,
+		http.StatusSeeOther,
+		http.StatusTemporaryRedirect,
+		http.StatusPermanentRedirect,
+	} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			var redirectedRequests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/redirected" {
+					redirectedRequests.Add(1)
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+				w.Header().Set("Location", "/redirected")
+				w.WriteHeader(status)
+				_, err := w.Write([]byte("redirect response"))
+				assert.NoError(t, err)
+			}))
+			defer server.Close()
+
+			client := server.Client()
+			client.CheckRedirect = NoRedirectPolicy
+			resp, err := client.Get(server.URL)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			assert.Equal(t, status, resp.StatusCode)
+			assert.Equal(t, "/redirected", resp.Header.Get("Location"))
+			assert.Equal(t, "redirect response", string(body))
+			assert.Zero(t, redirectedRequests.Load())
+		})
+	}
+}
 
 // errorResponseWriter is a minimal http.ResponseWriter whose Write method
 // returns a configurable error, allowing tests to exercise the write-failure
