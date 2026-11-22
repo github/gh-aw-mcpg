@@ -54,10 +54,28 @@ type PipelinePreResult struct {
 	Resource *difc.LabeledResource
 	// Operation is the operation type determined in Phase 1.
 	Operation difc.OperationType
+	// ResponseIsRead requires independent read checks for data returned by a write.
+	ResponseIsRead bool
 	// CoarseOutcome is the Phase 2 coarse-grained check outcome.
 	CoarseOutcome difc.CoarseCheckOutcome
 	// EvalResult is the Phase 2 evaluation result (contains Reason for denial messages).
 	EvalResult *difc.EvaluationResult
+}
+
+func (pre *PipelinePreResult) responseOperation() difc.OperationType {
+	if pre.ResponseIsRead {
+		return difc.OperationRead
+	}
+	return pre.Operation
+}
+
+func requiresResponseRead(toolName string) bool {
+	switch toolName {
+	case "update_code_scanning_alert", "update_dependabot_alert", "update_secret_scanning_alert":
+		return true
+	default:
+		return false
+	}
 }
 
 // PipelineAccessDenied is returned by RunPipelinePrePhases when Phase 2 denies access.
@@ -158,11 +176,12 @@ func RunPipelinePrePhases(ctx context.Context, in PipelineInput) (context.Contex
 	}
 
 	return ctx, &PipelinePreResult{
-		AgentLabels:   agentLabels,
-		Resource:      resource,
-		Operation:     operation,
-		CoarseOutcome: coarseOutcome,
-		EvalResult:    evalResult,
+		AgentLabels:    agentLabels,
+		Resource:       resource,
+		Operation:      operation,
+		ResponseIsRead: requiresResponseRead(in.ToolName),
+		CoarseOutcome:  coarseOutcome,
+		EvalResult:     evalResult,
 	}, nil
 }
 
@@ -174,7 +193,7 @@ func RunPipelinePrePhases(ctx context.Context, in PipelineInput) (context.Contex
 //
 // The ctx must carry the request state set by RunPipelinePrePhases (tool args for the guard).
 func RunPipelinePhase4(ctx context.Context, in PipelineInput, pre *PipelinePreResult, responseData interface{}) (difc.LabeledData, error) {
-	if !difc.ShouldCallLabelResponse(pre.Operation, in.EnforcementMode) &&
+	if !difc.ShouldCallLabelResponse(pre.responseOperation(), in.EnforcementMode) &&
 		in.ToolName != issueArtifactWriteToolName {
 		logPipeline.Printf("[DIFC] Phase 4: skipping LabelResponse for %s operation in %s mode",
 			pre.Operation, in.EnforcementMode)
@@ -184,6 +203,9 @@ func RunPipelinePhase4(ctx context.Context, in PipelineInput, pre *PipelinePreRe
 	if err != nil {
 		logPipeline.Printf("[DIFC] Phase 4 failed: %v", err)
 		return nil, fmt.Errorf("response labeling failed: %w", err)
+	}
+	if pre.ResponseIsRead && labeledData == nil {
+		return nil, errors.New("response labeling required for security alert update")
 	}
 	logPipeline.Printf("[DIFC] Phase 4: LabelResponse completed, hasLabeledData=%v", labeledData != nil)
 	return labeledData, nil
@@ -197,7 +219,7 @@ func RunPipelinePhase5(evaluator *difc.Evaluator, pre *PipelinePreResult, labele
 		evaluator,
 		pre.AgentLabels.Secrecy,
 		pre.AgentLabels.Integrity,
-		pre.Operation,
+		pre.responseOperation(),
 		labeledData,
 		enforcementMode,
 	)
@@ -212,7 +234,7 @@ func RunPipelinePhase5(evaluator *difc.Evaluator, pre *PipelinePreResult, labele
 //     This ensures propagate-mode semantics are preserved even when fine-grained labeling
 //     was skipped or unavailable.
 func RunPipelinePhase6(pre *PipelinePreResult, labeledData difc.LabeledData, enforcementMode difc.EnforcementMode) {
-	if !difc.ShouldAccumulateReadLabels(pre.Operation, enforcementMode) {
+	if !difc.ShouldAccumulateReadLabels(pre.responseOperation(), enforcementMode) {
 		logPipeline.Printf("[DIFC] Phase 6: skipping label accumulation for %s operation in %s mode", pre.Operation, enforcementMode)
 		return
 	}
