@@ -1,6 +1,7 @@
 package sys
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -16,7 +17,13 @@ import (
 
 var logDocker = logger.ForFile()
 
-const containerRuntimeCommandTimeout = 2 * time.Second
+// containerRuntimeCommandTimeout bounds container runtime CLI probes. It is generous
+// because "docker info" can take several seconds on busy CI runners; a var so tests can
+// shorten it.
+var containerRuntimeCommandTimeout = 15 * time.Second
+
+// maxRuntimeInfoStderrBytes caps runtime stderr included in error messages.
+const maxRuntimeInfoStderrBytes = 512
 
 // containerIDPattern validates that a container ID only contains valid characters (hex digits).
 // Container IDs are 64 character hex strings, but short form (12 chars) is also valid.
@@ -24,6 +31,11 @@ var containerIDPattern = regexp.MustCompile(`^[a-f0-9]{12,64}$`)
 
 // CheckDockerAccessible verifies that the Docker daemon is accessible.
 func CheckDockerAccessible() bool {
+	return DockerAccessError() == nil
+}
+
+// DockerAccessError reports why the Docker daemon is not accessible, or nil if it is.
+func DockerAccessError() error {
 	// First check if the Docker socket exists
 	socketPath := envutil.GetEnvString("DOCKER_HOST", "")
 	if socketPath == "" {
@@ -36,37 +48,64 @@ func CheckDockerAccessible() bool {
 
 	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
 		logDocker.Printf("Docker socket not found: socketPath=%s", socketPath)
-		return false
+		return fmt.Errorf("docker socket not found at %s", socketPath)
 	}
 
-	// Try to run docker info to verify connectivity
-	ctx, cancel := context.WithTimeout(context.Background(), containerRuntimeCommandTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "docker", "info")
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	accessible := cmd.Run() == nil
-	logDocker.Printf("Docker daemon check: accessible=%v", accessible)
-	return accessible
+	err := runContainerRuntimeInfo("docker")
+	logDocker.Printf("Docker daemon check: accessible=%v", err == nil)
+	return err
 }
 
 // CheckContainerRuntimeAccessible verifies that the selected container runtime can be used.
 func CheckContainerRuntimeAccessible(command string) bool {
+	return ContainerRuntimeAccessError(command) == nil
+}
+
+// ContainerRuntimeAccessError reports why the selected container runtime cannot be used,
+// or nil if it is accessible.
+func ContainerRuntimeAccessError(command string) error {
 	if filepath.Base(command) == "docker" {
-		return CheckDockerAccessible()
+		return DockerAccessError()
 	}
 
 	logDocker.Printf("Checking container runtime accessibility: command=%s", command)
+	err := runContainerRuntimeInfo(command)
+	logDocker.Printf("Container runtime check: command=%s, accessible=%v", command, err == nil)
+	return err
+}
+
+// runContainerRuntimeInfo runs "<command> info" with a bounded timeout and returns a
+// descriptive error (including timeout and stderr details) when it fails.
+func runContainerRuntimeInfo(command string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), containerRuntimeCommandTimeout)
 	defer cancel()
 
+	var stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, command, "info")
 	cmd.Stdout = nil
-	cmd.Stderr = nil
-	accessible := cmd.Run() == nil
-	logDocker.Printf("Container runtime check: command=%s, accessible=%v", command, accessible)
-	return accessible
+	cmd.Stderr = &stderr
+	// Bound pipe draining if a child inherits stderr and outlives the command.
+	cmd.WaitDelay = time.Second
+	err := cmd.Run()
+	if err == nil {
+		return nil
+	}
+
+	name := filepath.Base(command)
+	if ctx.Err() == context.DeadlineExceeded {
+		logDocker.Printf("Container runtime info timed out: command=%s, timeout=%s", command, containerRuntimeCommandTimeout)
+		return fmt.Errorf("%s info timed out after %s", name, containerRuntimeCommandTimeout)
+	}
+
+	detail := strings.TrimSpace(stderr.String())
+	if len(detail) > maxRuntimeInfoStderrBytes {
+		detail = detail[:maxRuntimeInfoStderrBytes] + "..."
+	}
+	logDocker.Printf("Container runtime info failed: command=%s, err=%v, stderr=%s", command, err, detail)
+	if detail == "" {
+		return fmt.Errorf("%s info failed: %w", name, err)
+	}
+	return fmt.Errorf("%s info failed: %w: %s", name, err, detail)
 }
 
 // ValidateContainerID validates that the container ID is safe to use in commands.

@@ -278,6 +278,7 @@ func TestRunDockerInspect_TimesOut(t *testing.T) {
 	script := filepath.Join(dir, "docker")
 	require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\nexec sleep 60\n"), 0o755))
 	prependPath(t, dir)
+	setRuntimeCommandTimeout(t, 200*time.Millisecond)
 
 	start := time.Now()
 	output, err := runDockerInspect("abc123def4567890", "{{.Config}}")
@@ -286,4 +287,53 @@ func TestRunDockerInspect_TimesOut(t *testing.T) {
 	require.ErrorContains(t, err, "timed out")
 	assert.Empty(t, output)
 	assert.Less(t, time.Since(start), 2*containerRuntimeCommandTimeout)
+}
+
+// setRuntimeCommandTimeout overrides containerRuntimeCommandTimeout for the test.
+func setRuntimeCommandTimeout(t *testing.T, d time.Duration) {
+	t.Helper()
+	orig := containerRuntimeCommandTimeout
+	containerRuntimeCommandTimeout = d
+	t.Cleanup(func() { containerRuntimeCommandTimeout = orig })
+}
+
+// mockDockerScript writes a fake docker binary with the given shell body, points
+// DOCKER_HOST at an existing file, and prepends the binary to PATH.
+func mockDockerScript(t *testing.T, body string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("mock docker binary requires a Unix-like shell (/bin/sh)")
+	}
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "docker"), []byte("#!/bin/sh\n"+body+"\n"), 0o755))
+	socket := filepath.Join(dir, "docker.sock")
+	require.NoError(t, os.WriteFile(socket, nil, 0o600))
+	t.Setenv("DOCKER_HOST", "unix://"+socket)
+	prependPath(t, dir)
+}
+
+func TestDockerAccessError(t *testing.T) {
+	t.Run("slow docker info within timeout is accessible", func(t *testing.T) {
+		mockDockerScript(t, "sleep 0.3\nexit 0")
+		setRuntimeCommandTimeout(t, 5*time.Second)
+
+		assert.NoError(t, DockerAccessError())
+	})
+
+	t.Run("reports timeout", func(t *testing.T) {
+		mockDockerScript(t, "exec sleep 60")
+		setRuntimeCommandTimeout(t, 200*time.Millisecond)
+
+		err := DockerAccessError()
+		require.Error(t, err)
+		assert.Equal(t, "docker info timed out after 200ms", err.Error())
+	})
+
+	t.Run("includes stderr detail on failure", func(t *testing.T) {
+		mockDockerScript(t, "echo 'permission denied while trying to connect' >&2\nexit 1")
+
+		err := DockerAccessError()
+		require.Error(t, err)
+		assert.Equal(t, "docker info failed: exit status 1: permission denied while trying to connect", err.Error())
+	})
 }
