@@ -3,6 +3,7 @@ package sanitize
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -335,6 +336,32 @@ func sanitizeStringUnfiltered(message string) string {
 
 func TestSecretPrefiltersCoverAllPatterns(t *testing.T) {
 	assert.Len(t, secretPrefilters, len(SecretPatterns), "each secret pattern needs a prefilter")
+	for _, pattern := range SecretPatterns {
+		assert.Contains(t, secretPrefilters, pattern, "each secret pattern needs a bound prefilter")
+	}
+}
+
+func TestSanitizeStringRunsUnpairedPatterns(t *testing.T) {
+	originalPatterns := SecretPatterns
+	defer func() { SecretPatterns = originalPatterns }()
+	SecretPatterns = append([]*regexp.Regexp(nil), SecretPatterns...)
+	SecretPatterns[1] = regexp.MustCompile(`custom_[a-z]{8,}`)
+
+	input := "custom_secretvalue"
+	assert.Equal(t, sanitizeStringUnfiltered(input), SanitizeString(input))
+	assert.Equal(t, "[REDACTED]", SanitizeString(input))
+}
+
+func TestSanitizeStringPrefiltersFollowReorderedPatterns(t *testing.T) {
+	originalPatterns := SecretPatterns
+	defer func() { SecretPatterns = originalPatterns }()
+	SecretPatterns = append([]*regexp.Regexp(nil), SecretPatterns...)
+	for left, right := 0, len(SecretPatterns)-1; left < right; left, right = left+1, right-1 {
+		SecretPatterns[left], SecretPatterns[right] = SecretPatterns[right], SecretPatterns[left]
+	}
+
+	input := "token=abcdefgh12345 and ghp_" + strings.Repeat("x", 36)
+	assert.Equal(t, sanitizeStringUnfiltered(input), SanitizeString(input))
 }
 
 // TestSanitizeStringPrefilterMatchesUnfiltered guards against the prefilters

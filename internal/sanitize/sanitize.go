@@ -76,28 +76,28 @@ func redactMatch(match string) string {
 	return "[REDACTED]"
 }
 
-// secretPrefilters holds one cheap necessary-condition check per entry of
-// SecretPatterns (same index). A pattern whose prefilter returns false cannot
-// match, so its regex pass is skipped. The checks only run on pure-ASCII
-// input, where lower is strings.ToLower(s) and (?i) matching is plain ASCII
-// case folding; non-ASCII input falls back to running every pattern.
-var secretPrefilters = [...]func(s, lower string) bool{
-	func(s, lower string) bool { // (token|key|secret|password|auth)[=:]
+// secretPrefilters holds cheap necessary-condition checks keyed by the exact
+// regex they verify. Unpaired or replaced patterns run without a prefilter.
+// The checks only run on pure-ASCII input, where lower is strings.ToLower(s)
+// and (?i) matching is plain ASCII case folding; non-ASCII input falls back to
+// running every pattern.
+var secretPrefilters = map[*regexp.Regexp]func(s, lower string) bool{
+	SecretPatterns[0]: func(s, lower string) bool { // (token|key|secret|password|auth)[=:]
 		return hasSeparator(s) && containsAny(lower, "token", "key", "secret", "password", "auth")
 	},
-	func(s, _ string) bool { return strings.Contains(s, "ghp_") },
-	func(s, _ string) bool { return strings.Contains(s, "github_pat_") },
-	func(_, lower string) bool { return strings.Contains(lower, "bearer") },
-	func(_, lower string) bool { return strings.Contains(lower, "authorization:") },
-	func(s, _ string) bool { return hasHexRun(s, 32) },
-	func(s, lower string) bool { // (apikey|api_key|access_key)[=:]
+	SecretPatterns[1]: func(s, _ string) bool { return strings.Contains(s, "ghp_") },
+	SecretPatterns[2]: func(s, _ string) bool { return strings.Contains(s, "github_pat_") },
+	SecretPatterns[3]: func(_, lower string) bool { return strings.Contains(lower, "bearer") },
+	SecretPatterns[4]: func(_, lower string) bool { return strings.Contains(lower, "authorization:") },
+	SecretPatterns[5]: func(s, _ string) bool { return hasHexRun(s, 32) },
+	SecretPatterns[6]: func(s, lower string) bool { // (apikey|api_key|access_key)[=:]
 		return hasSeparator(s) && containsAny(lower, "apikey", "api_key", "access_key")
 	},
-	func(s, lower string) bool { // (client_secret|client_id)[=:]
+	SecretPatterns[7]: func(s, lower string) bool { // (client_secret|client_id)[=:]
 		return hasSeparator(s) && containsAny(lower, "client_secret", "client_id")
 	},
-	func(s, _ string) bool { return strings.Contains(s, ".eyJ") },
-	func(s, lower string) bool { // "<sensitive-field>"\s*:\s*"..."
+	SecretPatterns[8]: func(s, _ string) bool { return strings.Contains(s, ".eyJ") },
+	SecretPatterns[9]: func(s, lower string) bool { // "<sensitive-field>"\s*:\s*"..."
 		return strings.Contains(s, `"`) && strings.Contains(s, ":") &&
 			containsAny(lower, "token", "passw", "pwd", "key", "secret", "auth", "credential")
 	},
@@ -153,9 +153,11 @@ func SanitizeString(message string) string {
 	if filter {
 		lower = strings.ToLower(result)
 	}
-	for i, pattern := range SecretPatterns {
-		if filter && i < len(secretPrefilters) && !secretPrefilters[i](result, lower) {
-			continue
+	for _, pattern := range SecretPatterns {
+		if filter {
+			if prefilter, ok := secretPrefilters[pattern]; ok && !prefilter(result, lower) {
+				continue
+			}
 		}
 		replaced := pattern.ReplaceAllStringFunc(result, redactMatch)
 		if filter && replaced != result {
