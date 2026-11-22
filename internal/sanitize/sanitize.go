@@ -64,24 +64,104 @@ func MarshalAndSanitize(value any) string {
 	return SanitizeString(string(resultJSON))
 }
 
+// redactMatch keeps the key name of a key=value match and redacts the value;
+// matches without a separator are redacted entirely.
+func redactMatch(match string) string {
+	if strings.Contains(match, "=") || strings.Contains(match, ":") {
+		parts := separatorRe.Split(match, 2)
+		if len(parts) == 2 {
+			return parts[0] + "=[REDACTED]"
+		}
+	}
+	return "[REDACTED]"
+}
+
+// secretPrefilters holds one cheap necessary-condition check per entry of
+// SecretPatterns (same index). A pattern whose prefilter returns false cannot
+// match, so its regex pass is skipped. The checks only run on pure-ASCII
+// input, where lower is strings.ToLower(s) and (?i) matching is plain ASCII
+// case folding; non-ASCII input falls back to running every pattern.
+var secretPrefilters = [...]func(s, lower string) bool{
+	func(s, lower string) bool { // (token|key|secret|password|auth)[=:]
+		return hasSeparator(s) && containsAny(lower, "token", "key", "secret", "password", "auth")
+	},
+	func(s, _ string) bool { return strings.Contains(s, "ghp_") },
+	func(s, _ string) bool { return strings.Contains(s, "github_pat_") },
+	func(_, lower string) bool { return strings.Contains(lower, "bearer") },
+	func(_, lower string) bool { return strings.Contains(lower, "authorization:") },
+	func(s, _ string) bool { return hasHexRun(s, 32) },
+	func(s, lower string) bool { // (apikey|api_key|access_key)[=:]
+		return hasSeparator(s) && containsAny(lower, "apikey", "api_key", "access_key")
+	},
+	func(s, lower string) bool { // (client_secret|client_id)[=:]
+		return hasSeparator(s) && containsAny(lower, "client_secret", "client_id")
+	},
+	func(s, _ string) bool { return strings.Contains(s, ".eyJ") },
+	func(s, lower string) bool { // "<sensitive-field>"\s*:\s*"..."
+		return strings.Contains(s, `"`) && strings.Contains(s, ":") &&
+			containsAny(lower, "token", "passw", "pwd", "key", "secret", "auth", "credential")
+	},
+}
+
+func hasSeparator(s string) bool {
+	return strings.ContainsAny(s, "=:")
+}
+
+func containsAny(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasHexRun reports whether s contains at least n consecutive [a-f0-9] bytes.
+func hasHexRun(s string, n int) bool {
+	run := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') {
+			run++
+			if run >= n {
+				return true
+			}
+		} else {
+			run = 0
+		}
+	}
+	return false
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
+}
+
 // SanitizeString replaces potential secrets in a string with [REDACTED].
 // When private-selector redaction is enabled (enclave and delegation proxy
 // profiles), repository selectors, repository API paths, and runtime
 // delegation identifiers are additionally replaced with stable hashes.
 func SanitizeString(message string) string {
 	result := message
-	for _, pattern := range SecretPatterns {
-		result = pattern.ReplaceAllStringFunc(result, func(match string) string {
-			// Keep the prefix (key name) but redact the value
-			if strings.Contains(match, "=") || strings.Contains(match, ":") {
-				parts := separatorRe.Split(match, 2)
-				if len(parts) == 2 {
-					return parts[0] + "=[REDACTED]"
-				}
-			}
-			// For tokens without key=value format, redact entirely
-			return "[REDACTED]"
-		})
+	filter := isASCII(message)
+	var lower string
+	if filter {
+		lower = strings.ToLower(result)
+	}
+	for i, pattern := range SecretPatterns {
+		if filter && i < len(secretPrefilters) && !secretPrefilters[i](result, lower) {
+			continue
+		}
+		replaced := pattern.ReplaceAllStringFunc(result, redactMatch)
+		if filter && replaced != result {
+			lower = strings.ToLower(replaced)
+		}
+		result = replaced
 	}
 	return RedactPrivateSelectorsIfEnabled(result)
 }
