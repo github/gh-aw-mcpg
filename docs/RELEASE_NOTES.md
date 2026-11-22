@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 📖 Documentation
+
+- **Upstream auth specification scope clarified**: The configuration reference identifies `provider`, `azureTenantId`, `azureClientId`, `azureScope`, and `azureCloud` as Microsoft Entra implementation extensions to specification `1.18.0`, including their defaults and TOML names. It also records the known §7.6.1 missing-environment divergence: an unset or empty OIDC request URL fails configuration loading, while the request token is not checked at startup. Runtime behavior is unchanged; upstream standardization and the missing-environment contract still require a specification-owner decision ([#17106](https://github.com/github/gh-aw-mcpg/issues/17106)).
+
 ### 🔒 Security
 
 - **GitHub CLI API writes fail closed**: The HTTP proxy no longer passes arbitrary REST writes or GraphQL mutations through unguarded, including `gh api`'s implicit POST. These requests now return HTTP 403 by default; use named, guard-covered MCP write tools instead. GETs and validated GraphQL queries retain read handling. The synthetic `github_api_write` guard operation is blocked for all scopes because scope alone cannot enforce operation-specific write restrictions.
