@@ -11,7 +11,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/github/gh-aw-mcpg/internal/logger"
 )
+
+var logAzure = logger.ForFile()
 
 const (
 	// AzureDefaultAudience is the audience Entra expects for federated assertions.
@@ -63,7 +67,9 @@ func NewAzureProvider(assertions TokenSource, tenantID, clientID, scope, cloud s
 		endpoint = "https://login.chinacloudapi.cn"
 	default:
 		cloudErr = fmt.Errorf("unsupported Azure cloud")
+		logAzure.Printf("Unsupported Azure cloud requested: %q", cloud)
 	}
+	logAzure.Printf("Creating Azure OIDC provider: cloud=%q, endpoint=%s, scope=%s", cloud, endpoint, scope)
 	return &AzureProvider{
 		assertions: assertions,
 		tenantID:   tenantID,
@@ -102,10 +108,12 @@ func (p *AzureProvider) Token(ctx context.Context, audience string) (string, err
 		p.mu.Lock()
 		if cached, ok := p.cache[audience]; ok && time.Now().Before(cached.refreshAt) {
 			p.mu.Unlock()
+			logAzure.Printf("Entra token cache hit: audience=%s", audience)
 			return cached.token, nil
 		}
 		if refresh, ok := p.refreshing[audience]; ok {
 			p.mu.Unlock()
+			logAzure.Printf("Waiting for in-flight Entra token refresh: audience=%s", audience)
 			select {
 			case <-ctx.Done():
 				return "", ctx.Err()
@@ -114,11 +122,13 @@ func (p *AzureProvider) Token(ctx context.Context, audience string) (string, err
 					return "", err
 				}
 				if refresh.leaderCanceled {
+					logAzure.Printf("Refresh leader canceled, retrying: audience=%s", audience)
 					continue
 				}
 				return refresh.token, refresh.err
 			}
 		}
+		logAzure.Printf("Entra token cache miss, starting refresh: audience=%s", audience)
 		refresh := &azureRefresh{done: make(chan struct{})}
 		p.refreshing[audience] = refresh
 		p.mu.Unlock()
@@ -152,6 +162,7 @@ func (p *AzureProvider) refresh(ctx context.Context, audience string) (string, t
 	}
 	now := time.Now()
 	lifetime := expiresAt.Sub(now)
+	logAzure.Printf("Entra token refreshed: lifetime=%s, refreshAfter=%s", lifetime, lifetime-lifetime/4)
 	return token, now.Add(lifetime - lifetime/4), nil
 }
 
@@ -171,6 +182,7 @@ func (p *AzureProvider) exchange(ctx context.Context, assertion string) (string,
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
+	logAzure.Printf("Exchanging GitHub OIDC assertion at Entra endpoint: %s", endpoint)
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("entra token request failed: %w", err)
@@ -187,6 +199,7 @@ func (p *AzureProvider) exchange(ctx context.Context, assertion string) (string,
 		return "", time.Time{}, fmt.Errorf("entra token response exceeds the %d-byte limit", maxAzureTokenResponseBytes)
 	}
 	if resp.StatusCode != http.StatusOK {
+		logAzure.Printf("Entra token request failed: status=%d", resp.StatusCode)
 		var errorResponse struct {
 			ErrorCodes []int64 `json:"error_codes"`
 		}
