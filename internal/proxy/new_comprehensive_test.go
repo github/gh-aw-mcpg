@@ -257,8 +257,7 @@ func TestNew_EnclaveConfig_RequiresGuardInitialized(t *testing.T) {
 // guardInitialized, propagate the proxy agent's guard-assigned integrity
 // labels to the registry defaults, and force the enforcement mode to
 // propagate. This covers the previously-uncovered success tail of New
-// (AgentRegistry.Get, SetDefaultLabels, Mode override, Evaluator.SetMode, and
-// the CheckRedirect assignment for enclave mode).
+// (AgentRegistry.Get, SetDefaultLabels, Mode override, and Evaluator.SetMode).
 func TestNew_EnclaveConfig_Success(t *testing.T) {
 	wasmPath := writeSuccessGuardWasm(t)
 	policy, verifier := newValidEnclavePolicyAndVerifier(t)
@@ -281,8 +280,6 @@ func TestNew_EnclaveConfig_Success(t *testing.T) {
 	require.NotNil(t, s.enclave, "enclave state should be initialized")
 	assert.Equal(t, difc.EnforcementPropagate, s.Mode, "enclave mode should force propagate enforcement")
 	assert.Equal(t, difc.EnforcementPropagate, s.Evaluator.GetMode(), "the evaluator must enforce propagate mode too")
-	assert.NotNil(t, s.httpClient.CheckRedirect, "enclave mode should install a CheckRedirect that stops at the first response")
-
 	labels, found := s.AgentRegistry.Get(proxyAgentID)
 	require.True(t, found, "proxy agent labels should exist after successful enclave initialization")
 	require.NotNil(t, labels)

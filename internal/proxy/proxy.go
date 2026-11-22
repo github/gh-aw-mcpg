@@ -186,9 +186,6 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	if cfg.Enclave != nil {
 		s.enclave = newEnclaveState(cfg.Enclave.Policy, cfg.Enclave.Verifier)
 	}
-	s.httpClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
-		return http.ErrUseLastResponse
-	}
 
 	// Initialize guard policy (LabelAgent)
 	if cfg.Policy != "" {
@@ -576,8 +573,6 @@ func buildUpstreamRequestURL(baseURL, requestPath, query string, hasQuery bool) 
 
 func doWithoutFollowingRedirects(client *http.Client, req *http.Request) (*http.Response, error) {
 	noRedirectClient := *client
-	noRedirectClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
-		return http.ErrUseLastResponse
-	}
+	noRedirectClient.CheckRedirect = httputil.NoRedirectPolicy
 	return noRedirectClient.Do(req)
 }

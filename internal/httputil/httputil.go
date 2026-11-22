@@ -11,6 +11,13 @@ import (
 
 var logHTTP = logger.ForFile()
 
+// NoRedirectPolicy is an http.Client.CheckRedirect policy that returns the
+// original response without following redirects, preventing credentials or
+// request bodies from being forwarded to redirect targets.
+func NoRedirectPolicy(*http.Request, []*http.Request) error {
+	return http.ErrUseLastResponse
+}
+
 // WriteJSONResponse sets the Content-Type header, writes the status code, and encodes
 // body as JSON. It centralises the three-line pattern used across HTTP handlers.
 func WriteJSONResponse(w http.ResponseWriter, statusCode int, body interface{}) {
