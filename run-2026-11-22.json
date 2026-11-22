@@ -1,0 +1,1 @@
+{"2026-11-22":"Tasks 8+4+11. Task 8: PR repo-assist/perf-sanitize-keyword-prefilter-20261122 (SanitizeString per-pattern keyword prefilters, 32x faster no-secret path). Task 4: Go direct deps current. Idea pending: #17057 shared NoRedirect CheckRedirect helper in internal/httputil (mcp pkg needs import cycle check). Monthly issue #16333 updated."}
