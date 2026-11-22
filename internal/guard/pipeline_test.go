@@ -222,6 +222,35 @@ func TestSecurityAlertUpdateResponseReadChecks(t *testing.T) {
 	}
 }
 
+func TestRequiresResponseReadSkipsNonLabelingGuards(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		guard Guard
+	}{
+		{name: "noop", guard: NewNoopGuard()},
+		{name: "write sink", guard: NewWriteSinkGuard(nil)},
+		{name: "labeling guard", guard: &pipelineGuard{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := requiresResponseRead("update_code_scanning_alert", test.guard)
+			assert.Equal(t, test.name == "labeling guard", got)
+		})
+	}
+}
+
+func TestNoopGuardSecurityAlertUpdateDoesNotRequireResponseLabels(t *testing.T) {
+	in := newPipelineInput(NewNoopGuard(), difc.OperationReadWrite, difc.EnforcementStrict)
+	in.ToolName = "update_code_scanning_alert"
+
+	ctx, pre, err := RunPipelinePrePhases(context.Background(), in)
+	require.NoError(t, err)
+	require.False(t, pre.ResponseIsRead)
+
+	labeled, err := RunPipelinePhase4(ctx, in, pre, "response")
+	require.NoError(t, err)
+	assert.Nil(t, labeled)
+}
+
 func TestRunPipelinePhase4_SkipsLabelResponseForWriteInStrictMode(t *testing.T) {
 	g := &pipelineGuard{
 		labelResponseData: &difc.CollectionLabeledData{},

@@ -177,6 +177,8 @@ func (us *UnifiedServer) isToolAllowed(serverID, toolName string) bool {
 	return allowed
 }
 
+const securityAlertResponseWithheldMessage = "The security alert update was sent, but its response was withheld by data access policy. Verify the alert state before retrying."
+
 // callBackendTool calls a tool on a backend server with DIFC enforcement
 func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName string, args interface{}) (*sdk.CallToolResult, interface{}, error) {
 	// Note: Session validation happens at the tool registration level via closures
@@ -388,6 +390,9 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 	labeledData, err := guard.RunPipelinePhase4(ctx, pipelineIn, pre, backendResult)
 	if err != nil {
 		logger.LogWarn("difc", "Response labeling failed: %s", sanitize.RedactErrorForLogIf(err, redactEnclave))
+		if pre.ResponseIsRead {
+			return mcp.NewTextCallToolResult(securityAlertResponseWithheldMessage, false), nil, nil
+		}
 		httpStatusCode = 500
 		return mcp.NewErrorCallToolResult(fmt.Errorf("response labeling failed: %w", err))
 	}
@@ -397,6 +402,9 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 	var difcFiltered *difc.FilteredCollectionLabeledData // tracks items removed in filter/propagate mode
 	filterResult, err := guard.RunPipelinePhase5(requestEvaluator, pre, labeledData, enforcementMode)
 	if err != nil {
+		if pre.ResponseIsRead {
+			return mcp.NewTextCallToolResult(securityAlertResponseWithheldMessage, false), nil, nil
+		}
 		httpStatusCode = 500
 		return mcp.NewErrorCallToolResult(fmt.Errorf("failed to convert labeled data: %w", err))
 	}
@@ -405,8 +413,15 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 		logUnified.Printf("[DIFC] Filtered collection: %d/%d items accessible",
 			difcFiltered.GetAccessibleCount(), difcFiltered.TotalCount)
 
+		if pre.ResponseIsRead && difcFiltered.GetFilteredCount() > 0 {
+			return mcp.NewTextCallToolResult(securityAlertResponseWithheldMessage, false), nil, nil
+		}
+
 		// **Strict mode: block entire response if ANY item is filtered**
 		if filterResult.Blocked {
+			if pre.ResponseIsRead {
+				return mcp.NewTextCallToolResult(securityAlertResponseWithheldMessage, false), nil, nil
+			}
 			logger.LogWarn("difc", "STRICT MODE: Blocking entire response - %d/%d items violate DIFC policy",
 				difcFiltered.GetFilteredCount(), difcFiltered.TotalCount)
 			blockErr := fmt.Errorf("DIFC policy violation: %d of %d items in response are not accessible to this agent",
@@ -436,6 +451,11 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 
 	if labeledData != nil {
 		finalResult = filterResult.FinalResult
+		if pre.ResponseIsRead && difcFiltered != nil &&
+			difcFiltered.TotalCount == 1 && difcFiltered.GetAccessibleCount() == 1 &&
+			difcFiltered.GetFilteredCount() == 0 {
+			finalResult = backendResult
+		}
 	} else {
 		// No fine-grained labeling - fall back to the coarse result.
 		if !pre.EvalResult.IsAllowed() {
@@ -453,6 +473,9 @@ func (us *UnifiedServer) callBackendTool(ctx context.Context, serverID, toolName
 	// Convert finalResult to SDK CallToolResult format
 	callResult, err := mcp.ConvertToCallToolResult(finalResult)
 	if err != nil {
+		if pre.ResponseIsRead {
+			return mcp.NewTextCallToolResult(securityAlertResponseWithheldMessage, false), nil, nil
+		}
 		httpStatusCode = 500
 		return mcp.NewErrorCallToolResult(fmt.Errorf("failed to convert result: %w", err))
 	}

@@ -69,7 +69,11 @@ func (pre *PipelinePreResult) responseOperation() difc.OperationType {
 	return pre.Operation
 }
 
-func requiresResponseRead(toolName string) bool {
+func requiresResponseRead(toolName string, guard Guard) bool {
+	switch guard.(type) {
+	case *NoopGuard, *WriteSinkGuard:
+		return false
+	}
 	switch toolName {
 	case "update_code_scanning_alert", "update_dependabot_alert", "update_secret_scanning_alert":
 		return true
@@ -179,7 +183,7 @@ func RunPipelinePrePhases(ctx context.Context, in PipelineInput) (context.Contex
 		AgentLabels:    agentLabels,
 		Resource:       resource,
 		Operation:      operation,
-		ResponseIsRead: requiresResponseRead(in.ToolName),
+		ResponseIsRead: requiresResponseRead(in.ToolName, in.Guard),
 		CoarseOutcome:  coarseOutcome,
 		EvalResult:     evalResult,
 	}, nil
@@ -242,11 +246,11 @@ func RunPipelinePhase6(pre *PipelinePreResult, labeledData difc.LabeledData, enf
 		overall := labeledData.Overall()
 		pre.AgentLabels.AccumulateFromRead(overall)
 		logPipeline.Printf("[DIFC] Phase 6: accumulated labels from response (agent=%s secrecy=%v integrity=%v)",
-			pre.AgentLabels.AgentID, pre.AgentLabels.GetSecrecyTags(), pre.AgentLabels.GetIntegrityTags())
+			util.HashIdentifierForLog(pre.AgentLabels.AgentID), pre.AgentLabels.GetSecrecyTags(), pre.AgentLabels.GetIntegrityTags())
 	} else {
 		pre.AgentLabels.AccumulateFromRead(pre.Resource)
 		logPipeline.Printf("[DIFC] Phase 6: accumulated labels from resource (agent=%s secrecy=%v integrity=%v)",
-			pre.AgentLabels.AgentID, pre.AgentLabels.GetSecrecyTags(), pre.AgentLabels.GetIntegrityTags())
+			util.HashIdentifierForLog(pre.AgentLabels.AgentID), pre.AgentLabels.GetSecrecyTags(), pre.AgentLabels.GetIntegrityTags())
 	}
 }
 
