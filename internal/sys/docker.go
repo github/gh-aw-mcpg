@@ -84,6 +84,8 @@ func runContainerRuntimeInfo(command string) error {
 	cmd := exec.CommandContext(ctx, command, "info")
 	cmd.Stdout = nil
 	cmd.Stderr = &stderr
+	// Bound pipe draining if a child inherits stderr and outlives the command.
+	cmd.WaitDelay = time.Second
 	err := cmd.Run()
 	if err == nil {
 		return nil
