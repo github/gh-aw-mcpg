@@ -3,6 +3,7 @@ package sanitize
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -321,6 +322,83 @@ func TestSecretPatternsCount(t *testing.T) {
 	actualCount := len(SecretPatterns)
 
 	assert.Equal(t, expectedPatternCount, actualCount, "Expected %d secret patterns, got %d", expectedPatternCount, actualCount)
+}
+
+// sanitizeStringUnfiltered is the reference implementation that runs every
+// pattern without the keyword prefilter.
+func sanitizeStringUnfiltered(message string) string {
+	result := message
+	for _, pattern := range SecretPatterns {
+		result = pattern.ReplaceAllStringFunc(result, redactMatch)
+	}
+	return RedactPrivateSelectorsIfEnabled(result)
+}
+
+func TestSecretPrefiltersCoverAllPatterns(t *testing.T) {
+	assert.Len(t, secretPrefilters, len(SecretPatterns), "each secret pattern needs a prefilter")
+	for _, pattern := range SecretPatterns {
+		assert.Contains(t, secretPrefilters, pattern, "each secret pattern needs a bound prefilter")
+	}
+}
+
+func TestSanitizeStringRunsUnpairedPatterns(t *testing.T) {
+	originalPatterns := SecretPatterns
+	defer func() { SecretPatterns = originalPatterns }()
+	SecretPatterns = append([]*regexp.Regexp(nil), SecretPatterns...)
+	SecretPatterns[1] = regexp.MustCompile(`custom_[a-z]{8,}`)
+
+	input := "custom_secretvalue"
+	assert.Equal(t, sanitizeStringUnfiltered(input), SanitizeString(input))
+	assert.Equal(t, "[REDACTED]", SanitizeString(input))
+}
+
+func TestSanitizeStringPrefiltersFollowReorderedPatterns(t *testing.T) {
+	originalPatterns := SecretPatterns
+	defer func() { SecretPatterns = originalPatterns }()
+	SecretPatterns = append([]*regexp.Regexp(nil), SecretPatterns...)
+	for left, right := 0, len(SecretPatterns)-1; left < right; left, right = left+1, right-1 {
+		SecretPatterns[left], SecretPatterns[right] = SecretPatterns[right], SecretPatterns[left]
+	}
+
+	input := "token=abcdefgh12345 and ghp_" + strings.Repeat("x", 36)
+	assert.Equal(t, sanitizeStringUnfiltered(input), SanitizeString(input))
+}
+
+// TestSanitizeStringPrefilterMatchesUnfiltered guards against the prefilters
+// skipping a pattern that would have matched.
+func TestSanitizeStringPrefilterMatchesUnfiltered(t *testing.T) {
+	inputs := []string{
+		"",
+		"plain text with nothing sensitive",
+		`{"method":"tools/call","tool":"github___search_code","args":{"query":"MCP","repo":"org/repo"}}`,
+		"TOKEN=abcdefgh12345",
+		"Password: hunter2hunter2",
+		"AUTH=abcdefghij",
+		"ghp_1234567890123456789012345678901234567890",
+		"github_pat_" + strings.Repeat("a", 22) + "_" + strings.Repeat("b", 59),
+		"Authorization: Bearer abc.def-ghi",
+		"BEARER abc123",
+		"authorization: abc123",
+		strings.Repeat("a1", 16),
+		strings.Repeat("ab", 15) + "a",
+		strings.Repeat("ab", 15) + "ag" + strings.Repeat("c", 10),
+		"APIKEY=abcdefgh1234",
+		"Access_Key: abcdefghijkl",
+		"Client_ID=abcdefghijkl",
+		"client_secret: abcdefghijkl",
+		strings.Repeat("a", 20) + ".eyJhbGciOi.signature",
+		`{"Access_Token" : "xyz"}`,
+		`{"API-KEY":"xyz","PWD":"p","passwd":"q","Credentials":"r","private_key":"s"}`,
+		`{"credential": "abc", "other": "ok"}`,
+		"key without separator",
+		"token = spaced",
+		"unicode ünïcode token=abcdefgh1234 and ghp_" + strings.Repeat("x", 36),
+		"\u212a Kelvin key=abcdefgh1234",
+		"token=abcdefgh1234 then ghp_" + strings.Repeat("y", 36) + " and " + strings.Repeat("0f", 20),
+	}
+	for _, in := range inputs {
+		assert.Equal(t, sanitizeStringUnfiltered(in), SanitizeString(in), "input: %q", in)
+	}
 }
 
 func TestRedactSecret(t *testing.T) {
@@ -821,6 +899,14 @@ func BenchmarkSanitizeJSON_WithPrettyPrint(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_ = SanitizeJSON(input)
+	}
+}
+
+func BenchmarkSanitizeString_LargeNoSecrets(b *testing.B) {
+	input := strings.Repeat(`{"method":"tools/call","tool":"github___search_code","args":{"query":"MCP","repo":"org/repo"}}`, 20)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = SanitizeString(input)
 	}
 }
 
