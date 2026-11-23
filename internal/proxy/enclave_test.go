@@ -170,7 +170,7 @@ func TestEnclaveAssignedAndPublicIssueReadsReplaceAuthorization(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/repos/public/repo" {
-			_, _ = w.Write([]byte(`{"visibility":"public"}`))
+			_, _ = w.Write([]byte(`{"private":false}`))
 			return
 		}
 		_, _ = w.Write([]byte(`[]`))
@@ -246,6 +246,10 @@ func TestEnclaveUniformlyDeniesNonPublicRepositories(t *testing.T) {
 			http.Error(w, "rate limit details", http.StatusTooManyRequests)
 		case "/repos/other/malformed":
 			_, _ = w.Write([]byte(`{"visibility":`))
+		case "/repos/other/legacy-private":
+			_, _ = w.Write([]byte(`{"private":true}`))
+		case "/repos/other/unknown":
+			_, _ = w.Write([]byte(`{}`))
 		default:
 			// t.Fatalf must not run in a handler goroutine; report and fail the response instead.
 			t.Errorf("unexpected upstream request: %s", r.URL.Path)
@@ -257,7 +261,7 @@ func TestEnclaveUniformlyDeniesNonPublicRepositories(t *testing.T) {
 
 	handler, capability := newEnclaveHandlerForTest(t, upstream.URL)
 	var canonicalBody string
-	for _, repo := range []string{"private", "internal", "missing", "rate-limited", "malformed"} {
+	for _, repo := range []string{"private", "internal", "missing", "rate-limited", "malformed", "legacy-private", "unknown"} {
 		recorder := enclaveRequest(t, handler, http.MethodGet, "/repos/other/"+repo+"/issues", capability)
 		assert.Equal(t, http.StatusForbidden, recorder.Code)
 		if canonicalBody == "" {
@@ -270,7 +274,7 @@ func TestEnclaveUniformlyDeniesNonPublicRepositories(t *testing.T) {
 
 	handler.server.enclave.visibilityMu.RLock()
 	defer handler.server.enclave.visibilityMu.RUnlock()
-	assert.Len(t, handler.server.enclave.visibilityDecisions, 5)
+	assert.Len(t, handler.server.enclave.visibilityDecisions, 7)
 	for _, deniedUntil := range handler.server.enclave.visibilityDecisions {
 		assert.False(t, deniedUntil.IsZero())
 	}
