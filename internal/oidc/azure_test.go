@@ -3,6 +3,7 @@ package oidc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,16 @@ import (
 
 type testAssertionSource struct {
 	calls int32
+}
+
+type failingAssertionSource struct {
+	err   error
+	calls int32
+}
+
+func (s *failingAssertionSource) Token(context.Context, string) (string, error) {
+	atomic.AddInt32(&s.calls, 1)
+	return "", s.err
 }
 
 type observedContext struct {
@@ -365,6 +376,197 @@ func TestAzureProviderErrorDiagnostics(t *testing.T) {
 			if tc.name == "mixed" || tc.name == "malformed" {
 				assert.NotContains(t, err.Error(), "70021")
 			}
+		})
+	}
+}
+
+func TestAzureProviderTokenRejectsInvalidConfiguration(t *testing.T) {
+	tests := []struct {
+		name       string
+		assertions TokenSource
+		tenantID   string
+		clientID   string
+		scope      string
+		cloud      string
+		wantErr    string
+	}{
+		{
+			name:     "nil assertion source",
+			tenantID: "tenant", clientID: "client", scope: "scope",
+			wantErr: "GitHub OIDC provider is not configured",
+		},
+		{
+			name:       "blank tenant ID",
+			assertions: &testAssertionSource{},
+			tenantID:   "  ", clientID: "client", scope: "scope",
+			wantErr: "tenant ID, client ID, and scope are required",
+		},
+		{
+			name:       "blank client ID",
+			assertions: &testAssertionSource{},
+			tenantID:   "tenant", clientID: "", scope: "scope",
+			wantErr: "tenant ID, client ID, and scope are required",
+		},
+		{
+			name:       "blank scope",
+			assertions: &testAssertionSource{},
+			tenantID:   "tenant", clientID: "client", scope: "\t",
+			wantErr: "tenant ID, client ID, and scope are required",
+		},
+		{
+			name:       "unsupported cloud",
+			assertions: &testAssertionSource{},
+			tenantID:   "tenant", clientID: "client", scope: "scope",
+			cloud:   "https://attacker.example",
+			wantErr: "unsupported Azure cloud",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			provider := NewAzureProvider(tc.assertions, tc.tenantID, tc.clientID, tc.scope, tc.cloud)
+
+			token, err := provider.Token(context.Background(), AzureDefaultAudience)
+
+			require.ErrorContains(t, err, tc.wantErr)
+			assert.Empty(t, token)
+		})
+	}
+}
+
+func TestAzureProviderTokenReturnsContextErrorBeforeExchange(t *testing.T) {
+	source := &testAssertionSource{}
+	provider := NewAzureProvider(source, "tenant", "client", "scope", "")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	token, err := provider.Token(ctx, AzureDefaultAudience)
+
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Empty(t, token)
+	assert.Zero(t, atomic.LoadInt32(&source.calls), "assertion must not be requested for an already-cancelled context")
+}
+
+func TestAzureProviderRefreshFailures(t *testing.T) {
+	t.Run("assertion acquisition failure is wrapped and skips the exchange", func(t *testing.T) {
+		var requests int32
+		server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			atomic.AddInt32(&requests, 1)
+		}))
+		defer server.Close()
+
+		sentinel := errors.New("oidc unavailable")
+		source := &failingAssertionSource{err: sentinel}
+		provider := NewAzureProvider(source, "tenant", "client", "scope", "")
+		provider.endpoint = server.URL
+
+		token, err := provider.Token(context.Background(), AzureDefaultAudience)
+
+		require.ErrorIs(t, err, sentinel)
+		require.ErrorContains(t, err, "failed to acquire GitHub OIDC assertion")
+		assert.Empty(t, token)
+		assert.Equal(t, int32(1), atomic.LoadInt32(&source.calls))
+		assert.Zero(t, atomic.LoadInt32(&requests), "no Entra request should be sent without an assertion")
+	})
+
+	t.Run("invalid endpoint fails to build the request", func(t *testing.T) {
+		provider := NewAzureProvider(&testAssertionSource{}, "tenant", "client", "scope", "")
+		provider.endpoint = "http://[::1"
+
+		token, err := provider.Token(context.Background(), AzureDefaultAudience)
+
+		require.ErrorContains(t, err, "failed to create Entra token request")
+		assert.Empty(t, token)
+	})
+
+	t.Run("transport failure is reported without leaking the assertion", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+		endpoint := server.URL
+		server.Close()
+
+		provider := NewAzureProvider(&testAssertionSource{}, "tenant", "client", "scope", "")
+		provider.endpoint = endpoint
+
+		token, err := provider.Token(context.Background(), AzureDefaultAudience)
+
+		require.ErrorContains(t, err, "entra token request failed")
+		assert.Empty(t, token)
+		assert.NotContains(t, err.Error(), "github-assertion")
+	})
+
+	t.Run("oversized success body is rejected", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, `{"access_token":"`)
+			_, _ = io.WriteString(w, strings.Repeat("a", maxAzureTokenResponseBytes))
+			_, _ = io.WriteString(w, `","expires_in":3600}`)
+		}))
+		defer server.Close()
+
+		provider := NewAzureProvider(&testAssertionSource{}, "tenant", "client", "scope", "")
+		provider.endpoint = server.URL
+
+		token, err := provider.Token(context.Background(), AzureDefaultAudience)
+
+		require.ErrorContains(t, err, "exceeds the 1048576-byte limit")
+		assert.Empty(t, token)
+	})
+}
+
+func TestAzureProviderExchangeCancelledContext(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"access_token":"entra-token","expires_in":3600}`)
+	}))
+	defer server.Close()
+
+	provider := NewAzureProvider(&testAssertionSource{}, "tenant", "client", "scope", "")
+	provider.endpoint = server.URL
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, _, err := provider.exchange(ctx, "assertion")
+
+	require.ErrorContains(t, err, "entra token request failed")
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestAzureProviderExchangeRejectsMalformedSuccessBodies(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr string
+	}{
+		{
+			name:    "malformed JSON",
+			body:    `{"access_token":`,
+			wantErr: "failed to parse Entra token response",
+		},
+		{
+			name:    "missing access token",
+			body:    `{"expires_in":3600}`,
+			wantErr: "missing a valid access token or expiry",
+		},
+		{
+			name:    "negative expiry",
+			body:    `{"access_token":"secret","expires_in":-1}`,
+			wantErr: "missing a valid access token or expiry",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = io.WriteString(w, tc.body)
+			}))
+			defer server.Close()
+
+			provider := NewAzureProvider(&testAssertionSource{}, "tenant", "client", "scope", "")
+			provider.endpoint = server.URL
+
+			token, _, err := provider.exchange(context.Background(), "assertion")
+
+			require.ErrorContains(t, err, tc.wantErr)
+			assert.Empty(t, token)
+			assert.NotContains(t, err.Error(), "secret")
 		})
 	}
 }
