@@ -32,6 +32,7 @@ func TestShouldForcePublicRepos(t *testing.T) {
 		{"unavailable", nil, true, "", "", nil, false, 1},
 		{"unknown", nil, true, "", "unknown", nil, false, 1},
 		{"lookup error", nil, true, "", githubhttp.RepoVisibilityPublic, errors.New("lookup failed"), false, 1},
+		{"invalid response", nil, true, "", "", githubhttp.ErrInvalidRepoVisibilityResponse, true, 1},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(EnvForcePublicRepos, tt.env)

@@ -19,6 +19,56 @@ import (
 // path. Each case is a fresh Server/enclaveState so upstream call counts and
 // cache state can be asserted independently.
 func TestEnclaveRepositoryIsPublic(t *testing.T) {
+	t.Run("shared visibility parsing", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			body   string
+			public bool
+		}{
+			{name: "public", body: `{"visibility":"public"}`, public: true},
+			{name: "case insensitive public", body: `{"visibility":"PUBLIC"}`, public: true},
+			{name: "legacy public", body: `{"private":false}`, public: true},
+			{name: "legacy private", body: `{"private":true}`},
+			{name: "empty visibility fallback", body: `{"visibility":"","private":false}`, public: true},
+			{name: "unknown visibility fallback", body: `{"visibility":"unknown","private":false}`, public: true},
+			{name: "private overrides fallback", body: `{"visibility":"private","private":false}`},
+			{name: "internal overrides fallback", body: `{"visibility":"internal","private":false}`},
+			{name: "missing fields", body: `{}`},
+			{name: "null private", body: `{"private":null}`},
+			{name: "unknown visibility without fallback", body: `{"visibility":"unknown"}`},
+			{name: "null response", body: `null`},
+			{name: "malformed JSON", body: `{"visibility":`},
+			{name: "invalid private type", body: `{"private":"false"}`},
+			{name: "trailing JSON", body: `{"visibility":"public"} {}`},
+			{name: "trailing garbage", body: `{"visibility":"public"} invalid`},
+			{name: "oversized public response", body: `{"visibility":"public"}` + strings.Repeat(" ", maxEnclaveVisibilityResponseBytes)},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				var upstreamCalls int
+				upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					upstreamCalls++
+					_, _ = w.Write([]byte(tt.body))
+				}))
+				defer upstream.Close()
+
+				server := newTestServer(t, upstream.URL)
+				server.githubToken = "test-token"
+				server.enclave = newEnclaveState(nil, nil)
+
+				assert.Equal(t, tt.public, server.enclaveRepositoryIsPublic(context.Background(), "org/repo"))
+				assert.Equal(t, tt.public, server.enclaveRepositoryIsPublic(context.Background(), "org/repo"))
+				if tt.public {
+					assert.Equal(t, 2, upstreamCalls, "public visibility must be checked each time")
+					assert.Empty(t, server.enclave.visibilityDecisions)
+				} else {
+					assert.Equal(t, 1, upstreamCalls, "denials must be cached")
+					assert.Contains(t, server.enclave.visibilityDecisions, "org/repo")
+				}
+			})
+		}
+	})
+
 	t.Run("cached denial not yet expired returns false without calling upstream", func(t *testing.T) {
 		require := require.New(t)
 		assert := assert.New(t)

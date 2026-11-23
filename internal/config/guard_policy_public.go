@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/envutil"
@@ -11,8 +12,8 @@ import (
 var logGuardPolicyPublic = logger.ForFile()
 
 // ShouldForcePublicRepos checks the config, CLI, and environment opt-outs before
-// resolving visibility. Only a confirmed public repository enables the override.
-// Lookup failures leave the policy unchanged; lookup caching is caller-owned.
+// resolving visibility. A public repository or invalid successful response enables
+// the override. Other lookup failures leave the policy unchanged; caching is caller-owned.
 func ShouldForcePublicRepos(configEnabled *bool, enabled bool, lookup func() (githubhttp.WorkflowRepoVisibility, error)) bool {
 	if configEnabled != nil && !*configEnabled {
 		logger.LogInfo("difc", "forcePublicRepos: disabled by config")
@@ -25,6 +26,10 @@ func ShouldForcePublicRepos(configEnabled *bool, enabled bool, lookup func() (gi
 
 	repo, err := lookup()
 	if err != nil {
+		if errors.Is(err, githubhttp.ErrInvalidRepoVisibilityResponse) {
+			logger.LogWarn("difc", "forcePublicRepos: invalid visibility response for %s; forcing repos=public", repo.Repository)
+			return true
+		}
 		logger.LogWarn("difc", "forcePublicRepos: failed to determine visibility for %s (fail-open, not forcing repos=public): %v", repo.Repository, err)
 		return false
 	}

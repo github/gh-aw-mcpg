@@ -1,8 +1,8 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/github/gh-aw-mcpg/internal/enclavegithub"
+	"github.com/github/gh-aw-mcpg/internal/githubhttp"
 	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/util"
@@ -95,10 +96,8 @@ func (s *Server) enclaveRepositoryIsPublic(ctx context.Context, repo string) boo
 		s.cacheEnclaveVisibilityDenial(repo)
 		return false
 	}
-	var visibility struct {
-		Visibility string `json:"visibility"`
-	}
-	if err := json.Unmarshal(body, &visibility); err != nil || visibility.Visibility != "public" {
+	visibility, err := githubhttp.ParseRepoVisibility(bytes.NewReader(body))
+	if err != nil || visibility != githubhttp.RepoVisibilityPublic {
 		s.cacheEnclaveVisibilityDenial(repo)
 		return false
 	}

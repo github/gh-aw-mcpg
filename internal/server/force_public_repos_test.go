@@ -468,6 +468,37 @@ func TestWorkflowRepoVisibility_SharedCache(t *testing.T) {
 	}
 }
 
+func TestWorkflowRepoVisibility_InvalidResponse(t *testing.T) {
+	for _, body := range []string{`{}`, `{"visibility":"public"} {}`, `{"visibility":42}`} {
+		for _, sinkFirst := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/sinkFirst=%t", body, sinkFirst), func(t *testing.T) {
+				t.Setenv(config.EnvForcePublicRepos, "true")
+				t.Setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
+				t.Setenv("GITHUB_MCP_SERVER_TOKEN", "mock-token")
+				var calls atomic.Int32
+				apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					calls.Add(1)
+					_, _ = w.Write([]byte(body))
+				}))
+				defer apiServer.Close()
+				t.Setenv("GITHUB_API_URL", apiServer.URL)
+				us := newMinimalUnifiedServerForGuardTest(&config.Config{})
+
+				checkSink := func() { assert.Equal(t, "public", us.verifySinkVisibilityAtRuntime("safe-outputs", "private")) }
+				checkForce := func() { assert.True(t, us.shouldForcePublicRepos()) }
+				if sinkFirst {
+					checkSink()
+					checkForce()
+				} else {
+					checkForce()
+					checkSink()
+				}
+				assert.EqualValues(t, 1, calls.Load())
+			})
+		}
+	}
+}
+
 // TestOverrideToPublicScope_PerServerPolicy_InvalidPolicy_Skipped verifies that
 // overrideToPublicScope skips the override when the existing per-server policy
 // cannot be parsed (e.g., "allow-only" is a string instead of an object).

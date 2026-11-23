@@ -3,7 +3,9 @@ package githubhttp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -13,6 +15,10 @@ import (
 )
 
 var logVisibility = logger.ForFile()
+
+// ErrInvalidRepoVisibilityResponse indicates that a successful repository API
+// response did not contain a usable visibility.
+var ErrInvalidRepoVisibilityResponse = errors.New("invalid repository visibility response")
 
 // RepoVisibility represents the visibility of a GitHub repository.
 type RepoVisibility string
@@ -59,7 +65,7 @@ func FetchWorkflowRepoVisibility(ctx context.Context, apiBaseURL, token string) 
 // repoResponse is the minimal subset of the GitHub repos API response we need.
 type repoResponse struct {
 	Visibility string `json:"visibility"`
-	Private    bool   `json:"private"`
+	Private    *bool  `json:"private"`
 }
 
 // FetchRepoVisibility calls GET /repos/{owner}/{repo} and returns the
@@ -68,8 +74,8 @@ type repoResponse struct {
 // is the full Authorization header value (e.g. "token xyz").
 //
 // Returns RepoVisibilityPublic, RepoVisibilityPrivate, or RepoVisibilityInternal.
-// On API errors (network, 404, 403) returns an error — callers should treat
-// this as non-fatal and fall back to the configured value.
+// On API or response parsing errors, returns an error. Callers decide the
+// appropriate fallback policy.
 func FetchRepoVisibility(ctx context.Context, apiBaseURL, nwo, authHeader string) (RepoVisibility, error) {
 	parts := strings.SplitN(nwo, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
@@ -90,33 +96,50 @@ func FetchRepoVisibility(ctx context.Context, apiBaseURL, nwo, authHeader string
 		return "", fmt.Errorf("repo visibility check for %s returned status %d", nwo, resp.StatusCode)
 	}
 
-	var repo repoResponse
-	if err := json.NewDecoder(resp.Body).Decode(&repo); err != nil {
+	vis, err := ParseRepoVisibility(resp.Body)
+	if err != nil {
 		logVisibility.Printf("Failed to decode repo response: nwo=%s, err=%v", nwo, err)
-		return "", fmt.Errorf("failed to decode repo response for %s: %w", nwo, err)
-	}
-
-	// The "visibility" field is available on GitHub.com and GHES 3.x+.
-	// Fall back to the boolean "private" field for older API versions.
-	var vis RepoVisibility
-	switch strings.ToLower(repo.Visibility) {
-	case "public":
-		vis = RepoVisibilityPublic
-	case "internal":
-		vis = RepoVisibilityInternal
-	case "private":
-		vis = RepoVisibilityPrivate
-	default:
-		// Fallback: use the "private" boolean
-		if repo.Private {
-			vis = RepoVisibilityPrivate
-		} else {
-			vis = RepoVisibilityPublic
-		}
+		return "", fmt.Errorf("failed to decode repo response for %s: %w: %w", nwo, ErrInvalidRepoVisibilityResponse, err)
 	}
 
 	logVisibility.Printf("Repo visibility resolved: nwo=%s, visibility=%s", nwo, vis)
 	return vis, nil
+}
+
+// ParseRepoVisibility parses a GitHub repository response. For older GHES APIs,
+// an empty or unrecognized visibility falls back to an explicit private boolean.
+// Missing or null fallback fields and malformed or trailing JSON return an error.
+// The caller owns the reader and any response size limit.
+func ParseRepoVisibility(body io.Reader) (RepoVisibility, error) {
+	decoder := json.NewDecoder(body)
+	var repo repoResponse
+	if err := decoder.Decode(&repo); err != nil {
+		return "", err
+	}
+	var extra json.RawMessage
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err != nil {
+			return "", err
+		}
+		return "", fmt.Errorf("unexpected trailing JSON in repo response")
+	}
+
+	switch strings.ToLower(repo.Visibility) {
+	case "public":
+		return RepoVisibilityPublic, nil
+	case "internal":
+		return RepoVisibilityInternal, nil
+	case "private":
+		return RepoVisibilityPrivate, nil
+	default:
+		if repo.Private == nil {
+			return "", fmt.Errorf("repo response has no recognized visibility or private boolean")
+		}
+		if *repo.Private {
+			return RepoVisibilityPrivate, nil
+		}
+		return RepoVisibilityPublic, nil
+	}
 }
 
 // VerifySinkVisibility compares the configured sink-visibility against the

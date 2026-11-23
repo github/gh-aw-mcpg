@@ -17,7 +17,7 @@ func TestFetchRepoVisibility(t *testing.T) {
 	tests := []struct {
 		name       string
 		nwo        string
-		response   repoResponse
+		response   string
 		statusCode int
 		wantVis    RepoVisibility
 		wantErr    bool
@@ -25,37 +25,86 @@ func TestFetchRepoVisibility(t *testing.T) {
 		{
 			name:       "public repo via visibility field",
 			nwo:        "octo/public-repo",
-			response:   repoResponse{Visibility: "public", Private: false},
+			response:   `{"visibility":"public","private":false}`,
 			statusCode: http.StatusOK,
 			wantVis:    RepoVisibilityPublic,
 		},
 		{
 			name:       "private repo via visibility field",
 			nwo:        "octo/private-repo",
-			response:   repoResponse{Visibility: "private", Private: true},
+			response:   `{"visibility":"private","private":true}`,
 			statusCode: http.StatusOK,
 			wantVis:    RepoVisibilityPrivate,
 		},
 		{
 			name:       "internal repo via visibility field",
 			nwo:        "octo/internal-repo",
-			response:   repoResponse{Visibility: "internal", Private: true},
+			response:   `{"visibility":"internal","private":true}`,
 			statusCode: http.StatusOK,
 			wantVis:    RepoVisibilityInternal,
 		},
 		{
 			name:       "fallback to private boolean when visibility empty",
 			nwo:        "octo/old-ghes-repo",
-			response:   repoResponse{Visibility: "", Private: true},
+			response:   `{"private":true}`,
 			statusCode: http.StatusOK,
 			wantVis:    RepoVisibilityPrivate,
 		},
 		{
 			name:       "fallback to public when visibility empty and not private",
 			nwo:        "octo/old-public-repo",
-			response:   repoResponse{Visibility: "", Private: false},
+			response:   `{"private":false}`,
 			statusCode: http.StatusOK,
 			wantVis:    RepoVisibilityPublic,
+		},
+		{
+			name:       "empty visibility falls back to explicit private boolean",
+			nwo:        "octo/repo",
+			response:   `{"visibility":"","private":false}`,
+			statusCode: http.StatusOK,
+			wantVis:    RepoVisibilityPublic,
+		},
+		{
+			name:       "unknown visibility falls back to explicit private boolean",
+			nwo:        "octo/repo",
+			response:   `{"visibility":"unknown","private":true}`,
+			statusCode: http.StatusOK,
+			wantVis:    RepoVisibilityPrivate,
+		},
+		{
+			name:       "missing visibility and private return error",
+			nwo:        "octo/repo",
+			response:   `{}`,
+			statusCode: http.StatusOK,
+			wantErr:    true,
+		},
+		{
+			name:       "null private without visibility returns error",
+			nwo:        "octo/repo",
+			response:   `{"private":null}`,
+			statusCode: http.StatusOK,
+			wantErr:    true,
+		},
+		{
+			name:       "unknown visibility without private returns error",
+			nwo:        "octo/repo",
+			response:   `{"visibility":"unknown"}`,
+			statusCode: http.StatusOK,
+			wantErr:    true,
+		},
+		{
+			name:       "null response returns error",
+			nwo:        "octo/repo",
+			response:   `null`,
+			statusCode: http.StatusOK,
+			wantErr:    true,
+		},
+		{
+			name:       "trailing JSON returns error",
+			nwo:        "octo/repo",
+			response:   `{"visibility":"public"} {}`,
+			statusCode: http.StatusOK,
+			wantErr:    true,
 		},
 		{
 			name:       "404 returns error",
@@ -93,7 +142,7 @@ func TestFetchRepoVisibility(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
 				if tt.statusCode == http.StatusOK {
-					json.NewEncoder(w).Encode(tt.response)
+					_, _ = w.Write([]byte(tt.response))
 				}
 			}))
 			defer server.Close()
@@ -105,6 +154,35 @@ func TestFetchRepoVisibility(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantVis, vis)
+		})
+	}
+}
+
+func TestFetchRepoVisibilityInvalidResponseClassification(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		status int
+		body   string
+		want   bool
+	}{
+		{"missing fields", http.StatusOK, `{}`, true},
+		{"trailing JSON", http.StatusOK, `{"visibility":"public"} {}`, true},
+		{"invalid JSON", http.StatusOK, `{`, true},
+		{"server error", http.StatusInternalServerError, `{}`, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+			_, err := FetchRepoVisibility(context.Background(), server.URL, "octo/repo", "token test")
+			require.Error(t, err)
+			if tt.want {
+				assert.ErrorIs(t, err, ErrInvalidRepoVisibilityResponse)
+			} else {
+				assert.NotErrorIs(t, err, ErrInvalidRepoVisibilityResponse)
+			}
 		})
 	}
 }
@@ -181,9 +259,9 @@ func TestVerifySinkVisibility(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(repoResponse{
-					Visibility: tt.actualVis,
-					Private:    tt.actualPrivate,
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"visibility": tt.actualVis,
+					"private":    tt.actualPrivate,
 				})
 			}))
 			defer server.Close()
