@@ -59,7 +59,7 @@ func TestProxyForcePublicReposIfNeeded_OptOuts(t *testing.T) {
 				assert.JSONEq(t, `{"allow-only":{"repos":"public","min-integrity":"none"}}`, result)
 				assert.EqualValues(t, 1, calls.Load())
 			} else {
-				assert.Equal(t, defaultPrivatePolicy, result)
+				assert.JSONEq(t, defaultPrivatePolicy, result)
 				assert.Zero(t, calls.Load(), "opt-outs must skip the visibility lookup")
 			}
 		})
