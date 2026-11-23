@@ -267,7 +267,7 @@ func TestProxyForcePublicReposIfNeeded_InvalidVisibilityResponse(t *testing.T) {
 			assert.JSONEq(t, `{"allow-only":{"repos":"public","min-integrity":"none"}}`, result)
 
 			withForcePublicRepo(t, false)
-			assert.Equal(t, defaultPrivatePolicy, proxyForcePublicReposIfNeeded(context.Background(), defaultPrivatePolicy, "test-token", srv.URL))
+			assert.JSONEq(t, defaultPrivatePolicy, proxyForcePublicReposIfNeeded(context.Background(), defaultPrivatePolicy, "test-token", srv.URL))
 		})
 	}
 }
