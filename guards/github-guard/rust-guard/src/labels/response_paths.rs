@@ -531,6 +531,93 @@ fn resolve_repo_item_context<'a>(
     })
 }
 
+fn pull_request_artifact_response_paths(
+    tool_name: &str,
+    tool_args: &Value,
+    actual_response: &Value,
+    ctx: &PolicyContext,
+) -> Option<PathLabelResult> {
+    let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
+    let description = format!("pr-artifact:{repo_full}");
+    let default_integrity = if ctx.blocked_users.is_empty() {
+        none_integrity(&repo_full, ctx)
+    } else {
+        blocked_integrity(&repo_full, ctx)
+    };
+    let default_labels = repo_default_labels(&description, secrecy.clone(), default_integrity);
+    let method = dispatched_method(tool_args);
+
+    if tool_name == tool_names::PULL_REQUEST_ARTIFACT_READ {
+        let (items, items_path) = if let Some(items) = actual_response
+            .pointer("/list/artifacts")
+            .and_then(Value::as_array)
+        {
+            (items, "/list/artifacts")
+        } else if let Some(items) = actual_response.get("artifacts").and_then(Value::as_array) {
+            (items, "/artifacts")
+        } else if let Some(items) = actual_response.as_array() {
+            (items, "")
+        } else {
+            return None;
+        };
+        let labeled_paths = limit_items_with_log(items, tool_name)
+            .iter()
+            .enumerate()
+            .map(|(index, item)| crate::PathLabel {
+                path: if items_path.is_empty() {
+                    format!("/{index}")
+                } else {
+                    format!("{items_path}/{index}")
+                },
+                labels: crate::ResourceLabels {
+                    description: description.clone(),
+                    secrecy: secrecy.clone(),
+                    integrity: pull_request_artifact_integrity(item, &repo_full, ctx).into(),
+                },
+            })
+            .collect();
+        return Some(if items_path.is_empty() {
+            PathLabelResult {
+                labeled_paths,
+                default_labels: Some(default_labels),
+                items_path: Some(""),
+                items_paths: None,
+            }
+        } else {
+            PathLabelResult {
+                labeled_paths,
+                default_labels: Some(default_labels),
+                items_path: None,
+                items_paths: Some(vec![items_path.to_string()]),
+            }
+        });
+    }
+
+    let (field, path) = match method {
+        "upsert" => ("artifact", "/artifact"),
+        "delete" => ("deleted", "/deleted"),
+        _ => return None,
+    };
+    let item = actual_response.get(field)?;
+    Some(PathLabelResult {
+        labeled_paths: vec![crate::PathLabel {
+            path: path.to_string(),
+            labels: crate::ResourceLabels {
+                description,
+                secrecy,
+                integrity: if field == "artifact" {
+                    pull_request_artifact_integrity(item, &repo_full, ctx).into()
+                } else {
+                    none_integrity(&repo_full, ctx).into()
+                },
+            },
+        }],
+        default_labels: Some(default_labels),
+        items_path: None,
+        items_paths: Some(vec![]),
+    })
+}
+
 /// Generate path-based labels for collection responses (preferred format per GUARD_RESPONSE_LABELING.md)
 /// Returns None if the response is not a collection or should use resource labels
 /// Returns Some(PathLabelResult) with JSON Pointer paths for collection items
@@ -551,6 +638,15 @@ pub fn label_response_paths(
     let actual_response = extract_mcp_response(response);
 
     match tool_name {
+        tool_names::PULL_REQUEST_ARTIFACT_READ | tool_names::PULL_REQUEST_ARTIFACT_WRITE => {
+            return pull_request_artifact_response_paths(
+                tool_name,
+                tool_args,
+                &actual_response,
+                ctx,
+            );
+        }
+
         tool_names::LIST_DISCUSSIONS
         | tool_names::GET_DISCUSSION
         | tool_names::GET_DISCUSSION_COMMENTS => {
@@ -1386,6 +1482,112 @@ mod tests {
 
     fn ctx() -> PolicyContext {
         PolicyContext::default()
+    }
+
+    #[test]
+    fn pull_request_artifact_paths_preserve_envelopes_and_deny_blocked_creators() {
+        let args = json!({
+            "owner": "octocat",
+            "repo": "pr-artifacts",
+            "pull_number": 42,
+            "method": "list"
+        });
+        let artifact = json!({
+            "id": 1,
+            "body": "untrusted",
+            "creator": {"login": "blocked-user"}
+        });
+        let response = json!({
+            "list": {
+                "artifacts": [artifact.clone(), {"id": 2, "body": "missing creator"}],
+                "page": 1
+            }
+        });
+        let policy = PolicyContext {
+            blocked_users: vec!["blocked-user".to_string()],
+            ..Default::default()
+        };
+        for wrapped in [false, true] {
+            let response_value = if wrapped {
+                json!({"content": [{"type": "text", "text": response.to_string()}]})
+            } else {
+                response.clone()
+            };
+            let result = label_response_paths(
+                tool_names::PULL_REQUEST_ARTIFACT_READ,
+                &args,
+                &response_value,
+                &policy,
+            )
+            .unwrap();
+
+            assert_eq!(result.items_path, None);
+            assert_eq!(result.items_paths.as_ref().unwrap()[0], "/list/artifacts");
+            assert_eq!(result.labeled_paths[0].path, "/list/artifacts/0");
+            assert_eq!(
+                result.labeled_paths[0].labels.integrity,
+                blocked_integrity("octocat/pr-artifacts", &policy)
+            );
+            assert_eq!(
+                result.labeled_paths[1].labels.integrity,
+                blocked_integrity("octocat/pr-artifacts", &policy)
+            );
+            assert_eq!(
+                result.default_labels.as_ref().unwrap().integrity,
+                blocked_integrity("octocat/pr-artifacts", &policy)
+            );
+        }
+    }
+
+    #[test]
+    fn pull_request_artifact_write_paths_label_nested_results() {
+        let policy = ctx();
+        for (method, field) in [("upsert", "artifact"), ("delete", "deleted")] {
+            let args = json!({
+                "owner": "octocat",
+                "repo": "pr-artifacts",
+                "pull_number": 42,
+                "method": method
+            });
+            let response = json!({
+                (field): {
+                    "id": 1,
+                    "body": "untrusted",
+                    "creator": {"login": "maintainer"}
+                },
+                "message": "result"
+            });
+            for wrapped in [false, true] {
+                let response_value = if wrapped {
+                    json!({"content": [{"type": "text", "text": response.to_string()}]})
+                } else {
+                    response.clone()
+                };
+                let result = label_response_paths(
+                    tool_names::PULL_REQUEST_ARTIFACT_WRITE,
+                    &args,
+                    &response_value,
+                    &policy,
+                )
+                .unwrap();
+                assert_eq!(result.items_path, None, "{method}, wrapped={wrapped}");
+                assert!(
+                    result.items_paths.unwrap().is_empty(),
+                    "{method}, wrapped={wrapped}"
+                );
+                assert_eq!(result.labeled_paths.len(), 1, "{method}, wrapped={wrapped}");
+                assert_eq!(
+                    result.labeled_paths[0].path,
+                    format!("/{field}"),
+                    "{method}, wrapped={wrapped}"
+                );
+                assert_eq!(
+                    result.labeled_paths[0].labels.integrity,
+                    none_integrity("octocat/pr-artifacts", &policy),
+                    "{method}, wrapped={wrapped}"
+                );
+            }
+        }
     }
 
     #[test]

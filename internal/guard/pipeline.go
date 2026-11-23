@@ -13,6 +13,7 @@ import (
 var logPipeline = logger.ForFile()
 
 const issueArtifactWriteToolName = "issue_artifact_write"
+const pullRequestArtifactWriteToolName = "pull_request_artifact_write"
 
 // PipelineInput holds the shared inputs used across DIFC pipeline phases 0–2 and 4–6.
 // Both the HTTP proxy and the MCP unified server populate this struct and pass it to
@@ -76,6 +77,8 @@ func requiresResponseRead(toolName string, guard Guard) bool {
 	}
 	switch toolName {
 	case "update_code_scanning_alert", "update_dependabot_alert", "update_secret_scanning_alert":
+		return true
+	case pullRequestArtifactWriteToolName:
 		return true
 	default:
 		return false
@@ -209,7 +212,7 @@ func RunPipelinePhase4(ctx context.Context, in PipelineInput, pre *PipelinePreRe
 		return nil, fmt.Errorf("response labeling failed: %w", err)
 	}
 	if pre.ResponseIsRead && labeledData == nil {
-		return nil, errors.New("response labeling required for security alert update")
+		return nil, fmt.Errorf("response labeling required for %s", in.ToolName)
 	}
 	logPipeline.Printf("[DIFC] Phase 4: LabelResponse completed, hasLabeledData=%v", labeledData != nil)
 	return labeledData, nil

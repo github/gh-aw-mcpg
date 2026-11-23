@@ -136,7 +136,6 @@ pub fn label_response_items(
 
         tool_names::PULL_REQUEST_ARTIFACT_READ | tool_names::PULL_REQUEST_ARTIFACT_WRITE => {
             let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
-            let integrity: SharedLabels = none_integrity(&repo_full, ctx).into();
             let items = extract_items_slice(&actual_response, "artifacts");
             for item in limit_items_with_log(items, tool_name) {
                 labeled_items.push(LabeledItem {
@@ -144,7 +143,7 @@ pub fn label_response_items(
                     labels: ResourceLabels {
                         description: format!("pr-artifact:{repo_full}"),
                         secrecy: secrecy.clone(),
-                        integrity: integrity.clone(),
+                        integrity: pull_request_artifact_integrity(item, &repo_full, ctx).into(),
                     },
                 });
             }
