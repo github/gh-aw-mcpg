@@ -58,6 +58,7 @@ func TestShouldForcePublicRepos_PrivateRepo(t *testing.T) {
 // returns false when explicitly disabled in gateway config.
 func TestShouldForcePublicRepos_ConfigOptOut(t *testing.T) {
 	t.Setenv(guard.WASMGuardsDirEnvVar, "")
+	t.Setenv(config.EnvForcePublicRepos, "true")
 	// Even if the API would return "public", the config opt-out takes precedence.
 	apiServer := startMockRepoVisibilityServer(t, "public", false)
 
@@ -75,6 +76,7 @@ func TestShouldForcePublicRepos_ConfigOptOut(t *testing.T) {
 	result := us.shouldForcePublicRepos()
 
 	assert.False(t, result, "shouldForcePublicRepos should return false when disabled in config")
+	assert.Empty(t, us.repoVisibilityCached.Repository, "config opt-out must skip the visibility lookup")
 }
 
 // TestShouldForcePublicRepos_EnvVarOptOut verifies that shouldForcePublicRepos
@@ -88,13 +90,15 @@ func TestShouldForcePublicRepos_EnvVarOptOut(t *testing.T) {
 	t.Setenv("GITHUB_API_URL", apiServer.URL)
 	t.Setenv(config.EnvForcePublicRepos, "false")
 
+	enabled := true
 	us := newMinimalUnifiedServerForGuardTest(&config.Config{
-		Gateway: &config.GatewayConfig{},
+		Gateway: &config.GatewayConfig{ForcePublicRepos: &enabled},
 	})
 
 	result := us.shouldForcePublicRepos()
 
 	assert.False(t, result, "shouldForcePublicRepos should return false when MCP_GATEWAY_FORCE_PUBLIC_REPOS=false")
+	assert.Empty(t, us.repoVisibilityCached.Repository, "env opt-out must skip the visibility lookup")
 }
 
 // TestShouldForcePublicRepos_NoGitHubRepository verifies that shouldForcePublicRepos

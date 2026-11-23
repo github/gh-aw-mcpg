@@ -9,9 +9,10 @@ import (
 
 func TestBuildStrictLabelAgentPayload_NormalizesStaticRepoScopes(t *testing.T) {
 	tests := []struct {
-		name  string
-		repos []interface{}
-		want  []string
+		name    string
+		repos   interface{}
+		want    interface{}
+		wantErr string
 	}{
 		{
 			name:  "exact repository",
@@ -23,6 +24,36 @@ func TestBuildStrictLabelAgentPayload_NormalizesStaticRepoScopes(t *testing.T) {
 			repos: []interface{}{"MyOrg/*", "MyOrg/Desk*"},
 			want:  []string{"myorg/*", "myorg/desk*"},
 		},
+		{
+			name:  "string public",
+			repos: " PuBlic ",
+			want:  "public",
+		},
+		{
+			name:  "string all",
+			repos: " ALL ",
+			want:  "all",
+		},
+		{
+			name:  "string slice",
+			repos: []string{" Zed/Repo ", "Acme/*"},
+			want:  []string{"acme/*", "zed/repo"},
+		},
+		{
+			name:    "invalid string",
+			repos:   "owner/repo",
+			wantErr: "allow-only.repos string must be 'all' or 'public'",
+		},
+		{
+			name:    "non-string array entry",
+			repos:   []interface{}{"owner/repo", 1},
+			wantErr: "allow-only.repos array values must be strings",
+		},
+		{
+			name:    "duplicate scopes",
+			repos:   []string{"owner/repo", " Owner/Repo "},
+			wantErr: "allow-only.repos must not contain duplicates",
+		},
 	}
 
 	for _, tt := range tests {
@@ -33,6 +64,11 @@ func TestBuildStrictLabelAgentPayload_NormalizesStaticRepoScopes(t *testing.T) {
 					"min-integrity": "none",
 				},
 			})
+			if tt.wantErr != "" {
+				require.EqualError(t, err, "invalid repos value: "+tt.wantErr)
+				assert.Nil(t, payload)
+				return
+			}
 			require.NoError(t, err)
 			allowOnly, ok := payload["allow-only"].(map[string]interface{})
 			require.True(t, ok)

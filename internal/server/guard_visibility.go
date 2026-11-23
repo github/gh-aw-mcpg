@@ -104,34 +104,14 @@ func (us *UnifiedServer) shouldForcePublicRepos() bool {
 }
 
 func (us *UnifiedServer) computeForcePublicRepos() bool {
-	// Config opt-out: forcePublicRepos=false in gateway config disables the feature.
-	if us.cfg != nil && us.cfg.Gateway != nil && us.cfg.Gateway.ForcePublicRepos != nil && !*us.cfg.Gateway.ForcePublicRepos {
-		logGuardInit.Print("shouldForcePublicRepos: disabled by config (forcePublicRepos=false)")
-		return false
+	var enabled *bool
+	if us.cfg != nil && us.cfg.Gateway != nil {
+		enabled = us.cfg.Gateway.ForcePublicRepos
 	}
-
-	// Env opt-out: MCP_GATEWAY_FORCE_PUBLIC_REPOS=false disables the feature.
-	// Default is true (feature enabled), so only an explicit "false" disables it.
-	if !envutil.GetEnvBool(config.EnvForcePublicRepos, true) {
-		logGuardInit.Printf("shouldForcePublicRepos: disabled by env var %s=false", config.EnvForcePublicRepos)
-		return false
-	}
-
-	vis, ok := us.resolveWorkflowRepoVisibility()
-	if !ok {
-		if errors.Is(us.repoVisibilityErr, githubhttp.ErrInvalidRepoVisibilityResponse) {
-			logger.LogWarn("difc", "shouldForcePublicRepos: invalid visibility response for %s; forcing repos=public", us.repoVisibilityCached.Repository)
-			return true
-		}
-		if us.repoVisibilityErr != nil {
-			logger.LogWarn("difc", "shouldForcePublicRepos: failed to determine visibility for %s (fail-open, not forcing repos=public)", us.repoVisibilityCached.Repository)
-		}
-		return false
-	}
-
-	forced := vis == githubhttp.RepoVisibilityPublic
-	logGuardInit.Printf("shouldForcePublicRepos: repo=%s visibility=%s forcePublic=%t", us.repoVisibilityCached.Repository, vis, forced)
-	return forced
+	return config.ShouldForcePublicRepos(enabled, true, func() (githubhttp.WorkflowRepoVisibility, error) {
+		us.resolveWorkflowRepoVisibility()
+		return us.repoVisibilityCached, us.repoVisibilityErr
+	})
 }
 
 // isServerExemptFromSinkVisibility returns true if the given server should NOT

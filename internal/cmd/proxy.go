@@ -35,6 +35,7 @@ const DefaultProxyListenAddr = DefaultListenIPv4 + ":8080"
 
 // Proxy subcommand flag variables
 var (
+	proxyConfigFile      string
 	proxyGuardWasm       string
 	proxyPolicy          string
 	proxyToken           string
@@ -155,6 +156,7 @@ Local usage:
 	// persistent flags) because the proxy subcommand has different defaults and a distinct
 	// purpose: it runs as a standalone HTTPS forward proxy, not an MCP gateway. Keeping
 	// them independent avoids confusion and allows each command to evolve separately.
+	cmd.Flags().StringVarP(&proxyConfigFile, "config", "c", "", "Optional gateway TOML config (uses gateway.force_public_repos only)")
 	cmd.Flags().StringVar(&proxyGuardWasm, "guard-wasm", defaultGuard, guardHelp)
 	cmd.Flags().StringVar(&proxyPolicy, "policy", envutil.GetEnvString(config.EnvGuardPolicyJSON, ""), "Guard policy JSON")
 	if err := cmd.RegisterFlagCompletionFunc("policy", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -250,6 +252,11 @@ func resolveEnclaveProxyConfig(
 func runProxy(cmd *cobra.Command, args []string) error {
 	ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+
+	forcePublicReposConfig, err := loadProxyForcePublicReposConfig(proxyConfigFile)
+	if err != nil {
+		return err
+	}
 
 	if len(proxyTLSDNSNames) > 0 && !proxyTLS {
 		return fmt.Errorf("--tls-dns-name requires --tls")
@@ -354,7 +361,7 @@ func runProxy(cmd *cobra.Command, args []string) error {
 	if enclaveEnabled {
 		effectivePolicy = enclaveGuardPolicy
 	} else if effectivePolicy != "" {
-		effectivePolicy = proxyForcePublicReposIfNeeded(ctx, effectivePolicy, token, apiURL)
+		effectivePolicy = proxyForcePublicReposIfNeeded(ctx, effectivePolicy, token, apiURL, forcePublicReposConfig)
 	}
 
 	// Create the proxy server
@@ -499,46 +506,39 @@ func delegationConfigHandler(server *proxy.Server) http.Handler {
 	return server.ControlHandler()
 }
 
+func loadProxyForcePublicReposConfig(path string) (*bool, error) {
+	if path == "" {
+		return nil, nil
+	}
+	cfg, err := config.LoadFromFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load proxy config: %w", err)
+	}
+	return cfg.Gateway.ForcePublicRepos, nil
+}
+
 // proxyForcePublicReposIfNeeded checks if GITHUB_REPOSITORY is public and, if so,
 // overrides the allow-only policy's repos field to "public". This prevents agents
 // in public-repo workflows from reading private repos through the proxy.
 //
 // Skipped when:
+//   - gateway.force_public_repos=false in the optional --config file
 //   - --force-public-repos=false (or MCP_GATEWAY_FORCE_PUBLIC_REPOS=false)
 //   - GITHUB_REPOSITORY is not set
 //   - No GitHub token is available
 //   - The API call fails, except for an invalid successful response (fail-open)
 //   - The repository is not public
-func proxyForcePublicReposIfNeeded(ctx context.Context, policyJSON, token, apiURL string) string {
-	if !proxyForcePublicRepo {
-		logger.LogInfo("difc", "forcePublicRepos: disabled")
+func proxyForcePublicReposIfNeeded(ctx context.Context, policyJSON, token, apiURL string, configEnabled *bool) string {
+	var repo githubhttp.WorkflowRepoVisibility
+	if !config.ShouldForcePublicRepos(configEnabled, proxyForcePublicRepo, func() (githubhttp.WorkflowRepoVisibility, error) {
+		var err error
+		repo, err = githubhttp.FetchWorkflowRepoVisibility(ctx, apiURL, token)
+		return repo, err
+	}) {
 		return policyJSON
 	}
 
-	repo, err := githubhttp.FetchWorkflowRepoVisibility(ctx, apiURL, token)
-	if err != nil {
-		if !errors.Is(err, githubhttp.ErrInvalidRepoVisibilityResponse) {
-			logger.LogWarn("difc", "forcePublicRepos: failed to determine visibility for %s (fail-open): %v", repo.Repository, err)
-			return policyJSON
-		}
-		logger.LogWarn("difc", "forcePublicRepos: invalid visibility response for %s; forcing repos=public", repo.Repository)
-		repo.Visibility = githubhttp.RepoVisibilityPublic
-	}
-	if repo.Visibility == "" {
-		if repo.Repository == "" {
-			logger.LogInfo("difc", "forcePublicRepos: GITHUB_REPOSITORY not set — skipping")
-		} else {
-			logger.LogInfo("difc", "forcePublicRepos: no GitHub token available — skipping")
-		}
-		return policyJSON
-	}
-
-	if repo.Visibility != githubhttp.RepoVisibilityPublic {
-		logger.LogInfo("difc", "forcePublicRepos: repo %s is %s — no override needed", repo.Repository, repo.Visibility)
-		return policyJSON
-	}
-
-	// Repository is public — override policy to repos="public"
+	// Override policy to repos="public".
 	var policyMap map[string]interface{}
 	if err := json.Unmarshal([]byte(policyJSON), &policyMap); err != nil {
 		logger.LogWarn("difc", "forcePublicRepos: failed to parse policy JSON (using original): %v", err)

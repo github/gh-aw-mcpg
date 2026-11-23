@@ -188,6 +188,7 @@ Assigned private repository responses use the existing `private:<owner>/<repo>` 
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--config` / `-c` | *(disabled)* | Optional validated gateway TOML config; only `gateway.force_public_repos` is used, and MCP servers are not launched |
 | `--guard-wasm` | *(auto-detected in container)* | Path to the guard WASM module |
 | `--policy` | | Guard policy JSON (e.g., `{"allow-only":{"repos":["org/repo"]}}`) |
 | `--github-token` | *(forwards client auth)* | Fallback GitHub API token for requests without Authorization header |
@@ -206,6 +207,11 @@ Assigned private repository responses use the existing `private:<owner>/<repo>` 
 | `--otlp-endpoint` | *(empty)* | OTLP HTTP endpoint for trace export (e.g., `http://localhost:4318`); defaults to `OTEL_EXPORTER_OTLP_ENDPOINT` when set. Tracing is disabled when empty |
 | `--otlp-service-name` | `mcp-gateway` | Service name reported in traces; defaults to `OTEL_SERVICE_NAME` when set |
 | `--otlp-sample-rate` | `1.0` | Fraction of traces to sample and export (`0.0`–`1.0`) |
+
+Config `gateway.force_public_repos=false`, `MCP_GATEWAY_FORCE_PUBLIC_REPOS=false`,
+or `--force-public-repos=false` disables the override. An explicit `true` does not
+override another source's opt-out. Visibility is checked once during proxy startup;
+the gateway caches its lookup for its lifetime.
 
 ## DIFC Pipeline
 
@@ -257,6 +263,10 @@ For **read operations** (GET and validated GraphQL queries), the existing route
 mapping applies. Unrecognized GraphQL operations fail closed; unrecognized REST
 GET endpoints retain their empty-label passthrough unless `--read-only` is set.
 Unclassified **write operations** are rejected before forwarding.
+
+Request paths containing `.` or `..` segments (including percent-encoded forms
+such as `%2e%2e`) are rejected with `400 invalid_path` in every proxy mode, so
+the owner/repo the guard labels always matches the path forwarded upstream.
 
 For artifact ZIP downloads, authorization is evaluated before proxy forwarding and the response is passed through without JSON transformation. Binary bodies are returned unchanged, and redirect responses preserve headers needed by clients (for example `Location` and `Content-Disposition`).
 

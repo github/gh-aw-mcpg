@@ -310,7 +310,7 @@ func TestIsValidAllowOnlyReposValue(t *testing.T) {
 			repos: []interface{}{},
 			want:  false,
 		},
-		// default (non-string, non-[]interface{}) cases
+		// default (unsupported type) cases
 		{
 			name:  "nil value",
 			repos: nil,
@@ -332,9 +332,9 @@ func TestIsValidAllowOnlyReposValue(t *testing.T) {
 			want:  false,
 		},
 		{
-			name:  "string slice (not []interface{})",
+			name:  "valid string slice",
 			repos: []string{"owner/repo"},
-			want:  false,
+			want:  true,
 		},
 	}
 

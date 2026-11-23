@@ -939,7 +939,7 @@ func TestBuildStrictLabelAgentPayload(t *testing.T) {
 
 		_, err := buildStrictLabelAgentPayload(input)
 		require.Error(t, err)
-		assert.Equal(t, "invalid repos value: expected all, public, or non-empty array of scoped strings", err.Error())
+		assert.Equal(t, "invalid repos value: allow-only.repos array must contain at least one scope", err.Error())
 	})
 
 	t.Run("rejects invalid integrity value", func(t *testing.T) {

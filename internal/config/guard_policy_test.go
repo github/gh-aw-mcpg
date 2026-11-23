@@ -185,7 +185,7 @@ func TestNormalizeGuardPolicy(t *testing.T) {
 				Repos:        42,
 				MinIntegrity: "none",
 			}},
-			wantErr: "allow-only.repos must be 'all', 'public', or a non-empty array",
+			wantErr: "allow-only.repos must be 'all', 'public', or an array",
 		},
 		{
 			name: "invalid min-integrity value",

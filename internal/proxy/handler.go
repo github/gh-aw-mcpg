@@ -46,6 +46,22 @@ func rejectProxyRequest(w http.ResponseWriter, span oteltrace.Span, status int, 
 	httputil.WriteErrorResponse(w, status, code, msg)
 }
 
+var errDotSegmentPath = errors.New("request path contains dot-segment")
+
+// hasDotSegment reports whether p contains an RFC 3986 "." or ".." path segment.
+func hasDotSegment(p string) bool {
+	for {
+		seg, rest, more := strings.Cut(p, "/")
+		if seg == "." || seg == ".." {
+			return true
+		}
+		if !more {
+			return false
+		}
+		p = rest
+	}
+}
+
 // proxyHandler implements http.Handler and runs the DIFC pipeline on proxied requests.
 type proxyHandler struct {
 	server *Server
@@ -53,6 +69,16 @@ type proxyHandler struct {
 }
 
 func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Reject dot-segments before routing so that the owner/repo labeled by the
+	// guard cannot diverge from the resource an upstream that normalizes paths
+	// would serve. r.URL.Path is already percent-decoded, so encoded forms such
+	// as %2e%2e and ..%2F are caught as well.
+	if hasDotSegment(r.URL.Path) ||
+		(strings.HasPrefix(r.URL.Path, ghHostPathPrefix) && hasDotSegment(strings.TrimPrefix(r.URL.Path, ghHostPathPrefix))) {
+		rejectProxyRequest(w, oteltrace.SpanFromContext(r.Context()), http.StatusBadRequest,
+			"invalid_path", "request path must not contain '.' or '..' segments", errDotSegmentPath)
+		return
+	}
 	// Avoid logging enclave paths before capability and repository authorization.
 	rawPath := r.URL.Path
 	if h.server.enclave != nil {

@@ -2,11 +2,50 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
+	"github.com/github/gh-aw-mcpg/internal/githubhttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestShouldForcePublicRepos(t *testing.T) {
+	enabled, disabled := true, false
+	for _, tt := range []struct {
+		name          string
+		configEnabled *bool
+		flagEnabled   bool
+		env           string
+		visibility    githubhttp.RepoVisibility
+		err           error
+		want          bool
+		wantCalls     int
+	}{
+		{"default public", nil, true, "", githubhttp.RepoVisibilityPublic, nil, true, 1},
+		{"explicit public", &enabled, true, "true", githubhttp.RepoVisibilityPublic, nil, true, 1},
+		{"config opt-out", &disabled, true, "true", githubhttp.RepoVisibilityPublic, nil, false, 0},
+		{"flag opt-out", &enabled, false, "true", githubhttp.RepoVisibilityPublic, nil, false, 0},
+		{"env opt-out", &enabled, true, "false", githubhttp.RepoVisibilityPublic, nil, false, 0},
+		{"private", nil, true, "", githubhttp.RepoVisibilityPrivate, nil, false, 1},
+		{"internal", nil, true, "", githubhttp.RepoVisibilityInternal, nil, false, 1},
+		{"unavailable", nil, true, "", "", nil, false, 1},
+		{"unknown", nil, true, "", "unknown", nil, false, 1},
+		{"lookup error", nil, true, "", githubhttp.RepoVisibilityPublic, errors.New("lookup failed"), false, 1},
+		{"invalid response", nil, true, "", "", githubhttp.ErrInvalidRepoVisibilityResponse, true, 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(EnvForcePublicRepos, tt.env)
+			calls := 0
+			got := ShouldForcePublicRepos(tt.configEnabled, tt.flagEnabled, func() (githubhttp.WorkflowRepoVisibility, error) {
+				calls++
+				return githubhttp.WorkflowRepoVisibility{Repository: "owner/repo", Visibility: tt.visibility}, tt.err
+			})
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantCalls, calls)
+		})
+	}
+}
 
 func TestGuardPolicyForcePublicRepos(t *testing.T) {
 	t.Parallel()

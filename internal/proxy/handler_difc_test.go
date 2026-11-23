@@ -960,3 +960,49 @@ func TestForwardAndReadBody_NetworkError_RecordsOnExplicitSpan(t *testing.T) {
 	require.NotEmpty(t, spans[0].Events, "span must have an exception event")
 	assert.Equal(t, "exception", spans[0].Events[0].Name, "event must be named 'exception'")
 }
+
+func TestServeHTTP_RejectsDotSegmentPaths(t *testing.T) {
+	for _, target := range []string{
+		"/repos/attacker/public-repo/../../victim-org/secret-repo/issues",
+		"/repos/attacker/public-repo/%2e%2e/%2E%2E/victim-org/secret-repo",
+		"/repos/attacker/public-repo/..%2F..%2Fvictim-org/secret-repo",
+		"/api/v3/repos/attacker/public-repo/../../victim-org/secret-repo",
+		"/repos/attacker/public-repo/./issues",
+	} {
+		t.Run(target, func(t *testing.T) {
+			upstreamHits := 0
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				upstreamHits++
+				_, _ = w.Write([]byte(`[]`))
+			}))
+			defer upstream.Close()
+
+			g := &stubGuard{labelResourceResult: publicResource(), labelResourceOp: difc.OperationRead}
+			s := newTestServerWithStub(t, upstream.URL, g, difc.EnforcementFilter)
+			w := httptest.NewRecorder()
+			(&proxyHandler{server: s}).ServeHTTP(w, httptest.NewRequest(http.MethodGet, target, nil))
+
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.Contains(t, w.Body.String(), "invalid_path")
+			assert.Zero(t, upstreamHits, "dot-segment request must not be forwarded")
+			assert.Empty(t, g.labelResourceTool, "guard must not label a dot-segment request")
+		})
+	}
+}
+
+func TestServeHTTP_AllowsDotPrefixedSegments(t *testing.T) {
+	var forwarded string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		forwarded = r.URL.Path
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer upstream.Close()
+
+	g := &stubGuard{labelResourceResult: publicResource(), labelResourceOp: difc.OperationRead}
+	s := newTestServerWithStub(t, upstream.URL, g, difc.EnforcementFilter)
+	w := httptest.NewRecorder()
+	(&proxyHandler{server: s}).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/repos/org/repo/contents/.github/..config", nil))
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "/repos/org/repo/contents/.github/..config", forwarded)
+}
