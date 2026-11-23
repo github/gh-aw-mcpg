@@ -50,12 +50,16 @@ var errDotSegmentPath = errors.New("request path contains dot-segment")
 
 // hasDotSegment reports whether p contains an RFC 3986 "." or ".." path segment.
 func hasDotSegment(p string) bool {
-	for _, seg := range strings.Split(p, "/") {
+	for {
+		seg, rest, more := strings.Cut(p, "/")
 		if seg == "." || seg == ".." {
 			return true
 		}
+		if !more {
+			return false
+		}
+		p = rest
 	}
-	return false
 }
 
 // proxyHandler implements http.Handler and runs the DIFC pipeline on proxied requests.
