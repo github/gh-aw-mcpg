@@ -264,6 +264,10 @@ mapping applies. Unrecognized GraphQL operations fail closed; unrecognized REST
 GET endpoints retain their empty-label passthrough unless `--read-only` is set.
 Unclassified **write operations** are rejected before forwarding.
 
+Request paths containing `.` or `..` segments (including percent-encoded forms
+such as `%2e%2e`) are rejected with `400 invalid_path` in every proxy mode, so
+the owner/repo the guard labels always matches the path forwarded upstream.
+
 For artifact ZIP downloads, authorization is evaluated before proxy forwarding and the response is passed through without JSON transformation. Binary bodies are returned unchanged, and redirect responses preserve headers needed by clients (for example `Location` and `Content-Disposition`).
 
 Authorized raw file responses, including `application/vnd.github.raw+json`, are returned without JSON parsing. Bodyless 204 and 205 responses do not require decoding even when an encoding header is present. Responses that cannot be filtered per item require resource-level authorization. Denials are logged and recorded as failed DIFC spans; when the upstream signals throttling, safe `X-RateLimit-*` and `Retry-After` headers are retained without forwarding the denied body or resource links.
