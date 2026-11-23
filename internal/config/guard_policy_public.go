@@ -15,17 +15,25 @@ var logGuardPolicyPublic = logger.ForFile()
 // Lookup failures leave the policy unchanged; lookup caching is caller-owned.
 func ShouldForcePublicRepos(configEnabled *bool, enabled bool, lookup func() (githubhttp.WorkflowRepoVisibility, error)) bool {
 	if configEnabled != nil && !*configEnabled {
-		logGuardPolicyPublic.Print("forcePublicRepos: disabled by config")
+		logger.LogInfo("difc", "forcePublicRepos: disabled by config")
 		return false
 	}
 	if !enabled || !envutil.GetEnvBool(EnvForcePublicRepos, true) {
-		logGuardPolicyPublic.Print("forcePublicRepos: disabled by flag or environment")
+		logger.LogInfo("difc", "forcePublicRepos: disabled by flag or environment")
 		return false
 	}
 
 	repo, err := lookup()
 	if err != nil {
-		logger.LogWarn("difc", "forcePublicRepos: failed to determine visibility for %s (fail-open, not forcing repos=public)", repo.Repository)
+		logger.LogWarn("difc", "forcePublicRepos: failed to determine visibility for %s (fail-open, not forcing repos=public): %v", repo.Repository, err)
+		return false
+	}
+	if repo.Visibility == "" {
+		if repo.Repository == "" {
+			logger.LogInfo("difc", "forcePublicRepos: GITHUB_REPOSITORY not set — skipping")
+		} else {
+			logger.LogInfo("difc", "forcePublicRepos: no GitHub token available — skipping")
+		}
 		return false
 	}
 	forced := repo.Visibility == githubhttp.RepoVisibilityPublic
