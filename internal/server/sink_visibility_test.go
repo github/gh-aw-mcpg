@@ -466,6 +466,20 @@ func TestRegisterGuard_SafeOutputsSafetyNet_PublicRepoForcesPublic(t *testing.T)
 		"safety net should force sink-visibility=public when no exemption applies")
 }
 
+func TestRegisterGuard_SafeOutputsSafetyNet_InvalidVisibility(t *testing.T) {
+	for _, body := range []string{`{}`, `{"visibility":"public"} {}`} {
+		t.Run(body, func(t *testing.T) {
+			us := newPublicRepoUnifiedServerForSafeOutputs(t, &config.GatewayConfig{})
+			apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(body))
+			}))
+			defer apiServer.Close()
+			t.Setenv("GITHUB_API_URL", apiServer.URL)
+			assert.Equal(t, "public", registerSafeOutputsGuardAndGetVisibility(t, us))
+		})
+	}
+}
+
 // TestRegisterGuard_SafeOutputsSafetyNet_ForcePublicReposFalseExempt verifies that
 // the blanket forcePublicRepos=false opt-out exempts safe-outputs from the safety net.
 func TestRegisterGuard_SafeOutputsSafetyNet_ForcePublicReposFalseExempt(t *testing.T) {

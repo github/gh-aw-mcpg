@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
@@ -29,7 +30,7 @@ func (us *UnifiedServer) getTrustedBots() []string {
 // made public after the workflow was compiled.
 //
 // Emits a warning when overriding the configured value.
-// Falls back to the configured value on any API error (non-fatal).
+// Invalid responses force public; other API errors retain the configured value.
 func (us *UnifiedServer) verifySinkVisibilityAtRuntime(serverID, configuredVisibility string) string {
 	// Skip runtime check when sink-visibility is not explicitly configured.
 	// This preserves backward-compatible behavior where omitted sink-visibility
@@ -41,6 +42,10 @@ func (us *UnifiedServer) verifySinkVisibilityAtRuntime(serverID, configuredVisib
 
 	vis, ok := us.resolveWorkflowRepoVisibility()
 	if !ok {
+		if errors.Is(us.repoVisibilityErr, githubhttp.ErrInvalidRepoVisibilityResponse) {
+			logger.LogWarnToServer(serverID, "difc", "Sink visibility response invalid; forcing public to prevent potential data exfiltration")
+			return string(githubhttp.RepoVisibilityPublic)
+		}
 		if us.repoVisibilityErr != nil {
 			logger.LogWarnToServer(serverID, "difc", "Sink visibility runtime verification failed (using configured value %q): API error or unavailable", configuredVisibility)
 		}
@@ -65,7 +70,7 @@ func (us *UnifiedServer) verifySinkVisibilityAtRuntime(serverID, configuredVisib
 // per gateway lifetime; subsequent calls return the cached result immediately.
 //
 // Returns (visibility, true) on success, or ("", false) when the repository is
-// unknown, the token is unavailable, or the API call fails (fail-open semantics).
+// unknown, the token is unavailable, or the API call fails.
 func (us *UnifiedServer) resolveWorkflowRepoVisibility() (githubhttp.RepoVisibility, bool) {
 	us.repoVisibilityOnce.Do(func() {
 		apiURL := envutil.DeriveGitHubAPIURL(envutil.DefaultGitHubAPIBaseURL)
@@ -88,7 +93,7 @@ func (us *UnifiedServer) resolveWorkflowRepoVisibility() (githubhttp.RepoVisibil
 //   - The feature is not explicitly disabled (config ForcePublicRepos=false or env MCP_GATEWAY_FORCE_PUBLIC_REPOS=false)
 //   - GITHUB_REPOSITORY is set
 //   - A GitHub token is available
-//   - The GitHub API confirms the repository is public
+//   - The GitHub API confirms the repository is public or returns an invalid response
 //
 // The result is cached after the first call (backed by forcePublicReposOnce).
 func (us *UnifiedServer) shouldForcePublicRepos() bool {
@@ -114,6 +119,10 @@ func (us *UnifiedServer) computeForcePublicRepos() bool {
 
 	vis, ok := us.resolveWorkflowRepoVisibility()
 	if !ok {
+		if errors.Is(us.repoVisibilityErr, githubhttp.ErrInvalidRepoVisibilityResponse) {
+			logger.LogWarn("difc", "shouldForcePublicRepos: invalid visibility response for %s; forcing repos=public", us.repoVisibilityCached.Repository)
+			return true
+		}
 		if us.repoVisibilityErr != nil {
 			logger.LogWarn("difc", "shouldForcePublicRepos: failed to determine visibility for %s (fail-open, not forcing repos=public)", us.repoVisibilityCached.Repository)
 		}
@@ -167,7 +176,8 @@ func (us *UnifiedServer) validateSinkVisibilityExemptServers() {
 
 // overrideToPublicScope modifies the in-memory guard policy for serverID so that
 // any allow-only scope is set to repos="public". This is called when the workflow
-// repository is confirmed to be public, closing the GitLost read-path attack vector.
+// repository is public or its visibility response is invalid, closing the GitLost
+// read-path attack vector.
 //
 // Override precedence (first match wins):
 //  1. Global guard policy override (us.cfg.GuardPolicy) — applies to all servers.
@@ -198,7 +208,7 @@ func (us *UnifiedServer) overrideToPublicScope(serverID string) {
 			return
 		}
 		logger.LogWarnToServer(serverID, "difc",
-			"FORCED REPOS=PUBLIC: workflow repo %s is public — overriding allow-only scope to 'public' to prevent private data reads (source: global policy)",
+			"FORCED REPOS=PUBLIC: workflow repo %s is public or has invalid visibility — overriding allow-only scope to 'public' to prevent private data reads (source: global policy)",
 			nwo)
 		return
 	}
@@ -251,6 +261,6 @@ func (us *UnifiedServer) overrideToPublicScope(serverID string) {
 	}
 
 	logger.LogWarnToServer(serverID, "difc",
-		"FORCED REPOS=PUBLIC: workflow repo %s is public — overriding allow-only scope to 'public' to prevent private data reads",
+		"FORCED REPOS=PUBLIC: workflow repo %s is public or has invalid visibility — overriding allow-only scope to 'public' to prevent private data reads",
 		nwo)
 }

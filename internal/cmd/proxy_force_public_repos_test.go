@@ -252,6 +252,26 @@ func TestProxyForcePublicReposIfNeeded_PublicRepo_OverridesPolicy(t *testing.T) 
 	}
 }
 
+func TestProxyForcePublicReposIfNeeded_InvalidVisibilityResponse(t *testing.T) {
+	for _, body := range []string{`{}`, `{"visibility":"public"} {}`, `{"visibility":42}`} {
+		t.Run(body, func(t *testing.T) {
+			withForcePublicRepo(t, true)
+			t.Setenv("GITHUB_REPOSITORY", "octo/repo")
+			clearAllTokenEnvVars(t)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(body))
+			}))
+			defer srv.Close()
+
+			result := proxyForcePublicReposIfNeeded(context.Background(), defaultPrivatePolicy, "test-token", srv.URL)
+			assert.JSONEq(t, `{"allow-only":{"repos":"public","min-integrity":"none"}}`, result)
+
+			withForcePublicRepo(t, false)
+			assert.Equal(t, defaultPrivatePolicy, proxyForcePublicReposIfNeeded(context.Background(), defaultPrivatePolicy, "test-token", srv.URL))
+		})
+	}
+}
+
 // TestProxyForcePublicReposIfNeeded_WriteSinkOnlyUnchanged verifies that
 // write-sink-only policies never acquire an allow-only section, across the
 // accepted key spellings.

@@ -158,6 +158,35 @@ func TestFetchRepoVisibility(t *testing.T) {
 	}
 }
 
+func TestFetchRepoVisibilityInvalidResponseClassification(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		status int
+		body   string
+		want   bool
+	}{
+		{"missing fields", http.StatusOK, `{}`, true},
+		{"trailing JSON", http.StatusOK, `{"visibility":"public"} {}`, true},
+		{"invalid JSON", http.StatusOK, `{`, true},
+		{"server error", http.StatusInternalServerError, `{}`, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+			_, err := FetchRepoVisibility(context.Background(), server.URL, "octo/repo", "token test")
+			require.Error(t, err)
+			if tt.want {
+				assert.ErrorIs(t, err, ErrInvalidRepoVisibilityResponse)
+			} else {
+				assert.NotErrorIs(t, err, ErrInvalidRepoVisibilityResponse)
+			}
+		})
+	}
+}
+
 func TestVerifySinkVisibility(t *testing.T) {
 	tests := []struct {
 		name           string

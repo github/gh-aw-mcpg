@@ -507,7 +507,7 @@ func delegationConfigHandler(server *proxy.Server) http.Handler {
 //   - --force-public-repos=false (or MCP_GATEWAY_FORCE_PUBLIC_REPOS=false)
 //   - GITHUB_REPOSITORY is not set
 //   - No GitHub token is available
-//   - The API call fails (fail-open)
+//   - The API call fails, except for an invalid successful response (fail-open)
 //   - The repository is not public
 func proxyForcePublicReposIfNeeded(ctx context.Context, policyJSON, token, apiURL string) string {
 	if !proxyForcePublicRepo {
@@ -517,8 +517,12 @@ func proxyForcePublicReposIfNeeded(ctx context.Context, policyJSON, token, apiUR
 
 	repo, err := githubhttp.FetchWorkflowRepoVisibility(ctx, apiURL, token)
 	if err != nil {
-		logger.LogWarn("difc", "forcePublicRepos: failed to determine visibility for %s (fail-open): %v", repo.Repository, err)
-		return policyJSON
+		if !errors.Is(err, githubhttp.ErrInvalidRepoVisibilityResponse) {
+			logger.LogWarn("difc", "forcePublicRepos: failed to determine visibility for %s (fail-open): %v", repo.Repository, err)
+			return policyJSON
+		}
+		logger.LogWarn("difc", "forcePublicRepos: invalid visibility response for %s; forcing repos=public", repo.Repository)
+		repo.Visibility = githubhttp.RepoVisibilityPublic
 	}
 	if repo.Visibility == "" {
 		if repo.Repository == "" {
@@ -555,6 +559,6 @@ func proxyForcePublicReposIfNeeded(ctx context.Context, policyJSON, token, apiUR
 		return policyJSON
 	}
 
-	logger.LogWarn("difc", "FORCED REPOS=PUBLIC: workflow repo %s is public — overriding proxy allow-only scope to prevent private data reads", repo.Repository)
+	logger.LogWarn("difc", "FORCED REPOS=PUBLIC: workflow repo %s is public or has invalid visibility — overriding proxy allow-only scope to prevent private data reads", repo.Repository)
 	return string(overridden)
 }

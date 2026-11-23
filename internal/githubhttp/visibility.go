@@ -3,6 +3,7 @@ package githubhttp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,10 @@ import (
 )
 
 var logVisibility = logger.ForFile()
+
+// ErrInvalidRepoVisibilityResponse indicates that a successful repository API
+// response did not contain a usable visibility.
+var ErrInvalidRepoVisibilityResponse = errors.New("invalid repository visibility response")
 
 // RepoVisibility represents the visibility of a GitHub repository.
 type RepoVisibility string
@@ -69,8 +74,8 @@ type repoResponse struct {
 // is the full Authorization header value (e.g. "token xyz").
 //
 // Returns RepoVisibilityPublic, RepoVisibilityPrivate, or RepoVisibilityInternal.
-// On API errors (network, 404, 403) returns an error — callers should treat
-// this as non-fatal and fall back to the configured value.
+// On API or response parsing errors, returns an error. Callers decide the
+// appropriate fallback policy.
 func FetchRepoVisibility(ctx context.Context, apiBaseURL, nwo, authHeader string) (RepoVisibility, error) {
 	parts := strings.SplitN(nwo, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
@@ -94,7 +99,7 @@ func FetchRepoVisibility(ctx context.Context, apiBaseURL, nwo, authHeader string
 	vis, err := ParseRepoVisibility(resp.Body)
 	if err != nil {
 		logVisibility.Printf("Failed to decode repo response: nwo=%s, err=%v", nwo, err)
-		return "", fmt.Errorf("failed to decode repo response for %s: %w", nwo, err)
+		return "", fmt.Errorf("failed to decode repo response for %s: %w: %w", nwo, ErrInvalidRepoVisibilityResponse, err)
 	}
 
 	logVisibility.Printf("Repo visibility resolved: nwo=%s, visibility=%s", nwo, vis)
