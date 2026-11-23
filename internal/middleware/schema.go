@@ -46,12 +46,14 @@ func inferSchema(v any) any {
 	default:
 		// Defensive fallback: classify any remaining numeric reflect.Kind as "number"
 		// and everything else as "string" to keep the schema output valid.
-		switch reflect.TypeOf(v).Kind() {
+		switch kind := reflect.TypeOf(v).Kind(); kind {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 			reflect.Float32, reflect.Float64:
+			logMiddleware.Printf("inferSchema: unexpected type %T classified as number via reflect kind %s", v, kind)
 			return "number"
 		default:
+			logMiddleware.Printf("inferSchema: unexpected type %T (kind %s) classified as string fallback", v, kind)
 			return "string"
 		}
 	}
