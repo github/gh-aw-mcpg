@@ -272,7 +272,7 @@ func TestProxyForcePublicReposIfNeeded_WriteSinkOnlyUnchanged(t *testing.T) {
 	}
 }
 
-// the visibility lookup: an explicit token wins, otherwise the environment is used.
+// TestProxyForcePublicReposIfNeeded_TokenSource verifies that an explicit token wins during the visibility lookup; otherwise the environment is used.
 func TestProxyForcePublicReposIfNeeded_TokenSource(t *testing.T) {
 	tests := []struct {
 		name          string
