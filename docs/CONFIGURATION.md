@@ -4,6 +4,8 @@ This document provides the complete field-by-field reference for MCP Gateway con
 
 The gateway advertises MCP Gateway specification version `1.18.0` in its `/health` response. For the upstream specification, see the **[MCP Gateway Configuration Reference](https://github.com/github/gh-aw/blob/main/docs/src/content/docs/reference/mcp-gateway.md)**.
 
+This implementation reference also documents extensions and known differences from that specification, including the upstream `auth` compatibility notes below. These notes do not amend the upstream specification.
+
 ## Configuration Formats
 
 MCP Gateway supports two configuration formats:
@@ -212,13 +214,15 @@ Non-absolute entries and the filesystem root (`/`) are ignored. When the resulti
 
 - **`auth`** (optional, HTTP servers only): Upstream authentication configuration
   - Only supported for `type: "http"` servers; using `auth` with stdio servers returns a validation error
+  - **Specification scope**: Specification `1.18.0` §4.1.2 refers to §7.6, whose auth field list defines only `type` and `audience`. The `provider`, `azureTenantId`, `azureClientId`, `azureScope`, and `azureCloud` fields documented below are MCP Gateway implementation extensions for Microsoft Entra federation, not fields defined by that specification version. Their contract is defined by this reference and the bundled configuration schema; the JSON stdin schema still rejects unrecognized `auth` fields. Standardizing these extensions requires an upstream specification update to §4.1.2 and §7.6.
   - Currently supports this `type`:
     - `"github-oidc"` — Obtains a GitHub Actions OIDC token and attaches it as `Authorization: Bearer <token>` on every request to the HTTP backend. Requires the GitHub Actions job to have `permissions: { id-token: write }`.
   - **`provider`** (optional): Set to `"azure"` to exchange the GitHub assertion for a Microsoft Entra access token. Omit it to preserve direct GitHub OIDC authentication.
   - **`audience`** (optional): Audience requested for the GitHub OIDC assertion. Defaults to the server URL for direct authentication, or `api://AzureADTokenExchange` for Azure.
-  - **`azureTenantId`** and **`azureClientId`** (required when `provider` is `"azure"`): Entra tenant ID and federated application client ID.
-  - **`azureScope`** (optional for Azure): Scope requested for the Entra access token. Defaults to `https://cognitiveservices.azure.com/.default`.
+  - **`azureTenantId`** and **`azureClientId`** (required when `provider` is `"azure"`; TOML `azure_tenant_id` and `azure_client_id`): Non-blank Entra tenant ID and federated application client ID.
+  - **`azureScope`** (optional for Azure; TOML `azure_scope`): Non-blank scope requested for the Entra access token. Defaults to `https://cognitiveservices.azure.com/.default` when omitted.
   - **`azureCloud`** (optional for Azure; TOML `azure_cloud`): Authority cloud for token exchange: `public` (default), `usgovernment`, or `china`. For sovereign clouds, configure `audience` and `azureScope` to match your federated credential and target resource; the defaults are for public Azure. For example, Azure US Government commonly uses `api://AzureADTokenExchangeUSGov` as the audience.
+  - **Startup validation (known specification divergence)**: For either direct GitHub OIDC or the Azure provider, an unset or empty `ACTIONS_ID_TOKEN_REQUEST_URL` causes configuration loading to return an error and prevents gateway startup. `ACTIONS_ID_TOKEN_REQUEST_TOKEN` is used for token acquisition but is not checked by startup validation. This retains the fail-fast behavior established in [#3364](https://github.com/github/gh-aw-mcpg/issues/3364) and [#3538](https://github.com/github/gh-aw-mcpg/issues/3538), rather than the startup log plus deferred first-access error required by specification `1.18.0` §7.6.1 behavior step 2. The launcher's startup-log/first-access fallback applies only when configuration validation is bypassed. Revising §7.6.1 to match fail-fast validation is the preferred resolution proposed in [#17106](https://github.com/github/gh-aw-mcpg/issues/17106); a specification-owner decision is still required before changing this runtime contract.
   - GitHub assertions and Entra access tokens are cached and refreshed before expiry. The gateway handles the exchange; OIDC request credentials and access tokens are not passed to the MCP agent.
   - OIDC-authenticated MCP connections reject HTTP redirects; configure the final MCP endpoint URL directly.
   - Example:
