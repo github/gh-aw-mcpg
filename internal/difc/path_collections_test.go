@@ -94,6 +94,81 @@ func TestPathCollectionsPreserveEnvelope(t *testing.T) {
 	}
 }
 
+func TestPullRequestArtifactPathsPreserveFinalMCPResponses(t *testing.T) {
+	tests := []struct {
+		name        string
+		payload     map[string]interface{}
+		labels      *PathLabels
+		wantPayload string
+	}{
+		{
+			name: "nested list",
+			payload: map[string]interface{}{
+				"list": map[string]interface{}{
+					"artifacts": []interface{}{
+						map[string]interface{}{"id": 1, "body": "blocked"},
+						map[string]interface{}{"id": 2, "body": "visible"},
+					},
+					"page": 1,
+				},
+			},
+			labels: &PathLabels{
+				ItemsPaths:    []string{"/list/artifacts"},
+				DefaultLabels: &PathLabelEntry{Integrity: []string{"none:public"}},
+				LabeledPaths: []PathLabel{
+					{Path: "/list/artifacts/0", Labels: PathLabelEntry{Integrity: []string{"blocked:public"}}},
+					{Path: "/list/artifacts/1", Labels: PathLabelEntry{Integrity: []string{"none:public"}}},
+				},
+			},
+			wantPayload: `{"list":{"artifacts":[{"body":"visible","id":2}],"page":1}}`,
+		},
+		{
+			name: "nested upsert result",
+			payload: map[string]interface{}{
+				"artifact": map[string]interface{}{"id": 1, "body": "blocked"},
+				"message":  "upserted",
+			},
+			labels: &PathLabels{
+				ItemsPaths:    []string{},
+				DefaultLabels: &PathLabelEntry{Integrity: []string{"none:public"}},
+				LabeledPaths: []PathLabel{
+					{Path: "/artifact", Labels: PathLabelEntry{Integrity: []string{"blocked:public"}}},
+				},
+			},
+			wantPayload: `{"artifact":null,"message":"upserted"}`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			text, err := json.Marshal(test.payload)
+			require.NoError(t, err)
+			original := map[string]interface{}{
+				"isError": false,
+				"content": []interface{}{
+					map[string]interface{}{"type": "text", "text": string(text)},
+				},
+				"structuredContent": test.payload,
+			}
+			data, err := NewPathLabeledData(original, test.labels)
+			require.NoError(t, err)
+
+			filtered, err := FilterAndConvertLabeledData(
+				NewEvaluator(), NewSecrecyLabel(), NewIntegrityLabel(),
+				OperationRead, data.ToCollectionLabeledData(), EnforcementFilter,
+			)
+			require.NoError(t, err)
+			envelope, ok := filtered.FinalResult.(map[string]interface{})
+			require.True(t, ok)
+			assert.False(t, envelope["isError"].(bool))
+			assert.JSONEq(t, test.wantPayload, mcpresult.ExtractTextContent(envelope))
+			structured, err := json.Marshal(envelope["structuredContent"])
+			require.NoError(t, err)
+			assert.JSONEq(t, test.wantPayload, string(structured))
+		})
+	}
+}
+
 func TestPathCollectionsRejectInvalidCoverage(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

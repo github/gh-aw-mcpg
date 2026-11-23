@@ -134,6 +134,21 @@ pub fn label_response_items(
             }
         }
 
+        tool_names::PULL_REQUEST_ARTIFACT_READ | tool_names::PULL_REQUEST_ARTIFACT_WRITE => {
+            let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
+            let items = extract_items_slice(&actual_response, "artifacts");
+            for item in limit_items_with_log(items, tool_name) {
+                labeled_items.push(LabeledItem {
+                    data: item.clone(),
+                    labels: ResourceLabels {
+                        description: format!("pr-artifact:{repo_full}"),
+                        secrecy: secrecy.clone(),
+                        integrity: pull_request_artifact_integrity(item, &repo_full, ctx).into(),
+                    },
+                });
+            }
+        }
+
         // === Security alerts - always private, code scanning is writer-level ===
         tool_names::LIST_SECRET_SCANNING_ALERTS
         | tool_names::GET_SECRET_SCANNING_ALERT
@@ -763,6 +778,75 @@ mod tests {
                     &items[0].labels.integrity.0,
                     &items[1].labels.integrity.0,
                 ));
+            }
+        }
+    }
+
+    #[test]
+    fn pull_request_artifact_responses_preserve_untrusted_content() {
+        let ctx = default_ctx();
+        let repo_id = "octocat/pr-artifact-responses";
+        let artifact = json!({
+            "id": 1,
+            "number": 1,
+            "name": "report",
+            "name_key": "cmVwb3J0",
+            "body": "untrusted artifact content",
+            "creator": {"login": "repo-maintainer"},
+            "author_association": "OWNER"
+        });
+        for private in [false, true] {
+            let _visibility =
+                super::super::backend::cache_repo_visibility_for_tests(repo_id, private);
+            let expected_secrecy = if private {
+                policy_private_scope_label("octocat", "pr-artifact-responses", repo_id, &ctx)
+            } else {
+                vec![]
+            };
+            for (tool, method, response) in [
+                (
+                    tool_names::PULL_REQUEST_ARTIFACT_READ,
+                    "list",
+                    json!({"list": {"artifacts": [artifact.clone()], "page": 1, "perPage": 30}}),
+                ),
+                (
+                    tool_names::PULL_REQUEST_ARTIFACT_WRITE,
+                    "upsert",
+                    json!({"artifact": artifact.clone()}),
+                ),
+                (
+                    tool_names::PULL_REQUEST_ARTIFACT_WRITE,
+                    "delete",
+                    json!({"deleted": {"pull_number": 42, "name": "report", "message": "artifact deleted"}}),
+                ),
+            ] {
+                let args = json!({
+                    "owner": "octocat",
+                    "repo": "pr-artifact-responses",
+                    "pull_number": 42,
+                    "method": method
+                });
+                for wrapped in [false, true] {
+                    let result = if wrapped {
+                        json!({"content": [{"type": "text", "text": response.to_string()}]})
+                    } else {
+                        response.clone()
+                    };
+                    let items = label_response_items(tool, &args, &result, &ctx);
+                    assert_eq!(items.len(), 1, "{tool}/{method}, wrapped={wrapped}");
+                    assert_eq!(items[0].data, response, "{tool}/{method}");
+                    assert_eq!(items[0].labels.secrecy, expected_secrecy, "{tool}/{method}");
+                    assert_eq!(
+                        items[0].labels.integrity,
+                        none_integrity(repo_id, &ctx),
+                        "{tool}/{method}, private={private}"
+                    );
+                    assert_eq!(
+                        items[0].labels.description,
+                        format!("pr-artifact:{repo_id}"),
+                        "{tool}/{method}"
+                    );
+                }
             }
         }
     }

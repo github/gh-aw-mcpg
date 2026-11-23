@@ -1918,6 +1918,22 @@ pub(crate) fn author_denied(author_login: &str, ctx: &PolicyContext) -> bool {
     is_blocked_user(author_login, ctx)
 }
 
+pub(crate) fn pull_request_artifact_integrity(
+    item: &Value,
+    repo_full_name: &str,
+    ctx: &PolicyContext,
+) -> Vec<String> {
+    let creator_login = item
+        .pointer("/creator/login")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if author_denied(creator_login, ctx) {
+        blocked_integrity(repo_full_name, ctx)
+    } else {
+        none_integrity(repo_full_name, ctx)
+    }
+}
+
 pub(crate) fn release_integrity(
     item: &Value,
     repo_full_name: &str,

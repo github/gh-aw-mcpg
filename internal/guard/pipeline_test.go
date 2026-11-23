@@ -234,6 +234,7 @@ func TestRequiresResponseReadSkipsNonLabelingGuards(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := requiresResponseRead("update_code_scanning_alert", test.guard)
 			assert.Equal(t, test.name == "labeling guard", got)
+			assert.Equal(t, test.name == "labeling guard", requiresResponseRead(pullRequestArtifactWriteToolName, test.guard))
 		})
 	}
 }
@@ -284,6 +285,59 @@ func TestRunPipelinePhase4_CallsLabelResponseForIssueArtifactWriteInStrictMode(t
 	labeled, err := RunPipelinePhase4(context.Background(), in, pre, "response-data")
 	require.NoError(t, err)
 	assert.Equal(t, expectedLabeled, labeled)
+}
+
+func TestRunPipelinePhase4_RequiresPullRequestArtifactWriteResponseLabels(t *testing.T) {
+	resource := difc.NewLabeledResource("artifact")
+	data := &difc.CollectionLabeledData{
+		Items: []difc.LabeledItem{{
+			Data:   "artifact body",
+			Labels: difc.NewLabeledResource("artifact content"),
+		}},
+	}
+	data.Items[0].Labels.Integrity = *difc.NewIntegrityLabel("none:public")
+	data.Items[0].Labels.Secrecy = *difc.NewSecrecyLabel("private:octocat/pr-artifacts")
+	g := &pipelineGuard{
+		labelResourceResource: resource,
+		labelResourceOp:       difc.OperationReadWrite,
+		labelResponseData:     data,
+	}
+	in := newPipelineInput(g, difc.OperationReadWrite, difc.EnforcementStrict)
+	in.ToolName = pullRequestArtifactWriteToolName
+
+	ctx, pre, err := RunPipelinePrePhases(context.Background(), in)
+	require.NoError(t, err)
+	assert.Equal(t, difc.OperationReadWrite, pre.Operation)
+	require.True(t, pre.ResponseIsRead)
+
+	labeled, err := RunPipelinePhase4(ctx, in, pre, "response")
+	require.NoError(t, err)
+	require.Same(t, data, labeled)
+	filtered, err := RunPipelinePhase5(in.Evaluator, pre, labeled, difc.EnforcementStrict)
+	require.NoError(t, err)
+	require.NotNil(t, filtered.Filtered)
+	assert.Equal(t, 1, filtered.Filtered.GetFilteredCount())
+	assert.True(t, filtered.Blocked)
+
+	g.labelResponseData = nil
+	labeled, err = RunPipelinePhase4(ctx, in, pre, "unlabeled response")
+	require.ErrorContains(t, err, "response labeling required")
+	assert.Nil(t, labeled)
+}
+
+func TestPullRequestArtifactWriteStillRequiresWriterAdmission(t *testing.T) {
+	resource := difc.NewLabeledResource("writer-only-repo")
+	resource.Integrity.Label.Add("approved:public")
+	g := &pipelineGuard{
+		labelResourceResource: resource,
+		labelResourceOp:       difc.OperationReadWrite,
+	}
+	in := newPipelineInput(g, difc.OperationReadWrite, difc.EnforcementStrict)
+	in.ToolName = pullRequestArtifactWriteToolName
+
+	_, pre, err := RunPipelinePrePhases(context.Background(), in)
+	require.Error(t, err)
+	assert.Nil(t, pre)
 }
 
 func TestRunPipelinePhase4_ReturnsErrorOnLabelResponseFailure(t *testing.T) {

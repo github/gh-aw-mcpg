@@ -177,6 +177,7 @@ const READ_WRITE_OPERATIONS: &[&str] = &[
     "manage_notification_subscription",
     "manage_repository_notification_subscription",
     "merge_pull_request",
+    tool_names::PULL_REQUEST_ARTIFACT_WRITE, // upserts or deletes PR artifacts and returns untrusted content
     "pull_request_review_write",
     "remove_sub_issue",               // DELETE/POST — remove sub-issue link
     "reprioritize_sub_issue",         // PATCH — reorder sub-issues
@@ -781,6 +782,17 @@ mod tests {
         assert!(!is_write_operation("issue_artifact_write"));
         assert!(!is_read_write_operation("issue_artifact_read"));
         assert!(!is_write_operation("issue_artifact_read"));
+    }
+
+    #[test]
+    fn test_pull_request_artifact_operation_classification() {
+        assert!(READ_WRITE_OPERATIONS
+            .binary_search(&tool_names::PULL_REQUEST_ARTIFACT_WRITE)
+            .is_ok());
+        assert!(is_read_write_operation(tool_names::PULL_REQUEST_ARTIFACT_WRITE));
+        assert!(!is_write_operation(tool_names::PULL_REQUEST_ARTIFACT_WRITE));
+        assert!(!is_read_write_operation(tool_names::PULL_REQUEST_ARTIFACT_READ));
+        assert!(!is_write_operation(tool_names::PULL_REQUEST_ARTIFACT_READ));
     }
 
     #[test]

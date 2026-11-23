@@ -467,6 +467,8 @@ pub const MAX_ITEMS_PER_RESPONSE: usize = 100;
 /// match arm or the `is_non_get_read_sub_method` skip-check, since these
 /// are plain `&str` comparisons with no compiler-checked exhaustiveness.
 pub mod tool_names {
+    pub const PULL_REQUEST_ARTIFACT_READ: &str = "pull_request_artifact_read";
+    pub const PULL_REQUEST_ARTIFACT_WRITE: &str = "pull_request_artifact_write";
     pub const PULL_REQUEST_READ: &str = "pull_request_read";
     pub const GET_PULL_REQUEST: &str = "get_pull_request";
     pub const ISSUE_READ: &str = "issue_read";
