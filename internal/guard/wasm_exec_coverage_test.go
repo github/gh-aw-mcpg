@@ -101,6 +101,45 @@ var labelReturnsHugeLenWasm = []byte{
 	0x6d, 0x6f, 0x72, 0x79, 0x02, 0x00, 0x0a, 0x08, 0x01, 0x06, 0x00, 0x41, 0xbf, 0x84, 0x3d, 0x0b,
 }
 
+// noMemoryGuardWasm exports label_agent but no linear memory.
+var noMemoryGuardWasm = []byte{
+	0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+	0x01, 0x09, 0x01, 0x60, 0x04, 0x7f, 0x7f, 0x7f, 0x7f, 0x01, 0x7f,
+	0x03, 0x02, 0x01, 0x00,
+	0x07, 0x0f, 0x01, 0x0b, 0x6c, 0x61, 0x62, 0x65, 0x6c, 0x5f, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x00, 0x00,
+	0x0a, 0x06, 0x01, 0x04, 0x00, 0x41, 0x00, 0x0b,
+}
+
+// noGrowGuardWasm limits its one-page memory to one page, so a buffer larger
+// than the initial page exercises the direct-memory growth failure path.
+var noGrowGuardWasm = []byte{
+	0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+	0x01, 0x09, 0x01, 0x60, 0x04, 0x7f, 0x7f, 0x7f, 0x7f, 0x01, 0x7f,
+	0x03, 0x02, 0x01, 0x00,
+	0x05, 0x04, 0x01, 0x01, 0x01, 0x01,
+	0x07, 0x18, 0x02, 0x0b, 0x6c, 0x61, 0x62, 0x65, 0x6c, 0x5f, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x00, 0x00,
+	0x06, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x02, 0x00,
+	0x0a, 0x06, 0x01, 0x04, 0x00, 0x41, 0x00, 0x0b,
+}
+
+// allocOutOfBoundsGuardWasm returns an address at the end of its one-page
+// memory, making even a small input fail the allocator-path write.
+var allocOutOfBoundsGuardWasm = []byte{
+	0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+	0x01, 0x13, 0x03, 0x60, 0x01, 0x7f, 0x01, 0x7f,
+	0x60, 0x02, 0x7f, 0x7f, 0x00,
+	0x60, 0x04, 0x7f, 0x7f, 0x7f, 0x7f, 0x01, 0x7f,
+	0x03, 0x04, 0x03, 0x00, 0x01, 0x02,
+	0x05, 0x03, 0x01, 0x00, 0x01,
+	0x07, 0x2a, 0x04, 0x06, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x02, 0x00,
+	0x05, 0x61, 0x6c, 0x6c, 0x6f, 0x63, 0x00, 0x00,
+	0x07, 0x64, 0x65, 0x61, 0x6c, 0x6c, 0x6f, 0x63, 0x00, 0x01,
+	0x0b, 0x6c, 0x61, 0x62, 0x65, 0x6c, 0x5f, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x00, 0x02,
+	0x0a, 0x10, 0x03, 0x06, 0x00, 0x41, 0xff, 0xff, 0x03, 0x0b,
+	0x02, 0x00, 0x0b,
+	0x04, 0x00, 0x41, 0x00, 0x0b,
+}
+
 func captureWasmLogs(t *testing.T, f func()) string {
 	t.Helper()
 	t.Setenv("DEBUG", "*")
@@ -251,6 +290,72 @@ func TestTryCallWasmFunction_AllocatorPath_OutputAllocationFails(t *testing.T) {
 	assert.Nil(t, result)
 	assert.Zero(t, requiredSize)
 	assert.Contains(t, err.Error(), "failed to allocate WASM output buffer")
+}
+
+func TestTryCallWasmFunction_MissingMemory(t *testing.T) {
+	g, cleanup := setupTestWasmGuard(t, noMemoryGuardWasm, "missing-memory-test")
+	defer cleanup()
+
+	fn := g.module.ExportedFunction("label_agent")
+	require.NotNil(t, fn)
+
+	result, requiredSize, err := g.tryCallWasmFunction(context.Background(), fn, nil, []byte(`{}`), 4096)
+
+	assert.Nil(t, result)
+	assert.Zero(t, requiredSize)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "WASM module has no memory")
+}
+
+func TestTryCallWasmFunction_MemoryGrowthFails(t *testing.T) {
+	g, cleanup := setupTestWasmGuard(t, noGrowGuardWasm, "memory-growth-failure-test")
+	defer cleanup()
+
+	fn := g.module.ExportedFunction("label_agent")
+	mem := g.module.Memory()
+	require.NotNil(t, fn)
+	require.NotNil(t, mem)
+
+	result, requiredSize, err := g.tryCallWasmFunction(context.Background(), fn, mem, []byte(`{}`), wasmInitialOutputSize)
+
+	assert.Nil(t, result)
+	assert.Zero(t, requiredSize)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to grow WASM memory")
+}
+
+func TestTryCallWasmFunction_AllocatorInputWriteFails(t *testing.T) {
+	g, cleanup := setupTestWasmGuard(t, allocOutOfBoundsGuardWasm, "input-write-failure-test")
+	defer cleanup()
+
+	fn := g.module.ExportedFunction("label_agent")
+	mem := g.module.Memory()
+	require.NotNil(t, fn)
+	require.NotNil(t, mem)
+
+	result, requiredSize, err := g.tryCallWasmFunction(context.Background(), fn, mem, []byte(`{}`), 512)
+
+	assert.Nil(t, result)
+	assert.Zero(t, requiredSize)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to write input to WASM memory")
+}
+
+func TestTryCallWasmFunction_DirectInputWriteFails(t *testing.T) {
+	g, cleanup := setupTestWasmGuard(t, directMemoryFallbackGuardWasm, "direct-input-write-failure-test")
+	defer cleanup()
+
+	fn := g.module.ExportedFunction("label_response")
+	mem := g.module.Memory()
+	require.NotNil(t, fn)
+	require.NotNil(t, mem)
+
+	result, requiredSize, err := g.tryCallWasmFunction(context.Background(), fn, mem, []byte(`{}`), ^uint32(0))
+
+	assert.Nil(t, result)
+	assert.Zero(t, requiredSize)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to write input to WASM memory")
 }
 
 // TestDecodeWasmCallResult_ReadOutOfBounds exercises the "failed to read
