@@ -1,9 +1,11 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -49,6 +51,28 @@ func decodeJSONRPCRequest(r *http.Request) map[string]interface{} {
 	var req map[string]interface{}
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	return req
+}
+
+func observeJSONRPCMethods(next http.Handler, observe func(string)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			observe(readJSONRPCMethod(r))
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func readJSONRPCMethod(r *http.Request) string {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return ""
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	var request struct {
+		Method string `json:"method"`
+	}
+	_ = json.Unmarshal(body, &request)
+	return request.Method
 }
 
 // TestNewHTTPConnection_WithCustomHeaders tests that custom headers are injected into the
@@ -247,6 +271,62 @@ func TestNewHTTPConnection_RejectsRedirects(t *testing.T) {
 	}
 }
 
+func TestNewHTTPConnection_RejectsRedirectsAfterSession(t *testing.T) {
+	for _, sameOrigin := range []bool{false, true} {
+		for _, status := range []int{301, 302, 303, 307, 308} {
+			t.Run(fmt.Sprintf("sameOrigin=%t/status=%d", sameOrigin, status), func(t *testing.T) {
+				var redirect, redirected, listRequests atomic.Int64
+				target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					redirected.Add(1)
+					w.WriteHeader(http.StatusServiceUnavailable)
+				}))
+				defer target.Close()
+
+				backend := sdk.NewServer(&sdk.Implementation{Name: "redirect-test", Version: "1.0"}, nil)
+				handler := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server {
+					return backend
+				}, nil)
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == "/redirect-target" {
+						redirected.Add(1)
+						w.WriteHeader(http.StatusServiceUnavailable)
+						return
+					}
+					if r.Method == http.MethodPost {
+						if readJSONRPCMethod(r) == "tools/list" {
+							listRequests.Add(1)
+							if redirect.Load() != 0 {
+								location := target.URL
+								if sameOrigin {
+									location = "/redirect-target"
+								}
+								http.Redirect(w, r, location, status)
+								return
+							}
+						}
+					}
+					handler.ServeHTTP(w, r)
+				}))
+				defer server.Close()
+
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				conn, err := NewHTTPConnection(ctx, "redirect-test", server.URL, nil, nil, "", 0, time.Second)
+				require.NoError(t, err)
+				defer conn.Close()
+				require.Equal(t, HTTPTransportStreamable, conn.httpTransportType)
+				require.NotNil(t, conn.session.InitializeResult())
+
+				redirect.Store(1)
+				_, err = conn.session.ListTools(ctx, nil)
+				require.Error(t, err)
+				assert.Positive(t, listRequests.Load(), "the established session must send tools/list")
+				assert.Zero(t, redirected.Load(), "the redirected endpoint must never receive the request")
+			})
+		}
+	}
+}
+
 // TestKeepAliveProtocolCanary guards SDK keepalive behavior across protocol versions.
 // The discovery-based 2026-07-28 protocol must not send legacy session pings.
 func TestKeepAliveProtocolCanary(t *testing.T) {
@@ -257,17 +337,14 @@ func TestKeepAliveProtocolCanary(t *testing.T) {
 			backend := sdk.NewServer(&sdk.Implementation{Name: "keepalive-canary", Version: "1.0"}, &sdk.ServerOptions{
 				SupportedProtocolVersions: []string{protocol},
 			})
-			backend.AddReceivingMiddleware(func(next sdk.MethodHandler) sdk.MethodHandler {
-				return func(ctx context.Context, method string, req sdk.Request) (sdk.Result, error) {
-					if method == "ping" {
-						pings.Add(1)
-					}
-					return next(ctx, method, req)
-				}
-			})
-			server := httptest.NewServer(sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server {
+			handler := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server {
 				return backend
-			}, &sdk.StreamableHTTPOptions{Stateless: protocol == "2026-07-28"}))
+			}, &sdk.StreamableHTTPOptions{Stateless: protocol == "2026-07-28"})
+			server := httptest.NewServer(observeJSONRPCMethods(handler, func(method string) {
+				if method == "ping" {
+					pings.Add(1)
+				}
+			}))
 			defer server.Close()
 
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
