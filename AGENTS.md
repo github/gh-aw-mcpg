@@ -513,7 +513,9 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 The [v1.8.0 release review](https://github.com/modelcontextprotocol/go-sdk/releases/tag/v1.8.0)
 retains the existing `go.mod` pin; no transport or session configuration changes are required.
 The gateway already configures stateful `StreamableHTTPOptions` with a session timeout and
-logger in `internal/server/middleware.go`. Re-run the canaries below when evaluating v1.9.x
+logger in `internal/server/middleware.go`. The 2026-11-23 review confirms v1.8.0 is still
+the latest stable release; v1.9.0-pre.1 is a prerelease, not an upgrade target.
+Re-run the canaries below when evaluating v1.9.x
 or any other SDK upgrade, and keep tracking upstream for a supported argument-validation
 bypass (see `internal/server/tool_registry_helpers.go`).
 
@@ -523,36 +525,56 @@ including backend results marked public, because visibility may depend on identi
 or DIFC labels. TTL hints are preserved. `TestNewSDKServer_PrivateCacheScope`
 checks this policy through an SDK client session.
 
+All outbound HTTP MCP clients now explicitly use `httputil.NoRedirectPolicy`,
+including unauthenticated, static-header, and OIDC connections. Configure final
+backend endpoint URLs directly; neither same-origin nor cross-origin redirects
+are followed by any transport fallback. `TestNewHTTPConnection_RejectsRedirects`
+checks this behavior against local HTTP servers.
+
+`TestKeepAliveProtocolCanary` verifies that configured keepalive pings run on
+legacy HTTP sessions but not on discovery-based `2026-07-28` sessions, which
+remain usable after idle intervals. Re-run it before upgrades that change `Ping`
+semantics. No custom keepalive implementation is needed.
+
 `CommandTransport` does not expose `MaxLineLength` in v1.8.0, but its inbound
 JSON-RPC frames already use the SDK's `DefaultMaxLineLength` (16 MiB), matching
 the gateway's HTTP `MaxEventSize` limit. No custom transport is needed.
+The v1.9.0-pre.1 additions `CommandTransport.MaxLineLength` and
+`StreamableHTTPOptions.StreamKeepAlive` are deferred until a stable upgrade.
+At that point, evaluate SSE keepalive comments for long tool calls behind
+idle-timeout proxies; they are distinct from client keepalive pings.
 No `MCPGODEBUG` settings were found in the repository during this review.
 Before v1.9.x, recheck deployment environments for all `MCPGODEBUG` options
 scheduled for removal in v1.9.0, including those added in v1.7.0:
 `customresnotfounderrcode`, `hintomitempty`, `allowsessionsinstateless`,
 `nomethodnotfoundcodeinerror`, `noprotocolerrorbody`, `nowrapinvalidparams`,
-`disablecompleteparamsvalidation`, `plaintextstatefulrejection`, and
-`blockingcancelnotify`. Asynchronous cancellation notification is already the
+and `disablecompleteparamsvalidation`. The v1.9.0-pre.1 release postpones removal
+of `plaintextstatefulrejection` and `blockingcancelnotify` until v1.10.0.
+Asynchronous cancellation notification is already the
 v1.8.0 default; re-run launcher shutdown tests to check for reliance on the
 `blockingcancelnotify=1` opt-out before it is removed.
 
-Before upgrading `github.com/modelcontextprotocol/go-sdk`, verify the two canary tests still pass:
+Before upgrading `github.com/modelcontextprotocol/go-sdk`, verify these tests still pass:
 
 | Test | File | Guards |
 |---|---|---|
 | `TestMaxRetriesSentinelCanary` | `internal/mcp/http_transport_test.go` | `streamableMaxRetries = -1` disables SDK-level auto-reconnect; gateway owns reconnect logic |
+| `TestDisableStandaloneSSECanary` | `internal/mcp/http_transport_test.go` | POST-only backends do not receive an unsolicited standalone SSE GET |
+| `TestKeepAliveProtocolCanary` | `internal/mcp/http_connection_test.go` | Legacy keepalive pings do not run on discovery-based `2026-07-28` sessions |
 | `TestArgumentValidationBypassCanary` | `internal/server/tool_registry_test.go` | `Server.AddTool` (method receiver) skips argument validation, allowing draft-07 schemas from backends |
+| `TestNewSDKServer_PrivateCacheScope` | `internal/server/http_server_test.go` | Cache scope stays private even when backend results are public |
 
 Run them explicitly after bumping the version:
 
 ```bash
-go test ./internal/mcp/      -run TestMaxRetriesSentinelCanary      -v
-go test ./internal/server/   -run TestArgumentValidationBypassCanary -v
+go test ./internal/mcp/      -run 'TestMaxRetriesSentinelCanary|TestDisableStandaloneSSECanary|TestKeepAliveProtocolCanary|TestNewHTTPConnection_RejectsRedirects' -v
+go test ./internal/server/   -run 'TestArgumentValidationBypassCanary|TestNewSDKServer_PrivateCacheScope' -v
 ```
 
-If either canary fails after an upgrade, **stop and investigate** before merging:
+If any canary fails after an upgrade, **stop and investigate** before merging:
 - `TestMaxRetriesSentinelCanary` failure → SDK changed `MaxRetries: -1` semantics; update `streamableMaxRetries` and reconnect logic in `internal/mcp/http_transport.go`.
 - `TestArgumentValidationBypassCanary` failure → SDK added argument validation to the `AddTool` method path; switch to a different bypass mechanism and update `registerToolWithoutValidation` in `internal/server/tool_registry_helpers.go`.
+- `TestKeepAliveProtocolCanary` failure → SDK changed protocol-specific keepalive behavior; investigate before enabling pings on `2026-07-28` backends.
 
 ### OpenTelemetry Upgrade Process
 

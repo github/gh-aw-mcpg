@@ -20,6 +20,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/github/gh-aw-mcpg/internal/envutil"
+	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/oidc"
 	"github.com/github/gh-aw-mcpg/internal/sanitize"
@@ -249,7 +250,8 @@ func NewHTTPConnectionWithCA(ctx context.Context, serverID, url string, headers 
 		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 	}
 	httpClient := &http.Client{
-		Transport: transport,
+		Transport:     transport,
+		CheckRedirect: httputil.NoRedirectPolicy,
 	}
 
 	// Build the transport layer in the correct order so that OIDC takes precedence
