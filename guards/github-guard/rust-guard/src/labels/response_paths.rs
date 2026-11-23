@@ -59,7 +59,7 @@ fn dispatched_method(tool_args: &Value) -> &str {
 fn repo_default_labels(
     description: &str,
     secrecy: crate::SharedLabels,
-    integrity: Vec<String>,
+    integrity: impl Into<crate::SharedLabels>,
 ) -> crate::ResourceLabels {
     crate::ResourceLabels {
         description: description.to_string(),
@@ -743,7 +743,8 @@ pub fn label_response_paths(
                 && matches!(method, "get_files" | "get_diff")
             {
                 let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
-                let integrity = pull_request_content_integrity(tool_args, &repo_full, ctx);
+                let integrity: crate::SharedLabels =
+                    pull_request_content_integrity(tool_args, &repo_full, ctx).into();
                 let (items, items_path) = extract_items_array(&actual_response);
                 let labeled_paths = items
                     .map(|items| {
@@ -775,6 +776,7 @@ pub fn label_response_paths(
                 && matches!(method, "get_check_runs" | "get_status")
             {
                 let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
+                let integrity: crate::SharedLabels = writer_integrity(&repo_full, ctx).into();
                 let (items, items_path) = extract_items_array(&actual_response);
                 let labeled_paths = items
                     .map(|items| {
@@ -786,7 +788,7 @@ pub fn label_response_paths(
                                 labels: repo_default_labels(
                                     "pull-request-status",
                                     secrecy.clone(),
-                                    writer_integrity(&repo_full, ctx),
+                                    integrity.clone(),
                                 ),
                             })
                             .collect()
@@ -797,7 +799,7 @@ pub fn label_response_paths(
                     default_labels: Some(repo_default_labels(
                         "pull-request-status",
                         secrecy,
-                        writer_integrity(&repo_full, ctx),
+                        integrity,
                     )),
                     items_path: (!items_path.is_empty()).then_some(items_path),
                     items_paths: None,

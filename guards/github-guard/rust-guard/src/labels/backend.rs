@@ -318,24 +318,18 @@ pub(crate) fn is_repo_private_with_callback(
             None => return get_cached_repo_visibility(&repo_id),
         };
 
-        let response_str = match std::str::from_utf8(&result) {
-            Ok(value) => value,
-            Err(_) => {
-                crate::log_warn(&format!(
-                    "Repo visibility lookup result for {repo_id}: unknown (invalid UTF-8 response)"
-                ));
-                return get_cached_repo_visibility(&repo_id);
-            }
+        let Ok(response_str) = std::str::from_utf8(&result) else {
+            crate::log_warn(&format!(
+                "Repo visibility lookup result for {repo_id}: unknown (invalid UTF-8 response)"
+            ));
+            return get_cached_repo_visibility(&repo_id);
         };
 
-        let response = match serde_json::from_str::<Value>(response_str) {
-            Ok(value) => value,
-            Err(_) => {
-                crate::log_warn(&format!(
-                    "Repo visibility lookup result for {repo_id}: unknown (invalid JSON response)"
-                ));
-                return get_cached_repo_visibility(&repo_id);
-            }
+        let Ok(response) = serde_json::from_str::<Value>(response_str) else {
+            crate::log_warn(&format!(
+                "Repo visibility lookup result for {repo_id}: unknown (invalid JSON response)"
+            ));
+            return get_cached_repo_visibility(&repo_id);
         };
 
         if let Some(error_text) = extract_backend_error_text(&response) {
