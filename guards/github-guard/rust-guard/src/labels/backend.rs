@@ -1320,6 +1320,50 @@ mod tests {
     }
 
     #[test]
+    fn test_is_repo_private_decode_failures_use_cached_visibility() {
+        fn callback(tool: &str, args: &str, buffer: &mut [u8]) -> Result<usize, i32> {
+            assert_eq!(tool, tool_names::SEARCH_REPOSITORIES);
+            let args: Value = serde_json::from_str(args).expect("valid search arguments");
+            let query = args["query"].as_str().unwrap();
+            let repo_id = query
+                .strip_prefix("repo:")
+                .unwrap()
+                .split_whitespace()
+                .next()
+                .unwrap();
+            if repo_id.ends_with("/private") {
+                set_cached_repo_visibility(repo_id, true);
+            } else if repo_id.ends_with("/public") {
+                set_cached_repo_visibility(repo_id, false);
+            }
+            let payload: &[u8] = if repo_id.starts_with("invalid-utf8/") {
+                &[0xff]
+            } else {
+                b"{"
+            };
+            buffer[..payload.len()].copy_from_slice(payload);
+            Ok(payload.len())
+        }
+
+        let _guard = lock_repo_visibility_cache_for_tests();
+        clear_repo_visibility_cache_for_tests();
+        for owner in ["invalid-utf8", "invalid-json"] {
+            for (repo, expected) in [
+                ("unknown", None),
+                ("private", Some(true)),
+                ("public", Some(false)),
+            ] {
+                assert_eq!(
+                    is_repo_private_with_callback(callback, owner, repo),
+                    expected,
+                    "owner={owner}, repo={repo}"
+                );
+            }
+        }
+        clear_repo_visibility_cache_for_tests();
+    }
+
+    #[test]
     fn test_is_repo_private_retries_once_after_rate_limit_error() {
         let _guard = lock_repo_visibility_cache_for_tests();
         clear_repo_visibility_cache_for_tests();

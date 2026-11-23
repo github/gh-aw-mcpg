@@ -2686,6 +2686,66 @@ mod tests {
     }
 
     #[test]
+    fn pull_request_subresources_share_integrity_labels() {
+        let repo = "octocat/shared-pr-labels";
+        let _visibility = super::super::backend::cache_repo_visibility_for_tests(repo, true);
+        for policy in [
+            ctx(),
+            PolicyContext {
+                blocked_users: vec!["blocked-user".to_string()],
+                ..Default::default()
+            },
+        ] {
+            for (method, key, description) in [
+                ("get_files", "files", "pull-request-content"),
+                ("get_diff", "items", "pull-request-content"),
+                ("get_check_runs", "check_runs", "pull-request-status"),
+                ("get_status", "statuses", "pull-request-status"),
+            ] {
+                let args = json!({
+                    "owner": "octocat", "repo": "shared-pr-labels",
+                    "pullNumber": 1, "method": method
+                });
+                let expected = if description == "pull-request-status" {
+                    writer_integrity(repo, &policy)
+                } else if policy.blocked_users.is_empty() {
+                    none_integrity(repo, &policy)
+                } else {
+                    blocked_integrity(repo, &policy)
+                };
+                for count in [0, 2, MAX_ITEMS_PER_RESPONSE + 1] {
+                    let response = json!({key: vec![json!({"id": 1}); count]});
+                    let result = label_response_paths(
+                        tool_names::PULL_REQUEST_READ,
+                        &args,
+                        &response,
+                        &policy,
+                    )
+                    .expect("PR subresource should be labeled");
+                    let default = result.default_labels.expect("default labels");
+                    assert_eq!(default.description, description);
+                    assert_eq!(default.integrity, expected, "method={method}");
+                    assert_eq!(result.items_path.unwrap(), format!("/{key}"));
+                    assert_eq!(
+                        result.labeled_paths.len(),
+                        count.min(MAX_ITEMS_PER_RESPONSE)
+                    );
+                    for (index, item) in result.labeled_paths.iter().enumerate() {
+                        assert_eq!(item.path, format!("/{key}/{index}"));
+                        assert_eq!(item.labels.description, default.description);
+                        assert_eq!(item.labels.secrecy, default.secrecy);
+                        assert_eq!(item.labels.integrity, expected, "method={method}");
+                        assert!(std::sync::Arc::ptr_eq(
+                            &item.labels.integrity.0,
+                            &default.integrity.0,
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn issue_dispatch_preserves_comment_authors_and_metadata_distinction() {
         let policy = PolicyContext {
             blocked_users: vec!["blocked-user".to_string()],
