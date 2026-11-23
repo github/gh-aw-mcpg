@@ -3,12 +3,15 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/github/gh-aw-mcpg/internal/oidc"
+	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -185,6 +188,107 @@ func TestNewHTTPConnection_AllTransportsFail(t *testing.T) {
 	require.Error(err, "Should fail when all transports fail")
 	require.Nil(conn, "Connection should be nil on failure")
 	require.ErrorContains(err, "failed to connect using any HTTP transport")
+}
+
+func TestNewHTTPConnection_RejectsRedirects(t *testing.T) {
+	jwtToken := makeTestJWT(time.Now().Add(10 * time.Minute).Unix())
+	oidcServer := newTestOIDCServer(t, jwtToken)
+	defer oidcServer.Close()
+
+	for _, auth := range []string{"none", "static", "oidc"} {
+		for _, sameOrigin := range []bool{false, true} {
+			for _, status := range []int{301, 302, 303, 307, 308} {
+				t.Run(fmt.Sprintf("%s/sameOrigin=%t/status=%d", auth, sameOrigin, status), func(t *testing.T) {
+					var redirected, requests atomic.Int64
+					targetHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						redirected.Add(1)
+						w.WriteHeader(http.StatusServiceUnavailable)
+					})
+					target := httptest.NewServer(targetHandler)
+					defer target.Close()
+					server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						if r.URL.Path == "/target" {
+							targetHandler.ServeHTTP(w, r)
+							return
+						}
+						requests.Add(1)
+						location := target.URL
+						if sameOrigin {
+							location = "/target"
+						}
+						http.Redirect(w, r, location, status)
+					}))
+					defer server.Close()
+
+					var headers map[string]string
+					var provider oidc.TokenSource
+					if auth != "none" {
+						headers = map[string]string{
+							"Authorization": "test-auth-token",
+							"X-API-Key":     "test-api-key",
+						}
+					}
+					if auth == "oidc" {
+						provider = oidc.NewProvider(oidcServer.URL, "request-token")
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					conn, err := NewHTTPConnection(ctx, "redirect-test", server.URL, headers, provider, "audience", 0, time.Second)
+					if conn != nil {
+						defer conn.Close()
+					}
+					require.ErrorContains(t, err, "failed to connect using any HTTP transport")
+					assert.Nil(t, conn)
+					assert.Positive(t, requests.Load(), "the configured endpoint must be contacted")
+					assert.Zero(t, redirected.Load(), "no transport fallback may follow redirects or forward credentials")
+				})
+			}
+		}
+	}
+}
+
+// TestKeepAliveProtocolCanary guards SDK keepalive behavior across protocol versions.
+// The discovery-based 2026-07-28 protocol must not send legacy session pings.
+func TestKeepAliveProtocolCanary(t *testing.T) {
+	const interval = 50 * time.Millisecond
+	for _, protocol := range []string{"2025-11-25", "2026-07-28"} {
+		t.Run(protocol, func(t *testing.T) {
+			var pings atomic.Int64
+			backend := sdk.NewServer(&sdk.Implementation{Name: "keepalive-canary", Version: "1.0"}, &sdk.ServerOptions{
+				SupportedProtocolVersions: []string{protocol},
+			})
+			backend.AddReceivingMiddleware(func(next sdk.MethodHandler) sdk.MethodHandler {
+				return func(ctx context.Context, method string, req sdk.Request) (sdk.Result, error) {
+					if method == "ping" {
+						pings.Add(1)
+					}
+					return next(ctx, method, req)
+				}
+			})
+			server := httptest.NewServer(sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server {
+				return backend
+			}, &sdk.StreamableHTTPOptions{Stateless: protocol == "2026-07-28"}))
+			defer server.Close()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			conn, err := NewHTTPConnection(ctx, "keepalive-canary", server.URL, nil, nil, "", interval, time.Second)
+			require.NoError(t, err)
+			defer conn.Close()
+			require.Equal(t, HTTPTransportStreamable, conn.httpTransportType)
+			require.Equal(t, protocol, conn.session.InitializeResult().ProtocolVersion)
+
+			if protocol == "2026-07-28" {
+				time.Sleep(5 * interval)
+				assert.Zero(t, pings.Load(), "discovery-based sessions must not send keepalive pings")
+			} else {
+				require.Eventually(t, func() bool { return pings.Load() >= 3 }, 3*time.Second, interval,
+					"legacy sessions must retain configured keepalive pings")
+			}
+			_, err = conn.session.ListTools(ctx, nil)
+			require.NoError(t, err, "the session must remain usable after keepalive intervals")
+		})
+	}
 }
 
 // TestNewHTTPConnection_ContextCancellation tests that context cancellation is handled properly

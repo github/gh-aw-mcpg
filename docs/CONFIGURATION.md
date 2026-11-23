@@ -206,6 +206,7 @@ Non-absolute entries and the filesystem root (`/`) are ignored. When the resulti
   - **TOML note**: For passthrough, use `""` (empty string) or provide explicit values; `${VAR_NAME}` syntax is not expanded in TOML server `env` values
 
 - **`url`** (required for http): HTTP endpoint URL for `type: "http"` servers
+  - All HTTP MCP connections reject redirects, including same-origin redirects, across Streamable HTTP, SSE, and plain JSON-RPC fallback. Configure the final MCP endpoint URL directly; static headers and OIDC tokens are never forwarded to redirect targets.
 
 - **`headers`** (optional): HTTP headers to include in requests (for `type: "http"` servers)
   - Map of header name to value (e.g., `{"Authorization": "Bearer token"}`)
@@ -224,7 +225,6 @@ Non-absolute entries and the filesystem root (`/`) are ignored. When the resulti
   - **`azureCloud`** (optional for Azure; TOML `azure_cloud`): Authority cloud for token exchange: `public` (default), `usgovernment`, or `china`. For sovereign clouds, configure `audience` and `azureScope` to match your federated credential and target resource; the defaults are for public Azure. For example, Azure US Government commonly uses `api://AzureADTokenExchangeUSGov` as the audience.
   - **Startup validation (known specification divergence)**: For either direct GitHub OIDC or the Azure provider, an unset or empty `ACTIONS_ID_TOKEN_REQUEST_URL` causes configuration loading to return an error and prevents gateway startup. `ACTIONS_ID_TOKEN_REQUEST_TOKEN` is used for token acquisition but is not checked by startup validation. This retains the fail-fast behavior established in [#3364](https://github.com/github/gh-aw-mcpg/issues/3364) and [#3538](https://github.com/github/gh-aw-mcpg/issues/3538), rather than the startup log plus deferred first-access error required by specification `1.18.0` §7.6.1 behavior step 2. The launcher's startup-log/first-access fallback applies only when configuration validation is bypassed. Revising §7.6.1 to match fail-fast validation is the preferred resolution proposed in [#17106](https://github.com/github/gh-aw-mcpg/issues/17106); a specification-owner decision is still required before changing this runtime contract.
   - GitHub assertions and Entra access tokens are cached and refreshed before expiry. The gateway handles the exchange; OIDC request credentials and access tokens are not passed to the MCP agent.
-  - OIDC-authenticated MCP connections reject HTTP redirects; configure the final MCP endpoint URL directly.
   - Example:
     ```json
     "my-http-server": {
