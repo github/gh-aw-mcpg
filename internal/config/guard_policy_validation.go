@@ -195,39 +195,20 @@ func NormalizeGuardPolicy(policy *GuardPolicy) (*NormalizedGuardPolicy, error) {
 		normalized.DemotionLabel = v
 	}
 
-	switch scope := policy.AllowOnly.Repos.(type) {
-	case string:
-		scopeValue := util.NormalizeStringCI(scope)
-		if scopeValue != "all" && scopeValue != "public" {
-			return nil, fmt.Errorf("allow-only.repos string must be 'all' or 'public'")
-		}
-		normalized.ScopeKind = scopeValue
-		logGuardPolicy.Printf("Guard policy normalized: scopeKind=%s, integrity=%s", normalized.ScopeKind, normalized.MinIntegrity)
-		return normalized, nil
-
-	case []interface{}:
-		scopes, err := normalizeAndValidateScopeArray(scope)
-		if err != nil {
-			return nil, err
-		}
-		normalized.ScopeKind = "scoped"
-		normalized.ScopeValues = scopes
-		logGuardPolicy.Printf("Guard policy normalized: scopeKind=scoped, scopeCount=%d, integrity=%s", len(scopes), normalized.MinIntegrity)
-		return normalized, nil
-
-	case []string:
-		scopes, err := normalizeAndValidateScopeArray(util.StringsToAny(scope))
-		if err != nil {
-			return nil, err
-		}
-		normalized.ScopeKind = "scoped"
-		normalized.ScopeValues = scopes
-		logGuardPolicy.Printf("Guard policy normalized: scopeKind=scoped, scopeCount=%d, integrity=%s", len(scopes), normalized.MinIntegrity)
-		return normalized, nil
-
-	default:
-		return nil, fmt.Errorf("allow-only.repos must be 'all', 'public', or a non-empty array of repo scope strings")
+	repos, err := NormalizeAllowOnlyReposValue(policy.AllowOnly.Repos)
+	if err != nil {
+		return nil, err
 	}
+	switch scope := repos.(type) {
+	case string:
+		normalized.ScopeKind = scope
+		logGuardPolicy.Printf("Guard policy normalized: scopeKind=%s, integrity=%s", normalized.ScopeKind, normalized.MinIntegrity)
+	case []string:
+		normalized.ScopeKind = "scoped"
+		normalized.ScopeValues = scope
+		logGuardPolicy.Printf("Guard policy normalized: scopeKind=scoped, scopeCount=%d, integrity=%s", len(scope), normalized.MinIntegrity)
+	}
+	return normalized, nil
 }
 
 // ValidateAndNormalizeIntegrityField validates and normalizes a named integrity-level field.
@@ -407,21 +388,16 @@ func ValidateStringArrayField(field string, raw interface{}, requireNonEmpty boo
 // IsValidAllowOnlyReposValue returns true when repos is either "all"/"public"
 // (case-insensitive) or a valid non-empty allow-only scope array.
 func IsValidAllowOnlyReposValue(repos interface{}) bool {
-	switch value := repos.(type) {
-	case string:
-		trimmed := util.NormalizeStringCI(value)
-		return trimmed == "all" || trimmed == "public"
-	case []interface{}:
-		_, err := normalizeAndValidateScopeArray(value)
-		return err == nil
-	default:
-		return false
-	}
+	_, err := NormalizeAllowOnlyReposValue(repos)
+	return err == nil
 }
 
 // NormalizeAllowOnlyReposValue validates and canonicalizes a static allow-only
 // repos value for use in policy payloads.
 func NormalizeAllowOnlyReposValue(repos interface{}) (interface{}, error) {
+	if scopes, ok := repos.([]string); ok {
+		repos = util.StringsToAny(scopes)
+	}
 	switch value := repos.(type) {
 	case string:
 		normalized := util.NormalizeStringCI(value)
@@ -431,8 +407,6 @@ func NormalizeAllowOnlyReposValue(repos interface{}) (interface{}, error) {
 		return normalized, nil
 	case []interface{}:
 		return normalizeAndValidateScopeArray(value)
-	case []string:
-		return normalizeAndValidateScopeArray(util.StringsToAny(value))
 	default:
 		return nil, fmt.Errorf("allow-only.repos must be 'all', 'public', or an array of scoped strings")
 	}
