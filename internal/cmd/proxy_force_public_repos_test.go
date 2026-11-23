@@ -5,11 +5,80 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sync/atomic"
 	"testing"
 
+	"github.com/github/gh-aw-mcpg/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestProxyForcePublicReposIfNeeded_OptOuts(t *testing.T) {
+	originalConfigFile := proxyConfigFile
+	t.Cleanup(func() { proxyConfigFile = originalConfigFile })
+	withForcePublicRepo(t, proxyForcePublicRepo)
+
+	for _, tt := range []struct {
+		name       string
+		configLine string
+		env        string
+		flag       string
+		wantForced bool
+	}{
+		{"config opt-out wins over flag", "force_public_repos = false", "true", "--force-public-repos=true", false},
+		{"env opt-out wins over config and flag", "force_public_repos = true", "false", "--force-public-repos=true", false},
+		{"flag opt-out wins over config", "force_public_repos = true", "true", "--force-public-repos=false", false},
+		{"config enabled", "force_public_repos = true", "", "", true},
+		{"config omitted", "", "", "", true},
+		{"env seeded flag opt-out", "", "false", "", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(config.EnvForcePublicRepos, tt.env)
+			t.Setenv("GITHUB_REPOSITORY", "owner/repo")
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte("[gateway]\nagent_id = \"test-agent\"\n"+tt.configLine+"\n[servers.github]\ntype = \"http\"\nurl = \"https://api.github.com/mcp\"\n"), 0o600))
+			cmd := newProxyCmd()
+			args := []string{"--config", path}
+			if tt.flag != "" {
+				args = append(args, tt.flag)
+			}
+			require.NoError(t, cmd.ParseFlags(args))
+			configEnabled, err := loadProxyForcePublicReposConfig(proxyConfigFile)
+			require.NoError(t, err)
+			var calls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				_, _ = w.Write([]byte(`{"visibility":"public"}`))
+			}))
+			t.Cleanup(srv.Close)
+
+			result := proxyForcePublicReposIfNeeded(context.Background(), defaultPrivatePolicy, "test-token", srv.URL, configEnabled)
+			if tt.wantForced {
+				assert.JSONEq(t, `{"allow-only":{"repos":"public","min-integrity":"none"}}`, result)
+				assert.EqualValues(t, 1, calls.Load())
+			} else {
+				assert.JSONEq(t, defaultPrivatePolicy, result)
+				assert.Zero(t, calls.Load(), "opt-outs must skip the visibility lookup")
+			}
+		})
+	}
+}
+
+func TestLoadProxyForcePublicReposConfig(t *testing.T) {
+	enabled, err := loadProxyForcePublicReposConfig("")
+	require.NoError(t, err)
+	assert.Nil(t, enabled)
+
+	_, err = loadProxyForcePublicReposConfig(filepath.Join(t.TempDir(), "missing.toml"))
+	require.ErrorContains(t, err, "failed to load proxy config")
+
+	path := filepath.Join(t.TempDir(), "invalid.toml")
+	require.NoError(t, os.WriteFile(path, []byte("[gateway"), 0o600))
+	_, err = loadProxyForcePublicReposConfig(path)
+	require.ErrorContains(t, err, "failed to parse TOML")
+}
 
 // defaultPrivatePolicy is a policy whose allow-only scope is not yet public.
 const defaultPrivatePolicy = `{"allow-only":{"repos":"private","min-integrity":"none"}}`
@@ -171,6 +240,7 @@ func TestProxyForcePublicReposIfNeeded_PolicyUnchanged(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			withForcePublicRepo(t, tt.forcePublic)
+			t.Setenv(config.EnvForcePublicRepos, "")
 			t.Setenv("GITHUB_REPOSITORY", tt.repo)
 			clearAllTokenEnvVars(t)
 
@@ -181,7 +251,7 @@ func TestProxyForcePublicReposIfNeeded_PolicyUnchanged(t *testing.T) {
 				apiURL = srv.URL
 			}
 
-			result := proxyForcePublicReposIfNeeded(context.Background(), tt.policy, tt.token, apiURL)
+			result := proxyForcePublicReposIfNeeded(context.Background(), tt.policy, tt.token, apiURL, nil)
 			assert.Equal(t, tt.policy, result, "policy should be returned unchanged")
 		})
 	}
@@ -231,13 +301,14 @@ func TestProxyForcePublicReposIfNeeded_PublicRepo_OverridesPolicy(t *testing.T) 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			withForcePublicRepo(t, true)
+			t.Setenv(config.EnvForcePublicRepos, "")
 			t.Setenv("GITHUB_REPOSITORY", "octo/repo")
 			clearAllTokenEnvVars(t)
 
 			srv := repoVisibilityServer(t, "octo/repo", "public", http.StatusOK, "token test-token")
 			t.Cleanup(srv.Close)
 
-			result := proxyForcePublicReposIfNeeded(context.Background(), tt.policy, "test-token", srv.URL)
+			result := proxyForcePublicReposIfNeeded(context.Background(), tt.policy, "test-token", srv.URL, nil)
 
 			var got map[string]interface{}
 			require.NoError(t, json.Unmarshal([]byte(result), &got))
@@ -257,6 +328,7 @@ func TestProxyForcePublicReposIfNeeded_PublicRepo_OverridesPolicy(t *testing.T) 
 // accepted key spellings.
 func TestProxyForcePublicReposIfNeeded_WriteSinkOnlyUnchanged(t *testing.T) {
 	withForcePublicRepo(t, true)
+	t.Setenv(config.EnvForcePublicRepos, "")
 	t.Setenv("GITHUB_REPOSITORY", "octo/repo")
 	clearAllTokenEnvVars(t)
 
@@ -266,7 +338,7 @@ func TestProxyForcePublicReposIfNeeded_WriteSinkOnlyUnchanged(t *testing.T) {
 	for _, key := range []string{"write-sink", "writesink", "Write-Sink"} {
 		t.Run(key, func(t *testing.T) {
 			policy := `{"` + key + `":{"accept":["private:octo/repo"],"sink-visibility":"private"}}`
-			result := proxyForcePublicReposIfNeeded(context.Background(), policy, "test-token", srv.URL)
+			result := proxyForcePublicReposIfNeeded(context.Background(), policy, "test-token", srv.URL, nil)
 			assert.Equal(t, policy, result, "write-sink-only policies must not acquire an allow-only section")
 		})
 	}
@@ -299,6 +371,7 @@ func TestProxyForcePublicReposIfNeeded_TokenSource(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			withForcePublicRepo(t, true)
+			t.Setenv(config.EnvForcePublicRepos, "")
 			t.Setenv("GITHUB_REPOSITORY", "octo/repo")
 			clearAllTokenEnvVars(t)
 			t.Setenv(tt.envName, tt.envValue)
@@ -306,7 +379,7 @@ func TestProxyForcePublicReposIfNeeded_TokenSource(t *testing.T) {
 			srv := repoVisibilityServer(t, "octo/repo", "public", http.StatusOK, tt.wantAuth)
 			t.Cleanup(srv.Close)
 
-			result := proxyForcePublicReposIfNeeded(context.Background(), defaultPrivatePolicy, tt.explicitToken, srv.URL)
+			result := proxyForcePublicReposIfNeeded(context.Background(), defaultPrivatePolicy, tt.explicitToken, srv.URL, nil)
 			assert.JSONEq(t, `{"allow-only":{"repos":"public","min-integrity":"none"}}`, result)
 		})
 	}
