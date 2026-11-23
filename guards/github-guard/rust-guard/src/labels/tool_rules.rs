@@ -448,6 +448,28 @@ pub fn apply_tool_labels(
             }
         }
 
+        tool_names::PULL_REQUEST_ARTIFACT_READ | tool_names::PULL_REQUEST_ARTIFACT_WRITE => {
+            if !owner.is_empty() && !repo.is_empty() {
+                if let Some(pull_number) =
+                    extract_number_as_string(tool_args, field_names::PULL_NUMBER)
+                {
+                    desc = format!(
+                        "{}{}#{}",
+                        desc_prefix::PR,
+                        format_repo_id(owner, repo),
+                        pull_number
+                    );
+                }
+            }
+            secrecy = apply_repo_visibility_secrecy(owner, repo, repo_id, secrecy, ctx);
+            integrity = if tool_name == tool_names::PULL_REQUEST_ARTIFACT_READ {
+                // Artifact content is untrusted even in private repositories.
+                none_integrity(repo_id, ctx)
+            } else {
+                writer_integrity(repo_id, ctx)
+            };
+        }
+
         // === Pull Requests ===
         tool_names::GET_PULL_REQUEST
         | tool_names::PULL_REQUEST_READ
@@ -1962,6 +1984,62 @@ mod tests {
                             repo_id,
                             vec!["private:stale".to_string()],
                             vec![],
+                            "artifact fallback".to_string(),
+                            &ctx,
+                        );
+                        assert_eq!(secrecy, expected_secrecy, "{tool}/{method}: secrecy");
+                        assert_eq!(integrity, expected_integrity, "{tool}/{method}: integrity");
+                        assert_eq!(desc, expected_desc, "{tool}/{method}: description");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn apply_tool_labels_pull_request_artifacts_are_repo_scoped() {
+        let ctx = default_ctx();
+        let repo_id = "octocat/pr-artifact-labels";
+        for private in [false, true] {
+            let _guard = super::super::backend::cache_repo_visibility_for_tests(repo_id, private);
+            let expected_secrecy = if private {
+                private_label("octocat", "pr-artifact-labels", repo_id, &ctx)
+            } else {
+                vec![]
+            };
+            for (tool, methods, expected_integrity) in [
+                (
+                    tool_names::PULL_REQUEST_ARTIFACT_READ,
+                    &["list"][..],
+                    none_integrity(repo_id, &ctx),
+                ),
+                (
+                    tool_names::PULL_REQUEST_ARTIFACT_WRITE,
+                    &["upsert", "delete"][..],
+                    writer_integrity(repo_id, &ctx),
+                ),
+            ] {
+                for method in methods {
+                    for pull_number in
+                        [serde_json::json!(42), serde_json::json!("42"), Value::Null]
+                    {
+                        let mut args = serde_json::json!({
+                            "owner": "octocat",
+                            "repo": "pr-artifact-labels",
+                            "method": method,
+                        });
+                        let expected_desc = if pull_number.is_null() {
+                            "artifact fallback"
+                        } else {
+                            args["pull_number"] = pull_number;
+                            "pr:octocat/pr-artifact-labels#42"
+                        };
+                        let (secrecy, integrity, desc) = super::apply_tool_labels(
+                            tool,
+                            &args,
+                            repo_id,
+                            vec!["private:stale".to_string()],
+                            merged_integrity(repo_id, &ctx),
                             "artifact fallback".to_string(),
                             &ctx,
                         );
