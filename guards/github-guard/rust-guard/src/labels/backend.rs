@@ -318,24 +318,18 @@ pub(crate) fn is_repo_private_with_callback(
             None => return get_cached_repo_visibility(&repo_id),
         };
 
-        let response_str = match std::str::from_utf8(&result) {
-            Ok(value) => value,
-            Err(_) => {
-                crate::log_warn(&format!(
-                    "Repo visibility lookup result for {repo_id}: unknown (invalid UTF-8 response)"
-                ));
-                return get_cached_repo_visibility(&repo_id);
-            }
+        let Ok(response_str) = std::str::from_utf8(&result) else {
+            crate::log_warn(&format!(
+                "Repo visibility lookup result for {repo_id}: unknown (invalid UTF-8 response)"
+            ));
+            return get_cached_repo_visibility(&repo_id);
         };
 
-        let response = match serde_json::from_str::<Value>(response_str) {
-            Ok(value) => value,
-            Err(_) => {
-                crate::log_warn(&format!(
-                    "Repo visibility lookup result for {repo_id}: unknown (invalid JSON response)"
-                ));
-                return get_cached_repo_visibility(&repo_id);
-            }
+        let Ok(response) = serde_json::from_str::<Value>(response_str) else {
+            crate::log_warn(&format!(
+                "Repo visibility lookup result for {repo_id}: unknown (invalid JSON response)"
+            ));
+            return get_cached_repo_visibility(&repo_id);
         };
 
         if let Some(error_text) = extract_backend_error_text(&response) {
@@ -1323,6 +1317,50 @@ mod tests {
             "Hello-World",
         );
         assert_eq!(result, Some(false));
+    }
+
+    #[test]
+    fn test_is_repo_private_decode_failures_use_cached_visibility() {
+        fn callback(tool: &str, args: &str, buffer: &mut [u8]) -> Result<usize, i32> {
+            assert_eq!(tool, tool_names::SEARCH_REPOSITORIES);
+            let args: Value = serde_json::from_str(args).expect("valid search arguments");
+            let query = args["query"].as_str().unwrap();
+            let repo_id = query
+                .strip_prefix("repo:")
+                .unwrap()
+                .split_whitespace()
+                .next()
+                .unwrap();
+            if repo_id.ends_with("/private") {
+                set_cached_repo_visibility(repo_id, true);
+            } else if repo_id.ends_with("/public") {
+                set_cached_repo_visibility(repo_id, false);
+            }
+            let payload: &[u8] = if repo_id.starts_with("invalid-utf8/") {
+                &[0xff]
+            } else {
+                b"{"
+            };
+            buffer[..payload.len()].copy_from_slice(payload);
+            Ok(payload.len())
+        }
+
+        let _guard = lock_repo_visibility_cache_for_tests();
+        clear_repo_visibility_cache_for_tests();
+        for owner in ["invalid-utf8", "invalid-json"] {
+            for (repo, expected) in [
+                ("unknown", None),
+                ("private", Some(true)),
+                ("public", Some(false)),
+            ] {
+                assert_eq!(
+                    is_repo_private_with_callback(callback, owner, repo),
+                    expected,
+                    "owner={owner}, repo={repo}"
+                );
+            }
+        }
+        clear_repo_visibility_cache_for_tests();
     }
 
     #[test]

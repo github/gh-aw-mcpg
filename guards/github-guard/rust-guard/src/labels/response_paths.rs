@@ -59,7 +59,7 @@ fn dispatched_method(tool_args: &Value) -> &str {
 fn repo_default_labels(
     description: &str,
     secrecy: crate::SharedLabels,
-    integrity: Vec<String>,
+    integrity: impl Into<crate::SharedLabels>,
 ) -> crate::ResourceLabels {
     crate::ResourceLabels {
         description: description.to_string(),
@@ -743,7 +743,8 @@ pub fn label_response_paths(
                 && matches!(method, "get_files" | "get_diff")
             {
                 let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
-                let integrity = pull_request_content_integrity(tool_args, &repo_full, ctx);
+                let integrity: crate::SharedLabels =
+                    pull_request_content_integrity(tool_args, &repo_full, ctx).into();
                 let (items, items_path) = extract_items_array(&actual_response);
                 let labeled_paths = items
                     .map(|items| {
@@ -775,6 +776,7 @@ pub fn label_response_paths(
                 && matches!(method, "get_check_runs" | "get_status")
             {
                 let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
+                let integrity: crate::SharedLabels = writer_integrity(&repo_full, ctx).into();
                 let (items, items_path) = extract_items_array(&actual_response);
                 let labeled_paths = items
                     .map(|items| {
@@ -786,7 +788,7 @@ pub fn label_response_paths(
                                 labels: repo_default_labels(
                                     "pull-request-status",
                                     secrecy.clone(),
-                                    writer_integrity(&repo_full, ctx),
+                                    integrity.clone(),
                                 ),
                             })
                             .collect()
@@ -797,7 +799,7 @@ pub fn label_response_paths(
                     default_labels: Some(repo_default_labels(
                         "pull-request-status",
                         secrecy,
-                        writer_integrity(&repo_full, ctx),
+                        integrity,
                     )),
                     items_path: (!items_path.is_empty()).then_some(items_path),
                     items_paths: None,
@@ -2680,6 +2682,66 @@ mod tests {
                 writer_integrity(repo, &policy),
                 "method={method}"
             );
+        }
+    }
+
+    #[test]
+    fn pull_request_subresources_share_integrity_labels() {
+        let repo = "octocat/shared-pr-labels";
+        let _visibility = super::super::backend::cache_repo_visibility_for_tests(repo, true);
+        for policy in [
+            ctx(),
+            PolicyContext {
+                blocked_users: vec!["blocked-user".to_string()],
+                ..Default::default()
+            },
+        ] {
+            for (method, key, description) in [
+                ("get_files", "files", "pull-request-content"),
+                ("get_diff", "items", "pull-request-content"),
+                ("get_check_runs", "check_runs", "pull-request-status"),
+                ("get_status", "statuses", "pull-request-status"),
+            ] {
+                let args = json!({
+                    "owner": "octocat", "repo": "shared-pr-labels",
+                    "pullNumber": 1, "method": method
+                });
+                let expected = if description == "pull-request-status" {
+                    writer_integrity(repo, &policy)
+                } else if policy.blocked_users.is_empty() {
+                    none_integrity(repo, &policy)
+                } else {
+                    blocked_integrity(repo, &policy)
+                };
+                for count in [0, 2, MAX_ITEMS_PER_RESPONSE + 1] {
+                    let response = json!({key: vec![json!({"id": 1}); count]});
+                    let result = label_response_paths(
+                        tool_names::PULL_REQUEST_READ,
+                        &args,
+                        &response,
+                        &policy,
+                    )
+                    .expect("PR subresource should be labeled");
+                    let default = result.default_labels.expect("default labels");
+                    assert_eq!(default.description, description);
+                    assert_eq!(default.integrity, expected, "method={method}");
+                    assert_eq!(result.items_path.unwrap(), format!("/{key}"));
+                    assert_eq!(
+                        result.labeled_paths.len(),
+                        count.min(MAX_ITEMS_PER_RESPONSE)
+                    );
+                    for (index, item) in result.labeled_paths.iter().enumerate() {
+                        assert_eq!(item.path, format!("/{key}/{index}"));
+                        assert_eq!(item.labels.description, default.description);
+                        assert_eq!(item.labels.secrecy, default.secrecy);
+                        assert_eq!(item.labels.integrity, expected, "method={method}");
+                        assert!(std::sync::Arc::ptr_eq(
+                            &item.labels.integrity.0,
+                            &default.integrity.0,
+                        ));
+                    }
+                }
+            }
         }
     }
 
