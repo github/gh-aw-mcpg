@@ -73,7 +73,8 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// guard cannot diverge from the resource an upstream that normalizes paths
 	// would serve. r.URL.Path is already percent-decoded, so encoded forms such
 	// as %2e%2e and ..%2F are caught as well.
-	if hasDotSegment(r.URL.Path) {
+	if hasDotSegment(r.URL.Path) ||
+		(strings.HasPrefix(r.URL.Path, ghHostPathPrefix) && hasDotSegment(strings.TrimPrefix(r.URL.Path, ghHostPathPrefix))) {
 		rejectProxyRequest(w, oteltrace.SpanFromContext(r.Context()), http.StatusBadRequest,
 			"invalid_path", "request path must not contain '.' or '..' segments", errDotSegmentPath)
 		return
