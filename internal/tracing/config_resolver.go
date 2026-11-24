@@ -73,8 +73,8 @@ func resolveServiceName(cfg *config.TracingConfig) string {
 	return config.DefaultTracingServiceName
 }
 
-// resolveSampleRate returns the sample rate from config (defaults to 1.0).
-// Valid configured values are in the range [0.0, 1.0], where 0.0 disables sampling.
+// resolveSampleRate returns the root span sample rate from config (defaults to 1.0).
+// Valid configured values are in the range [0.0, 1.0], where 0.0 disables root sampling.
 func resolveSampleRate(cfg *config.TracingConfig) float64 {
 	rate := cfg.GetSampleRate()
 

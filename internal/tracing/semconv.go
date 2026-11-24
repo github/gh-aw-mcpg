@@ -7,9 +7,9 @@
 //
 // Upgrading semconv:
 //  1. Bump the go.opentelemetry.io/otel* modules in go.mod (all otel modules share a version).
-//  2. Update the semconv import path below to the version shipped with that release
-//     (for example semconv/v1.43.0 ships with otel v1.46.0). This file must remain the
-//     only direct semconv import in the repository; verify with
+//  2. Update the semconv import path below to the version used by that release's
+//     sdk/resource detectors (otel/sdk v1.47.0 uses semconv/v1.43.0). This file must
+//     remain the only direct semconv import in the repository; verify with
 //     `grep -rn "otel/semconv" --include=*.go .` and route any new usage through a
 //     re-export added here.
 //  3. Apply any renames listed in the release's migration guide, published at

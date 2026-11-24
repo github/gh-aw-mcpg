@@ -206,7 +206,7 @@ Assigned private repository responses use the existing `private:<owner>/<repo>` 
 | `--trusted-users` | *(disabled)* | User logins that receive approved integrity (comma-separated) |
 | `--otlp-endpoint` | *(empty)* | OTLP HTTP endpoint for trace export (e.g., `http://localhost:4318`); defaults to `OTEL_EXPORTER_OTLP_ENDPOINT` when set. Tracing is disabled when empty |
 | `--otlp-service-name` | `mcp-gateway` | Service name reported in traces; defaults to `OTEL_SERVICE_NAME` when set |
-| `--otlp-sample-rate` | `1.0` | Fraction of traces to sample and export (`0.0`–`1.0`) |
+| `--otlp-sample-rate` | `1.0` | Fraction of new root traces to sample and export (`0.0`–`1.0`); child spans inherit parent sampling decisions |
 
 Config `gateway.force_public_repos=false`, `MCP_GATEWAY_FORCE_PUBLIC_REPOS=false`,
 or `--force-public-repos=false` disables the override. An explicit `true` does not
