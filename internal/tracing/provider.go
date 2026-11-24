@@ -222,7 +222,8 @@ func InitProvider(ctx context.Context, cfg *config.TracingConfig) (*Provider, er
 		}
 	}
 
-	// Select sampler based on configured rate
+	// Select the root sampler based on the configured rate; child spans inherit
+	// their local or remote parent's sampling decision.
 	var sampler sdktrace.Sampler
 	switch {
 	case sampleRate >= 1.0:
@@ -249,7 +250,7 @@ func InitProvider(ctx context.Context, cfg *config.TracingConfig) (*Provider, er
 			sdktrace.WithBatchTimeout(2*time.Second),
 		),
 		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sampler),
+		sdktrace.WithSampler(sdktrace.ParentBased(sampler)),
 	)
 
 	// Register as the global provider so instrumented libraries pick it up

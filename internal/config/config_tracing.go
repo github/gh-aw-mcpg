@@ -57,8 +57,9 @@ type TracingConfig struct {
 	// Defaults to "mcp-gateway".
 	ServiceName string `toml:"service_name" json:"serviceName,omitempty"`
 
-	// SampleRate controls the fraction of traces that are sampled and exported.
-	// Valid range: 0.0 (no sampling) to 1.0 (sample everything).
+	// SampleRate controls the fraction of new root traces that are sampled and exported.
+	// Valid range: 0.0 (no root sampling) to 1.0 (sample all roots).
+	// Child spans inherit their local or remote parent's sampling decision.
 	// Defaults to 1.0 (100% sampling).
 	// Uses a pointer so that 0.0 can be distinguished from "unset".
 	// Note: SampleRate is a gateway extension field not present in spec §4.1.3.7.

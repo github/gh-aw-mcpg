@@ -826,7 +826,7 @@ The gateway supports OpenTelemetry tracing via a nested configuration block. For
 | `traceId` (JSON) / `trace_id` (TOML) | Parent trace ID (32-char lowercase hex, W3C format) to link gateway spans into a pre-existing trace. Supports `${VAR}` expansion. | (none) |
 | `spanId` (JSON) / `span_id` (TOML) | Parent span ID (16-char lowercase hex, W3C format). Ignored without `traceId`. Supports `${VAR}` expansion. | (none) |
 | `serviceName` (JSON) / `service_name` (TOML) | The `service.name` resource attribute reported in traces. | `mcp-gateway` |
-| `sample_rate` (TOML only) | Fraction of traces sampled and exported (0.0–1.0). Also available via CLI `--otlp-sample-rate`. Gateway extension, not in spec §4.1.3.6. | `1.0` |
+| `sample_rate` (TOML only) | Fraction of new root traces sampled and exported (0.0–1.0). Child spans inherit their local or remote parent's sampling decision, including incoming `traceparent` flags, even at rate `0.0` or `1.0`. Also available via CLI `--otlp-sample-rate`. Gateway extension, not in spec §4.1.3.6. | `1.0` |
 | `exporter_timeout` (TOML only) | OTLP HTTP exporter per-request timeout in seconds. Valid values: positive integers. Unset, `0`, or negative values fall back to the default timeout. Gateway extension, not in spec §4.1.3.6. | `10` |
 
 **TOML example:**

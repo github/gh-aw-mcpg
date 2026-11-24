@@ -182,7 +182,7 @@ Local usage:
 	registerTracingFlags(cmd, &proxyOTLPEndpoint, &proxyOTLPService, &proxyOTLPSampleRate,
 		"OTLP HTTP endpoint for trace export (e.g. http://localhost:4318). Tracing is disabled when empty.",
 		"Service name reported in traces.",
-		"Fraction of traces to sample and export (0.0–1.0).")
+		"Fraction of new root traces to sample and export (0.0–1.0). Child spans inherit parent sampling decisions.")
 
 	// Only require --guard-wasm when no baked-in guard is available
 	if defaultGuard == "" {

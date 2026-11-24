@@ -484,6 +484,94 @@ func TestInitProvider_SampleRateNil_DefaultsToAlwaysSample(t *testing.T) {
 	_ = provider.Shutdown(shutdownCtx)
 }
 
+func TestInitProvider_ParentBasedSampling(t *testing.T) {
+	t.Setenv("GH_AW_OTLP_ENDPOINTS", "")
+	originalProvider := otel.GetTracerProvider()
+	originalPropagator := otel.GetTextMapPropagator()
+	t.Cleanup(func() {
+		otel.SetTracerProvider(originalProvider)
+		otel.SetTextMapPropagator(originalPropagator)
+	})
+
+	collector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer collector.Close()
+
+	rates := []struct {
+		name string
+		rate *float64
+	}{
+		{name: "default"},
+		{name: "zero", rate: ptrFloat64(0)},
+		{name: "partial", rate: ptrFloat64(0.5)},
+		{name: "one", rate: ptrFloat64(1)},
+	}
+	for _, rate := range rates {
+		t.Run(rate.name, func(t *testing.T) {
+			cfg := &config.TracingConfig{Endpoint: collector.URL, SampleRate: rate.rate}
+			provider, err := tracing.InitProvider(context.Background(), cfg)
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				defer cancel()
+				assert.NoError(t, provider.Shutdown(ctx))
+			})
+
+			t.Run("root", func(t *testing.T) {
+				_, span := provider.Tracer().Start(context.Background(), "root")
+				defer span.End()
+				result := sdktrace.TraceIDRatioBased(cfg.GetSampleRate()).ShouldSample(sdktrace.SamplingParameters{
+					ParentContext: context.Background(),
+					TraceID:       span.SpanContext().TraceID(),
+				})
+				wantSampled := result.Decision == sdktrace.RecordAndSample
+				assert.Equal(t, wantSampled, span.SpanContext().IsSampled())
+				assert.Equal(t, wantSampled, span.IsRecording())
+			})
+
+			parents := []struct {
+				name    string
+				remote  bool
+				sampled bool
+			}{
+				{name: "remote_sampled", remote: true, sampled: true},
+				{name: "remote_unsampled", remote: true},
+				{name: "local_sampled", sampled: true},
+				{name: "local_unsampled"},
+			}
+			for _, parent := range parents {
+				t.Run(parent.name, func(t *testing.T) {
+					// Exercise trace IDs on both sides of the 50% root sampling threshold.
+					for _, traceID := range []string{
+						"00000000000000000000000000000001",
+						"ffffffffffffffffffffffffffffffff",
+					} {
+						t.Run(traceID, func(t *testing.T) {
+							flags := "00"
+							if parent.sampled {
+								flags = "01"
+							}
+							ctx := otel.GetTextMapPropagator().Extract(context.Background(), propagation.MapCarrier{
+								"traceparent": "00-" + traceID + "-0123456789abcdef-" + flags,
+							})
+							parentSC := trace.SpanContextFromContext(ctx).WithRemote(parent.remote)
+							require.True(t, parentSC.IsValid())
+							ctx = trace.ContextWithSpanContext(ctx, parentSC)
+
+							_, span := provider.Tracer().Start(ctx, "child")
+							defer span.End()
+							assert.Equal(t, parentSC.TraceID(), span.SpanContext().TraceID())
+							assert.Equal(t, parent.sampled, span.SpanContext().IsSampled())
+							assert.Equal(t, parent.sampled, span.IsRecording())
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
 // TestInitProvider_GlobalPropagatorRegistration verifies that InitProvider registers the
 // W3C TraceContext and Baggage propagators globally, so that incoming propagation
 // headers are respected by downstream HTTP middleware.
