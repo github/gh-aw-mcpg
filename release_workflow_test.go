@@ -337,7 +337,7 @@ func TestAgenticWorkflowsUsePinnedRemoteActions(t *testing.T) {
 	})
 }
 
-func TestAgenticWorkflowsKeepCopilotCLICooldown(t *testing.T) {
+func TestAgenticWorkflowsUseCompileTimeCopilotCLICooldown(t *testing.T) {
 	t.Parallel()
 
 	_, thisFile, _, ok := runtime.Caller(0)
@@ -359,7 +359,7 @@ func TestAgenticWorkflowsKeepCopilotCLICooldown(t *testing.T) {
 			nextStepOffset := strings.Index(workflow[installStepStart:], "\n      - name: ")
 			require.NotEqual(t, -1, nextStepOffset, "Copilot CLI installer step must be bounded")
 			installStep := workflow[installStepStart : installStepStart+nextStepOffset]
-			assert.Contains(t, installStep, "--cooldown-days 3")
+			assert.Contains(t, installStep, "--cooldown-days 0")
 			assert.Contains(t, installStep, "GITHUB_TOKEN: ${{ github.token }}")
 		})
 	}
