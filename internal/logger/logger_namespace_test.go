@@ -25,10 +25,6 @@ func TestLoggerNamespacesMatchFileConventions(t *testing.T) {
 	internalRoot := filepath.Join(repoRoot, "internal")
 
 	exceptionNamespaces := map[string][]string{
-		// id.go defines the logAPIKey logger with the custom namespace "auth:apikey"
-		// so callers can filter API-key debug logs independently with DEBUG=auth:apikey.
-		"internal/auth/id.go": {"auth:apikey"},
-
 		// The following files use intentionally shorter or semantically clearer namespaces
 		// instead of the full file-name-derived form. These are preserved for backward
 		// compatibility with existing DEBUG filter configurations.
