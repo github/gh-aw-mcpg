@@ -20,7 +20,13 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-var logLauncher = logger.ForFile()
+var (
+	logLauncher      = logger.ForFile()
+	newAzureProvider = func(assertions oidc.TokenSource, tenantID, clientID, scope, cloud string) oidc.TokenSource {
+		return oidc.NewAzureProvider(assertions, tenantID, clientID, scope, cloud)
+	}
+	newHTTPConnectionWithCA = mcp.NewHTTPConnectionWithCA
+)
 
 // ErrServerNotFound is returned by getServerConfig when the requested server ID
 // is not present in the gateway configuration.
@@ -184,7 +190,7 @@ func getOrLaunchWithConfig(l *Launcher, serverID string, serverCfg *config.Serve
 						scope = oidc.AzureDefaultScope
 					}
 					if l.oidcProvider != nil {
-						oidcProvider = oidc.NewAzureProvider(l.oidcProvider, serverCfg.Auth.AzureTenantID, serverCfg.Auth.AzureClientID, scope, serverCfg.Auth.AzureCloud)
+						oidcProvider = newAzureProvider(l.oidcProvider, serverCfg.Auth.AzureTenantID, serverCfg.Auth.AzureClientID, scope, serverCfg.Auth.AzureCloud)
 					}
 				} else {
 					if oidcAudience == "" {
@@ -203,7 +209,7 @@ func getOrLaunchWithConfig(l *Launcher, serverID string, serverCfg *config.Serve
 			}
 
 			// Create an HTTP connection
-			conn, err := mcp.NewHTTPConnectionWithCA(l.ctx, serverID, serverCfg.URL, serverCfg.Headers, oidcProvider, oidcAudience, l.config.Gateway.HTTPKeepaliveInterval(), serverCfg.HTTPConnectTimeout(), serverCfg.CACertFile)
+			conn, err := newHTTPConnectionWithCA(l.ctx, serverID, serverCfg.URL, serverCfg.Headers, oidcProvider, oidcAudience, l.config.Gateway.HTTPKeepaliveInterval(), serverCfg.HTTPConnectTimeout(), serverCfg.CACertFile)
 			if err != nil {
 				log.Printf("FAILED to create HTTP connection for server %q: %v", serverID, err)
 				logger.LogErrorToServer(serverID, "backend", "Failed to create HTTP connection: %s, error=%v", serverID, err)
