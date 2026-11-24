@@ -555,10 +555,8 @@ fn pull_request_artifact_response_paths(
             (items, "/list/artifacts")
         } else if let Some(items) = actual_response.get("artifacts").and_then(Value::as_array) {
             (items, "/artifacts")
-        } else if let Some(items) = actual_response.as_array() {
-            (items, "")
         } else {
-            return None;
+            (actual_response.as_array()?, "")
         };
         let labeled_paths = limit_items_with_log(items, tool_name)
             .iter()
