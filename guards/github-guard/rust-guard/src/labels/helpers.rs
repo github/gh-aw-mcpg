@@ -807,9 +807,8 @@ pub(crate) fn has_maintainer_reaction_with_callback(
         .and_then(|v| v.as_str());
 
     for node in nodes.iter().take(MAX_REACTIONS_TO_CHECK) {
-        let content = match node.get("content").and_then(|v| v.as_str()) {
-            Some(c) => c,
-            None => continue,
+        let Some(content) = node.get("content").and_then(|v| v.as_str()) else {
+            continue;
         };
 
         // Check if this reaction type is in our configured list (case-insensitive).
@@ -821,14 +820,13 @@ pub(crate) fn has_maintainer_reaction_with_callback(
         }
 
         // Retrieve the reactor's login.
-        let login = match node
+        let Some(login) = node
             .get("user")
             .and_then(|u| u.get(field_names::LOGIN))
             .and_then(|v| v.as_str())
             .filter(|l| !l.is_empty())
-        {
-            Some(l) => l,
-            None => continue,
+        else {
+            continue;
         };
 
         let reaction_created_at = node
