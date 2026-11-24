@@ -109,9 +109,10 @@ func newLabelAuditEvent(operation, runID, enclaveEntryID, outcome, reason string
 // event struct itself never carries raw sensitive values so it is safe to
 // forward.
 func emitAudit(event AuditEvent) {
-	logger.LogInfo(
+	logger.LogInfoWithAuditHashes(
 		"delegation",
 		"delegation audit: op=%s run=%s entry=%s invocation=%s repo=%s handle=%s gen=%d outcome=%s reason=%s",
+		[]string{event.RunIDHash, event.RepositoryHash, event.HandleHash},
 		event.Operation, event.RunIDHash, event.EnclaveEntryID, event.InvocationID,
 		event.RepositoryHash, event.HandleHash, event.PolicyGen, event.Outcome, event.Reason,
 	)

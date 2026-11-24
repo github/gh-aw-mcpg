@@ -10,15 +10,16 @@
 //
 // Usage Guidelines:
 //
-//   - Use ParseAuthHeader() for complete authentication with error handling:
-//     Returns both API key and agent ID, with errors for missing/invalid headers.
+//   - Use ParseAuthHeader() to parse the header with error handling:
+//     It returns the supplied API key and agent ID, but does not validate
+//     credentials. Validate the extracted credential separately.
 //
 //   - Use ExtractAgentID() when you only need the agent ID and want automatic
 //     fallback to "default" instead of error handling.
 //
 // Example:
 //
-//	// Full authentication
+//	// Header parsing only; validate apiKey against configured credentials separately.
 //	apiKey, agentID, err := auth.ParseAuthHeader(r.Header.Get("Authorization"))
 //	if err != nil {
 //		return err
@@ -67,6 +68,8 @@ func stripAuthScheme(authHeader string) (scheme, value string, matched bool) {
 // Per MCP spec 7.1, the Authorization header should contain the API key directly
 // without any Bearer prefix or other scheme.
 //
+// This function parses the value but does not validate credentials.
+//
 // For backward compatibility, this function also supports:
 //   - "Bearer <token>" format (uses token as both API key and agent ID)
 //   - "Agent <agent-id>" format (extracts agent ID)
@@ -99,8 +102,9 @@ func ParseAuthHeader(authHeader string) (apiKey string, agentID string, error er
 // Returns "default" if the header is empty or cannot be parsed.
 //
 // This function is intended for use cases where you only need the agent ID
-// and don't need full error handling. For complete authentication handling,
-// use ParseAuthHeader instead.
+// and don't need full error handling. For full header parsing with error
+// handling, use ParseAuthHeader instead. Parsing does not validate credentials;
+// validate them separately.
 func ExtractAgentID(authHeader string) string {
 	if authHeader == "" {
 		logAuth.Print("ExtractAgentID: auth header empty, using default agent ID")

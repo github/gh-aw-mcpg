@@ -94,6 +94,28 @@ func TestFileLoggerLogging(t *testing.T) {
 	}
 }
 
+func TestLogInfoWithAuditHashesPreservesOnlyExplicitHashes(t *testing.T) {
+	logDir := t.TempDir()
+	require.NoError(t, InitFileLogger(logDir, "mcp-gateway.log"))
+	defer CloseAllLoggers()
+
+	auditHash := strings.Repeat("a", 32)
+	untrustedHash := strings.Repeat("b", 32)
+	LogInfoWithAuditHashes(
+		"delegation",
+		"run_hash=%s opaque=%s",
+		[]string{auditHash},
+		auditHash, untrustedHash,
+	)
+
+	require.NoError(t, CloseAllLoggers())
+	content, err := os.ReadFile(filepath.Join(logDir, "mcp-gateway.log"))
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "run_hash="+auditHash)
+	assert.Contains(t, string(content), "opaque=[REDACTED]")
+	assert.NotContains(t, string(content), untrustedHash)
+}
+
 func TestFileLoggerAppend(t *testing.T) {
 	tmpDir := t.TempDir()
 	logDir := filepath.Join(tmpDir, "logs")

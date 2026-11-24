@@ -21,6 +21,10 @@ func captureControlHandlerLogs(t *testing.T, f func()) string {
 	t.Setenv("DEBUG", "*")
 	t.Setenv("DEBUG_COLORS", "0")
 
+	logDir := t.TempDir()
+	require.NoError(t, logger.InitFileLogger(logDir, "mcp-gateway.log"))
+	t.Cleanup(func() { _ = logger.CloseAllLoggers() })
+
 	previous := logControlHandler
 	logControlHandler = logger.New("delegation:control_handler")
 	require.True(t, logControlHandler.Enabled(), "the capture harness must actually enable debug logging")
@@ -50,7 +54,11 @@ func captureControlHandlerLogs(t *testing.T, f func()) string {
 	}()
 	wg.Wait()
 	_ = r.Close()
-	return buf.String()
+
+	require.NoError(t, logger.CloseAllLoggers())
+	content, err := os.ReadFile(filepath.Join(logDir, "mcp-gateway.log"))
+	require.NoError(t, err)
+	return buf.String() + string(content)
 }
 
 func TestHandleControl_CreateOrConfirmSuccessLogging(t *testing.T) {
