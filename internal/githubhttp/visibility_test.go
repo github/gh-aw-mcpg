@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -398,6 +399,41 @@ func TestFetchRepoVisibility_NetworkError(t *testing.T) {
 	_, err := FetchRepoVisibility(context.Background(), serverURL, "octo/repo", "token test")
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "failed to fetch repo visibility")
+}
+
+func TestParseRepoVisibility(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantVis RepoVisibility
+		wantErr string
+	}{
+		{name: "public visibility", body: `{"visibility":"public"}`, wantVis: RepoVisibilityPublic},
+		{name: "internal visibility", body: `{"visibility":"internal"}`, wantVis: RepoVisibilityInternal},
+		{name: "private visibility", body: `{"visibility":"private"}`, wantVis: RepoVisibilityPrivate},
+		{name: "visibility is case-insensitive", body: `{"visibility":"PUBLIC"}`, wantVis: RepoVisibilityPublic},
+		{name: "unknown visibility falls back to private=true", body: `{"visibility":"","private":true}`, wantVis: RepoVisibilityPrivate},
+		{name: "unknown visibility falls back to private=false", body: `{"visibility":"","private":false}`, wantVis: RepoVisibilityPublic},
+		{name: "unknown visibility without private boolean is rejected", body: `{"visibility":""}`, wantErr: "no recognized visibility or private boolean"},
+		{name: "malformed JSON is rejected", body: `{"visibility":`, wantErr: "unexpected EOF"},
+		{name: "trailing JSON is rejected", body: `{"visibility":"public"} {}`, wantErr: "unexpected trailing JSON"},
+		{name: "truncated trailing JSON surfaces decoder error", body: `{"visibility":"public"} {`, wantErr: "unexpected EOF"},
+		{name: "empty body is rejected", body: ``, wantErr: "EOF"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vis, err := ParseRepoVisibility(strings.NewReader(tt.body))
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.wantErr)
+				assert.Empty(t, vis)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantVis, vis)
+		})
+	}
 }
 
 func TestFetchRepoVisibility_InvalidJSON(t *testing.T) {
