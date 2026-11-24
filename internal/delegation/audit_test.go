@@ -7,11 +7,16 @@ import (
 )
 
 func TestHashForAudit(t *testing.T) {
-	assert.Equal(t, "(none)", hashForAudit(""))
+	assert.Equal(t, "(none)", HashForAudit(""))
+	assert.Equal(t, "ba7816bf8f01cfea414140de5dae2223", HashForAudit("abc"))
+	assert.Equal(t, "dlg:"+HashForAudit("abc"), identityLogID(&Identity{Handle: "abc"}))
+	assert.Equal(t, "sel:"+HashForAudit("abc"), selectorLogID("abc"))
+	assert.Equal(t, "(none)", identityLogID(&Identity{}))
+	assert.Equal(t, "(none)", selectorLogID(""))
 
-	h1 := hashForAudit("github/private-repo")
-	h2 := hashForAudit("github/private-repo")
-	h3 := hashForAudit("github/other-repo")
+	h1 := HashForAudit("github/private-repo")
+	h2 := HashForAudit("github/private-repo")
+	h3 := HashForAudit("github/other-repo")
 
 	assert.Len(t, h1, 32)
 	assert.Equal(t, h1, h2, "hashing must be deterministic")
@@ -24,8 +29,8 @@ func TestNewAuditEvent_HashesSensitiveFieldsOnly(t *testing.T) {
 	event := newAuditEvent("create_or_confirm", req, "admitted", "created", 3)
 
 	assert.Equal(t, "create_or_confirm", event.Operation)
-	assert.Equal(t, hashForAudit(req.RunID), event.RunIDHash)
-	assert.Equal(t, hashForAudit(req.Repository), event.RepositoryHash)
+	assert.Equal(t, HashForAudit(req.RunID), event.RunIDHash)
+	assert.Equal(t, HashForAudit(req.Repository), event.RepositoryHash)
 	assert.NotContains(t, event.RunIDHash, req.RunID)
 	assert.NotContains(t, event.RepositoryHash, req.Repository)
 
@@ -44,7 +49,7 @@ func TestNewAuditEventWithHandle_HashesHandle(t *testing.T) {
 	req := validRequest()
 	event := newAuditEventWithHandle("revoke", req, "revoked", "mismatch", "dlg_some-handle", 1)
 
-	assert.Equal(t, hashForAudit("dlg_some-handle"), event.HandleHash)
+	assert.Equal(t, HashForAudit("dlg_some-handle"), event.HandleHash)
 	assert.NotContains(t, event.HandleHash, "dlg_some-handle")
 }
 

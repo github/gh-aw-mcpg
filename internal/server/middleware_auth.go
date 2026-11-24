@@ -33,7 +33,7 @@ func matchesAnyKey(authHeader string, keys []string) bool {
 	return matched == 1
 }
 
-// authMiddleware implements API key authentication per spec section 7.1
+// authMiddlewareWithDelegation implements API key authentication per spec section 7.1
 // Per spec: Authorization header MUST contain the API key directly.
 //
 // For header parsing logic, see internal/auth package which provides:
@@ -44,10 +44,6 @@ func matchesAnyKey(authHeader string, keys []string) bool {
 // Authorization header value against each configured key (gateway.agentIds
 // allows multiple concurrent identities, e.g. primary/enclave, to each
 // authenticate with their own identifier).
-func authMiddleware(apiKeys []string, next http.HandlerFunc) http.HandlerFunc {
-	return authMiddlewareWithDelegation(apiKeys, nil, next)
-}
-
 func authMiddlewareWithDelegation(apiKeys []string, delegatedAuthenticator func(string) bool, next http.HandlerFunc) http.HandlerFunc {
 	logAuth.Printf("Initialized auth middleware")
 	return func(w http.ResponseWriter, r *http.Request) {

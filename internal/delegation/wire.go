@@ -27,7 +27,7 @@ type EnvelopeWire struct {
 // ToEnvelope validates wire-specific fields and converts them to the internal
 // duration-based representation.
 func (w EnvelopeWire) ToEnvelope() (*Envelope, error) {
-	logWire.Printf("Converting EnvelopeWire: run_id_hash=%s, enclave_backend=%s, tool_policy=%s", hashForAudit(w.RunID), w.EnclaveBackend, w.ToolPolicy)
+	logWire.Printf("Converting EnvelopeWire: run_id_hash=%s, enclave_backend=%s, tool_policy=%s", HashForAudit(w.RunID), w.EnclaveBackend, w.ToolPolicy)
 	maxIdentityTTL, err := durationFromWireSeconds("max_identity_ttl", w.MaxIdentityTTLSeconds)
 	if err != nil {
 		logWire.Printf("EnvelopeWire.ToEnvelope: invalid max_identity_ttl: %v", err)
@@ -58,7 +58,7 @@ type CreateOrConfirmRequestWire struct {
 // ToRequest validates wire-specific fields and converts them to the internal
 // duration-based representation.
 func (w CreateOrConfirmRequestWire) ToRequest() (CreateOrConfirmRequest, error) {
-	logWire.Printf("Converting CreateOrConfirmRequestWire: run_id_hash=%s, enclave_entry_id=%s, invocation_id=%s", hashForAudit(w.RunID), w.EnclaveEntryID, w.InvocationID)
+	logWire.Printf("Converting CreateOrConfirmRequestWire: run_id_hash=%s, enclave_entry_id=%s, invocation_id=%s", HashForAudit(w.RunID), w.EnclaveEntryID, w.InvocationID)
 	requestedTTL, err := durationFromWireSeconds("requested_ttl", w.RequestedTTLSeconds)
 	if err != nil {
 		logWire.Printf("CreateOrConfirmRequestWire.ToRequest: invalid requested_ttl: %v", err)

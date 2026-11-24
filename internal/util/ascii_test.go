@@ -30,3 +30,21 @@ func TestIsASCII(t *testing.T) {
 		})
 	}
 }
+
+func TestLowercaseASCII(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name, input, want string
+	}{
+		{name: "empty", input: "", want: ""},
+		{name: "ASCII boundaries", input: "@AZ[az", want: "@az[az"},
+		{name: "whitespace preserved", input: " Owner/RéPO* ", want: " owner/répo* "},
+		{name: "Unicode preserved", input: "OWNER/ÄBC", want: "owner/Äbc"},
+		{name: "invalid UTF-8 preserved", input: "A\xffZ", want: "a\xffz"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, LowercaseASCII(tt.input))
+		})
+	}
+}

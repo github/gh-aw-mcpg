@@ -102,14 +102,6 @@ func (c *nonceCache) seenNonce(nonce string) bool {
 	return seen
 }
 
-// computeHMAC builds the canonical signed message and returns the expected
-// hex-encoded HMAC-SHA256 signature.
-//
-// Signed payload: "<timestamp>\n<nonce>\n<path>\n<hex(sha256(body))>"
-func computeHMAC(secret, timestamp, nonce, path string, body []byte) string {
-	return hex.EncodeToString(hmacutil.Sign([]byte(secret), hmacMessage(timestamp, nonce, path, body)))
-}
-
 func hmacMessage(timestamp, nonce, path string, body []byte) string {
 	bodyHash := sha256.Sum256(body)
 	return timestamp + "\n" + nonce + "\n" + path + "\n" + hex.EncodeToString(bodyHash[:])

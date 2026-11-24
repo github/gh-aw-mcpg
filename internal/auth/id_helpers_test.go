@@ -13,8 +13,7 @@ import (
 var logAPIKey = logger.New("auth:apikey")
 
 // GenerateRandomAgentID generates a cryptographically random agent ID.
-// Per spec §7.3, the gateway SHOULD generate a random agent ID on startup
-// if none is provided. Returns a 32-byte hex-encoded string (64 chars).
+// It returns a 32-byte hex-encoded string (64 chars) for tests.
 func GenerateRandomAgentID() (string, error) {
 	logAPIKey.Print("Generating random agent ID")
 	key, err := util.RandomHex(32)

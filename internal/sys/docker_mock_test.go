@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -336,4 +337,18 @@ func TestDockerAccessError(t *testing.T) {
 		require.Error(t, err)
 		assert.Equal(t, "docker info failed: exit status 1: permission denied while trying to connect", err.Error())
 	})
+
+	for _, size := range []int{maxRuntimeInfoStderrBytes - 1, maxRuntimeInfoStderrBytes, maxRuntimeInfoStderrBytes + 1} {
+		t.Run(fmt.Sprintf("stderr length %d", size), func(t *testing.T) {
+			detail := strings.Repeat("x", size)
+			mockDockerScript(t, "echo '"+detail+"' >&2\nexit 1")
+
+			err := DockerAccessError()
+			require.Error(t, err)
+			if size > maxRuntimeInfoStderrBytes {
+				detail = strings.Repeat("x", maxRuntimeInfoStderrBytes) + "..."
+			}
+			assert.Equal(t, "docker info failed: exit status 1: "+detail, err.Error())
+		})
+	}
 }

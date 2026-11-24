@@ -78,9 +78,9 @@ func HandleControl(w http.ResponseWriter, r *http.Request, deps ControlDeps, log
 			httputil.WriteErrorResponse(w, http.StatusBadRequest, "invalid_delegation_request", "invalid delegation request")
 			return
 		}
-		runHash := util.HashForLog(request.RunID, 16, "")
-		entryHash := util.HashForLog(request.EnclaveEntryID, 16, "")
-		invocationHash := util.HashForLog(request.InvocationID, 16, "")
+		runHash := HashForAudit(request.RunID)
+		entryHash := HashForAudit(request.EnclaveEntryID)
+		invocationHash := HashForAudit(request.InvocationID)
 		result, err := deps.Store.CreateOrConfirm(request)
 		if err != nil {
 			logControlHandler.Printf("create-or-confirm denied: run_hash=%s enclave_entry_id_hash=%s invocation_id_hash=%s", runHash, entryHash, invocationHash)
@@ -93,7 +93,7 @@ func HandleControl(w http.ResponseWriter, r *http.Request, deps ControlDeps, log
 		if !deps.persistState(w) {
 			return
 		}
-		logControlHandler.Printf("create-or-confirm succeeded: run_hash=%s enclave_entry_id_hash=%s invocation_id_hash=%s handle_hash=%s", runHash, entryHash, invocationHash, util.HashForLog(result.Handle, 16, ""))
+		logControlHandler.Printf("create-or-confirm succeeded: run_hash=%s enclave_entry_id_hash=%s invocation_id_hash=%s handle_hash=%s", runHash, entryHash, invocationHash, HashForAudit(result.Handle))
 		httputil.WriteJSONResponse(w, http.StatusOK, result)
 	case ControlPathPrefix + "revoke":
 		var request struct {
@@ -103,7 +103,7 @@ func HandleControl(w http.ResponseWriter, r *http.Request, deps ControlDeps, log
 			return
 		}
 		if err := deps.Store.Revoke(request.Handle); err != nil {
-			logf("Delegation revoke failed for handle_hash=%s", util.HashForLog(request.Handle, 16, ""))
+			logf("Delegation revoke failed for handle_hash=%s", HashForAudit(request.Handle))
 			httputil.WriteErrorResponse(w, http.StatusInternalServerError, "delegation_revoke_failed", "delegation revoke failed")
 			return
 		}
@@ -117,7 +117,7 @@ func HandleControl(w http.ResponseWriter, r *http.Request, deps ControlDeps, log
 			return
 		}
 		revoked := deps.Store.RevokeByLabels(request.RunID, request.EnclaveEntryID)
-		logf("Revoked %d delegation(s) by labels: run_hash=%s enclave_entry_id_hash=%s", revoked, util.HashForLog(request.RunID, 16, ""), util.HashForLog(request.EnclaveEntryID, 16, ""))
+		logf("Revoked %d delegation(s) by labels: run_hash=%s enclave_entry_id_hash=%s", revoked, HashForAudit(request.RunID), HashForAudit(request.EnclaveEntryID))
 		if !deps.persistState(w) {
 			return
 		}

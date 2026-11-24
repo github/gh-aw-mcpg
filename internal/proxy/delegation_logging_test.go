@@ -211,6 +211,8 @@ func TestDelegatedRequestLoggingRedactsPrivateSelectors(t *testing.T) {
 	require.NotEmpty(t, logs, "the delegated request must produce debug output to assert against")
 	assert.Contains(t, logs, "forwardAndReadBody", "the forwarding stage must still be diagnosable")
 	assert.Contains(t, logs, "restBackendCaller", "guard enrichment must still be diagnosable")
+	assert.Contains(t, logs, "repo_hash="+delegation.HashForAudit(redactionSelector))
+	assert.Contains(t, logs, "path_hash="+delegation.HashForAudit("/repos/"+redactionSelector+"/issues/7"))
 	assertNoDelegatedSecrets(t, logs, bearer)
 }
 

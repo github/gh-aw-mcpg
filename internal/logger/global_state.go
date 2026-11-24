@@ -335,7 +335,7 @@ func dispatchLevelToSinks(level LogLevel, category, format string, args []interf
 //   - jsonl_logger.go: LogRPCMessageJSONLWithTags and logRPCMessageJSONLWithTagsAndSanitized (for JSONLLogger)
 //   - server_file_logger.go: logWithLevelAndServer (for ServerFileLogger)
 //   - tools_logger.go: LogToolsForServer (for ToolsLogger)
-//   - rpc_logger.go: logRPCMessageToAll and LogRPCMessage (for MarkdownLogger)
+//   - rpc_logger.go: logRPCMessageToAll (for MarkdownLogger)
 //
 // Benefits:
 //   - Eliminates ~40 lines of duplicated mutex code

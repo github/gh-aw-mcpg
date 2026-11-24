@@ -16,13 +16,6 @@ func (us *UnifiedServer) Run(transport sdk.Transport) error {
 	return us.server.Run(us.ctx, transport)
 }
 
-// GetPayloadSizeThreshold returns the configured payload size threshold (in bytes).
-// Payloads larger than this threshold are stored to disk, smaller ones are returned inline.
-// This getter allows other modules to access the threshold configuration.
-func (us *UnifiedServer) GetPayloadSizeThreshold() int {
-	return us.payloadSizeThreshold
-}
-
 // GetServerIDs returns the list of backend server IDs
 func (us *UnifiedServer) GetServerIDs() []string {
 	return us.launcher.ServerIDs()
@@ -164,12 +157,6 @@ func (us *UnifiedServer) RegisterTestTool(name string, tool *ToolInfo) {
 	us.tools[name] = tool
 }
 
-// SetTestMode enables test mode which prevents os.Exit() calls
-// This should only be used in unit tests
-func (us *UnifiedServer) SetTestMode(enabled bool) {
-	us.testMode = enabled
-}
-
 // ShouldExit returns whether the gateway should exit after shutdown
 // Returns false in test mode to prevent actual process exit
 func (us *UnifiedServer) ShouldExit() bool {
@@ -200,9 +187,4 @@ func (us *UnifiedServer) SetExitFunc(fn func()) {
 // GetExitFunc returns the exit function, or nil if not set.
 func (us *UnifiedServer) GetExitFunc() func() {
 	return us.exitFunc
-}
-
-// IsDIFCEnabled returns whether DIFC is enabled
-func (us *UnifiedServer) IsDIFCEnabled() bool {
-	return us.enableDIFC
 }

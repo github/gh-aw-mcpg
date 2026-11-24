@@ -148,19 +148,6 @@ func (us *UnifiedServer) requireSession(ctx context.Context) error {
 	return nil
 }
 
-// getSessionKeys returns a list of active session IDs for debugging
-func (us *UnifiedServer) getSessionKeys() []string {
-	us.sessionMu.RLock()
-	defer us.sessionMu.RUnlock()
-
-	keys := make([]string, 0, len(us.sessions))
-	for k := range us.sessions {
-		keys = append(keys, k)
-	}
-	logSession.Printf("Active sessions: count=%d", len(keys))
-	return keys
-}
-
 // extractAndValidateSession extracts the authenticated session ID from request
 // headers and logs connection details. Returns empty string if validation fails.
 // When authEnabled is true, the identity is derived solely from the Authorization

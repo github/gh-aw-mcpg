@@ -2,6 +2,7 @@ package delegation
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -13,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
-	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 func captureControlHandlerLogs(t *testing.T, f func()) string {
@@ -71,13 +71,22 @@ func TestHandleControl_CreateOrConfirmSuccessLogging(t *testing.T) {
 	t.Run("logs success with invocation hash after persistence succeeds", func(t *testing.T) {
 		deps, secret := newControlTestDeps(t)
 		var responseStatus int
+		var result IdentityResult
 		logs := captureControlHandlerLogs(t, func() {
-			responseStatus = doControlRequest(t, deps, secret, ControlPathPrefix+"create-or-confirm", http.MethodPost, wire).Code
+			response := doControlRequest(t, deps, secret, ControlPathPrefix+"create-or-confirm", http.MethodPost, wire)
+			responseStatus = response.Code
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
 		})
 
 		require.Equal(t, http.StatusOK, responseStatus)
 		assert.Contains(t, logs, "create-or-confirm succeeded:")
-		assert.Contains(t, logs, "invocation_id_hash="+util.HashForLog(wire.InvocationID, 16, ""))
+		assert.Contains(t, logs, "run_hash="+HashForAudit(wire.RunID))
+		assert.Contains(t, logs, "enclave_entry_id_hash="+HashForAudit(wire.EnclaveEntryID))
+		assert.Contains(t, logs, "invocation_id_hash="+HashForAudit(wire.InvocationID))
+		require.NotEmpty(t, result.Handle)
+		assert.Contains(t, logs, "handle_hash="+HashForAudit(result.Handle))
+		assert.NotContains(t, logs, result.Handle)
+		assert.NotContains(t, logs, wire.RunID)
 	})
 
 	t.Run("does not log success when persistence fails", func(t *testing.T) {

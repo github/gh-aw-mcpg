@@ -6,7 +6,7 @@
 // without any scheme prefix (e.g., NOT "Bearer <key>").
 //
 // The package provides both full parsing with error handling (ParseAuthHeader)
-// and convenience methods for specific use cases (ExtractAgentID, ValidateAgentID).
+// and a convenience method for extracting agent IDs (ExtractAgentID).
 //
 // Usage Guidelines:
 //
@@ -16,18 +16,12 @@
 //   - Use ExtractAgentID() when you only need the agent ID and want automatic
 //     fallback to "default" instead of error handling.
 //
-//   - Use ValidateAgentID() to check if a provided identifier matches the expected value.
-//     Automatically handles the case where authentication is disabled (no expected key).
-//
 // Example:
 //
 //	// Full authentication
 //	apiKey, agentID, err := auth.ParseAuthHeader(r.Header.Get("Authorization"))
 //	if err != nil {
 //		return err
-//	}
-//	if !auth.ValidateAgentID(apiKey, expectedKey) {
-//		return errors.New("invalid agent ID")
 //	}
 //
 //	// Extract agent ID only (for context, not authentication)
@@ -98,22 +92,6 @@ func ParseAuthHeader(authHeader string) (apiKey string, agentID string, error er
 	// Use the entire header value as both API key and agent/session ID
 	logAuth.Print("Using plain agent ID format (MCP spec 7.1)")
 	return authHeader, authHeader, nil
-}
-
-// ValidateAgentID checks if the provided agent identifier matches the expected value.
-// Returns true if they match, false otherwise.
-func ValidateAgentID(provided, expected string) bool {
-	logAuth.Printf("Validating agent ID: expected_configured=%t", expected != "")
-
-	if expected == "" {
-		// No agent ID configured, authentication is disabled
-		logAuth.Print("No agent ID configured, authentication disabled")
-		return true
-	}
-
-	matches := provided == expected
-	logAuth.Printf("Agent ID validation result: matches=%t", matches)
-	return matches
 }
 
 // ExtractAgentID extracts the agent ID from an Authorization header.

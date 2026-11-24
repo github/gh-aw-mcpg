@@ -13,7 +13,6 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/mcp"
 	"github.com/github/gh-aw-mcpg/internal/reposelector"
-	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 var logServerDelegation = logger.ForFile()
@@ -63,10 +62,10 @@ func (us *UnifiedServer) authorizeDelegatedToolCall(ctx context.Context, serverI
 	}
 	handle, err := us.delegation.Store.AuthorizeExecutor(sessionID, repository, toolName)
 	if err != nil {
-		logServerDelegation.Printf("Delegated tool call denied: tool=%s repo_hash=%s", toolName, util.HashForLog(repository, 16, ""))
+		logServerDelegation.Printf("Delegated tool call denied: tool=%s repo_hash=%s", toolName, delegation.HashForAudit(repository))
 		return ctx, err
 	}
-	logServerDelegation.Printf("Delegated tool call authorized: tool=%s repo_hash=%s", toolName, util.HashForLog(repository, 16, ""))
+	logServerDelegation.Printf("Delegated tool call authorized: tool=%s repo_hash=%s", toolName, delegation.HashForAudit(repository))
 	ctx = guard.SetAgentIDInContext(ctx, "delegation:"+handle)
 	// Delegation admits enclaves dynamically: keep the enclave provenance marker on the
 	// context even when the tool call reaches this path without session establishment.
