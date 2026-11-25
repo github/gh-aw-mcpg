@@ -86,7 +86,6 @@ func HandleControl(w http.ResponseWriter, r *http.Request, deps ControlDeps, log
 			logger.LogInfoWithAuditHashes(
 				"delegation",
 				"create-or-confirm denied: run_hash=%s enclave_entry_id_hash=%s invocation_id_hash=%s",
-				[]string{runHash, entryHash, invocationHash},
 				runHash, entryHash, invocationHash,
 			)
 			if !deps.persistState(w) {
@@ -102,7 +101,6 @@ func HandleControl(w http.ResponseWriter, r *http.Request, deps ControlDeps, log
 		logger.LogInfoWithAuditHashes(
 			"delegation",
 			"create-or-confirm succeeded: run_hash=%s enclave_entry_id_hash=%s invocation_id_hash=%s handle_hash=%s",
-			[]string{runHash, entryHash, invocationHash, handleHash},
 			runHash, entryHash, invocationHash, handleHash,
 		)
 		httputil.WriteJSONResponse(w, http.StatusOK, result)
@@ -115,7 +113,7 @@ func HandleControl(w http.ResponseWriter, r *http.Request, deps ControlDeps, log
 		}
 		if err := deps.Store.Revoke(request.Handle); err != nil {
 			handleHash := HashForAudit(request.Handle)
-			logger.LogInfoWithAuditHashes("delegation", "Delegation revoke failed for handle_hash=%s", []string{handleHash}, handleHash)
+			logger.LogInfoWithAuditHashes("delegation", "Delegation revoke failed for handle_hash=%s", handleHash)
 			httputil.WriteErrorResponse(w, http.StatusInternalServerError, "delegation_revoke_failed", "delegation revoke failed")
 			return
 		}
@@ -134,7 +132,6 @@ func HandleControl(w http.ResponseWriter, r *http.Request, deps ControlDeps, log
 		logger.LogInfoWithAuditHashes(
 			"delegation",
 			"Revoked %d delegation(s) by labels: run_hash=%s enclave_entry_id_hash=%s",
-			[]string{runHash, entryHash},
 			revoked, runHash, entryHash,
 		)
 		if !deps.persistState(w) {

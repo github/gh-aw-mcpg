@@ -16,8 +16,8 @@ var logAudit = logger.ForFile()
 // repositories negligible while still discarding the raw value. This delegates
 // to the shared util.HashForLog helper so the redaction algorithm has a
 // single source of truth across packages.
-func HashForAudit(value string) string {
-	return util.HashForLog(value, util.AuditHashHexLength, "")
+func HashForAudit(value string) logger.AuditHash {
+	return logger.AuditHash(util.HashForLog(value, util.AuditHashHexLength, ""))
 }
 
 // AuditEvent is a redacted lifecycle record for one delegation-control
@@ -31,11 +31,11 @@ func HashForAudit(value string) string {
 // private repository name.
 type AuditEvent struct {
 	Operation      string // "create_or_confirm", "confirm", "revoke", "revoke_by_labels", "expire", "reconcile"
-	RunIDHash      string
+	RunIDHash      logger.AuditHash
 	EnclaveEntryID string
 	InvocationID   string
-	RepositoryHash string
-	HandleHash     string
+	RepositoryHash logger.AuditHash
+	HandleHash     logger.AuditHash
 	PolicyGen      uint64
 	Outcome        string // "admitted", "confirmed", "denied", "revoked", "mismatch", "expired"
 	Reason         string // coarse, non-identifying reason code only
@@ -51,7 +51,7 @@ type auditSource struct {
 	generation     uint64
 }
 
-func hashAuditField(value *string) string {
+func hashAuditField(value *string) logger.AuditHash {
 	if value == nil {
 		return ""
 	}
@@ -129,7 +129,6 @@ func emitAudit(event AuditEvent) {
 	logger.LogInfoWithAuditHashes(
 		"delegation",
 		"delegation audit: op=%s run=%s entry=%s invocation=%s repo=%s handle=%s gen=%d outcome=%s reason=%s",
-		[]string{event.RunIDHash, event.RepositoryHash, event.HandleHash},
 		event.Operation, event.RunIDHash, event.EnclaveEntryID, event.InvocationID,
 		event.RepositoryHash, event.HandleHash, event.PolicyGen, event.Outcome, event.Reason,
 	)

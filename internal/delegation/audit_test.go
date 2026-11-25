@@ -1,18 +1,20 @@
 package delegation
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/sanitize"
 	"github.com/github/gh-aw-mcpg/internal/util"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestHashForAudit(t *testing.T) {
-	assert.Equal(t, "(none)", HashForAudit(""))
-	assert.Equal(t, "ba7816bf8f01cfea414140de5dae2223", HashForAudit("abc"))
-	assert.Equal(t, "dlg:"+HashForAudit("abc"), identityLogID(&Identity{Handle: "abc"}))
-	assert.Equal(t, "sel:"+HashForAudit("abc"), selectorLogID("abc"))
+	assert.Equal(t, logger.AuditHash("(none)"), HashForAudit(""))
+	assert.Equal(t, logger.AuditHash("ba7816bf8f01cfea414140de5dae2223"), HashForAudit("abc"))
+	assert.Equal(t, "dlg:"+string(HashForAudit("abc")), identityLogID(&Identity{Handle: "abc"}))
+	assert.Equal(t, "sel:"+string(HashForAudit("abc")), selectorLogID("abc"))
 	assert.Equal(t, "(none)", identityLogID(&Identity{}))
 	assert.Equal(t, "(none)", selectorLogID(""))
 
@@ -24,8 +26,8 @@ func TestHashForAudit(t *testing.T) {
 	assert.Equal(t, h1, h2, "hashing must be deterministic")
 	assert.NotEqual(t, h1, h3)
 	assert.NotContains(t, h1, "private-repo", "hash must not disclose the raw value")
-	assert.Equal(t, h1, sanitize.SanitizeStringWithAuditHashes(h1, h1), "audit hashes must survive sanitization")
-	assert.NotEqual(t, h1, sanitize.SanitizeString(h1), "hash preservation must remain opt-in")
+	assert.Equal(t, string(h1), sanitize.SanitizeStringWithAuditHashes(string(h1), string(h1)), "audit hashes must survive sanitization")
+	assert.NotEqual(t, string(h1), sanitize.SanitizeString(string(h1)), "hash preservation must remain opt-in")
 }
 
 func TestNewAuditEvent_HashesSensitiveFieldsOnly(t *testing.T) {
@@ -136,10 +138,30 @@ func TestAuditBuilders(t *testing.T) {
 }
 
 func TestEmitAudit_DoesNotPanicAndCanBeCalledDirectly(t *testing.T) {
-	// emitAudit writes to the debug logger only; this exercises the code
+	// emitAudit writes to the operational logger; this exercises the code
 	// path so a future signature change is caught at compile time, and
 	// confirms it never panics on a zero-value event.
 	assert.NotPanics(t, func() {
 		emitAudit(AuditEvent{})
 	})
+}
+
+func TestEmitAuditPreservesTypedHashes(t *testing.T) {
+	req := validRequest()
+	handle := "dlg_audit-test-handle"
+	event := newAuditEventWithHandle("create_or_confirm", req, "admitted", "created", handle, 7)
+	event.EnclaveEntryID = strings.Repeat("a", 32)
+
+	logs := captureControlHandlerLogs(t, func() {
+		emitAudit(event)
+	})
+
+	assert.Contains(t, logs, "run="+string(event.RunIDHash))
+	assert.Contains(t, logs, "repo="+string(event.RepositoryHash))
+	assert.Contains(t, logs, "handle="+string(event.HandleHash))
+	assert.Contains(t, logs, "entry=[REDACTED]")
+	assert.NotContains(t, logs, event.EnclaveEntryID)
+	assert.NotContains(t, logs, req.RunID)
+	assert.NotContains(t, logs, req.Repository)
+	assert.NotContains(t, logs, handle)
 }
