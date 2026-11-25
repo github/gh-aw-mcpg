@@ -15,7 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 type releaseTestStep struct {
@@ -48,11 +48,36 @@ func readReleaseJobs(t *testing.T, name string) map[string]releaseTestJob {
 		require.Len(t, parts, 3)
 		content = []byte(parts[1])
 	}
+	jobs, err := parseReleaseJobs(content)
+	require.NoError(t, err)
+	return jobs
+}
+
+func parseReleaseJobs(content []byte) (map[string]releaseTestJob, error) {
 	var workflow struct {
 		Jobs map[string]releaseTestJob
 	}
-	require.NoError(t, yaml.Unmarshal(content, &workflow))
-	return workflow.Jobs
+	err := yaml.Load(content, &workflow, yaml.WithUniqueKeys())
+	return workflow.Jobs, err
+}
+
+func TestParseReleaseJobsRejectsInvalidYAML(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		content string
+	}{
+		{"duplicate jobs key", "jobs: {}\njobs: {}\n"},
+		{"duplicate job name", "jobs:\n  build: {}\n  build: {}\n"},
+		{"duplicate job field", "jobs:\n  build:\n    runs-on: ubuntu-latest\n    runs-on: windows-latest\n"},
+		{"multiple documents", "jobs: {}\n---\njobs: {}\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parseReleaseJobs([]byte(tc.content))
+			require.Error(t, err)
+		})
+	}
 }
 
 func TestReleaseWorkflowNativeBuilds(t *testing.T) {
