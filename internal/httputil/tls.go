@@ -43,15 +43,6 @@ var tlsTrustEnvKeys = []string{
 	"REQUESTS_CA_BUNDLE",
 }
 
-// TLSTrustEnvKeys returns the set of trust-environment variable names used by
-// ConfigureTLSTrustEnvironment.
-//
-// The returned slice is a defensive copy and can be safely modified by callers
-// without affecting package behavior.
-func TLSTrustEnvKeys() []string {
-	return append([]string(nil), tlsTrustEnvKeys...)
-}
-
 // NewServerTLSConfig returns a *tls.Config for TLS server listeners carrying
 // the provided certificate and the gateway-wide minimum TLS version.
 func NewServerTLSConfig(cert tls.Certificate) *tls.Config {

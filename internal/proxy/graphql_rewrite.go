@@ -107,14 +107,6 @@ func missingFields(query string, fields []guardFieldSet) []string {
 	return missing
 }
 
-// InjectGuardFields rewrites a GraphQL request body to include fields
-// required by the DIFC guard (e.g. author{login} for trusted-bot detection).
-// Returns the (possibly modified) body. If injection is not needed or fails,
-// the original body is returned unchanged.
-func InjectGuardFields(body []byte, toolName string) []byte {
-	return injectGuardFields(body, toolName, &graphQLParseCache{})
-}
-
 func injectGuardFields(body []byte, toolName string, parsed *graphQLParseCache) []byte {
 	fields, safeParents := fieldsForTool(toolName)
 	if fields == nil {
@@ -164,12 +156,8 @@ func injectGuardFields(body []byte, toolName string, parsed *graphQLParseCache) 
 	return out
 }
 
-// injectPRGuardFields checks each resource selection independently: a nested
+// injectPRGuardFieldsParsed checks each resource selection independently: a nested
 // review's author fields must not satisfy the enclosing PR's requirements.
-func injectPRGuardFields(query string) string {
-	return injectPRGuardFieldsParsed(query, &graphQLParseCache{})
-}
-
 func injectPRGuardFieldsParsed(query string, parsed *graphQLParseCache) string {
 	doc, err := parsed.parse(query)
 	if err != nil {

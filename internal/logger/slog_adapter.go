@@ -94,14 +94,6 @@ func attrKeyString(v any) string {
 	return fmt.Sprint(v)
 }
 
-// NewSlogLogger creates a new slog.Logger that uses gh-aw's logger package
-// This allows integration with libraries that expect slog.Logger
-func NewSlogLogger(namespace string) *slog.Logger {
-	logger := New(namespace)
-	handler := NewSlogHandler(logger)
-	return slog.New(handler)
-}
-
 // NewSlogLoggerWithHandler creates a new slog.Logger using an existing Logger instance
 func NewSlogLoggerWithHandler(logger *Logger) *slog.Logger {
 	handler := NewSlogHandler(logger)

@@ -80,12 +80,6 @@ func detectContainerIDWithPaths(dockerEnv string, cgroupPaths []string) (bool, s
 	return false, ""
 }
 
-// extractContainerIDFromCgroup reads cgroup files and tries to extract a container ID.
-// It checks /proc/1/cgroup first, then falls back to /proc/self/cgroup.
-func extractContainerIDFromCgroup() string {
-	return extractContainerIDFromCgroupFiles(defaultCgroupPaths)
-}
-
 // extractContainerIDFromCgroupFiles reads the given cgroup files in order and
 // returns the first container ID found, or "" if none is extractable.
 func extractContainerIDFromCgroupFiles(paths []string) string {

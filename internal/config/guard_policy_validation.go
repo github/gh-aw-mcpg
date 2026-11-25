@@ -81,9 +81,9 @@ func ValidateWriteSinkPolicy(ws *WriteSinkPolicy) error {
 func NormalizeWriteSinkAcceptEntry(entry string) string {
 	entry = strings.TrimSpace(entry)
 	if visibility, scope, ok := strings.Cut(entry, ":"); ok {
-		return visibility + ":" + lowercaseASCII(scope)
+		return visibility + ":" + util.LowercaseASCII(scope)
 	}
-	return lowercaseASCII(entry)
+	return util.LowercaseASCII(entry)
 }
 
 // validateAcceptEntry validates a single accept entry.
@@ -236,7 +236,7 @@ func normalizeAndValidateScopeArray(scopes []interface{}) ([]string, error) {
 			return fmt.Errorf("allow-only.repos array values must be strings")
 		}
 
-		scopeString = lowercaseASCII(strings.TrimSpace(scopeString))
+		scopeString = util.LowercaseASCII(strings.TrimSpace(scopeString))
 		if err := NonEmptyString(scopeString, "repos", "allow-only.repos"); err != nil {
 			return err
 		}
@@ -249,7 +249,7 @@ func normalizeAndValidateScopeArray(scopes []interface{}) ([]string, error) {
 		}
 		return nil
 	}, func(scopeValue interface{}) string {
-		return lowercaseASCII(strings.TrimSpace(scopeValue.(string)))
+		return util.LowercaseASCII(strings.TrimSpace(scopeValue.(string)))
 	}, func(interface{}) error {
 		return fmt.Errorf("allow-only.repos must not contain duplicates")
 	}); err != nil {
@@ -258,21 +258,11 @@ func normalizeAndValidateScopeArray(scopes []interface{}) ([]string, error) {
 
 	normalized := make([]string, len(scopes))
 	for i, scopeValue := range scopes {
-		normalized[i] = lowercaseASCII(strings.TrimSpace(scopeValue.(string)))
+		normalized[i] = util.LowercaseASCII(strings.TrimSpace(scopeValue.(string)))
 	}
 
 	sort.Strings(normalized)
 	return normalized, nil
-}
-
-func lowercaseASCII(value string) string {
-	bytes := []byte(value)
-	for i, b := range bytes {
-		if b >= 'A' && b <= 'Z' {
-			bytes[i] = b + ('a' - 'A')
-		}
-	}
-	return string(bytes)
 }
 
 func isValidRepoScope(scope string) bool {

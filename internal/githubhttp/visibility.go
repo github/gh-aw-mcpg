@@ -142,37 +142,6 @@ func ParseRepoVisibility(body io.Reader) (RepoVisibility, error) {
 	}
 }
 
-// VerifySinkVisibility compares the configured sink-visibility against the
-// actual repository visibility from the GitHub API. Only overrides the
-// configured value in the security-critical case: repo is actually public
-// but config doesn't say "public".
-//
-// Returns:
-//   - The effective visibility to use (configured value unless overridden to "public")
-//   - Whether an override occurred
-//   - Any error encountered (non-fatal — callers should log and use configured value)
-func VerifySinkVisibility(ctx context.Context, apiBaseURL, nwo, authHeader, configuredVisibility string) (string, bool, error) {
-	logVisibility.Printf("Verifying sink visibility: nwo=%s, configured=%s", nwo, configuredVisibility)
-	if nwo == "" {
-		logVisibility.Print("Sink visibility verification skipped: no repository configured")
-		return configuredVisibility, false, fmt.Errorf("no repository configured for sink visibility verification")
-	}
-
-	actual, err := FetchRepoVisibility(ctx, apiBaseURL, nwo, authHeader)
-	if err != nil {
-		logVisibility.Printf("Sink visibility verification failed, keeping configured value: nwo=%s, configured=%s, err=%v", nwo, configuredVisibility, err)
-		return configuredVisibility, false, err
-	}
-
-	effective, overridden := EffectiveSinkVisibility(configuredVisibility, actual)
-	if overridden {
-		logVisibility.Printf("Overriding sink visibility to public: nwo=%s, configured=%s", nwo, configuredVisibility)
-	} else {
-		logVisibility.Printf("Sink visibility unchanged: nwo=%s, configured=%s, actual=%s", nwo, effective, actual)
-	}
-	return effective, overridden, nil
-}
-
 // EffectiveSinkVisibility normalizes the configured value and overrides it only
 // when the actual repository is public. It never relaxes a configured public sink.
 // Callers that skip verification for omitted configuration must do so before

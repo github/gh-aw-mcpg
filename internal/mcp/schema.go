@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 var logSchema = logger.ForFile()
@@ -72,10 +73,7 @@ func NormalizeInputSchema(schema map[string]any, toolName string) map[string]any
 
 // copySchemaWithKey returns a shallow copy of schema with the given key set to value.
 func copySchemaWithKey(schema map[string]any, key string, value any) map[string]any {
-	normalized := make(map[string]any, len(schema)+1)
-	for k, v := range schema {
-		normalized[k] = v
-	}
+	normalized := util.ShallowCloneMap(schema)
 	normalized[key] = value
 	return normalized
 }

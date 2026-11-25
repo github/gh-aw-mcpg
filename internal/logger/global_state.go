@@ -335,7 +335,7 @@ func dispatchLevelToSinks(level LogLevel, category, format string, args []interf
 //   - jsonl_logger.go: LogRPCMessageJSONLWithTags and logRPCMessageJSONLWithTagsAndSanitized (for JSONLLogger)
 //   - server_file_logger.go: logWithLevelAndServer (for ServerFileLogger)
 //   - tools_logger.go: LogToolsForServer (for ToolsLogger)
-//   - rpc_logger.go: logRPCMessageToAll and LogRPCMessage (for MarkdownLogger)
+//   - rpc_logger.go: logRPCMessageToAll (for MarkdownLogger)
 //
 // Benefits:
 //   - Eliminates ~40 lines of duplicated mutex code
@@ -372,6 +372,10 @@ var logLinePool = sync.Pool{
 // API keys, auth headers, etc.) are redacted from mcp-gateway.log and the
 // per-server log files just as they are from the markdown log.
 func formatLogLine(level LogLevel, category, format string, args ...interface{}) string {
+	return formatLogLineWithAuditHashes(level, category, format, nil, args...)
+}
+
+func formatLogLineWithAuditHashes(level LogLevel, category, format string, auditHashes []string, args ...interface{}) string {
 	timestamp := time.Now().UTC().Format(jsonTimestampLayout)
 
 	sb := logLinePool.Get().(*strings.Builder)
@@ -391,7 +395,7 @@ func formatLogLine(level LogLevel, category, format string, args ...interface{})
 		sb.WriteString(format)
 	}
 
-	result := sanitize.SanitizeString(sb.String())
+	result := sanitize.SanitizeStringWithAuditHashes(sb.String(), auditHashes...)
 	logLinePool.Put(sb)
 	return result
 }

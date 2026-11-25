@@ -150,6 +150,7 @@ func TestAzureProviderCloud(t *testing.T) {
 	}{
 		{"", "https://login.microsoftonline.com", true},
 		{"public", "https://login.microsoftonline.com", true},
+		{" \tPuBlIc\n", "https://login.microsoftonline.com", true},
 		{"USGovernment", "https://login.microsoftonline.us", true},
 		{"china", "https://login.chinacloudapi.cn", true},
 		{"https://attacker.example", "", false},

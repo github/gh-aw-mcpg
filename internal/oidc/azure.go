@@ -14,6 +14,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/httputil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 var logAzure = logger.ForFile()
@@ -59,7 +60,7 @@ type AzureProvider struct {
 func NewAzureProvider(assertions TokenSource, tenantID, clientID, scope, cloud string) *AzureProvider {
 	endpoint := ""
 	var cloudErr error
-	switch strings.ToLower(strings.TrimSpace(cloud)) {
+	switch util.NormalizeStringCI(cloud) {
 	case "", "public":
 		endpoint = "https://login.microsoftonline.com"
 	case "usgovernment":

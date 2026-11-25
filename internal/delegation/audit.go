@@ -7,7 +7,9 @@ import (
 
 var logAudit = logger.ForFile()
 
-// hashForAudit returns a stable, non-reversible attribution token for a
+const auditHashHexLength = 32
+
+// HashForAudit returns a stable, non-reversible attribution token for a
 // sensitive value (repository selector, identity handle, idempotency key).
 // Audit records must never disclose an unredacted private repository name,
 // identity, credential, or header, so every sensitive field is hashed before
@@ -16,8 +18,8 @@ var logAudit = logger.ForFile()
 // repositories negligible while still discarding the raw value. This delegates
 // to the shared util.HashForLog helper so the redaction algorithm has a
 // single source of truth across packages.
-func hashForAudit(value string) string {
-	return util.HashForLog(value, 32, "")
+func HashForAudit(value string) string {
+	return util.HashForLog(value, auditHashHexLength, "")
 }
 
 // AuditEvent is a redacted lifecycle record for one delegation-control
@@ -45,10 +47,10 @@ func newAuditEvent(operation string, req CreateOrConfirmRequest, outcome, reason
 	logAudit.Printf("Building audit event: operation=%s, outcome=%s, reason=%s, generation=%d", operation, outcome, reason, generation)
 	return AuditEvent{
 		Operation:      operation,
-		RunIDHash:      hashForAudit(req.RunID),
+		RunIDHash:      HashForAudit(req.RunID),
 		EnclaveEntryID: req.EnclaveEntryID,
 		InvocationID:   req.InvocationID,
-		RepositoryHash: hashForAudit(req.Repository),
+		RepositoryHash: HashForAudit(req.Repository),
 		PolicyGen:      generation,
 		Outcome:        outcome,
 		Reason:         reason,
@@ -57,7 +59,7 @@ func newAuditEvent(operation string, req CreateOrConfirmRequest, outcome, reason
 
 func newAuditEventWithHandle(operation string, req CreateOrConfirmRequest, outcome, reason, handle string, generation uint64) AuditEvent {
 	event := newAuditEvent(operation, req, outcome, reason, generation)
-	event.HandleHash = hashForAudit(handle)
+	event.HandleHash = HashForAudit(handle)
 	return event
 }
 
@@ -67,11 +69,11 @@ func newIdentityAuditEvent(operation string, identity *Identity, outcome, reason
 	logAudit.Printf("Building identity audit event: operation=%s, outcome=%s, reason=%s, generation=%d", operation, outcome, reason, identity.PolicyGeneration)
 	return AuditEvent{
 		Operation:      operation,
-		RunIDHash:      hashForAudit(identity.RunID),
+		RunIDHash:      HashForAudit(identity.RunID),
 		EnclaveEntryID: identity.EnclaveEntryID,
 		InvocationID:   identity.InvocationID,
-		RepositoryHash: hashForAudit(identity.Repository),
-		HandleHash:     hashForAudit(identity.Handle),
+		RepositoryHash: HashForAudit(identity.Repository),
+		HandleHash:     HashForAudit(identity.Handle),
 		PolicyGen:      identity.PolicyGeneration,
 		Outcome:        outcome,
 		Reason:         reason,
@@ -84,7 +86,7 @@ func newHandleAuditEvent(operation, handle, outcome, reason string) AuditEvent {
 	logAudit.Printf("Building handle audit event: operation=%s, outcome=%s, reason=%s (identity not found for handle)", operation, outcome, reason)
 	return AuditEvent{
 		Operation:  operation,
-		HandleHash: hashForAudit(handle),
+		HandleHash: HashForAudit(handle),
 		Outcome:    outcome,
 		Reason:     reason,
 	}
@@ -96,7 +98,7 @@ func newLabelAuditEvent(operation, runID, enclaveEntryID, outcome, reason string
 	logAudit.Printf("Building label-scoped audit event: operation=%s, entry=%s, outcome=%s, reason=%s", operation, enclaveEntryID, outcome, reason)
 	return AuditEvent{
 		Operation:      operation,
-		RunIDHash:      hashForAudit(runID),
+		RunIDHash:      HashForAudit(runID),
 		EnclaveEntryID: enclaveEntryID,
 		Outcome:        outcome,
 		Reason:         reason,
@@ -107,9 +109,10 @@ func newLabelAuditEvent(operation, runID, enclaveEntryID, outcome, reason string
 // event struct itself never carries raw sensitive values so it is safe to
 // forward.
 func emitAudit(event AuditEvent) {
-	logger.LogInfo(
+	logger.LogInfoWithAuditHashes(
 		"delegation",
 		"delegation audit: op=%s run=%s entry=%s invocation=%s repo=%s handle=%s gen=%d outcome=%s reason=%s",
+		[]string{event.RunIDHash, event.RepositoryHash, event.HandleHash},
 		event.Operation, event.RunIDHash, event.EnclaveEntryID, event.InvocationID,
 		event.RepositoryHash, event.HandleHash, event.PolicyGen, event.Outcome, event.Reason,
 	)

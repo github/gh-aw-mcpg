@@ -34,6 +34,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/github/gh-aw-mcpg/internal/util"
@@ -159,6 +160,45 @@ func SanitizeString(message string) string {
 		result = replaced
 	}
 	return RedactPrivateSelectorsIfEnabled(result)
+}
+
+// SanitizeStringWithAuditHashes sanitizes a log message while preserving only
+// the explicitly supplied delegation audit hashes.
+func SanitizeStringWithAuditHashes(message string, auditHashes ...string) string {
+	result := message
+	markers := make([]string, len(auditHashes))
+	for i, hash := range auditHashes {
+		if !isAuditHash(hash) {
+			continue
+		}
+		marker := "trustedAuditHashMarker" + strconv.Itoa(i) + "End"
+		for strings.Contains(result, marker) {
+			marker += "x"
+		}
+		result = strings.ReplaceAll(result, hash, marker)
+		markers[i] = marker
+	}
+
+	result = SanitizeString(result)
+	for i, hash := range auditHashes {
+		if markers[i] != "" {
+			result = strings.ReplaceAll(result, markers[i], hash)
+		}
+	}
+	return result
+}
+
+func isAuditHash(value string) bool {
+	if len(value) != 32 {
+		return false
+	}
+	for i := 0; i < len(value); i++ {
+		c := value[i]
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 // SanitizeJSON sanitizes a JSON payload by applying regex patterns to the entire string

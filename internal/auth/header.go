@@ -6,28 +6,23 @@
 // without any scheme prefix (e.g., NOT "Bearer <key>").
 //
 // The package provides both full parsing with error handling (ParseAuthHeader)
-// and convenience methods for specific use cases (ExtractAgentID, ValidateAgentID).
+// and a convenience method for extracting agent IDs (ExtractAgentID).
 //
 // Usage Guidelines:
 //
-//   - Use ParseAuthHeader() for complete authentication with error handling:
-//     Returns both API key and agent ID, with errors for missing/invalid headers.
+//   - Use ParseAuthHeader() to parse the header with error handling:
+//     It returns the supplied API key and agent ID, but does not validate
+//     credentials. Validate the extracted credential separately.
 //
 //   - Use ExtractAgentID() when you only need the agent ID and want automatic
 //     fallback to "default" instead of error handling.
 //
-//   - Use ValidateAgentID() to check if a provided identifier matches the expected value.
-//     Automatically handles the case where authentication is disabled (no expected key).
-//
 // Example:
 //
-//	// Full authentication
+//	// Header parsing only; validate apiKey against configured credentials separately.
 //	apiKey, agentID, err := auth.ParseAuthHeader(r.Header.Get("Authorization"))
 //	if err != nil {
 //		return err
-//	}
-//	if !auth.ValidateAgentID(apiKey, expectedKey) {
-//		return errors.New("invalid agent ID")
 //	}
 //
 //	// Extract agent ID only (for context, not authentication)
@@ -73,6 +68,8 @@ func stripAuthScheme(authHeader string) (scheme, value string, matched bool) {
 // Per MCP spec 7.1, the Authorization header should contain the API key directly
 // without any Bearer prefix or other scheme.
 //
+// This function parses the value but does not validate credentials.
+//
 // For backward compatibility, this function also supports:
 //   - "Bearer <token>" format (uses token as both API key and agent ID)
 //   - "Agent <agent-id>" format (extracts agent ID)
@@ -100,29 +97,14 @@ func ParseAuthHeader(authHeader string) (apiKey string, agentID string, error er
 	return authHeader, authHeader, nil
 }
 
-// ValidateAgentID checks if the provided agent identifier matches the expected value.
-// Returns true if they match, false otherwise.
-func ValidateAgentID(provided, expected string) bool {
-	logAuth.Printf("Validating agent ID: expected_configured=%t", expected != "")
-
-	if expected == "" {
-		// No agent ID configured, authentication is disabled
-		logAuth.Print("No agent ID configured, authentication disabled")
-		return true
-	}
-
-	matches := provided == expected
-	logAuth.Printf("Agent ID validation result: matches=%t", matches)
-	return matches
-}
-
 // ExtractAgentID extracts the agent ID from an Authorization header.
 // This is a convenience wrapper around ParseAuthHeader that only returns the agent ID.
 // Returns "default" if the header is empty or cannot be parsed.
 //
 // This function is intended for use cases where you only need the agent ID
-// and don't need full error handling. For complete authentication handling,
-// use ParseAuthHeader instead.
+// and don't need full error handling. For full header parsing with error
+// handling, use ParseAuthHeader instead. Parsing does not validate credentials;
+// validate them separately.
 func ExtractAgentID(authHeader string) string {
 	if authHeader == "" {
 		logAuth.Print("ExtractAgentID: auth header empty, using default agent ID")

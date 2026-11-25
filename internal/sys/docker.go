@@ -13,6 +13,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/envutil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 var logDocker = logger.ForFile()
@@ -28,11 +29,6 @@ const maxRuntimeInfoStderrBytes = 512
 // containerIDPattern validates that a container ID only contains valid characters (hex digits).
 // Container IDs are 64 character hex strings, but short form (12 chars) is also valid.
 var containerIDPattern = regexp.MustCompile(`^[a-f0-9]{12,64}$`)
-
-// CheckDockerAccessible verifies that the Docker daemon is accessible.
-func CheckDockerAccessible() bool {
-	return DockerAccessError() == nil
-}
 
 // DockerAccessError reports why the Docker daemon is not accessible, or nil if it is.
 func DockerAccessError() error {
@@ -54,11 +50,6 @@ func DockerAccessError() error {
 	err := runContainerRuntimeInfo("docker")
 	logDocker.Printf("Docker daemon check: accessible=%v", err == nil)
 	return err
-}
-
-// CheckContainerRuntimeAccessible verifies that the selected container runtime can be used.
-func CheckContainerRuntimeAccessible(command string) bool {
-	return ContainerRuntimeAccessError(command) == nil
 }
 
 // ContainerRuntimeAccessError reports why the selected container runtime cannot be used,
@@ -98,9 +89,7 @@ func runContainerRuntimeInfo(command string) error {
 	}
 
 	detail := strings.TrimSpace(stderr.String())
-	if len(detail) > maxRuntimeInfoStderrBytes {
-		detail = detail[:maxRuntimeInfoStderrBytes] + "..."
-	}
+	detail = util.TruncateWithSuffix(detail, maxRuntimeInfoStderrBytes, "...")
 	logDocker.Printf("Container runtime info failed: command=%s, err=%v, stderr=%s", command, err, detail)
 	if detail == "" {
 		return fmt.Errorf("%s info failed: %w", name, err)

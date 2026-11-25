@@ -10,3 +10,15 @@ func IsASCII(s string) bool {
 	}
 	return true
 }
+
+// LowercaseASCII lowercases ASCII letters without trimming whitespace or
+// changing non-ASCII bytes.
+func LowercaseASCII(value string) string {
+	bytes := []byte(value)
+	for i, b := range bytes {
+		if b >= 'A' && b <= 'Z' {
+			bytes[i] = b + ('a' - 'A')
+		}
+	}
+	return string(bytes)
+}

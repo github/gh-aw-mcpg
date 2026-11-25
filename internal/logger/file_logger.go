@@ -82,6 +82,17 @@ func (fl *FileLogger) Log(level LogLevel, category, format string, args ...inter
 	syncFileWithWarning(fl.logFile, "")
 }
 
+// LogWithAuditHashes preserves explicitly supplied delegation audit hashes
+// while sanitizing the rest of the log message.
+func (fl *FileLogger) LogWithAuditHashes(level LogLevel, category, format string, auditHashes []string, args ...interface{}) {
+	fl.mu.Lock()
+	defer fl.mu.Unlock()
+
+	logLine := formatLogLineWithAuditHashes(level, category, format, auditHashes, args...)
+	fl.logger.Println(logLine)
+	syncFileWithWarning(fl.logFile, "")
+}
+
 // GetWriter returns the underlying io.Writer for the file logger
 func (fl *FileLogger) GetWriter() io.Writer {
 	fl.mu.Lock()
@@ -103,6 +114,12 @@ func logWithLevel(level LogLevel, category, format string, args ...interface{}) 
 	dispatchLevelToSinks(level, category, format, args, fileLevelSink)
 }
 
+func logWithAuditHashes(level LogLevel, category, format string, auditHashes []string, args ...interface{}) {
+	withGlobalLogger(&globalLoggerMu, &globalFileLogger, func(fl *FileLogger) {
+		fl.LogWithAuditHashes(level, category, format, auditHashes, args...)
+	})
+}
+
 // The exported wrappers below follow the Log-Level Quad-Function Pattern
 // documented in global_state.go, with shared per-level closure registration handled
 // by newLevelLoggerFuncs.
@@ -113,6 +130,12 @@ var fileLevelLoggers = newLevelLoggerFuncs(logWithLevel)
 // destination-specific logging use LogInfoToMarkdown or LogInfoToServer.
 func LogInfo(category, format string, args ...interface{}) {
 	fileLevelLoggers.info(category, format, args...)
+}
+
+// LogInfoWithAuditHashes preserves only the supplied 32-character delegation
+// audit hashes while sanitizing the rest of the message.
+func LogInfoWithAuditHashes(category, format string, auditHashes []string, args ...interface{}) {
+	logWithAuditHashes(LogLevelInfo, category, format, auditHashes, args...)
 }
 
 // LogWarn logs a warning message to the unified file logger sink.

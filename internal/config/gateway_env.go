@@ -51,29 +51,6 @@ func parseAndValidateIntEnv(envKey string, validate func(int) *ValidationError) 
 	return value, true, nil
 }
 
-// GetGatewayPortFromEnv returns the MCP_GATEWAY_PORT value, parsed as int
-func GetGatewayPortFromEnv() (int, error) {
-	port, ok, err := parseAndValidateIntEnv("MCP_GATEWAY_PORT", func(port int) *ValidationError {
-		return PortRange(port, "MCP_GATEWAY_PORT")
-	})
-	if err != nil {
-		return 0, err
-	}
-	if !ok {
-		return 0, fmt.Errorf("MCP_GATEWAY_PORT environment variable not set")
-	}
-	return port, nil
-}
-
-// GetGatewayDomainFromEnv returns the MCP_GATEWAY_DOMAIN value
-func GetGatewayDomainFromEnv() string {
-	domain := envutil.GetEnvString("MCP_GATEWAY_DOMAIN", "")
-	if domain != "" {
-		logConfig.Printf("MCP_GATEWAY_DOMAIN=%q", domain)
-	}
-	return domain
-}
-
 // GetGatewayAgentIDFromEnv returns the gateway agent identifier from environment.
 // New name MCP_GATEWAY_AGENT_ID takes precedence over deprecated MCP_GATEWAY_API_KEY.
 func GetGatewayAgentIDFromEnv() string {

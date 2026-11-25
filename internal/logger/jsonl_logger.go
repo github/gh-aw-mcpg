@@ -125,11 +125,6 @@ func (jl *JSONLLogger) logEntry(entry interface{}) error {
 	return nil
 }
 
-// LogRPCMessageJSONL logs an RPC message to the global JSONL logger
-func LogRPCMessageJSONL(direction RPCMessageDirection, messageType RPCMessageType, serverID, method string, payloadBytes []byte, err error) {
-	LogRPCMessageJSONLWithTags(direction, messageType, serverID, method, payloadBytes, err, nil, nil)
-}
-
 // LogRPCMessageJSONLWithTags logs an RPC message to the global JSONL logger with optional agent tag snapshots.
 // It uses the withGlobalLogger helper from global_helpers.go to handle mutex locking and nil-checking.
 func LogRPCMessageJSONLWithTags(direction RPCMessageDirection, messageType RPCMessageType, serverID, method string, payloadBytes []byte, err error, agentSecrecy, agentIntegrity []string) {

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/github/gh-aw-mcpg/internal/config"
+	"github.com/github/gh-aw-mcpg/internal/delegation"
 	"github.com/github/gh-aw-mcpg/internal/difc"
 	"github.com/github/gh-aw-mcpg/internal/enclavegithub"
 	"github.com/github/gh-aw-mcpg/internal/githubhttp"
@@ -314,6 +315,9 @@ func (s *Server) sensitiveLogging() bool {
 func (s *Server) logSafePath(path string) string {
 	if !s.sensitiveLogging() {
 		return path
+	}
+	if s.delegation != nil {
+		return "path:" + delegation.HashForAudit(path)
 	}
 	return util.HashForLog(path, 16, "path:")
 }

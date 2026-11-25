@@ -89,19 +89,6 @@ func (s *Store) IsRecoveryIncomplete() bool {
 	return s.recoveryIncomplete
 }
 
-// markReconciled clears the recovery-incomplete flag in memory only.
-//
-// It is deliberately unexported: clearing the gate without durably recording
-// it lets the in-memory store and the state file disagree, so a crash right
-// afterwards silently re-closes admissions that an operator believed were
-// reconciled. Callers outside this package must use
-// MarkReconciledAndSaveState, which persists first and opens the gate second.
-func (s *Store) markReconciled() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.recoveryIncomplete = false
-}
-
 func generateOpaqueToken(prefix string, n int) (string, error) {
 	hexStr, err := util.RandomHex(n)
 	if err != nil {
@@ -174,9 +161,9 @@ func (s *Store) CreateOrConfirm(req CreateOrConfirmRequest) (*IdentityResult, er
 }
 
 func (s *Store) createOrConfirmAt(req CreateOrConfirmRequest, now time.Time) (*IdentityResult, error) {
-	logStore.Printf("createOrConfirmAt: runIDHash=%s enclaveEntryIDHash=%s invocationIDHash=%s repositoryHash=%s", hashForAudit(req.RunID), hashForAudit(req.EnclaveEntryID), hashForAudit(req.InvocationID), hashForAudit(req.Repository))
+	logStore.Printf("createOrConfirmAt: runIDHash=%s enclaveEntryIDHash=%s invocationIDHash=%s repositoryHash=%s", HashForAudit(req.RunID), HashForAudit(req.EnclaveEntryID), HashForAudit(req.InvocationID), HashForAudit(req.Repository))
 	if err := s.validateAgainstEnvelope(req, now); err != nil {
-		logStore.Printf("createOrConfirmAt: envelope validation failed for runIDHash=%s: %v", hashForAudit(req.RunID), err)
+		logStore.Printf("createOrConfirmAt: envelope validation failed for runIDHash=%s: %v", HashForAudit(req.RunID), err)
 		emitAudit(newAuditEvent("create_or_confirm", req, "denied", "envelope-subset-violation", s.generation))
 		return nil, fmt.Errorf("delegation request denied: %w", err)
 	}
