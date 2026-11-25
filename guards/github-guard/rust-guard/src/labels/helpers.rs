@@ -60,15 +60,15 @@ pub(crate) fn user_authored_integrity(
 impl ReactionKind {
     fn as_str(self) -> &'static str {
         match self {
-            ReactionKind::Endorsement => "endorsement",
-            ReactionKind::Disapproval => "disapproval",
+            Self::Endorsement => "endorsement",
+            Self::Disapproval => "disapproval",
         }
     }
 
     fn warning_emitted(self) -> &'static AtomicBool {
         match self {
-            ReactionKind::Endorsement => &ENDORSEMENT_GATEWAY_WARNING_EMITTED,
-            ReactionKind::Disapproval => &DISAPPROVAL_GATEWAY_WARNING_EMITTED,
+            Self::Endorsement => &ENDORSEMENT_GATEWAY_WARNING_EMITTED,
+            Self::Disapproval => &DISAPPROVAL_GATEWAY_WARNING_EMITTED,
         }
     }
 }
@@ -140,11 +140,11 @@ pub enum ScopeKind {
 impl ScopeKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            ScopeKind::All => "All",
-            ScopeKind::Public => "Public",
-            ScopeKind::Owner => "Owner",
-            ScopeKind::Repo => "Repo",
-            ScopeKind::RepoPrefix => "RepoPrefix",
+            Self::All => "All",
+            Self::Public => "Public",
+            Self::Owner => "Owner",
+            Self::Repo => "Repo",
+            Self::RepoPrefix => "RepoPrefix",
         }
     }
 }
@@ -186,10 +186,10 @@ impl MinIntegrity {
     pub fn as_str(self) -> &'static str {
         use super::constants::policy_integrity;
         match self {
-            MinIntegrity::None => policy_integrity::NONE,
-            MinIntegrity::Unapproved => policy_integrity::UNAPPROVED,
-            MinIntegrity::Approved => policy_integrity::APPROVED,
-            MinIntegrity::Merged => policy_integrity::MERGED,
+            Self::None => policy_integrity::NONE,
+            Self::Unapproved => policy_integrity::UNAPPROVED,
+            Self::Approved => policy_integrity::APPROVED,
+            Self::Merged => policy_integrity::MERGED,
         }
     }
 
@@ -213,10 +213,10 @@ impl MinIntegrity {
     /// Build the integrity label `Vec<String>` for this level over `scope`.
     pub(crate) fn build_labels(self, scope: &str, ctx: &PolicyContext) -> Vec<String> {
         match self {
-            MinIntegrity::None => none_integrity(scope, ctx),
-            MinIntegrity::Unapproved => reader_integrity(scope, ctx),
-            MinIntegrity::Approved => writer_integrity(scope, ctx),
-            MinIntegrity::Merged => merged_integrity(scope, ctx),
+            Self::None => none_integrity(scope, ctx),
+            Self::Unapproved => reader_integrity(scope, ctx),
+            Self::Approved => writer_integrity(scope, ctx),
+            Self::Merged => merged_integrity(scope, ctx),
         }
     }
 }
