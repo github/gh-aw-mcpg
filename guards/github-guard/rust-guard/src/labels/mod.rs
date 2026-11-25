@@ -4767,6 +4767,19 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_extract_resource_number_ignores_numeric_repository_url() {
+        use super::helpers::extract_resource_number;
+        // A repository whose name is all digits must not be read as a resource number.
+        let item = json!({
+            "repository_url": "https://api.github.com/repos/github/2024"
+        });
+        assert_eq!(
+            extract_resource_number(&item, "issue", "github/2024"),
+            "unknown"
+        );
+    }
+
     // -------------------------------------------------------------------------
     // PR search result with repository_url fallback (response_items)
     // -------------------------------------------------------------------------
