@@ -1,0 +1,1 @@
+Smoke test file for safe-outputs PR enforcement, run 45520392552.
