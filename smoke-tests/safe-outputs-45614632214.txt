@@ -1,0 +1,2 @@
+Smoke test file for safe-outputs PR enforcement, run 45614632214.
+This file is created on a temporary smoke-test branch and is not intended to be merged.
