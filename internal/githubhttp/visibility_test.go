@@ -425,8 +425,7 @@ func TestParseRepoVisibility(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			vis, err := ParseRepoVisibility(strings.NewReader(tt.body))
 			if tt.wantErr != "" {
-				require.Error(t, err)
-				assert.ErrorContains(t, err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 				assert.Empty(t, vis)
 				return
 			}
