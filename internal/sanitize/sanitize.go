@@ -189,7 +189,7 @@ func SanitizeStringWithAuditHashes(message string, auditHashes ...string) string
 }
 
 func isAuditHash(value string) bool {
-	if len(value) != 32 {
+	if len(value) != util.AuditHashHexLength {
 		return false
 	}
 	for i := 0; i < len(value); i++ {

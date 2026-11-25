@@ -15,6 +15,8 @@ import (
 
 var logCollab = logger.ForFile()
 
+const collaboratorHashHexLength = 16
+
 // collaboratorLogFields returns log-safe representations of the owner, repo,
 // and username fields of a get_collaborator_permission call. When sensitive is
 // true (enclave or delegation mode) each field is replaced by a stable,
@@ -22,9 +24,9 @@ var logCollab = logger.ForFile()
 // Centralizing the salts and hash length here keeps the redaction convention
 // consistent across every call site in this package.
 func collaboratorLogFields(sensitive bool, owner, repo, username string) (ownerForLog, repoForLog, usernameForLog string) {
-	return util.HashForLogIf(sensitive, owner, 16, "owner:"),
-		util.HashForLogIf(sensitive, repo, 16, "repo:"),
-		util.HashForLogIf(sensitive, username, 16, "user:")
+	return util.HashForLogIf(sensitive, owner, collaboratorHashHexLength, "owner:"),
+		util.HashForLogIf(sensitive, repo, collaboratorHashHexLength, "repo:"),
+		util.HashForLogIf(sensitive, username, collaboratorHashHexLength, "user:")
 }
 
 // CollaboratorSelectorsForLog exposes collaboratorLogFields to callers outside
@@ -99,7 +101,7 @@ func FetchCollaboratorPermission(
 ) (interface{}, error) {
 	apiPath := fmt.Sprintf("/repos/%s/%s/collaborators/%s/permission", owner, repo, username)
 	ownerForLog, repoForLog, usernameForLog := collaboratorLogFields(sensitive, owner, repo, username)
-	apiPathForLog := util.HashForLogIf(sensitive, apiPath, 16, "path:")
+	apiPathForLog := util.HashForLogIf(sensitive, apiPath, collaboratorHashHexLength, "path:")
 	logCollab.Printf("FetchCollaboratorPermission: owner=%s, repo=%s, username=%s, apiPath=%s", ownerForLog, repoForLog, usernameForLog, apiPathForLog)
 
 	resp, err := fetch(ctx, apiPath)

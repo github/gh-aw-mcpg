@@ -39,7 +39,7 @@ type Claims struct {
 
 // AgentID returns the stable DIFC registry key for this invocation.
 func (c *Claims) AgentID() string {
-	return util.HashForLog(c.Run+"\x00"+c.Invocation, 32, "enclave:")
+	return util.HashForLog(c.Run+"\x00"+c.Invocation, util.AuditHashHexLength, "enclave:")
 }
 
 // AllowsOperation reports whether the invocation capability permits operation.

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/github/gh-aw-mcpg/internal/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -98,6 +99,7 @@ func TestClaims_AgentID(t *testing.T) {
 	assert.Equal(t, c1.AgentID(), c2.AgentID(), "same run+invocation must produce same agent id")
 	assert.NotEqual(t, c1.AgentID(), c3.AgentID(), "different invocation must produce different agent id")
 	assert.True(t, strings.HasPrefix(c1.AgentID(), "enclave:"))
+	assert.Len(t, c1.AgentID(), len("enclave:")+util.AuditHashHexLength)
 	assert.Equal(t, "enclave:f30977452fc70843f15a1c59186fe36b", c1.AgentID())
 	assert.Equal(t, "enclave:6e340b9cffb37a989ca544e6bb780a2c", (&Claims{}).AgentID())
 	assert.NotEqual(t, (&Claims{Run: "ab", Invocation: "c"}).AgentID(),

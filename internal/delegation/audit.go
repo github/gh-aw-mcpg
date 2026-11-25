@@ -7,8 +7,6 @@ import (
 
 var logAudit = logger.ForFile()
 
-const auditHashHexLength = 32
-
 // HashForAudit returns a stable, non-reversible attribution token for a
 // sensitive value (repository selector, identity handle, idempotency key).
 // Audit records must never disclose an unredacted private repository name,
@@ -19,7 +17,7 @@ const auditHashHexLength = 32
 // to the shared util.HashForLog helper so the redaction algorithm has a
 // single source of truth across packages.
 func HashForAudit(value string) string {
-	return util.HashForLog(value, auditHashHexLength, "")
+	return util.HashForLog(value, util.AuditHashHexLength, "")
 }
 
 // AuditEvent is a redacted lifecycle record for one delegation-control
