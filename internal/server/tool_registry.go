@@ -188,11 +188,6 @@ func (us *UnifiedServer) ensureToolsRegistered(ctx context.Context, serverID str
 	return nil
 }
 
-// registerToolsFromBackend registers tools from a specific backend with <server>___<tool> naming
-func (us *UnifiedServer) registerToolsFromBackend(serverID string) error {
-	return us.registerToolsFromBackendContext(us.ctx, serverID)
-}
-
 func (us *UnifiedServer) registerToolsFromBackendContext(ctx context.Context, serverID string) error {
 	logUnified.Printf("Registering tools from backend: %s", serverID)
 

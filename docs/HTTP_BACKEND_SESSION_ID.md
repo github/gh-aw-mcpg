@@ -87,7 +87,7 @@ if sessionID != "" {
    - Initialize request sent with temporary session ID in `Mcp-Session-Id` header
    - Server responds with actual session ID in response header
    - Session ID is stored in connection for reuse
-5. For tool discovery, `registerToolsFromBackend` is called
+5. For tool discovery, `registerToolsFromBackendContext` is called
 6. `SendRequestWithServerID(ctx, "tools/list", ...)` uses stored session ID
 7. HTTP backend receives request with established session ID
 

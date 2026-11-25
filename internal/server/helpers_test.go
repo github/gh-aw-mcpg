@@ -7,6 +7,11 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/hmacutil"
 )
 
+// registerToolsFromBackend registers tools from a specific backend with <server>___<tool> naming
+func (us *UnifiedServer) registerToolsFromBackend(serverID string) error {
+	return us.registerToolsFromBackendContext(us.ctx, serverID)
+}
+
 func authMiddleware(apiKeys []string, next http.HandlerFunc) http.HandlerFunc {
 	return authMiddlewareWithDelegation(apiKeys, nil, next)
 }

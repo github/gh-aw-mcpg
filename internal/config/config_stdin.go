@@ -529,13 +529,6 @@ func convertStdinConfig(stdinCfg *StdinConfig) (*Config, error) {
 	return cfg, nil
 }
 
-// convertStdinServerConfig converts a single StdinServerConfig to ServerConfig.
-func convertStdinServerConfig(name string, server *StdinServerConfig, customSchemas map[string]interface{}) (*ServerConfig, error) {
-	return convertStdinServerConfigWithRuntime(name, server, customSchemas, stdioRuntimeConfig{
-		Command: DefaultContainerRuntime,
-	})
-}
-
 // stdioRuntimeConfig carries resolved container runtime settings used when
 // converting JSON stdin `container` server entries into internal stdio commands.
 type stdioRuntimeConfig struct {
@@ -603,13 +596,6 @@ func convertStdinServerConfigWithRuntime(name string, server *StdinServerConfig,
 
 	// stdio/local servers only from this point
 	return buildStdioServerConfigWithRuntime(name, server, runtimeCfg), nil
-}
-
-// buildStdioServerConfig builds a ServerConfig for a stdio server.
-func buildStdioServerConfig(name string, server *StdinServerConfig) *ServerConfig {
-	return buildStdioServerConfigWithRuntime(name, server, stdioRuntimeConfig{
-		Command: DefaultContainerRuntime,
-	})
 }
 
 func buildStdioServerConfigWithRuntime(name string, server *StdinServerConfig, runtimeCfg stdioRuntimeConfig) *ServerConfig {

@@ -8,6 +8,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// convertStdinServerConfig converts a single StdinServerConfig to ServerConfig.
+func convertStdinServerConfig(name string, server *StdinServerConfig, customSchemas map[string]interface{}) (*ServerConfig, error) {
+	return convertStdinServerConfigWithRuntime(name, server, customSchemas, stdioRuntimeConfig{
+		Command: DefaultContainerRuntime,
+	})
+}
+
+// buildStdioServerConfig builds a ServerConfig for a stdio server.
+func buildStdioServerConfig(name string, server *StdinServerConfig) *ServerConfig {
+	return buildStdioServerConfigWithRuntime(name, server, stdioRuntimeConfig{
+		Command: DefaultContainerRuntime,
+	})
+}
+
+func TestStdinServerConfigHelpers_DefaultRuntime(t *testing.T) {
+	t.Setenv("MCP_GATEWAY_CONTAINER_RUNTIME", "podman")
+	server := &StdinServerConfig{
+		Type:      "stdio",
+		Container: "test/container:latest",
+	}
+
+	converted, err := convertStdinServerConfig("test-server", server, nil)
+	require.NoError(t, err)
+
+	for name, cfg := range map[string]*ServerConfig{
+		"convert": converted,
+		"build":   buildStdioServerConfig("test-server", server),
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.NotNil(t, cfg)
+			assert.Equal(t, DefaultContainerRuntime, cfg.Command)
+			require.NotEmpty(t, cfg.Args)
+			assert.Equal(t, "run", cfg.Args[0])
+			assert.Contains(t, cfg.Args, server.Container)
+		})
+	}
+}
+
 // TestConvertStdinServerConfig_StdioServer tests stdio server conversion with full configuration.
 func TestConvertStdinServerConfig_StdioServer(t *testing.T) {
 	require := require.New(t)
