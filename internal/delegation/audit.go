@@ -43,66 +43,85 @@ type AuditEvent struct {
 	Reason         string // coarse, non-identifying reason code only
 }
 
-func newAuditEvent(operation string, req CreateOrConfirmRequest, outcome, reason string, generation uint64) AuditEvent {
-	logAudit.Printf("Building audit event: operation=%s, outcome=%s, reason=%s, generation=%d", operation, outcome, reason, generation)
+type auditSource struct {
+	// A nil sensitive field is omitted; a pointer to an empty string is hashed.
+	runID          *string
+	repository     *string
+	handle         *string
+	enclaveEntryID string
+	invocationID   string
+	generation     uint64
+}
+
+func hashAuditField(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return HashForAudit(*value)
+}
+
+func buildAuditEvent(operation, outcome, reason string, src auditSource) AuditEvent {
+	logAudit.Printf("Building audit event: operation=%s, outcome=%s, reason=%s, generation=%d", operation, outcome, reason, src.generation)
 	return AuditEvent{
 		Operation:      operation,
-		RunIDHash:      HashForAudit(req.RunID),
-		EnclaveEntryID: req.EnclaveEntryID,
-		InvocationID:   req.InvocationID,
-		RepositoryHash: HashForAudit(req.Repository),
-		PolicyGen:      generation,
+		RunIDHash:      hashAuditField(src.runID),
+		EnclaveEntryID: src.enclaveEntryID,
+		InvocationID:   src.invocationID,
+		RepositoryHash: hashAuditField(src.repository),
+		HandleHash:     hashAuditField(src.handle),
+		PolicyGen:      src.generation,
 		Outcome:        outcome,
 		Reason:         reason,
 	}
 }
 
+func newAuditEvent(operation string, req CreateOrConfirmRequest, outcome, reason string, generation uint64) AuditEvent {
+	return buildAuditEvent(operation, outcome, reason, auditSource{
+		runID:          &req.RunID,
+		repository:     &req.Repository,
+		enclaveEntryID: req.EnclaveEntryID,
+		invocationID:   req.InvocationID,
+		generation:     generation,
+	})
+}
+
 func newAuditEventWithHandle(operation string, req CreateOrConfirmRequest, outcome, reason, handle string, generation uint64) AuditEvent {
-	event := newAuditEvent(operation, req, outcome, reason, generation)
-	event.HandleHash = HashForAudit(handle)
-	return event
+	return buildAuditEvent(operation, outcome, reason, auditSource{
+		runID:          &req.RunID,
+		repository:     &req.Repository,
+		handle:         &handle,
+		enclaveEntryID: req.EnclaveEntryID,
+		invocationID:   req.InvocationID,
+		generation:     generation,
+	})
 }
 
 // newIdentityAuditEvent builds an audit event for an operation keyed off an
 // already-known Identity (revoke, expire) rather than an inbound request.
 func newIdentityAuditEvent(operation string, identity *Identity, outcome, reason string) AuditEvent {
-	logAudit.Printf("Building identity audit event: operation=%s, outcome=%s, reason=%s, generation=%d", operation, outcome, reason, identity.PolicyGeneration)
-	return AuditEvent{
-		Operation:      operation,
-		RunIDHash:      HashForAudit(identity.RunID),
-		EnclaveEntryID: identity.EnclaveEntryID,
-		InvocationID:   identity.InvocationID,
-		RepositoryHash: HashForAudit(identity.Repository),
-		HandleHash:     HashForAudit(identity.Handle),
-		PolicyGen:      identity.PolicyGeneration,
-		Outcome:        outcome,
-		Reason:         reason,
-	}
+	return buildAuditEvent(operation, outcome, reason, auditSource{
+		runID:          &identity.RunID,
+		repository:     &identity.Repository,
+		handle:         &identity.Handle,
+		enclaveEntryID: identity.EnclaveEntryID,
+		invocationID:   identity.InvocationID,
+		generation:     identity.PolicyGeneration,
+	})
 }
 
 // newHandleAuditEvent builds an audit event for a revoke request whose
 // handle does not (or no longer) resolves to a stored Identity.
 func newHandleAuditEvent(operation, handle, outcome, reason string) AuditEvent {
-	logAudit.Printf("Building handle audit event: operation=%s, outcome=%s, reason=%s (identity not found for handle)", operation, outcome, reason)
-	return AuditEvent{
-		Operation:  operation,
-		HandleHash: HashForAudit(handle),
-		Outcome:    outcome,
-		Reason:     reason,
-	}
+	return buildAuditEvent(operation, outcome, reason, auditSource{handle: &handle})
 }
 
 // newLabelAuditEvent builds an audit event for a label-scoped bulk
 // revocation, which is not bound to a single identity or request.
 func newLabelAuditEvent(operation, runID, enclaveEntryID, outcome, reason string) AuditEvent {
-	logAudit.Printf("Building label-scoped audit event: operation=%s, entry=%s, outcome=%s, reason=%s", operation, enclaveEntryID, outcome, reason)
-	return AuditEvent{
-		Operation:      operation,
-		RunIDHash:      HashForAudit(runID),
-		EnclaveEntryID: enclaveEntryID,
-		Outcome:        outcome,
-		Reason:         reason,
-	}
+	return buildAuditEvent(operation, outcome, reason, auditSource{
+		runID:          &runID,
+		enclaveEntryID: enclaveEntryID,
+	})
 }
 
 // emit writes the redacted audit event to the always-on operational logger; the

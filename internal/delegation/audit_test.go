@@ -53,6 +53,84 @@ func TestNewAuditEventWithHandle_HashesHandle(t *testing.T) {
 	assert.NotContains(t, event.HandleHash, "dlg_some-handle")
 }
 
+func TestAuditBuilders(t *testing.T) {
+	for _, input := range []string{"populated", "empty"} {
+		t.Run(input, func(t *testing.T) {
+			req := validRequest()
+			handle := "dlg_audit-test-handle"
+			if input == "empty" {
+				req = CreateOrConfirmRequest{}
+				handle = ""
+			}
+			identity := &Identity{
+				delegationBinding: bindingFromRequest(req),
+				Handle:            handle,
+				PolicyGeneration:  7,
+			}
+			requestEvent := AuditEvent{
+				Operation:      "create_or_confirm",
+				RunIDHash:      HashForAudit(req.RunID),
+				EnclaveEntryID: req.EnclaveEntryID,
+				InvocationID:   req.InvocationID,
+				RepositoryHash: HashForAudit(req.Repository),
+				PolicyGen:      7,
+				Outcome:        "denied",
+				Reason:         "test-reason",
+			}
+			identityEvent := requestEvent
+			identityEvent.HandleHash = HashForAudit(handle)
+
+			tests := []struct {
+				name  string
+				event AuditEvent
+				want  AuditEvent
+			}{
+				{
+					name:  "request",
+					event: newAuditEvent("create_or_confirm", req, "denied", "test-reason", 7),
+					want:  requestEvent,
+				},
+				{
+					name:  "request with handle",
+					event: newAuditEventWithHandle("create_or_confirm", req, "denied", "test-reason", handle, 7),
+					want:  identityEvent,
+				},
+				{
+					name:  "identity",
+					event: newIdentityAuditEvent("create_or_confirm", identity, "denied", "test-reason"),
+					want:  identityEvent,
+				},
+				{
+					name:  "handle",
+					event: newHandleAuditEvent("revoke", handle, "revoked", "already-absent"),
+					want: AuditEvent{
+						Operation:  "revoke",
+						HandleHash: HashForAudit(handle),
+						Outcome:    "revoked",
+						Reason:     "already-absent",
+					},
+				},
+				{
+					name:  "labels",
+					event: newLabelAuditEvent("revoke_by_labels", req.RunID, req.EnclaveEntryID, "revoked", "count=1"),
+					want: AuditEvent{
+						Operation:      "revoke_by_labels",
+						RunIDHash:      HashForAudit(req.RunID),
+						EnclaveEntryID: req.EnclaveEntryID,
+						Outcome:        "revoked",
+						Reason:         "count=1",
+					},
+				},
+			}
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					assert.Equal(t, tt.want, tt.event)
+				})
+			}
+		})
+	}
+}
+
 func TestEmitAudit_DoesNotPanicAndCanBeCalledDirectly(t *testing.T) {
 	// emitAudit writes to the debug logger only; this exercises the code
 	// path so a future signature change is caught at compile time, and
