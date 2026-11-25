@@ -273,10 +273,7 @@ func NormalizeScopeKind(policy map[string]interface{}) map[string]interface{} {
 		return nil
 	}
 
-	normalized := make(map[string]interface{}, len(policy))
-	for key, value := range policy {
-		normalized[key] = value
-	}
+	normalized := util.ShallowCloneMap(policy)
 
 	if scopeKind, ok := normalized["scope_kind"].(string); ok {
 		normalized["scope_kind"] = util.NormalizeStringCI(scopeKind)

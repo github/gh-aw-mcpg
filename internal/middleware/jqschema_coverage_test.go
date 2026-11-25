@@ -144,33 +144,23 @@ func TestSavePayload_MkdirAllFailure(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to create payload directory")
 }
 
-// TestSavePayload_WriteFileFailure covers the os.WriteFile error path by using a
-// directory path that resolves to an existing file (so the path cannot be a dir).
+// TestSavePayload_WriteFileFailure covers a failed payload replacement when the
+// destination is a directory rather than a file.
 func TestSavePayload_WriteFileFailure(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission model differs on Windows")
-	}
-	if os.Getuid() == 0 {
-		t.Skip("skipping file-permission test when running as root")
-	}
-
-	// Create the target directory structure that savePayload would create,
-	// then place a read-only file at the exact payload path.
 	baseDir := t.TempDir()
 	sessionID := "test-session"
 	queryID := "test-query"
 	payloadDir := filepath.Join(baseDir, sessionID, queryID)
-	require.NoError(t, os.MkdirAll(payloadDir, 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(payloadDir, "payload.json"), 0755))
 
-	// Write a read-only file at the exact location savePayload would write.
-	payloadFile := filepath.Join(payloadDir, "payload.json")
-	require.NoError(t, os.WriteFile(payloadFile, []byte("existing"), 0444))
-	t.Cleanup(func() { _ = os.Chmod(payloadFile, 0644) })
-
-	_, err := savePayload(baseDir, "", sessionID, queryID, []byte(`{"key":"value"}`))
-	// On Linux, writing to a 0444 file returns "permission denied"
-	require.Error(t, err, "savePayload should return an error when WriteFile fails")
+	path, err := savePayload(baseDir, "", sessionID, queryID, []byte(`{"key":"value"}`))
+	require.Error(t, err, "savePayload should return an error when replacement fails")
+	assert.Empty(t, path)
 	assert.ErrorContains(t, err, "failed to write payload file")
+	assert.NotContains(t, err.Error(), sessionID)
+	entries, err := os.ReadDir(payloadDir)
+	require.NoError(t, err)
+	assert.Len(t, entries, 1, "failed writes must not leave temporary files behind")
 }
 
 // ---------------------------------------------------------------------------

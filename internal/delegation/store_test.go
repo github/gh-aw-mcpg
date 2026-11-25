@@ -266,6 +266,7 @@ func TestHasLiveExecutorBearerTracksRevocation(t *testing.T) {
 
 	require.NoError(t, store.Revoke(created.Handle))
 	assert.False(t, store.HasLiveExecutorBearer(created.ExecutorBearer))
+	assert.False(t, store.HasLiveExecutorBearer("Bearer "+created.ExecutorBearer))
 }
 
 func TestHasLiveExecutorBearer_FalseWhenRecoveryIncompleteOrEnvelopeExpired(t *testing.T) {
@@ -292,7 +293,36 @@ func TestAuthorize_BearerPrefixIsStrippedBeforeLookup(t *testing.T) {
 	created, err := store.CreateOrConfirm(req)
 	require.NoError(t, err)
 
-	assert.NoError(t, store.Authorize("Bearer "+created.ExecutorBearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
+	for _, tt := range []struct {
+		name   string
+		prefix string
+		valid  bool
+	}{
+		{name: "bare", valid: true},
+		{name: "bearer", prefix: "Bearer ", valid: true},
+		{name: "lowercase", prefix: "bearer "},
+		{name: "uppercase", prefix: "BEARER "},
+		{name: "extra space", prefix: "Bearer  "},
+		{name: "tab", prefix: "Bearer\t"},
+		{name: "leading space", prefix: " Bearer "},
+		{name: "repeated prefix", prefix: "Bearer " + "Bearer "},
+		{name: "token scheme", prefix: "token "},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			bearer := tt.prefix + created.ExecutorBearer
+			assert.Equal(t, tt.valid, store.HasLiveExecutorBearer(bearer))
+			handle, err := store.AuthorizeExecutor(bearer, req.Repository, "issue_read")
+			if tt.valid {
+				require.NoError(t, err)
+				assert.Equal(t, created.Handle, handle)
+				assert.NoError(t, store.Authorize(bearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
+			} else {
+				require.Error(t, err)
+				assert.Empty(t, handle)
+				assert.Error(t, store.Authorize(bearer, req.RunID, req.EnclaveBackend, req.Repository, "issue_read"))
+			}
+		})
+	}
 }
 
 func TestAuthorize_RejectsRecoveryIncompleteAndExpiredEnvelope(t *testing.T) {

@@ -55,18 +55,19 @@ func NewControlCapability(secret string) (*ControlCapability, error) {
 // constant-time over fixed-size digests to avoid leaking the capability's
 // length or contents through timing.
 func (c *ControlCapability) Authenticate(authorizationHeader string) error {
-	value := authorizationHeader
-	if after, ok := strings.CutPrefix(authorizationHeader, "Bearer "); ok {
-		value = after
-	}
-	if value == "" {
+	if authorizationHeader == "" || authorizationHeader == "Bearer " {
 		logDelegationCapability.Print("Rejected delegation-control request: missing capability")
 		return fmt.Errorf("missing delegation-control capability")
 	}
-	provided := sha256.Sum256([]byte(value))
+	provided := bearerDigest(authorizationHeader)
 	if subtle.ConstantTimeCompare(provided[:], c.expected[:]) != 1 {
 		logDelegationCapability.Print("Rejected delegation-control request: capability mismatch")
 		return fmt.Errorf("invalid delegation-control capability")
 	}
 	return nil
+}
+
+// bearerDigest hashes raw after removing one exact "Bearer " scheme prefix.
+func bearerDigest(raw string) [sha256.Size]byte {
+	return sha256.Sum256([]byte(strings.TrimPrefix(raw, "Bearer ")))
 }
