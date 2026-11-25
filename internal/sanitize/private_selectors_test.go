@@ -68,6 +68,24 @@ func TestRedactPrivateSelectors(t *testing.T) {
 	}
 }
 
+func TestRedactPrivateSelectorsPreservesHashFormats(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+		want    string
+	}{
+		{"path", "GET /repos/octo-secret/private-repo/issues/7", "GET /repos/path:a7eb4f2db216889a"},
+		{"selector", "repo=octo-secret/private-repo", "repo=sel:bc07fb9c89010548"},
+		{"identifier", "run=run-9876543210", "run=id:26df0ac50b071e91"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, RedactPrivateSelectors(tt.message))
+		})
+	}
+}
+
 // TestRedactPrivateSelectorsIsStableAndIdempotent pins the two properties that
 // keep redacted logs useful: the same input always renders as the same token,
 // so lines can still be correlated, and re-running redaction over already

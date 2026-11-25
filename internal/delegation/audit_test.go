@@ -3,6 +3,8 @@ package delegation
 import (
 	"testing"
 
+	"github.com/github/gh-aw-mcpg/internal/sanitize"
+	"github.com/github/gh-aw-mcpg/internal/util"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,10 +20,12 @@ func TestHashForAudit(t *testing.T) {
 	h2 := HashForAudit("github/private-repo")
 	h3 := HashForAudit("github/other-repo")
 
-	assert.Len(t, h1, 32)
+	assert.Len(t, h1, util.AuditHashHexLength)
 	assert.Equal(t, h1, h2, "hashing must be deterministic")
 	assert.NotEqual(t, h1, h3)
 	assert.NotContains(t, h1, "private-repo", "hash must not disclose the raw value")
+	assert.Equal(t, h1, sanitize.SanitizeStringWithAuditHashes(h1, h1), "audit hashes must survive sanitization")
+	assert.NotEqual(t, h1, sanitize.SanitizeString(h1), "hash preservation must remain opt-in")
 }
 
 func TestNewAuditEvent_HashesSensitiveFieldsOnly(t *testing.T) {

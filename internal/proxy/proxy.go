@@ -39,6 +39,8 @@ const (
 	ghHostPathPrefix = "/api/v3"
 
 	proxyAgentID = "proxy"
+
+	pathHashHexLength = 16
 )
 
 // Server is a filtering HTTP forward proxy for the GitHub REST/GraphQL API.
@@ -319,7 +321,7 @@ func (s *Server) logSafePath(path string) string {
 	if s.delegation != nil {
 		return "path:" + delegation.HashForAudit(path)
 	}
-	return util.HashForLog(path, 16, "path:")
+	return util.HashForLog(path, pathHashHexLength, "path:")
 }
 
 // restBackendCaller translates guard CallTool requests into GitHub REST API

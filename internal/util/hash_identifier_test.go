@@ -9,6 +9,7 @@ import (
 func TestHashIdentifierForLog(t *testing.T) {
 	// Empty identifiers render as a non-sensitive placeholder.
 	assert.Equal(t, "(none)", HashIdentifierForLog(""))
+	assert.Equal(t, "agent:ba7816bf8f01", HashIdentifierForLog("abc"))
 
 	// Non-empty identifiers are rendered as a stable, prefixed hash token.
 	got := HashIdentifierForLog("super-secret-agent-id")

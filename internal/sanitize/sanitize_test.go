@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/github/gh-aw-mcpg/internal/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,6 +19,33 @@ func requireContainsRedacted(t *testing.T, result, mustNotContain string) {
 	assert.Contains(t, result, "[REDACTED]", "Expected sanitized output to contain [REDACTED]")
 	if mustNotContain != "" {
 		assert.NotContains(t, result, mustNotContain, "Sanitized output still contains secret")
+	}
+}
+
+func TestIsAuditHash(t *testing.T) {
+	hash := util.HashForLog("abc", util.AuditHashHexLength, "")
+	tests := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{"audit hash", hash, true},
+		{"all digits", strings.Repeat("0", util.AuditHashHexLength), true},
+		{"empty", "", false},
+		{"placeholder", "(none)", false},
+		{"shorter", hash[:len(hash)-1], false},
+		{"longer", hash + "0", false},
+		{"non-audit log hash", hash[:16], false},
+		{"identifier hash", hash[:12], false},
+		{"uppercase", strings.ToUpper(hash), false},
+		{"non-hex", "g" + hash[1:], false},
+		{"prefixed", "enclave:" + hash, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isAuditHash(tt.value))
+		})
 	}
 }
 

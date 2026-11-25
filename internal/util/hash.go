@@ -5,6 +5,11 @@ import (
 	"encoding/hex"
 )
 
+// AuditHashHexLength is the number of SHA-256 hex characters retained in audit hashes.
+const AuditHashHexLength = 32
+
+const identifierHashHexLength = 12
+
 // HashIdentifierForLog returns a stable, non-reversible attribution token for a
 // sensitive identifier (such as an authenticated agent ID or session token) that
 // is safe to write to logs, traces, and error messages. Empty identifiers render
@@ -13,7 +18,7 @@ import (
 // so the same identity is attributable across log lines without exposing the raw
 // value or any recoverable prefix of it.
 func HashIdentifierForLog(id string) string {
-	return HashForLog(id, 12, "agent:")
+	return HashForLog(id, identifierHashHexLength, "agent:")
 }
 
 // HashForLog returns a stable, non-reversible attribution token for a sensitive

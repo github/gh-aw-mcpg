@@ -251,7 +251,7 @@ func validatePersistedState(state persistedState, envelope *Envelope, generation
 		}
 		key := invocationScopeKey(id.RunID, id.EnclaveEntryID, id.InvocationID)
 		if _, dup := seenKeys[key]; dup {
-			return nil, fmt.Errorf("duplicate invocation key %s", util.HashForLog(key, auditHashHexLength, "inv:"))
+			return nil, fmt.Errorf("duplicate invocation key %s", util.HashForLog(key, util.AuditHashHexLength, "inv:"))
 		}
 		if _, dup := seenHandles[id.Handle]; dup {
 			return nil, fmt.Errorf("duplicate identity handle %s", identityLogID(&id))
@@ -308,7 +308,7 @@ func validatePersistedSchemaHashes(state *persistedState, envelope *Envelope) er
 // identityLogID renders an identity for recovery diagnostics. Handles are
 // invocation-scoped credentials, so only their stable hash is logged.
 func identityLogID(identity *Identity) string {
-	return util.HashForLog(identity.Handle, auditHashHexLength, "dlg:")
+	return util.HashForLog(identity.Handle, util.AuditHashHexLength, "dlg:")
 }
 
 // selectorLogID renders a repository or owner selector as a stable hash so
@@ -318,7 +318,7 @@ func identityLogID(identity *Identity) string {
 // safe on their own: they reach stderr and the operator's terminal with no
 // sink-level redaction in front of them.
 func selectorLogID(selector string) string {
-	return util.HashForLog(selector, auditHashHexLength, "sel:")
+	return util.HashForLog(selector, util.AuditHashHexLength, "sel:")
 }
 
 func validateRestoredIdentity(identity *Identity, envelope *Envelope, generation uint64) error {
