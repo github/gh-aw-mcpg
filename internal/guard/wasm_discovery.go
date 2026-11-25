@@ -78,11 +78,12 @@ func findGuardFile(serverID string, statFn func(string) (os.FileInfo, error)) (s
 		}
 
 		logWasm.Printf("Checking for baked-in container guard at %s", ContainerGuardWasmPath)
-		if _, err := statFn(ContainerGuardWasmPath); err == nil {
+		_, err := statFn(ContainerGuardWasmPath)
+		if err == nil {
 			logWasm.Printf("Found baked-in container guard: %s", ContainerGuardWasmPath)
 			return ContainerGuardWasmPath, true, nil
 		}
-		logWasm.Printf("Baked-in container guard not found, falling back to guards directory: serverID=%s", serverID)
+		logWasm.Printf("Failed to stat baked-in container guard, falling back to guards directory: serverID=%s, err=%v", serverID, err)
 	}
 
 	return FindServerWASMGuardFile(serverID)
