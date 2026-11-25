@@ -38,11 +38,13 @@ func FindServerWASMGuardFile(serverID string) (string, bool, error) {
 			logWasm.Printf("No WASM guard directory found for serverID=%s", serverID)
 			return "", false, nil
 		}
+		logWasm.Printf("Failed to read WASM guard directory: serverID=%s, dir=%s, err=%v", serverID, serverGuardDir, err)
 		return "", false, fmt.Errorf("failed to read server guard directory %q: %w", serverGuardDir, err)
 	}
 
 	for _, entry := range entries {
 		if entry.IsDir() {
+			logWasm.Printf("Skipping directory entry in guard dir: serverID=%s, name=%s", serverID, entry.Name())
 			continue
 		}
 		if strings.EqualFold(filepath.Ext(entry.Name()), ".wasm") {
@@ -62,6 +64,7 @@ func FindServerWASMGuardFile(serverID string) (string, bool, error) {
 //
 // Returns an empty string and found=false when no guard can be discovered.
 func FindGuardFile(serverID string) (string, bool, error) {
+	logWasm.Printf("Discovering guard file: serverID=%s", serverID)
 	return findGuardFile(serverID, os.Stat)
 }
 
@@ -75,10 +78,12 @@ func findGuardFile(serverID string, statFn func(string) (os.FileInfo, error)) (s
 		}
 
 		logWasm.Printf("Checking for baked-in container guard at %s", ContainerGuardWasmPath)
-		if _, err := statFn(ContainerGuardWasmPath); err == nil {
+		_, err := statFn(ContainerGuardWasmPath)
+		if err == nil {
 			logWasm.Printf("Found baked-in container guard: %s", ContainerGuardWasmPath)
 			return ContainerGuardWasmPath, true, nil
 		}
+		logWasm.Printf("Failed to stat baked-in container guard, falling back to guards directory: serverID=%s, err=%v", serverID, err)
 	}
 
 	return FindServerWASMGuardFile(serverID)
