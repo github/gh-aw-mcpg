@@ -113,6 +113,55 @@ func TestSanitizeString(t *testing.T) {
 	}
 }
 
+func TestSanitizeStringWithAuditHashes(t *testing.T) {
+	trustedHash := strings.Repeat("a", 32)
+	secondTrustedHash := strings.Repeat("b", 32)
+	thirdHash := strings.Repeat("c", 32)
+
+	tests := []struct {
+		name        string
+		message     string
+		auditHashes []string
+		want        string
+	}{
+		{
+			name:    "sanitizes message without audit hashes",
+			message: "token=ghp_1234567890123456789012345678901234567890",
+			want:    "token=[REDACTED]",
+		},
+		{
+			name:        "preserves each explicitly supplied hash",
+			message:     "first=" + trustedHash + " second=" + secondTrustedHash + " opaque=" + thirdHash,
+			auditHashes: []string{trustedHash, secondTrustedHash},
+			want:        "first=" + trustedHash + " second=" + secondTrustedHash + " opaque=[REDACTED]",
+		},
+		{
+			name:        "rejects audit hash with invalid length",
+			message:     "token=" + strings.Repeat("d", 31),
+			auditHashes: []string{strings.Repeat("d", 31)},
+			want:        "token=[REDACTED]",
+		},
+		{
+			name:        "rejects audit hash with invalid character",
+			message:     "secret=" + strings.Repeat("e", 31) + "G",
+			auditHashes: []string{strings.Repeat("e", 31) + "G"},
+			want:        "secret=[REDACTED]",
+		},
+		{
+			name:        "avoids replacing marker text already in the message",
+			message:     "trustedAuditHashMarker0End trustedAuditHashMarker0Endx trustedAuditHashMarker0Endxx hash=" + trustedHash,
+			auditHashes: []string{trustedHash},
+			want:        "trustedAuditHashMarker0End trustedAuditHashMarker0Endx trustedAuditHashMarker0Endxx hash=" + trustedHash,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, SanitizeStringWithAuditHashes(tt.message, tt.auditHashes...))
+		})
+	}
+}
+
 func TestSanitizeStringPreservesPrefix(t *testing.T) {
 	tests := []struct {
 		name          string
