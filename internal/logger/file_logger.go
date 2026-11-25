@@ -69,27 +69,37 @@ const (
 	LogLevelDebug LogLevel = "DEBUG"
 )
 
+// AuditHash marks a precomputed delegation audit hash for preservation by
+// LogWithAuditHashes and LogInfoWithAuditHashes. Only 32-character lowercase
+// hexadecimal values are preserved; other values are sanitized normally.
+type AuditHash string
+
 // Log writes a log message with the specified level and category
 func (fl *FileLogger) Log(level LogLevel, category, format string, args ...interface{}) {
-	fl.mu.Lock()
-	defer fl.mu.Unlock()
-
-	logLine := formatLogLine(level, category, format, args...)
-	fl.logger.Println(logLine)
-
-	// Flush the log to disk immediately to ensure it's readable by other processes
-	// Log sync errors to stderr to avoid infinite recursion
-	syncFileWithWarning(fl.logFile, "")
+	fl.logLine(level, category, format, nil, args...)
 }
 
-// LogWithAuditHashes preserves explicitly supplied delegation audit hashes
+// LogWithAuditHashes preserves AuditHash arguments
 // while sanitizing the rest of the log message.
-func (fl *FileLogger) LogWithAuditHashes(level LogLevel, category, format string, auditHashes []string, args ...interface{}) {
+func (fl *FileLogger) LogWithAuditHashes(level LogLevel, category, format string, args ...interface{}) {
+	var auditHashes []string
+	for _, arg := range args {
+		if hash, ok := arg.(AuditHash); ok {
+			auditHashes = append(auditHashes, string(hash))
+		}
+	}
+	fl.logLine(level, category, format, auditHashes, args...)
+}
+
+func (fl *FileLogger) logLine(level LogLevel, category, format string, auditHashes []string, args ...interface{}) {
 	fl.mu.Lock()
 	defer fl.mu.Unlock()
 
 	logLine := formatLogLineWithAuditHashes(level, category, format, auditHashes, args...)
 	fl.logger.Println(logLine)
+
+	// Flush the log to disk immediately to ensure it's readable by other processes
+	// Log sync errors to stderr to avoid infinite recursion
 	syncFileWithWarning(fl.logFile, "")
 }
 
@@ -114,9 +124,9 @@ func logWithLevel(level LogLevel, category, format string, args ...interface{}) 
 	dispatchLevelToSinks(level, category, format, args, fileLevelSink)
 }
 
-func logWithAuditHashes(level LogLevel, category, format string, auditHashes []string, args ...interface{}) {
+func logWithAuditHashes(level LogLevel, category, format string, args ...interface{}) {
 	withGlobalLogger(&globalLoggerMu, &globalFileLogger, func(fl *FileLogger) {
-		fl.LogWithAuditHashes(level, category, format, auditHashes, args...)
+		fl.LogWithAuditHashes(level, category, format, args...)
 	})
 }
 
@@ -132,10 +142,10 @@ func LogInfo(category, format string, args ...interface{}) {
 	fileLevelLoggers.info(category, format, args...)
 }
 
-// LogInfoWithAuditHashes preserves only the supplied 32-character delegation
-// audit hashes while sanitizing the rest of the message.
-func LogInfoWithAuditHashes(category, format string, auditHashes []string, args ...interface{}) {
-	logWithAuditHashes(LogLevelInfo, category, format, auditHashes, args...)
+// LogInfoWithAuditHashes preserves AuditHash arguments while sanitizing the
+// rest of the message.
+func LogInfoWithAuditHashes(category, format string, args ...interface{}) {
+	logWithAuditHashes(LogLevelInfo, category, format, args...)
 }
 
 // LogWarn logs a warning message to the unified file logger sink.

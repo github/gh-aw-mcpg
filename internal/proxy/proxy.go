@@ -319,7 +319,7 @@ func (s *Server) logSafePath(path string) string {
 		return path
 	}
 	if s.delegation != nil {
-		return "path:" + delegation.HashForAudit(path)
+		return "path:" + string(delegation.HashForAudit(path))
 	}
 	return util.HashForLog(path, pathHashHexLength, "path:")
 }

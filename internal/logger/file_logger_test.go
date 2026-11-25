@@ -94,26 +94,65 @@ func TestFileLoggerLogging(t *testing.T) {
 	}
 }
 
-func TestLogInfoWithAuditHashesPreservesOnlyExplicitHashes(t *testing.T) {
+func TestLogInfoWithAuditHashesPreservesOnlyTypedHashes(t *testing.T) {
 	logDir := t.TempDir()
 	require.NoError(t, InitFileLogger(logDir, "mcp-gateway.log"))
 	defer CloseAllLoggers()
 
-	auditHash := strings.Repeat("a", 32)
+	auditHash := AuditHash(strings.Repeat("a", 32))
+	otherAuditHash := AuditHash(strings.Repeat("c", 32))
 	untrustedHash := strings.Repeat("b", 32)
 	LogInfoWithAuditHashes(
 		"delegation",
-		"run_hash=%s opaque=%s",
-		[]string{auditHash},
-		auditHash, untrustedHash,
+		"run_hash=%s opaque=%s handle_hash=%s count=%d",
+		auditHash, untrustedHash, otherAuditHash, 2,
 	)
 
 	require.NoError(t, CloseAllLoggers())
 	content, err := os.ReadFile(filepath.Join(logDir, "mcp-gateway.log"))
 	require.NoError(t, err)
-	assert.Contains(t, string(content), "run_hash="+auditHash)
+	assert.Contains(t, string(content), "run_hash="+string(auditHash))
+	assert.Contains(t, string(content), "handle_hash="+string(otherAuditHash))
+	assert.Contains(t, string(content), "count=2")
 	assert.Contains(t, string(content), "opaque=[REDACTED]")
 	assert.NotContains(t, string(content), untrustedHash)
+}
+
+func TestFileLoggerAuditHashSanitization(t *testing.T) {
+	hash := strings.Repeat("a", 32)
+	tests := []struct {
+		name  string
+		audit bool
+		value any
+		want  string
+	}{
+		{"ordinary logging remains sanitized", false, AuditHash(hash), "[REDACTED]"},
+		{"typed hash", true, AuditHash(hash), hash},
+		{"untyped hash", true, hash, "[REDACTED]"},
+		{"invalid typed hash length", true, AuditHash(strings.Repeat("a", 33)), "[REDACTED]"},
+		{"typed credential", true, AuditHash("ghp_" + strings.Repeat("x", 36)), "[REDACTED]"},
+		{"empty hash", true, AuditHash(""), ""},
+		{"empty identifier", true, AuditHash("(none)"), "(none)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logDir := t.TempDir()
+			require.NoError(t, InitFileLogger(logDir, "audit.log"))
+			defer CloseAllLoggers()
+
+			withGlobalLogger(&globalLoggerMu, &globalFileLogger, func(fl *FileLogger) {
+				if tt.audit {
+					fl.LogWithAuditHashes(LogLevelWarn, "delegation", "value=%s", tt.value)
+				} else {
+					fl.Log(LogLevelWarn, "delegation", "value=%s", tt.value)
+				}
+			})
+
+			content, err := os.ReadFile(filepath.Join(logDir, "audit.log"))
+			require.NoError(t, err)
+			assert.Contains(t, string(content), "[WARN] [delegation] value="+tt.want+"\n")
+		})
+	}
 }
 
 func TestFileLoggerAppend(t *testing.T) {
