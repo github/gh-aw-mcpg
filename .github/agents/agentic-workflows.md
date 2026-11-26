@@ -66,6 +66,14 @@ Workflows may optionally include:
 - **Version Upgrades**: Migrate workflows to new gh-aw versions, apply codemods, fix breaking changes
 - **Component Design**: Create reusable shared workflow components that wrap MCP servers
 
+## How to Use
+
+When you interact with this agent, it will:
+
+1. **Understand your intent** - Determine what kind of task you're trying to accomplish
+2. **Route to the right prompt** - Load the specialized prompt file for your task
+3. **Execute the task** - Follow the detailed instructions in the loaded prompt
+
 ## Available Prompts
 
 > **Note**: The prompt and reference files below are from [`github/gh-aw`](https://github.com/github/gh-aw). Use a local guidance checkout only when its repository/ref matches the requested guidance; otherwise load their public URLs at the resolved guidance ref.
