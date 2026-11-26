@@ -243,7 +243,7 @@ Key configuration fields (gateway-level under `[gateway]` in TOML / `"gateway"` 
 |-------|-------------|
 | `agent_id` / `agentId` | Agent/session identifier used for routing and optional auth matching |
 | `agent_ids` / `agentIds` | Agent/session identifiers for concurrent session isolation; configure exactly one of this field or `agent_id` / `agentId`. Each configured identifier authenticates independently, so concurrent primary/enclave sessions can each connect with their own credential. |
-| `port` | Metadata only; validated (1–65535) but does not control the listen address. Use the `--listen` flag to set the listen address. `MCP_GATEWAY_PORT` is read by `--validate-env` only as a required-variable presence check; port-mapping and listen-address construction are handled by wrapper scripts (`run.sh`, `run_containerized.sh`). |
+| `port` | Metadata only; validated (1–65535) but does not control the listen address. Use the `--listen` flag to set the listen address. `MCP_GATEWAY_PORT` is read by `--validate-env` for presence and Docker port-mapping checks; wrapper scripts (`run.sh`, `run_containerized.sh`) build the listen address. |
 | `domain` | Gateway domain for external access (for example `"localhost"` in TOML/JSON, or `"${MCP_GATEWAY_DOMAIN}"` in JSON stdin where `${...}` expansion is supported) |
 | `startup_timeout` / `startupTimeout` | Seconds to wait for backend server startup (default `30`) |
 | `tool_timeout` / `toolTimeout` | Seconds to wait for tool execution (default `60`; JSON stdin only: env fallback `MCP_GATEWAY_TOOL_TIMEOUT`) |
@@ -292,7 +292,7 @@ For the full server field list (including shared fields such as `registry` and T
 
 **Routing**: Routed mode (`/mcp/{serverID}`) exposes each backend at its own endpoint. Unified mode (`/mcp`) routes to all configured servers through a single endpoint.
 
-**Security**: WASM-based DIFC guards enforce secrecy and integrity labels per request. Guards are loaded from `MCP_GATEWAY_WASM_GUARDS_DIR` and assigned per-server. Authentication uses the configured agent identifier value per MCP spec 7.1 (`Authorization: <agent-id>`), and session routing can also use `X-Agent-ID`.
+**Security**: WASM-based DIFC guards enforce secrecy and integrity labels per request. WASM guard discovery uses `MCP_GATEWAY_WASM_GUARDS_DIR` per server, except that a present baked-in `github` guard takes precedence; an explicitly empty value disables discovery. Authentication uses the configured agent identifier value per MCP spec 7.1 (`Authorization: <agent-id>`), and session routing can also use `X-Agent-ID`.
 
 **Logging**: Per-server log files (`{serverID}.log`) and unified `mcp-gateway.log` use bracketed UTC ISO-8601 timestamps with milliseconds (`[YYYY-MM-DDTHH:mm:ss.SSSZ]`). Machine-readable `rpc-messages.jsonl` records include required `timestamp`, `event` (`snake_case`), and `_schema` fields; RPC events use `_schema: "rpc-message/v2"` with `event` values `rpc_request`/`rpc_response`, and DIFC filter records use `_schema: "difc-filtered/v2"` with `event: "difc_filtered"`. Markdown workflow previews (`gateway.md`) and the wazero cache (`<parent-of-log-dir>/wazero-cache`, a sibling of `--log-dir` by default) are also produced.
 

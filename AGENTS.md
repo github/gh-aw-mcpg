@@ -235,9 +235,9 @@ golangci-lint run --enable=gosec,errcheck --timeout=5m
 **Add Unit Test**: Create `*_test.go` in the appropriate `internal/` package  
 **Add Integration Test**: Create test in `test/integration/` that uses the binary
 
-## Agent Completion Checklist
+## Agent Completion Checklist for Repository Changes
 
-**CRITICAL: Before returning to the user, ALWAYS run `make agent-finished`**
+**CRITICAL: After changing repository files, run `make agent-finished` before returning to the user.**
 
 This command runs the complete verification pipeline:
 1. **Format** - Auto-formats all Go code with gofmt
@@ -386,7 +386,7 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 - `GITHUB_SERVER_URL` - GitHub server URL; proxy auto-derives API endpoint: `*.ghe.com` → `api.*.ghe.com`, GHES → `<host>/api/v3`, `github.com` → `api.github.com`
 - `ACTIONS_ID_TOKEN_REQUEST_URL` - GitHub Actions OIDC token endpoint URL; required for `github-oidc` auth type
 - `ACTIONS_ID_TOKEN_REQUEST_TOKEN` - GitHub Actions OIDC request token; required for `github-oidc` auth type
-- `MCP_GATEWAY_PORT` - Used by environment validation (`--validate-env`) for container port-mapping checks (validated 1-65535); does not override the gateway listen address
+- `MCP_GATEWAY_PORT` - Used by environment validation (`--validate-env`) for container port-mapping checks; does not override the gateway listen address
 - `MCP_GATEWAY_DOMAIN` - Used by environment validation (`--validate-env`) and containerized startup checks; to set config values use `gateway.domain` (or `"${MCP_GATEWAY_DOMAIN}"` in JSON stdin config)
 - `MCP_GATEWAY_AGENT_ID` - Used by environment validation (`--validate-env`) and containerized startup checks; to enable auth set `gateway.agentId` (commonly `"${MCP_GATEWAY_AGENT_ID}"` in JSON stdin config)
 - `MCP_GATEWAY_API_KEY` - *Deprecated alias for `MCP_GATEWAY_AGENT_ID`*; still accepted with a deprecation warning (lower precedence when both are set). Use `MCP_GATEWAY_AGENT_ID` instead.
@@ -406,7 +406,7 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 - `DOCKER_HOST` - Docker daemon socket path (default: `/var/run/docker.sock`)
 - `MCP_GATEWAY_GUARDS_SINK_SERVER_IDS` - Comma-separated server IDs whose RPC JSONL logs should include agent secrecy/integrity tag snapshots (sets default for `--guards-sink-server-ids`)
 - `MCP_GATEWAY_GUARDS_MODE` - Guards enforcement mode: `strict` (deny violations), `filter` (remove denied tools), `propagate` (auto-adjust agent labels) (sets default for `--guards-mode`, default: `strict`)
-- `MCP_GATEWAY_WASM_GUARDS_DIR` - Root directory for per-server WASM guards (`<root>/<serverID>/*.wasm`, first match is loaded)
+- `MCP_GATEWAY_WASM_GUARDS_DIR` - Per-server WASM discovery root (`<root>/<serverID>/*.wasm`, first match); for `github`, a present baked-in guard takes precedence, and an explicitly empty value disables discovery.
 - `MCP_GATEWAY_GUARD_POLICY_JSON` - Guard policy JSON (e.g., `{"allow-only":{"repos":"public","min-integrity":"none"}}`) (sets default for `--guard-policy-json`)
 - `MCP_GATEWAY_ALLOWONLY_SCOPE_PUBLIC` - Use public AllowOnly scope; set to `"true"` to enable (sets default for `--allowonly-scope-public`)
 - `MCP_GATEWAY_ALLOWONLY_SCOPE_OWNER` - AllowOnly owner scope value (sets default for `--allowonly-scope-owner`)
