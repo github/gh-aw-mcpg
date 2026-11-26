@@ -17,6 +17,7 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/delegation"
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/sanitize"
+	"github.com/github/gh-aw-mcpg/internal/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -222,6 +223,24 @@ func TestLogSafePath_DelegationUsesAuditHash(t *testing.T) {
 
 	assert.Equal(t, "path:"+string(delegation.HashForAudit("/repos/org/repo/issues/1")), s.logSafePath("/repos/org/repo/issues/1"))
 	assert.Equal(t, "path:(none)", s.logSafePath(""))
+}
+
+func TestLogSafePath_UsesSharedLogConvention(t *testing.T) {
+	const path = "/repos/org/repo/issues/1"
+	tests := []struct {
+		name      string
+		server    *Server
+		sensitive bool
+	}{
+		{"ordinary", &Server{}, false},
+		{"enclave", &Server{enclave: &enclaveState{}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, util.HashPathForLogIf(tt.sensitive, path), tt.server.logSafePath(path))
+			assert.Equal(t, util.HashPathForLogIf(tt.sensitive, ""), tt.server.logSafePath(""))
+		})
+	}
 }
 
 // TestDelegatedRequestLoggingRedactsOnUpstreamFailure covers the error path.

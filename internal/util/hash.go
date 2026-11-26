@@ -5,8 +5,12 @@ import (
 	"encoding/hex"
 )
 
-// AuditHashHexLength is the number of SHA-256 hex characters retained in audit hashes.
-const AuditHashHexLength = 32
+const (
+	// LogHashHexLength is the number of SHA-256 hex characters retained in ordinary log hashes.
+	LogHashHexLength = 16
+	// AuditHashHexLength is the number of SHA-256 hex characters retained in audit hashes.
+	AuditHashHexLength = 32
+)
 
 const identifierHashHexLength = 12
 
@@ -48,4 +52,11 @@ func HashForLogIf(sensitive bool, value string, hexLen int, prefix string) strin
 		return value
 	}
 	return HashForLog(value, hexLen, prefix)
+}
+
+// HashPathForLogIf renders an API path using the ordinary log hash convention
+// when sensitive is true, and returns the raw path otherwise. Delegation audit
+// paths retain their separate AuditHashHexLength convention.
+func HashPathForLogIf(sensitive bool, path string) string {
+	return HashForLogIf(sensitive, path, LogHashHexLength, "path:")
 }

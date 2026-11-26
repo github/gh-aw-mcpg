@@ -153,8 +153,8 @@ func TestParseCollaboratorPermissionArgs_Logging(t *testing.T) {
 		assert.Contains(t, logs, "ParseCollaboratorPermissionArgs: missing required fields", "the diagnostic log line must still be emitted")
 		assert.NotContains(t, logs, secretOwner, "the raw owner must never be logged in sensitive mode")
 		assert.NotContains(t, logs, secretRepo, "the raw repository name must never be logged in sensitive mode")
-		assert.Contains(t, logs, util.HashForLog(secretOwner, 16, "owner:"))
-		assert.Contains(t, logs, util.HashForLog(secretRepo, 16, "repo:"))
+		assert.Contains(t, logs, util.HashForLog(secretOwner, util.LogHashHexLength, "owner:"))
+		assert.Contains(t, logs, util.HashForLog(secretRepo, util.LogHashHexLength, "repo:"))
 	})
 
 	t.Run("non-sensitive mode keeps the partial selectors", func(t *testing.T) {
@@ -407,9 +407,9 @@ func TestCollaboratorSelectorsForLog(t *testing.T) {
 
 	t.Run("hashes values with per-field salts when sensitive", func(t *testing.T) {
 		owner, repo, username := CollaboratorSelectorsForLog(true, "private-org", "private-repo", "eve")
-		assert.Equal(t, util.HashForLog("private-org", 16, "owner:"), owner)
-		assert.Equal(t, util.HashForLog("private-repo", 16, "repo:"), repo)
-		assert.Equal(t, util.HashForLog("eve", 16, "user:"), username)
+		assert.Equal(t, util.HashForLog("private-org", util.LogHashHexLength, "owner:"), owner)
+		assert.Equal(t, util.HashForLog("private-repo", util.LogHashHexLength, "repo:"), repo)
+		assert.Equal(t, util.HashForLog("eve", util.LogHashHexLength, "user:"), username)
 		assert.NotContains(t, owner+repo+username, "private-org")
 		assert.NotContains(t, owner+repo+username, "private-repo")
 		assert.NotContains(t, owner+repo+username, "eve")
@@ -434,9 +434,9 @@ func TestCollaboratorLogFields(t *testing.T) {
 
 	t.Run("hashes values with per-field salts when sensitive", func(t *testing.T) {
 		owner, repo, username := collaboratorLogFields(true, "org", "repo", "user")
-		assert.Equal(t, util.HashForLog("org", 16, "owner:"), owner)
-		assert.Equal(t, util.HashForLog("repo", 16, "repo:"), repo)
-		assert.Equal(t, util.HashForLog("user", 16, "user:"), username)
+		assert.Equal(t, util.HashForLog("org", util.LogHashHexLength, "owner:"), owner)
+		assert.Equal(t, util.HashForLog("repo", util.LogHashHexLength, "repo:"), repo)
+		assert.Equal(t, util.HashForLog("user", util.LogHashHexLength, "user:"), username)
 		assert.NotContains(t, owner+repo+username, "org")
 	})
 

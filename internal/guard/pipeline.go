@@ -15,11 +15,6 @@ var logPipeline = logger.ForFile()
 const issueArtifactWriteToolName = "issue_artifact_write"
 const pullRequestArtifactWriteToolName = "pull_request_artifact_write"
 
-const (
-	resourceHashHexLength = 16
-	tagHashHexLength      = 16
-)
-
 // PipelineInput holds the shared inputs used across DIFC pipeline phases 0–2 and 4–6.
 // Both the HTTP proxy and the MCP unified server populate this struct and pass it to
 // the shared phase helpers, keeping backend execution and response handling in
@@ -162,7 +157,7 @@ func RunPipelinePrePhases(ctx context.Context, in PipelineInput) (context.Contex
 	}
 	resourceDescForLog := resource.Description
 	if in.SensitiveLogging {
-		resourceDescForLog = util.HashForLog(resource.Description, resourceHashHexLength, "resource:")
+		resourceDescForLog = util.HashForLog(resource.Description, util.LogHashHexLength, "resource:")
 	}
 	logPipeline.Printf("[DIFC] Phase 1: resource=%s op=%s secrecy=%v integrity=%v",
 		resourceDescForLog, operation,
@@ -274,7 +269,7 @@ func logSafeTags(tags []difc.Tag, sensitive bool) []difc.Tag {
 	}
 	safe := make([]difc.Tag, len(tags))
 	for i, tag := range tags {
-		safe[i] = difc.Tag(util.HashForLog(string(tag), tagHashHexLength, "tag:"))
+		safe[i] = difc.Tag(util.HashForLog(string(tag), util.LogHashHexLength, "tag:"))
 	}
 	return safe
 }

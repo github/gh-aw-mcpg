@@ -23,8 +23,6 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-const pathHashHexLength = 16
-
 // executeBackendRequest sends a JSON-RPC request to a backend server and unmarshals the
 // result into T. It centralizes: GetOrLaunchForSession → SendRequestWithServerID →
 // error check → unmarshal.
@@ -131,7 +129,7 @@ func (g *guardBackendCaller) callCollaboratorPermission(ctx context.Context, arg
 		username,
 		func(ctx context.Context, apiPath string) (*http.Response, error) {
 			logUnified.Printf("get_collaborator_permission: GET %s (for %s/%s user %s)",
-				util.HashForLogIf(sensitive, apiPath, pathHashHexLength, "path:"), logOwner, logRepo, logUser)
+				util.HashPathForLogIf(sensitive, apiPath), logOwner, logRepo, logUser)
 			resp, err := githubhttp.DoGitHubGET(ctx, apiURL, apiPath, "token "+token)
 			if err != nil {
 				logUnified.Printf("get_collaborator_permission: REST call failed for %s/%s user %s: %s",

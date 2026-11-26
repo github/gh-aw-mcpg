@@ -26,8 +26,6 @@ import (
 
 var privateSelectorRedaction atomic.Bool
 
-const privateSelectorHashHexLength = 16
-
 // EnablePrivateSelectorRedaction turns on process-wide redaction of private
 // repository selectors, request paths, and runtime delegation identifiers in
 // every sanitized log sink. It is called once during proxy startup for the
@@ -85,7 +83,7 @@ var (
 // so callers that know a value is sensitive can use it directly.
 func RedactPrivateSelectors(message string) string {
 	result := repoAPIPathRe.ReplaceAllStringFunc(message, func(match string) string {
-		return "/repos/" + util.HashForLog(match, privateSelectorHashHexLength, "path:")
+		return "/repos/" + util.HashPathForLogIf(true, match)
 	})
 	result = replaceKeyed(result, labelledSelectorRe, "sel:")
 	result = replaceKeyed(result, keyedSelectorRe, "sel:")
@@ -101,9 +99,9 @@ func replaceKeyed(message string, re *regexp.Regexp, prefix string) string {
 	return re.ReplaceAllStringFunc(message, func(match string) string {
 		groups := re.FindStringSubmatch(match)
 		if len(groups) < 2 {
-			return util.HashForLog(match, privateSelectorHashHexLength, prefix)
+			return util.HashForLog(match, util.LogHashHexLength, prefix)
 		}
-		return groups[1] + "=" + util.HashForLog(match, privateSelectorHashHexLength, prefix)
+		return groups[1] + "=" + util.HashForLog(match, util.LogHashHexLength, prefix)
 	})
 }
 
