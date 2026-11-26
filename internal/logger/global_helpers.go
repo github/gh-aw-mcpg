@@ -17,6 +17,7 @@
 package logger
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -318,11 +319,13 @@ func strictLoggerOnInitError[T any](err error) (T, error) {
 // sync fails. context is appended to the log message (e.g. " for server github")
 // to distinguish call sites; pass an empty string for the main log file.
 // A nil file is silently ignored so callers need not check before calling.
-func syncFileWithWarning(file *os.File, context string) {
+func syncFileWithWarning(file *os.File, context string) error {
 	if file == nil {
-		return
+		return nil
 	}
 	if err := file.Sync(); err != nil {
 		log.Printf("WARNING: Failed to sync log file%s: %v", context, err)
+		return fmt.Errorf("failed to sync log file: %w", err)
 	}
+	return nil
 }

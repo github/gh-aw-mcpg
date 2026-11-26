@@ -146,11 +146,10 @@ func (ml *MarkdownLogger) Log(level LogLevel, category, format string, args ...i
 	}
 
 	if ml.logFile != nil {
-		if _, err := ml.logFile.WriteString(logLine); err != nil {
-			return
-		}
-		// Flush immediately
-		_ = ml.logFile.Sync() // Ignore sync errors
+		_ = writeAndSyncLogFile(ml.logFile, func() error {
+			_, err := ml.logFile.WriteString(logLine)
+			return err
+		}, " for markdown")
 	}
 }
 

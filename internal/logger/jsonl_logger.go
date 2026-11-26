@@ -112,17 +112,13 @@ func (jl *JSONLLogger) logEntry(entry interface{}) error {
 		return fmt.Errorf("JSONL logger not initialized")
 	}
 
-	if err := jl.encoder.Encode(entry); err != nil {
-		log.Printf("WARNING: Failed to encode JSONL entry: %v", err)
-		return fmt.Errorf("failed to encode JSON: %w", err)
-	}
-
-	if err := jl.logFile.Sync(); err != nil {
-		log.Printf("WARNING: Failed to sync JSONL log file: %v", err)
-		return fmt.Errorf("failed to sync log file: %w", err)
-	}
-
-	return nil
+	return writeAndSyncLogFile(jl.logFile, func() error {
+		if err := jl.encoder.Encode(entry); err != nil {
+			log.Printf("WARNING: Failed to encode JSONL entry: %v", err)
+			return fmt.Errorf("failed to encode JSON: %w", err)
+		}
+		return nil
+	}, " for JSONL")
 }
 
 // LogRPCMessageJSONLWithTags logs an RPC message to the global JSONL logger with optional agent tag snapshots.
