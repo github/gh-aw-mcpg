@@ -604,6 +604,7 @@ pub mod tool_names {
     pub const RERUN_WORKFLOW_JOB: &str = "rerun_workflow_job";
     pub const GET_CODE_SCANNING_ALERT: &str = "get_code_scanning_alert";
     pub const LIST_CODE_SCANNING_ALERTS: &str = "list_code_scanning_alerts";
+    pub const LIST_CODE_QUALITY_FINDINGS: &str = "list_code_quality_findings";
     pub const UPDATE_CODE_SCANNING_ALERT: &str = "update_code_scanning_alert";
     pub const GET_DEPENDABOT_ALERT: &str = "get_dependabot_alert";
     pub const LIST_DEPENDABOT_ALERTS: &str = "list_dependabot_alerts";
