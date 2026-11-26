@@ -243,7 +243,7 @@ Key configuration fields (gateway-level under `[gateway]` in TOML / `"gateway"` 
 |-------|-------------|
 | `agent_id` / `agentId` | Agent/session identifier used for routing and optional auth matching |
 | `agent_ids` / `agentIds` | Agent/session identifiers for concurrent session isolation; configure exactly one of this field or `agent_id` / `agentId`. Each configured identifier authenticates independently, so concurrent primary/enclave sessions can each connect with their own credential. |
-| `port` | Metadata only; validated (1–65535) but does not control the listen address. Use the `--listen` flag to set the listen address. `MCP_GATEWAY_PORT` is read by `--validate-env` only as a required-variable presence check; port-mapping and listen-address construction are handled by wrapper scripts (`run.sh`, `run_containerized.sh`). |
+| `port` | Metadata only; validated (1–65535) but does not control the listen address. Use the `--listen` flag to set the listen address. `MCP_GATEWAY_PORT` is read by `--validate-env` for presence and Docker port-mapping checks; wrapper scripts (`run.sh`, `run_containerized.sh`) build the listen address. |
 | `domain` | Gateway domain for external access (for example `"localhost"` in TOML/JSON, or `"${MCP_GATEWAY_DOMAIN}"` in JSON stdin where `${...}` expansion is supported) |
 | `startup_timeout` / `startupTimeout` | Seconds to wait for backend server startup (default `30`) |
 | `tool_timeout` / `toolTimeout` | Seconds to wait for tool execution (default `60`; JSON stdin only: env fallback `MCP_GATEWAY_TOOL_TIMEOUT`) |
