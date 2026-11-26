@@ -53,10 +53,28 @@ func TestNewAuditEvent_HashesSensitiveFieldsOnly(t *testing.T) {
 
 func TestNewAuditEventWithHandle_HashesHandle(t *testing.T) {
 	req := validRequest()
-	event := newAuditEventWithHandle("revoke", req, "revoked", "mismatch", "dlg_some-handle", 1)
+	baseEvent := newAuditEvent("revoke", req, "revoked", "mismatch", 1)
+	assert.Empty(t, baseEvent.HandleHash)
 
-	assert.Equal(t, HashForAudit("dlg_some-handle"), event.HandleHash)
-	assert.NotContains(t, event.HandleHash, "dlg_some-handle")
+	tests := []struct {
+		name   string
+		handle string
+	}{
+		{name: "populated", handle: "dlg_some-handle"},
+		{name: "empty", handle: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			event := newAuditEventWithHandle("revoke", req, "revoked", "mismatch", tt.handle, 1)
+			want := baseEvent
+			want.HandleHash = HashForAudit(tt.handle)
+
+			assert.Equal(t, want, event)
+			if tt.handle != "" {
+				assert.NotContains(t, event.HandleHash, tt.handle)
+			}
+		})
+	}
 }
 
 func TestAuditBuilders(t *testing.T) {
