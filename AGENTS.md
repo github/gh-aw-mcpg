@@ -386,7 +386,7 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 - `GITHUB_SERVER_URL` - GitHub server URL; proxy auto-derives API endpoint: `*.ghe.com` → `api.*.ghe.com`, GHES → `<host>/api/v3`, `github.com` → `api.github.com`
 - `ACTIONS_ID_TOKEN_REQUEST_URL` - GitHub Actions OIDC token endpoint URL; required for `github-oidc` auth type
 - `ACTIONS_ID_TOKEN_REQUEST_TOKEN` - GitHub Actions OIDC request token; required for `github-oidc` auth type
-- `MCP_GATEWAY_PORT` - Used by environment validation (`--validate-env`) for container port-mapping checks (validated 1-65535); does not override the gateway listen address
+- `MCP_GATEWAY_PORT` - Used by environment validation (`--validate-env`) for container port-mapping checks; does not override the gateway listen address
 - `MCP_GATEWAY_DOMAIN` - Used by environment validation (`--validate-env`) and containerized startup checks; to set config values use `gateway.domain` (or `"${MCP_GATEWAY_DOMAIN}"` in JSON stdin config)
 - `MCP_GATEWAY_AGENT_ID` - Used by environment validation (`--validate-env`) and containerized startup checks; to enable auth set `gateway.agentId` (commonly `"${MCP_GATEWAY_AGENT_ID}"` in JSON stdin config)
 - `MCP_GATEWAY_API_KEY` - *Deprecated alias for `MCP_GATEWAY_AGENT_ID`*; still accepted with a deprecation warning (lower precedence when both are set). Use `MCP_GATEWAY_AGENT_ID` instead.
