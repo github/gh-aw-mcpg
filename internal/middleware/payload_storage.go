@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,9 +39,14 @@ func savePayload(baseDir, pathPrefix, sessionID, queryID string, payload []byte)
 
 	if err := util.AtomicWriteFile(filePath, payload, 0600); err != nil {
 		sanitizedErr := strings.ReplaceAll(err.Error(), sessionID, util.HashIdentifierForLog(sessionID))
-		logger.LogError("payload", "Failed to write payload file: session=%s, query=%s, size=%d bytes, error=%s",
+		var publishedErr *util.AtomicWriteFilePublishedError
+		if !errors.As(err, &publishedErr) {
+			logger.LogError("payload", "Failed to write payload file: session=%s, query=%s, size=%d bytes, error=%s",
+				util.HashIdentifierForLog(sessionID), queryID, payloadSize, sanitizedErr)
+			return "", fmt.Errorf("failed to write payload file: %s", sanitizedErr)
+		}
+		logger.LogWarn("payload", "Payload file was published but directory sync failed: session=%s, query=%s, size=%d bytes, error=%s",
 			util.HashIdentifierForLog(sessionID), queryID, payloadSize, sanitizedErr)
-		return "", fmt.Errorf("failed to write payload file: %s", sanitizedErr)
 	}
 
 	// Log with the requested chmod mode rather than re-stating as a guarantee (Chmod may be

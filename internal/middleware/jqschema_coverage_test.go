@@ -156,11 +156,37 @@ func TestSavePayload_WriteFileFailure(t *testing.T) {
 	path, err := savePayload(baseDir, "", sessionID, queryID, []byte(`{"key":"value"}`))
 	require.Error(t, err, "savePayload should return an error when replacement fails")
 	assert.Empty(t, path)
-	assert.ErrorContains(t, err, "failed to write payload file")
+	require.ErrorContains(t, err, "failed to write payload file")
 	assert.NotContains(t, err.Error(), sessionID)
 	entries, err := os.ReadDir(payloadDir)
 	require.NoError(t, err)
 	assert.Len(t, entries, 1, "failed writes must not leave temporary files behind")
+}
+
+func TestSavePayload_SyncFailureAfterPublicationReturnsPath(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("directory permission checks are unavailable on this platform or as root")
+	}
+
+	baseDir := t.TempDir()
+	sessionID := "test-session"
+	queryID := "test-query"
+	payloadDir := filepath.Join(baseDir, sessionID, queryID)
+	require.NoError(t, os.MkdirAll(payloadDir, 0755))
+	require.NoError(t, os.Chmod(payloadDir, 0300))
+	t.Cleanup(func() {
+		_ = os.Chmod(payloadDir, 0755)
+	})
+
+	payload := []byte(`{"key":"value"}`)
+	path, err := savePayload(baseDir, "", sessionID, queryID, payload)
+
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(payloadDir, "payload.json"), path)
+	require.NoError(t, os.Chmod(payloadDir, 0755))
+	got, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, payload, got)
 }
 
 // ---------------------------------------------------------------------------
