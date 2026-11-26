@@ -406,7 +406,7 @@ DEBUG_COLORS=0 DEBUG=* ./awmg --config config.toml
 - `DOCKER_HOST` - Docker daemon socket path (default: `/var/run/docker.sock`)
 - `MCP_GATEWAY_GUARDS_SINK_SERVER_IDS` - Comma-separated server IDs whose RPC JSONL logs should include agent secrecy/integrity tag snapshots (sets default for `--guards-sink-server-ids`)
 - `MCP_GATEWAY_GUARDS_MODE` - Guards enforcement mode: `strict` (deny violations), `filter` (remove denied tools), `propagate` (auto-adjust agent labels) (sets default for `--guards-mode`, default: `strict`)
-- `MCP_GATEWAY_WASM_GUARDS_DIR` - Root directory for per-server WASM guards (`<root>/<serverID>/*.wasm`, first match is loaded)
+- `MCP_GATEWAY_WASM_GUARDS_DIR` - Per-server WASM discovery root (`<root>/<serverID>/*.wasm`, first match); for `github`, a present baked-in guard takes precedence, and an explicitly empty value disables discovery.
 - `MCP_GATEWAY_GUARD_POLICY_JSON` - Guard policy JSON (e.g., `{"allow-only":{"repos":"public","min-integrity":"none"}}`) (sets default for `--guard-policy-json`)
 - `MCP_GATEWAY_ALLOWONLY_SCOPE_PUBLIC` - Use public AllowOnly scope; set to `"true"` to enable (sets default for `--allowonly-scope-public`)
 - `MCP_GATEWAY_ALLOWONLY_SCOPE_OWNER` - AllowOnly owner scope value (sets default for `--allowonly-scope-owner`)
