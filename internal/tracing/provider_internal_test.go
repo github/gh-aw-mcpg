@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,12 @@ func TestMergeOTLPHeaders(t *testing.T) {
 		{
 			name: "both nil returns nil",
 			want: nil,
+		},
+		{
+			name:     "both empty returns nil",
+			shared:   map[string]string{},
+			specific: map[string]string{},
+			want:     nil,
 		},
 		{
 			name:   "only shared headers",
@@ -53,7 +60,15 @@ func TestMergeOTLPHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, mergeOTLPHeaders(tt.shared, tt.specific))
+			sharedBefore := maps.Clone(tt.shared)
+			specificBefore := maps.Clone(tt.specific)
+			merged := mergeOTLPHeaders(tt.shared, tt.specific)
+			assert.Equal(t, tt.want, merged)
+			if merged != nil {
+				merged["Authorization"] = "changed"
+			}
+			assert.Equal(t, sharedBefore, tt.shared)
+			assert.Equal(t, specificBefore, tt.specific)
 		})
 	}
 }

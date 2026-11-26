@@ -783,17 +783,38 @@ func TestLoadStore_FailsClosedOnDuplicateHandleOrBearer(t *testing.T) {
 		assertFailedClosedRecovery(t, reloaded, "dlgbearer_one", "dlgbearer_two")
 	})
 
-	t.Run("duplicate executor bearer", func(t *testing.T) {
-		first := persistedIdentity("dlg_one", "dlgbearer_same", "inv-1", now)
-		second := persistedIdentity("dlg_two", "dlgbearer_same", "inv-2", now)
+	for name, bearer := range map[string]string{
+		"duplicate executor bearer":            "dlgbearer_same",
+		"duplicate normalized executor bearer": "Bearer " + "dlgbearer_same",
+	} {
+		t.Run(name, func(t *testing.T) {
+			first := persistedIdentity("dlg_one", "dlgbearer_same", "inv-1", now)
+			second := persistedIdentity("dlg_two", bearer, "inv-2", now)
+			first.RequestedTTL = time.Minute
+			second.RequestedTTL = time.Minute
+			envelope := validEnvelope()
+			require.NoError(t, validateRestoredIdentity(&first, envelope, 1))
+			require.NoError(t, validateRestoredIdentity(&second, envelope, 1))
 
-		path := filepath.Join(t.TempDir(), "duplicate-bearer-state.json")
-		writePersistedIdentities(t, path, first, second)
+			path := filepath.Join(t.TempDir(), "duplicate-bearer-state.json")
+			writePersistedIdentities(t, path, first, second)
 
-		reloaded, err := LoadStore(path, validEnvelope(), 1)
-		require.NoError(t, err)
-		assertFailedClosedRecovery(t, reloaded, "dlgbearer_same")
-	})
+			reloaded, err := LoadStore(path, envelope, 1)
+			require.NoError(t, err)
+			assertFailedClosedRecovery(t, reloaded, "dlgbearer_same", bearer)
+		})
+	}
+}
+
+func TestLoadStore_FailsClosedOnEmptyNormalizedBearer(t *testing.T) {
+	identity := persistedIdentity("dlg_one", "Bearer ", "inv-1", time.Now())
+	identity.RequestedTTL = time.Minute
+	path := filepath.Join(t.TempDir(), "empty-bearer-state.json")
+	writePersistedIdentities(t, path, identity)
+
+	reloaded, err := LoadStore(path, validEnvelope(), 1)
+	require.NoError(t, err)
+	assertFailedClosedRecovery(t, reloaded, "", "Bearer ")
 }
 
 // TestLoadStore_FailsClosedDiscardsAlreadyScannedIdentities pins the ordering

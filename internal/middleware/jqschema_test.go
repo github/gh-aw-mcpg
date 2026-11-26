@@ -238,6 +238,32 @@ func TestSavePayload(t *testing.T) {
 	assert.DirExists(t, expectedDir, "Directory should exist")
 }
 
+func TestSavePayload_AtomicReplacement(t *testing.T) {
+	baseDir := t.TempDir()
+	const sessionID, queryID = "test-session", "test-query"
+	filePath, err := savePayload(baseDir, "", sessionID, queryID, []byte(`{"original":"longer payload"}`))
+	require.NoError(t, err)
+	require.NoError(t, os.Chmod(filePath, 0644))
+	original, err := os.Stat(filePath)
+	require.NoError(t, err)
+
+	payload := []byte(`{"new":true}`)
+	returnedPath, err := savePayload(baseDir, "", sessionID, queryID, payload)
+	require.NoError(t, err)
+	assert.Equal(t, filePath, returnedPath)
+	replacement, err := os.Stat(filePath)
+	require.NoError(t, err)
+	assert.False(t, os.SameFile(original, replacement), "payload must be replaced rather than overwritten in place")
+	assert.Equal(t, os.FileMode(0600), replacement.Mode().Perm())
+	content, err := os.ReadFile(filePath)
+	require.NoError(t, err)
+	assert.Equal(t, payload, content)
+	entries, err := os.ReadDir(filepath.Dir(filePath))
+	require.NoError(t, err)
+	require.Len(t, entries, 1, "temporary files must be cleaned up")
+	assert.Equal(t, "payload.json", entries[0].Name())
+}
+
 func TestSavePayloadWithPathPrefix(t *testing.T) {
 	// Create temporary directory for test
 	baseDir := filepath.Join(os.TempDir(), "test-jq-payloads-prefix")

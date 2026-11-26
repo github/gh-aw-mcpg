@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,19 +37,16 @@ func savePayload(baseDir, pathPrefix, sessionID, queryID string, payload []byte)
 	logger.LogInfo("payload", "Writing large payload to filesystem: session=%s, query=%s, size=%d bytes (%.2f KB, %.2f MB)",
 		util.HashIdentifierForLog(sessionID), queryID, payloadSize, float64(payloadSize)/1024, float64(payloadSize)/(1024*1024))
 
-	if err := os.WriteFile(filePath, payload, 0600); err != nil {
+	if err := util.AtomicWriteFile(filePath, payload, 0600); err != nil {
 		sanitizedErr := strings.ReplaceAll(err.Error(), sessionID, util.HashIdentifierForLog(sessionID))
-		logger.LogError("payload", "Failed to write payload file: session=%s, query=%s, size=%d bytes, error=%s",
+		var publishedErr *util.AtomicWriteFilePublishedError
+		if !errors.As(err, &publishedErr) {
+			logger.LogError("payload", "Failed to write payload file: session=%s, query=%s, size=%d bytes, error=%s",
+				util.HashIdentifierForLog(sessionID), queryID, payloadSize, sanitizedErr)
+			return "", fmt.Errorf("failed to write payload file: %s", sanitizedErr)
+		}
+		logger.LogWarn("payload", "Payload file was published but directory sync failed: session=%s, query=%s, size=%d bytes, error=%s",
 			util.HashIdentifierForLog(sessionID), queryID, payloadSize, sanitizedErr)
-		return "", fmt.Errorf("failed to write payload file: %s", sanitizedErr)
-	}
-
-	// Enforce permissions even if the file already existed (WriteFile only sets mode on create)
-	if err := os.Chmod(filePath, 0600); err != nil {
-		sanitizedErr := strings.ReplaceAll(err.Error(), sessionID, util.HashIdentifierForLog(sessionID))
-		logger.LogError("payload", "Failed to enforce payload file permissions: session=%s, query=%s, size=%d bytes, error=%s",
-			util.HashIdentifierForLog(sessionID), queryID, payloadSize, sanitizedErr)
-		return "", fmt.Errorf("failed to set payload file permissions: %s", sanitizedErr)
 	}
 
 	// Log with the requested chmod mode rather than re-stating as a guarantee (Chmod may be

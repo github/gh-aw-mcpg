@@ -8,6 +8,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/logger"
 	"github.com/github/gh-aw-mcpg/internal/mcpresult"
+	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
 var logPathCollections = logger.ForFile()
@@ -94,10 +95,7 @@ func (p *PathLabeledData) rebuildCollections(filtered []FilteredItemDetail) (int
 		return result, nil
 	}
 	original := p.OriginalData.(map[string]interface{})
-	envelope := make(map[string]interface{}, len(original))
-	for key, value := range original {
-		envelope[key] = value
-	}
+	envelope := util.ShallowCloneMap(original)
 	if original["structuredContent"] != nil {
 		envelope["structuredContent"] = result
 	}

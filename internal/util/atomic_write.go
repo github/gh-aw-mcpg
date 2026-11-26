@@ -46,9 +46,23 @@ func AtomicWriteFile(filePath string, data []byte, perm os.FileMode) (err error)
 	}
 	cleanupTemp = false
 	if err := syncParentDir(filePath); err != nil {
-		return fmt.Errorf("failed to sync parent directory: %w", err)
+		return &AtomicWriteFilePublishedError{Err: fmt.Errorf("failed to sync parent directory: %w", err)}
 	}
 	return nil
+}
+
+// AtomicWriteFilePublishedError reports a directory sync failure after the file
+// has already been atomically published at its destination.
+type AtomicWriteFilePublishedError struct {
+	Err error
+}
+
+func (e *AtomicWriteFilePublishedError) Error() string {
+	return e.Err.Error()
+}
+
+func (e *AtomicWriteFilePublishedError) Unwrap() error {
+	return e.Err
 }
 
 func removeTempFile(tempPath string) error {

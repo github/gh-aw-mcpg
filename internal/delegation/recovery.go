@@ -242,7 +242,7 @@ func validatePersistedState(state persistedState, envelope *Envelope, generation
 
 	seenKeys := make(map[string]struct{}, len(state.Identities))
 	seenHandles := make(map[string]struct{}, len(state.Identities))
-	seenBearers := make(map[string]struct{}, len(state.Identities))
+	seenBearers := make(map[[sha256.Size]byte]struct{}, len(state.Identities))
 	validated := make([]Identity, 0, len(state.Identities))
 	for _, identity := range state.Identities {
 		id := identity
@@ -256,12 +256,13 @@ func validatePersistedState(state persistedState, envelope *Envelope, generation
 		if _, dup := seenHandles[id.Handle]; dup {
 			return nil, fmt.Errorf("duplicate identity handle %s", identityLogID(&id))
 		}
-		if _, dup := seenBearers[id.ExecutorBearer]; dup {
+		digest := bearerDigest(id.ExecutorBearer)
+		if _, dup := seenBearers[digest]; dup {
 			return nil, fmt.Errorf("duplicate executor bearer for identity %s", identityLogID(&id))
 		}
 		seenKeys[key] = struct{}{}
 		seenHandles[id.Handle] = struct{}{}
-		seenBearers[id.ExecutorBearer] = struct{}{}
+		seenBearers[digest] = struct{}{}
 		validated = append(validated, id)
 	}
 
@@ -322,7 +323,7 @@ func selectorLogID(selector string) string {
 }
 
 func validateRestoredIdentity(identity *Identity, envelope *Envelope, generation uint64) error {
-	if identity.Handle == "" || identity.ExecutorBearer == "" || identity.PolicyGeneration != generation {
+	if identity.Handle == "" || identity.ExecutorBearer == "" || identity.ExecutorBearer == "Bearer " || identity.PolicyGeneration != generation {
 		return fmt.Errorf("invalid identity credential or generation")
 	}
 	if identity.ExpiresAt.After(envelope.ExpiresAt) {

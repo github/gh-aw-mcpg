@@ -288,10 +288,7 @@ func mergeOTLPHeaders(shared, specific map[string]string) map[string]string {
 	}
 
 	logTracing.Printf("Merging OTLP headers: shared=%d, specific=%d", len(shared), len(specific))
-	merged := make(map[string]string, len(shared)+len(specific))
-	for key, value := range shared {
-		merged[key] = value
-	}
+	merged := util.ShallowCloneMap(shared)
 	for key, value := range specific {
 		merged[key] = value
 	}
