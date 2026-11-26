@@ -90,12 +90,13 @@ func (sfl *ServerFileLogger) Log(serverID string, level LogLevel, category, form
 	}
 
 	logLine := formatLogLine(level, category, format, args...)
-	logger.Println(logLine)
 
-	// Flush to disk immediately
 	sfl.mu.RLock()
-	syncFileWithWarning(sfl.files[serverID], " for server "+serverID)
-	sfl.mu.RUnlock()
+	defer sfl.mu.RUnlock()
+	_ = writeAndSyncLogFile(sfl.files[serverID], func() error {
+		logger.Println(logLine)
+		return nil
+	}, " for server "+serverID)
 }
 
 // Close closes all server log files

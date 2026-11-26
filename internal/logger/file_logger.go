@@ -96,11 +96,10 @@ func (fl *FileLogger) logLine(level LogLevel, category, format string, auditHash
 	defer fl.mu.Unlock()
 
 	logLine := formatLogLineWithAuditHashes(level, category, format, auditHashes, args...)
-	fl.logger.Println(logLine)
-
-	// Flush the log to disk immediately to ensure it's readable by other processes
-	// Log sync errors to stderr to avoid infinite recursion
-	syncFileWithWarning(fl.logFile, "")
+	_ = writeAndSyncLogFile(fl.logFile, func() error {
+		fl.logger.Println(logLine)
+		return nil
+	}, "")
 }
 
 // GetWriter returns the underlying io.Writer for the file logger

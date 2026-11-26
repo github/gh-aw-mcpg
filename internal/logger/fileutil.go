@@ -11,6 +11,16 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
+// writeAndSyncLogFile flushes a successful write immediately. Callers own locking
+// and write-error handling; sync failures are warned about and returned.
+// A nil file skips syncing but still permits writes to a fallback destination.
+func writeAndSyncLogFile(file *os.File, write func() error, context string) error {
+	if err := write(); err != nil {
+		return err
+	}
+	return syncFileWithWarning(file, context)
+}
+
 // closeLogFile syncs buffered data before closing and handles errors appropriately.
 // The mutex should already be held by the caller.
 //
