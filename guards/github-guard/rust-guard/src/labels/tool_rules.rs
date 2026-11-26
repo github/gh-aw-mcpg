@@ -657,6 +657,7 @@ pub fn apply_tool_labels(
         tool_names::ACTIONS_LIST
         | tool_names::ACTIONS_GET
         | "get_code_quality_finding"
+        | "list_code_quality_findings"
         | tool_names::GET_LABEL
         | "get_repository"
         | "get_tag"
@@ -2946,25 +2947,27 @@ mod tests {
     }
 
     #[test]
-    fn apply_tool_labels_get_code_quality_finding_inherits_repo_visibility() {
+    fn apply_tool_labels_code_quality_finding_tools_inherit_repo_visibility() {
         let ctx = default_ctx();
         let args = serde_json::json!({"owner": "octocat", "repo": "hello-world"});
         let repo_id = "octocat/hello-world";
 
-        let (_, integrity, _) = super::apply_tool_labels(
-            "get_code_quality_finding",
-            &args,
-            repo_id,
-            vec![],
-            vec![],
-            String::new(),
-            &ctx,
-        );
-        assert_eq!(
-            integrity,
-            writer_integrity(repo_id, &ctx),
-            "get_code_quality_finding: expected writer-level integrity",
-        );
+        for tool in ["get_code_quality_finding", "list_code_quality_findings"] {
+            let (_, integrity, _) = super::apply_tool_labels(
+                tool,
+                &args,
+                repo_id,
+                vec![],
+                vec![],
+                String::new(),
+                &ctx,
+            );
+            assert_eq!(
+                integrity,
+                writer_integrity(repo_id, &ctx),
+                "{tool}: expected writer-level integrity",
+            );
+        }
     }
 
     #[test]
