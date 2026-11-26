@@ -12,6 +12,7 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/github/gh-aw-mcpg/internal/jqutil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/itchyny/gojq"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -554,6 +556,66 @@ func TestCompileToolResponseFilter_GojqBuiltinRegressionCoverage(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Filter compilation cache
 // ---------------------------------------------------------------------------
+
+// TestCompileToolResponseFilter_ConcurrentRuns verifies that cached code can be
+// shared across goroutines without mixing inputs, variables, or iterator results.
+func TestCompileToolResponseFilter_ConcurrentRuns(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		filter   string
+		varNames []string
+	}{
+		{name: "plain", filter: `.[] | {value: (. + 1)}`},
+		{name: "with variables", filter: `.[] | {value: (. + $offset)}`, varNames: []string{"$offset"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			compile := func() (*gojq.Code, error) {
+				if len(tt.varNames) > 0 {
+					return CompileToolResponseFilterWithVars(tt.filter, tt.varNames)
+				}
+				return CompileToolResponseFilter(tt.filter)
+			}
+
+			code, err := compile()
+			require.NoError(t, err)
+			require.NotNil(t, code)
+
+			for worker := range 16 {
+				t.Run(fmt.Sprintf("worker-%d", worker), func(t *testing.T) {
+					t.Parallel()
+
+					cached, err := compile()
+					require.NoError(t, err)
+					require.Same(t, code, cached)
+
+					for iteration := range 32 {
+						seed := worker*1000 + iteration*10
+						input := []any{seed, seed + 1, seed + 2}
+						offset := 1
+						var values []any
+						if len(tt.varNames) > 0 {
+							offset = seed + 3
+							values = []any{offset}
+						}
+
+						iter := cached.RunWithContext(context.Background(), input, values...)
+						for item := range input {
+							value, ok := iter.Next()
+							require.True(t, ok, "iterator should yield every input item")
+							assert.Equal(t, map[string]any{"value": seed + item + offset}, value)
+						}
+						_, ok := iter.Next()
+						assert.False(t, ok, "iterator should be exhausted")
+					}
+				})
+			}
+		})
+	}
+}
 
 // TestCompileToolResponseFilter_CacheHit verifies that calling
 // CompileToolResponseFilter twice with the same expression returns
