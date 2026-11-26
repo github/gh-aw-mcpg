@@ -101,6 +101,78 @@ func TestCallBackendTool_CompiledGitHubGuardWithholdsSecretScanningArray(t *test
 	assert.NotContains(t, string(resultJSON), secret)
 }
 
+func TestCallBackendTool_CompiledGitHubGuardCodeQualityFindings(t *testing.T) {
+	t.Setenv("GITHUB_REPOSITORY", "")
+	wasmPath := findCompiledGitHubGuard(t)
+	const text = `{"findings":[{"id":"synthetic-finding"}],"pageInfo":{"hasNextPage":true,"endCursor":"next"}}`
+	for _, mode := range []string{"strict", "filter"} {
+		for _, policy := range []struct {
+			name    string
+			repos   interface{}
+			allowed bool
+		}{
+			{"public", "public", false},
+			{"scoped", []interface{}{"test-org/test-repo"}, true},
+		} {
+			t.Run(mode+"/"+policy.name, func(t *testing.T) {
+				var calls atomic.Int32
+				backend := newBackendWithToolResponseAndCounter(t, "list_code_quality_findings", map[string]interface{}{
+					"content": []map[string]interface{}{{"type": "text", "text": text}},
+				}, &calls)
+				t.Cleanup(backend.Close)
+				cfg := &config.Config{
+					DIFCMode: mode,
+					Servers: map[string]*config.ServerConfig{
+						"test-server": {
+							Type: "http", URL: backend.URL, Guard: "github-guard",
+							GuardPolicies: map[string]interface{}{
+								"allow-only": map[string]interface{}{
+									"repos": policy.repos, "min-integrity": config.IntegrityApproved,
+								},
+							},
+						},
+					},
+					Guards: map[string]*config.GuardConfig{
+						"github-guard": {Type: "wasm", Path: wasmPath},
+					},
+					GuardPolicy: &config.GuardPolicy{
+						AllowOnly: &config.AllowOnlyPolicy{Repos: policy.repos, MinIntegrity: config.IntegrityApproved},
+					},
+					GuardPolicySource: "cli",
+				}
+				us, err := NewUnified(context.Background(), cfg)
+				require.NoError(t, err)
+				t.Cleanup(func() { require.NoError(t, us.Close()) })
+				result, data, err := us.callBackendTool(
+					callCtx("code-quality-findings"), "test-server", "list_code_quality_findings",
+					map[string]interface{}{"owner": "test-org", "repo": "test-repo"},
+				)
+				assert.GreaterOrEqual(t, calls.Load(), int32(1))
+				if err != nil {
+					require.False(t, policy.allowed)
+					assert.Empty(t, data)
+					assert.NotContains(t, err.Error(), "synthetic-finding")
+					return
+				}
+				require.NotNil(t, result)
+				raw, err := json.Marshal(result)
+				require.NoError(t, err)
+				if policy.allowed {
+					assert.False(t, result.IsError)
+					expected, err := json.Marshal(map[string]interface{}{
+						"content": []map[string]interface{}{{"type": "text", "text": text}},
+					})
+					require.NoError(t, err)
+					assert.JSONEq(t, string(expected), string(raw))
+				} else {
+					assert.NotContains(t, string(raw), "synthetic-finding")
+					assert.Empty(t, data)
+				}
+			})
+		}
+	}
+}
+
 func TestCallBackendTool_CompiledGitHubGuardSecurityAlertUpdates(t *testing.T) {
 	t.Setenv("GITHUB_REPOSITORY", "")
 	wasmPath := findCompiledGitHubGuard(t)

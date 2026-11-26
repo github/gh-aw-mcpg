@@ -400,7 +400,7 @@ fn apply_singleton_fallback_if_needed(
         return FallbackAction::ContinueProcessing;
     }
 
-    // Apply the conservative resource labels to the entire advisory response.
+    // Apply conservative resource labels to the entire response.
     // This preserves the backend shape and avoids metadata integrity promotion.
     if matches!(
         input.tool_name.as_str(),
@@ -408,6 +408,7 @@ fn apply_singleton_fallback_if_needed(
             | tool_names::LIST_ORG_REPOSITORY_SECURITY_ADVISORIES
             | tool_names::LIST_GLOBAL_SECURITY_ADVISORIES
             | tool_names::GET_GLOBAL_SECURITY_ADVISORY
+            | tool_names::LIST_CODE_QUALITY_FINDINGS
     ) {
         return FallbackAction::SkipLabeling;
     }
@@ -1309,6 +1310,47 @@ mod tests {
                         "{tool_name}: {response}"
                     );
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn code_quality_findings_use_coarse_labels_without_rewriting_response() {
+        let ctx = PolicyContext::default();
+        for findings in [json!([{"id": 1}]), json!([])] {
+            let response = json!({
+                "findings": findings,
+                "pageInfo": {"hasNextPage": true, "endCursor": "next"}
+            });
+            for tool_result in [
+                response.clone(),
+                json!({"content": [{"type": "text", "text": response.to_string()}]}),
+                json!({"content": [{"type": "text", "text": response.to_string()}], "structuredContent": response}),
+            ] {
+                let input = LabelResponseInput {
+                    tool_name: tool_names::LIST_CODE_QUALITY_FINDINGS.to_string(),
+                    tool_args: json!({"owner": "org", "repo": "repo"}),
+                    tool_result: tool_result.clone(),
+                };
+                assert!(labels::label_response_paths(
+                    &input.tool_name,
+                    &input.tool_args,
+                    &input.tool_result,
+                    &ctx,
+                )
+                .is_none());
+                let mut items = labels::label_response_items(
+                    &input.tool_name,
+                    &input.tool_args,
+                    &input.tool_result,
+                    &ctx,
+                );
+                assert!(matches!(
+                    apply_singleton_fallback_if_needed(&input, &ctx, &mut items),
+                    FallbackAction::SkipLabeling
+                ));
+                assert!(items.is_empty());
+                assert_eq!(input.tool_result, tool_result);
             }
         }
     }

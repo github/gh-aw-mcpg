@@ -602,8 +602,10 @@ pub fn apply_tool_labels(
         }
 
         // === Security-sensitive data: always private regardless of repo visibility ===
-        // Code scanning findings are produced by trusted repository-configured tools.
-        tool_names::LIST_CODE_SCANNING_ALERTS | tool_names::GET_CODE_SCANNING_ALERT => {
+        // These findings are produced by trusted repository-configured tools.
+        tool_names::LIST_CODE_SCANNING_ALERTS
+        | tool_names::GET_CODE_SCANNING_ALERT
+        | tool_names::LIST_CODE_QUALITY_FINDINGS => {
             secrecy = policy_private_scope_label(owner, repo, repo_id, ctx);
             integrity = writer_integrity(repo_id, ctx);
         }
@@ -657,7 +659,6 @@ pub fn apply_tool_labels(
         tool_names::ACTIONS_LIST
         | tool_names::ACTIONS_GET
         | "get_code_quality_finding"
-        | tool_names::LIST_CODE_QUALITY_FINDINGS
         | tool_names::GET_LABEL
         | "get_repository"
         | "get_tag"
@@ -2947,22 +2948,23 @@ mod tests {
     }
 
     #[test]
-    fn apply_tool_labels_code_quality_findings_inherit_repo_visibility() {
+    fn apply_tool_labels_code_quality_findings_respect_visibility_and_private_list() {
         let ctx = default_ctx();
         let args = serde_json::json!({"owner": "octocat", "repo": "hello-world"});
         let repo_id = "octocat/hello-world";
 
         for private in [false, true] {
             let _guard = crate::labels::backend::cache_repo_visibility_for_tests(repo_id, private);
-            let expected_secrecy = if private {
-                policy_private_scope_label("octocat", "hello-world", repo_id, &ctx)
-            } else {
-                vec![]
-            };
             for tool in [
                 "get_code_quality_finding",
                 tool_names::LIST_CODE_QUALITY_FINDINGS,
             ] {
+                let expected_secrecy = if private || tool == tool_names::LIST_CODE_QUALITY_FINDINGS
+                {
+                    policy_private_scope_label("octocat", "hello-world", repo_id, &ctx)
+                } else {
+                    vec![]
+                };
                 let (secrecy, integrity, _) = super::apply_tool_labels(
                     tool,
                     &args,
@@ -2974,7 +2976,7 @@ mod tests {
                 );
                 assert_eq!(
                     secrecy, expected_secrecy,
-                    "{tool}: private={private}: expected repository visibility secrecy",
+                    "{tool}: private={private}: unexpected secrecy",
                 );
                 assert_eq!(
                     integrity,
