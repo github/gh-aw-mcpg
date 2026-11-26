@@ -7,10 +7,22 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type blockingLogWriter struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (w *blockingLogWriter) Write(p []byte) (int, error) {
+	close(w.started)
+	<-w.release
+	return len(p), nil
+}
 
 func TestInitServerFileLogger(t *testing.T) {
 	// Create a temporary directory for testing
@@ -132,6 +144,53 @@ func TestServerFileLoggerConcurrentAccess(t *testing.T) {
 		assert.Len(t, lines, messagesPerServer,
 			"Server %s should have %d log entries, got %d", serverID, messagesPerServer, len(lines))
 	}
+}
+
+func TestServerFileLoggerCloseWaitsForInFlightLog(t *testing.T) {
+	file, err := os.CreateTemp(t.TempDir(), "server-log-*.log")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = file.Close() })
+
+	writer := &blockingLogWriter{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	var releaseOnce sync.Once
+	unblockWrite := func() { releaseOnce.Do(func() { close(writer.release) }) }
+	defer unblockWrite()
+
+	sfl := &ServerFileLogger{
+		loggers: map[string]*log.Logger{"test-server": log.New(writer, "", 0)},
+		files:   map[string]*os.File{"test-server": file},
+	}
+
+	logDone := make(chan struct{})
+	go func() {
+		sfl.Log("test-server", LogLevelInfo, "test", "blocked write")
+		close(logDone)
+	}()
+	<-writer.started
+
+	closeDone := make(chan error, 1)
+	closeAttempted := make(chan struct{})
+	go func() {
+		close(closeAttempted)
+		closeDone <- sfl.Close()
+	}()
+	<-closeAttempted
+
+	select {
+	case <-closeDone:
+		unblockWrite()
+		<-logDone
+		require.FailNow(t, "Close returned before the in-flight log write completed")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	require.NoError(t, file.Sync(), "Close must not close the file during an in-flight log write")
+	unblockWrite()
+	require.NoError(t, <-closeDone)
+	<-logDone
 }
 
 func TestServerFileLoggerFallback(t *testing.T) {

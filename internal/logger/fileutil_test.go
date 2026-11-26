@@ -69,7 +69,7 @@ func TestWriteAndSyncLogFile(t *testing.T) {
 			err = writeAndSyncLogFile(file, file.Close, " for test")
 		})
 		require.ErrorIs(t, err, os.ErrClosed)
-		assert.ErrorContains(t, err, "failed to sync log file")
+		require.ErrorContains(t, err, "failed to sync log file")
 		assert.Contains(t, output, "WARNING: Failed to sync log file for test:")
 	})
 }
@@ -138,7 +138,7 @@ func TestFileLoggers_SyncWarning(t *testing.T) {
 			})
 			if tt.returnsErr {
 				require.Error(t, err)
-				assert.ErrorContains(t, err, "failed to sync log file")
+				require.ErrorContains(t, err, "failed to sync log file")
 			} else {
 				require.NoError(t, err)
 			}
