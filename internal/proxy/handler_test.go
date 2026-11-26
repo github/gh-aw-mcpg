@@ -163,6 +163,51 @@ func TestServeHTTP_MetadataPassthroughAllowlist(t *testing.T) {
 	}
 }
 
+func TestIsNumericRepositoryPath(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{name: "numeric id with subpath", path: "/repositories/123/issues", want: true},
+		{name: "numeric id alone", path: "/repositories/123", want: true},
+		{name: "numeric id with trailing slash", path: "/repositories/123/", want: true},
+		{name: "empty id", path: "/repositories/", want: false},
+		{name: "empty id with subpath", path: "/repositories//issues", want: false},
+		{name: "non-numeric id", path: "/repositories/abc/issues", want: false},
+		{name: "mixed alphanumeric id", path: "/repositories/12a/issues", want: false},
+		{name: "owner/repo selector", path: "/repos/org/repo/issues", want: false},
+		{name: "missing repositories prefix", path: "/123/issues", want: false},
+		{name: "empty path", path: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isNumericRepositoryPath(tt.path))
+		})
+	}
+}
+
+func TestServeHTTP_NumericRepositoryRouteDenied(t *testing.T) {
+	upstreamCalls := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		upstreamCalls++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	s := newTestServer(t, upstream.URL)
+	h := &proxyHandler{server: s}
+
+	req := httptest.NewRequest(http.MethodGet, "/repositories/123/issues", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Contains(t, w.Body.String(), "github_api_route_denied")
+	assert.Zero(t, upstreamCalls, "numeric repository routes must not reach upstream")
+}
+
 // ─── ServeHTTP: write operations (non-GraphQL POST/PUT/DELETE/PATCH) ─────────
 
 func TestServeHTTP_WriteOperationsDenied(t *testing.T) {
