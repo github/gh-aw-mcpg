@@ -39,6 +39,61 @@ func TestGraphQLParseCache(t *testing.T) {
 	assert.NotNil(t, recovered)
 }
 
+func TestHasAliasedPRResourceParsed(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+		want  bool
+	}{
+		{
+			name:  "invalid query is treated as unsafe",
+			query: `query {`,
+			want:  true,
+		},
+		{
+			name:  "plain nested fields are safe",
+			query: `{ repository { pullRequest { title reviews { nodes { login } } } } }`,
+			want:  false,
+		},
+		{
+			name:  "root field alias is unsafe",
+			query: `{ repo: repository { name } }`,
+			want:  true,
+		},
+		{
+			name:  "nested field alias is unsafe",
+			query: `{ repository { pr: pullRequest { title } } }`,
+			want:  true,
+		},
+		{
+			name:  "inline fragment without alias is safe",
+			query: `{ repository { ... on Repository { name } } }`,
+			want:  false,
+		},
+		{
+			name:  "inline fragment with alias is unsafe",
+			query: `{ repository { ... on Repository { repoName: name } } }`,
+			want:  true,
+		},
+		{
+			name:  "named fragment without alias is safe",
+			query: `query Read { repository { ...RepoFields } } fragment RepoFields on Repository { name owner { login } }`,
+			want:  false,
+		},
+		{
+			name:  "named fragment with alias is unsafe",
+			query: `query Read { repository { ...RepoFields } } fragment RepoFields on Repository { repoName: name }`,
+			want:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, hasAliasedPRResourceParsed(tt.query, &graphQLParseCache{}))
+		})
+	}
+}
+
 func TestGraphQLGuardPathParseReuse(t *testing.T) {
 	query := `"lecture 😀" query Read { repository(owner:"o",name:"r") {
 		pullRequest(number:42) { title reviews { nodes { ...Review } } }
