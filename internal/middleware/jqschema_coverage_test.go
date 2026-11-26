@@ -12,10 +12,10 @@ package middleware
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/jqutil"
@@ -584,15 +584,25 @@ func TestCompileToolResponseFilter_ConcurrentRuns(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, code)
 
-			for worker := range 16 {
-				t.Run(fmt.Sprintf("worker-%d", worker), func(t *testing.T) {
-					t.Parallel()
-
+			const workers, iterations = 16, 32
+			ready := make(chan struct{}, workers)
+			var release [iterations]chan struct{}
+			for i := range release {
+				release[i] = make(chan struct{})
+			}
+			var wg sync.WaitGroup
+			for worker := range workers {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
 					cached, err := compile()
-					require.NoError(t, err)
-					require.Same(t, code, cached)
+					assert.NoError(t, err, "worker %d", worker)
+					assert.Same(t, code, cached, "worker %d", worker)
+					if cached == nil {
+						cached = code
+					}
 
-					for iteration := range 32 {
+					for iteration := range iterations {
 						seed := worker*1000 + iteration*10
 						input := []any{seed, seed + 1, seed + 2}
 						offset := 1
@@ -603,16 +613,28 @@ func TestCompileToolResponseFilter_ConcurrentRuns(t *testing.T) {
 						}
 
 						iter := cached.RunWithContext(context.Background(), input, values...)
-						for item := range input {
+						value, ok := iter.Next()
+						assert.True(t, ok, "worker %d iteration %d: iterator should yield first item", worker, iteration)
+						assert.Equal(t, map[string]any{"value": seed + offset}, value, "worker %d iteration %d", worker, iteration)
+						ready <- struct{}{}
+						<-release[iteration]
+						for item := 1; item < len(input); item++ {
 							value, ok := iter.Next()
-							require.True(t, ok, "iterator should yield every input item")
-							assert.Equal(t, map[string]any{"value": seed + item + offset}, value)
+							assert.True(t, ok, "worker %d iteration %d: iterator should yield every input item", worker, iteration)
+							assert.Equal(t, map[string]any{"value": seed + item + offset}, value, "worker %d iteration %d", worker, iteration)
 						}
-						_, ok := iter.Next()
-						assert.False(t, ok, "iterator should be exhausted")
+						_, ok = iter.Next()
+						assert.False(t, ok, "worker %d iteration %d: iterator should be exhausted", worker, iteration)
 					}
-				})
+				}()
 			}
+			for iteration := range iterations {
+				for range workers {
+					<-ready
+				}
+				close(release[iteration])
+			}
+			wg.Wait()
 		})
 	}
 }
