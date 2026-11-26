@@ -84,17 +84,6 @@ func BenchmarkApplyJqSchema_CompiledCode(b *testing.B) {
 	}
 }
 
-// BenchmarkApplyJqSchema_ParseEveryTime used to benchmark parsing the query on every
-// invocation to quantify the compile-once speedup.
-//
-// NOTE: This benchmark is no longer valid. Since walk_schema is now a native Go
-// function registered via gojq.WithFunction, running the parsed query without the
-// corresponding function registration will fail at runtime with an undefined-function
-// error. Skipping to avoid misleading benchmark output.
-func BenchmarkApplyJqSchema_ParseEveryTime(b *testing.B) {
-	b.Skip("invalid benchmark: walk_schema requires gojq.Compile with gojq.WithFunction registration; parse-only path no longer produces meaningful results")
-}
-
 // BenchmarkCompileVsParse compares the time to compile vs parse the jq query.
 // The compile path uses walkSchemaCompileOpts so the walk_schema reference resolves
 // exactly as it does in production.
