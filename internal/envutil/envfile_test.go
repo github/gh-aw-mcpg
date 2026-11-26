@@ -1,8 +1,10 @@
 package envutil
 
 import (
+	"bufio"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -161,6 +163,20 @@ func TestLoadEnvFile_EmptyKey(t *testing.T) {
 	err := LoadEnvFile(envFilePath)
 	require.Error(t, err, "A line with an empty key should cause LoadEnvFile to return an error")
 	assert.Contains(t, err.Error(), "failed to set")
+}
+
+// TestLoadEnvFile_OversizedLineReturnsScanError verifies that a line exceeding
+// bufio.Scanner's default token limit (64 KiB) surfaces as an error rather than
+// being silently truncated or skipped.
+func TestLoadEnvFile_OversizedLineReturnsScanError(t *testing.T) {
+	tmpDir := t.TempDir()
+	envFilePath := filepath.Join(tmpDir, ".env")
+	content := "OVERSIZED_LINE_KEY=" + strings.Repeat("a", 70*1024) + "\n"
+	require.NoError(t, os.WriteFile(envFilePath, []byte(content), 0644))
+
+	err := LoadEnvFile(envFilePath)
+	require.Error(t, err, "An oversized line should cause LoadEnvFile to return a scan error")
+	assert.ErrorIs(t, err, bufio.ErrTooLong)
 }
 
 // TestLoadEnvFile_EqualsInValue verifies that values containing '=' are
