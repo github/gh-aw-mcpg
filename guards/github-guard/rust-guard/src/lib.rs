@@ -12,6 +12,7 @@
 mod labels;
 mod tools;
 
+use labels::backend::BACKEND_BUFFER_TOO_SMALL;
 use labels::constants::field_names;
 use labels::constants::policy_integrity;
 use labels::constants::scope_names;
@@ -128,7 +129,7 @@ pub fn invoke_backend(
     };
 
     if result < 0 {
-        if result == -2 {
+        if result == BACKEND_BUFFER_TOO_SMALL {
             log_warn("<<< call_backend buffer too small; caller should retry with a larger buffer");
         } else {
             log_error(&format!("<<< call_backend FAILED with code {result}"));

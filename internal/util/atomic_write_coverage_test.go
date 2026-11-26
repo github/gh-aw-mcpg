@@ -70,6 +70,8 @@ func TestAtomicWriteFile_SyncParentDirFailure_PermissionDenied(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to sync parent directory")
+	var publishedErr *AtomicWriteFilePublishedError
+	require.ErrorAs(t, err, &publishedErr)
 
 	// The rename must have already succeeded (cleanupTemp=false path), so the
 	// destination file exists with the written content despite the trailing

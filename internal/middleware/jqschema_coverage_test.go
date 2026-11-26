@@ -15,10 +15,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/github/gh-aw-mcpg/internal/jqutil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
+	"github.com/itchyny/gojq"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -144,33 +146,49 @@ func TestSavePayload_MkdirAllFailure(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to create payload directory")
 }
 
-// TestSavePayload_WriteFileFailure covers the os.WriteFile error path by using a
-// directory path that resolves to an existing file (so the path cannot be a dir).
+// TestSavePayload_WriteFileFailure covers a failed payload replacement when the
+// destination is a directory rather than a file.
 func TestSavePayload_WriteFileFailure(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission model differs on Windows")
-	}
-	if os.Getuid() == 0 {
-		t.Skip("skipping file-permission test when running as root")
+	baseDir := t.TempDir()
+	sessionID := "test-session"
+	queryID := "test-query"
+	payloadDir := filepath.Join(baseDir, sessionID, queryID)
+	require.NoError(t, os.MkdirAll(filepath.Join(payloadDir, "payload.json"), 0755))
+
+	path, err := savePayload(baseDir, "", sessionID, queryID, []byte(`{"key":"value"}`))
+	require.Error(t, err, "savePayload should return an error when replacement fails")
+	assert.Empty(t, path)
+	require.ErrorContains(t, err, "failed to write payload file")
+	assert.NotContains(t, err.Error(), sessionID)
+	entries, err := os.ReadDir(payloadDir)
+	require.NoError(t, err)
+	assert.Len(t, entries, 1, "failed writes must not leave temporary files behind")
+}
+
+func TestSavePayload_SyncFailureAfterPublicationReturnsPath(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("directory permission checks are unavailable on this platform or as root")
 	}
 
-	// Create the target directory structure that savePayload would create,
-	// then place a read-only file at the exact payload path.
 	baseDir := t.TempDir()
 	sessionID := "test-session"
 	queryID := "test-query"
 	payloadDir := filepath.Join(baseDir, sessionID, queryID)
 	require.NoError(t, os.MkdirAll(payloadDir, 0755))
+	require.NoError(t, os.Chmod(payloadDir, 0300))
+	t.Cleanup(func() {
+		_ = os.Chmod(payloadDir, 0755)
+	})
 
-	// Write a read-only file at the exact location savePayload would write.
-	payloadFile := filepath.Join(payloadDir, "payload.json")
-	require.NoError(t, os.WriteFile(payloadFile, []byte("existing"), 0444))
-	t.Cleanup(func() { _ = os.Chmod(payloadFile, 0644) })
+	payload := []byte(`{"key":"value"}`)
+	path, err := savePayload(baseDir, "", sessionID, queryID, payload)
 
-	_, err := savePayload(baseDir, "", sessionID, queryID, []byte(`{"key":"value"}`))
-	// On Linux, writing to a 0444 file returns "permission denied"
-	require.Error(t, err, "savePayload should return an error when WriteFile fails")
-	assert.ErrorContains(t, err, "failed to write payload file")
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(payloadDir, "payload.json"), path)
+	require.NoError(t, os.Chmod(payloadDir, 0755))
+	got, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, payload, got)
 }
 
 // ---------------------------------------------------------------------------
@@ -554,6 +572,88 @@ func TestCompileToolResponseFilter_GojqBuiltinRegressionCoverage(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Filter compilation cache
 // ---------------------------------------------------------------------------
+
+// TestCompileToolResponseFilter_ConcurrentRuns verifies that cached code can be
+// shared across goroutines without mixing inputs, variables, or iterator results.
+func TestCompileToolResponseFilter_ConcurrentRuns(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		filter   string
+		varNames []string
+	}{
+		{name: "plain", filter: `.[] | {value: (. + 1)}`},
+		{name: "with variables", filter: `.[] | {value: (. + $offset)}`, varNames: []string{"$offset"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			compile := func() (*gojq.Code, error) {
+				if len(tt.varNames) > 0 {
+					return CompileToolResponseFilterWithVars(tt.filter, tt.varNames)
+				}
+				return CompileToolResponseFilter(tt.filter)
+			}
+
+			code, err := compile()
+			require.NoError(t, err)
+			require.NotNil(t, code)
+
+			const workers, iterations = 16, 32
+			ready := make(chan struct{}, workers)
+			var release [iterations]chan struct{}
+			for i := range release {
+				release[i] = make(chan struct{})
+			}
+			var wg sync.WaitGroup
+			for worker := range workers {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					cached, err := compile()
+					assert.NoError(t, err, "worker %d", worker)
+					assert.Same(t, code, cached, "worker %d", worker)
+					if cached == nil {
+						cached = code
+					}
+
+					for iteration := range iterations {
+						seed := worker*1000 + iteration*10
+						input := []any{seed, seed + 1, seed + 2}
+						offset := 1
+						var values []any
+						if len(tt.varNames) > 0 {
+							offset = seed + 3
+							values = []any{offset}
+						}
+
+						iter := cached.RunWithContext(context.Background(), input, values...)
+						value, ok := iter.Next()
+						assert.True(t, ok, "worker %d iteration %d: iterator should yield first item", worker, iteration)
+						assert.Equal(t, map[string]any{"value": seed + offset}, value, "worker %d iteration %d", worker, iteration)
+						ready <- struct{}{}
+						<-release[iteration]
+						for item := 1; item < len(input); item++ {
+							value, ok := iter.Next()
+							assert.True(t, ok, "worker %d iteration %d: iterator should yield every input item", worker, iteration)
+							assert.Equal(t, map[string]any{"value": seed + item + offset}, value, "worker %d iteration %d", worker, iteration)
+						}
+						_, ok = iter.Next()
+						assert.False(t, ok, "worker %d iteration %d: iterator should be exhausted", worker, iteration)
+					}
+				}()
+			}
+			for iteration := range iterations {
+				for range workers {
+					<-ready
+				}
+				close(release[iteration])
+			}
+			wg.Wait()
+		})
+	}
+}
 
 // TestCompileToolResponseFilter_CacheHit verifies that calling
 // CompileToolResponseFilter twice with the same expression returns

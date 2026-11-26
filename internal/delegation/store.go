@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -253,7 +252,7 @@ func (s *Store) admitSchemaHashLocked(hash string) bool {
 func (s *Store) indexLocked(identity *Identity) {
 	key := invocationScopeKey(identity.RunID, identity.EnclaveEntryID, identity.InvocationID)
 	s.byHandle[identity.Handle] = identity
-	s.byBearer[sha256.Sum256([]byte(identity.ExecutorBearer))] = identity
+	s.byBearer[bearerDigest(identity.ExecutorBearer)] = identity
 	s.byInvocation[key] = identity
 	label := labelKey(identity.RunID, identity.EnclaveEntryID)
 	if s.byLabel[label] == nil {
@@ -275,7 +274,7 @@ func identityExpiry(now time.Time, requestedTTL time.Duration, deadlines ...time
 func (s *Store) revokeLocked(identity *Identity) {
 	identity.Revoked = true
 	delete(s.byHandle, identity.Handle)
-	delete(s.byBearer, sha256.Sum256([]byte(identity.ExecutorBearer)))
+	delete(s.byBearer, bearerDigest(identity.ExecutorBearer))
 	key := invocationScopeKey(identity.RunID, identity.EnclaveEntryID, identity.InvocationID)
 	// Retain a terminal tombstone for the envelope lifetime. Reusing this
 	// invocation must never mint a renewed identity, regardless of the
@@ -382,10 +381,7 @@ func (s *Store) HasLiveExecutorBearer(executorBearer string) bool {
 	if s.recoveryIncomplete || !now.Before(s.envelope.ExpiresAt) {
 		return false
 	}
-	if bearer, ok := strings.CutPrefix(executorBearer, "Bearer "); ok {
-		executorBearer = bearer
-	}
-	_, ok := s.byBearer[sha256.Sum256([]byte(executorBearer))]
+	_, ok := s.byBearer[bearerDigest(executorBearer)]
 	return ok
 }
 
@@ -405,10 +401,7 @@ func (s *Store) authorize(executorBearer, repository, tool string, bindingMatche
 	if !now.Before(s.envelope.ExpiresAt) {
 		return nil, fmt.Errorf("delegation envelope has expired")
 	}
-	if bearer, ok := strings.CutPrefix(executorBearer, "Bearer "); ok {
-		executorBearer = bearer
-	}
-	identity, ok := s.byBearer[sha256.Sum256([]byte(executorBearer))]
+	identity, ok := s.byBearer[bearerDigest(executorBearer)]
 	if !ok {
 		logStore.Print("authorize: unknown or revoked delegated identity presented")
 		return nil, fmt.Errorf("unknown or revoked delegated identity")

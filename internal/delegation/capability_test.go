@@ -27,8 +27,18 @@ func TestControlCapabilityAuthenticate(t *testing.T) {
 	})
 
 	t.Run("rejects empty header", func(t *testing.T) {
-		assert.Error(t, capability.Authenticate(""))
+		assert.ErrorContains(t, capability.Authenticate(""), "missing delegation-control capability")
 	})
+
+	t.Run("rejects empty bearer", func(t *testing.T) {
+		assert.ErrorContains(t, capability.Authenticate("Bearer "), "missing delegation-control capability")
+	})
+
+	for _, prefix := range []string{"bearer ", "BEARER ", "Bearer  ", "Bearer\t", " Bearer ", "Bearer " + "Bearer ", "token "} {
+		t.Run("rejects prefix "+prefix, func(t *testing.T) {
+			assert.ErrorContains(t, capability.Authenticate(prefix+secret), "invalid delegation-control capability")
+		})
+	}
 
 	t.Run("rejects wrong secret", func(t *testing.T) {
 		assert.Error(t, capability.Authenticate(strings.Repeat("b", 40)))
@@ -42,4 +52,13 @@ func TestControlCapabilityAuthenticate(t *testing.T) {
 		unrelatedSecret := strings.Repeat("c", 40)
 		assert.Error(t, capability.Authenticate(unrelatedSecret))
 	})
+}
+
+func TestControlCapabilityAuthenticateSecretWithBearerPrefix(t *testing.T) {
+	secret := "Bearer " + strings.Repeat("a", 40)
+	capability, err := NewControlCapability(secret)
+	require.NoError(t, err)
+
+	assert.NoError(t, capability.Authenticate("Bearer "+secret))
+	assert.Error(t, capability.Authenticate(secret))
 }

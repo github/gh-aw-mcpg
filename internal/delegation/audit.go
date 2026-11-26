@@ -84,14 +84,9 @@ func newAuditEvent(operation string, req CreateOrConfirmRequest, outcome, reason
 }
 
 func newAuditEventWithHandle(operation string, req CreateOrConfirmRequest, outcome, reason, handle string, generation uint64) AuditEvent {
-	return buildAuditEvent(operation, outcome, reason, auditSource{
-		runID:          &req.RunID,
-		repository:     &req.Repository,
-		handle:         &handle,
-		enclaveEntryID: req.EnclaveEntryID,
-		invocationID:   req.InvocationID,
-		generation:     generation,
-	})
+	event := newAuditEvent(operation, req, outcome, reason, generation)
+	event.HandleHash = HashForAudit(handle)
+	return event
 }
 
 // newIdentityAuditEvent builds an audit event for an operation keyed off an
