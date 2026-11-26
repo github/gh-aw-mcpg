@@ -235,9 +235,9 @@ golangci-lint run --enable=gosec,errcheck --timeout=5m
 **Add Unit Test**: Create `*_test.go` in the appropriate `internal/` package  
 **Add Integration Test**: Create test in `test/integration/` that uses the binary
 
-## Agent Completion Checklist
+## Agent Completion Checklist for Repository Changes
 
-**CRITICAL: Before returning to the user, ALWAYS run `make agent-finished`**
+**CRITICAL: After changing repository files, run `make agent-finished` before returning to the user.**
 
 This command runs the complete verification pipeline:
 1. **Format** - Auto-formats all Go code with gofmt
