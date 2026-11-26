@@ -24,7 +24,8 @@ use super::helpers::{
 /// Backend callback signature used for GitHub MCP tool calls.
 pub type GithubMcpCallback = fn(&str, &str, &mut [u8]) -> Result<usize, i32>;
 
-const BACKEND_BUFFER_TOO_SMALL: i32 = -2;
+/// Host ABI return code: the result buffer was too small; the required size is in the first 4 bytes.
+pub(crate) const BACKEND_BUFFER_TOO_SMALL: i32 = -2;
 const BACKEND_MAX_RESULT_BYTES: usize = 16 * 1024 * 1024;
 
 fn decode_required_size(buffer: &[u8]) -> Option<usize> {

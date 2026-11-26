@@ -68,6 +68,35 @@ fn repo_default_labels(
     }
 }
 
+/// Labels every response item and the collection with shared repository labels.
+fn pull_request_items_result(
+    tool_name: &str,
+    description: &str,
+    actual_response: &Value,
+    secrecy: crate::SharedLabels,
+    integrity: crate::SharedLabels,
+) -> PathLabelResult {
+    let (items, items_path) = extract_items_array(actual_response);
+    let labeled_paths = items
+        .map(|items| {
+            limit_items_with_log(items, tool_name)
+                .iter()
+                .enumerate()
+                .map(|(index, _)| crate::PathLabel {
+                    path: make_item_path(items_path, index),
+                    labels: repo_default_labels(description, secrecy.clone(), integrity.clone()),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    PathLabelResult {
+        labeled_paths,
+        default_labels: Some(repo_default_labels(description, secrecy, integrity)),
+        items_path: (!items_path.is_empty()).then_some(items_path),
+        items_paths: None,
+    }
+}
+
 fn label_author_items(
     tool_name: &str,
     tool_args: &Value,
@@ -839,65 +868,25 @@ pub fn label_response_paths(
                 let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
                 let integrity: crate::SharedLabels =
                     pull_request_content_integrity(tool_args, &repo_full, ctx).into();
-                let (items, items_path) = extract_items_array(&actual_response);
-                let labeled_paths = items
-                    .map(|items| {
-                        limit_items_with_log(items, tool_name)
-                            .iter()
-                            .enumerate()
-                            .map(|(index, _)| crate::PathLabel {
-                                path: make_item_path(items_path, index),
-                                labels: repo_default_labels(
-                                    "pull-request-content",
-                                    secrecy.clone(),
-                                    integrity.clone(),
-                                ),
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                return Some(PathLabelResult {
-                    labeled_paths,
-                    default_labels: Some(repo_default_labels(
-                        "pull-request-content",
-                        secrecy,
-                        integrity,
-                    )),
-                    items_path: (!items_path.is_empty()).then_some(items_path),
-                    items_paths: None,
-                });
+                return Some(pull_request_items_result(
+                    tool_name,
+                    "pull-request-content",
+                    &actual_response,
+                    secrecy,
+                    integrity,
+                ));
             } else if tool_name == tool_names::PULL_REQUEST_READ
                 && matches!(method, "get_check_runs" | "get_status")
             {
                 let (repo_full, secrecy) = repo_full_with_secrecy(tool_args, ctx);
                 let integrity: crate::SharedLabels = writer_integrity(&repo_full, ctx).into();
-                let (items, items_path) = extract_items_array(&actual_response);
-                let labeled_paths = items
-                    .map(|items| {
-                        limit_items_with_log(items, tool_name)
-                            .iter()
-                            .enumerate()
-                            .map(|(index, _)| crate::PathLabel {
-                                path: make_item_path(items_path, index),
-                                labels: repo_default_labels(
-                                    "pull-request-status",
-                                    secrecy.clone(),
-                                    integrity.clone(),
-                                ),
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                return Some(PathLabelResult {
-                    labeled_paths,
-                    default_labels: Some(repo_default_labels(
-                        "pull-request-status",
-                        secrecy,
-                        integrity,
-                    )),
-                    items_path: (!items_path.is_empty()).then_some(items_path),
-                    items_paths: None,
-                });
+                return Some(pull_request_items_result(
+                    tool_name,
+                    "pull-request-status",
+                    &actual_response,
+                    secrecy,
+                    integrity,
+                ));
             } else if let Some(repo_item_ctx) = resolve_repo_item_context(
                 tool_name,
                 tool_args,
@@ -2913,8 +2902,24 @@ mod tests {
                 } else {
                     blocked_integrity(repo, &policy)
                 };
-                for count in [0, 2, MAX_ITEMS_PER_RESPONSE + 1] {
-                    let response = json!({key: vec![json!({"id": 1}); count]});
+                for (response, items_path, count) in [
+                    (json!({key: []}), Some(format!("/{key}")), 0),
+                    (
+                        json!({key: [{"id": 1}, {"id": 2}]}),
+                        Some(format!("/{key}")),
+                        2,
+                    ),
+                    (
+                        json!({key: vec![json!({"id": 1}); MAX_ITEMS_PER_RESPONSE + 1]}),
+                        Some(format!("/{key}")),
+                        MAX_ITEMS_PER_RESPONSE + 1,
+                    ),
+                    (json!([]), None, 0),
+                    (json!([{"id": 1}, {"id": 2}]), None, 2),
+                    (json!("diff --git a/README.md b/README.md"), None, 0),
+                    (json!({}), None, 0),
+                    (Value::Null, None, 0),
+                ] {
                     let result = label_response_paths(
                         tool_names::PULL_REQUEST_READ,
                         &args,
@@ -2925,13 +2930,17 @@ mod tests {
                     let default = result.default_labels.expect("default labels");
                     assert_eq!(default.description, description);
                     assert_eq!(default.integrity, expected, "method={method}");
-                    assert_eq!(result.items_path.unwrap(), format!("/{key}"));
+                    assert_eq!(result.items_path, items_path.as_deref());
+                    assert!(result.items_paths.is_none());
                     assert_eq!(
                         result.labeled_paths.len(),
                         count.min(MAX_ITEMS_PER_RESPONSE)
                     );
                     for (index, item) in result.labeled_paths.iter().enumerate() {
-                        assert_eq!(item.path, format!("/{key}/{index}"));
+                        assert_eq!(
+                            item.path,
+                            format!("{}/{index}", items_path.as_deref().unwrap_or(""))
+                        );
                         assert_eq!(item.labels.description, default.description);
                         assert_eq!(item.labels.secrecy, default.secrecy);
                         assert_eq!(item.labels.integrity, expected, "method={method}");
