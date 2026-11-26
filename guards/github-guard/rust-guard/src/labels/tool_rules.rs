@@ -2952,21 +2952,35 @@ mod tests {
         let args = serde_json::json!({"owner": "octocat", "repo": "hello-world"});
         let repo_id = "octocat/hello-world";
 
-        for tool in ["get_code_quality_finding", "list_code_quality_findings"] {
-            let (_, integrity, _) = super::apply_tool_labels(
-                tool,
-                &args,
-                repo_id,
-                vec![],
-                vec![],
-                String::new(),
-                &ctx,
-            );
-            assert_eq!(
-                integrity,
-                writer_integrity(repo_id, &ctx),
-                "{tool}: expected writer-level integrity",
-            );
+        for is_private in [true, false] {
+            let _visibility =
+                crate::labels::backend::cache_repo_visibility_for_tests(repo_id, is_private);
+            let expected_secrecy = if is_private {
+                private_label("octocat", "hello-world", repo_id, &ctx)
+            } else {
+                vec![]
+            };
+
+            for tool in ["get_code_quality_finding", "list_code_quality_findings"] {
+                let (secrecy, integrity, _) = super::apply_tool_labels(
+                    tool,
+                    &args,
+                    repo_id,
+                    vec![],
+                    vec![],
+                    String::new(),
+                    &ctx,
+                );
+                assert_eq!(
+                    secrecy, expected_secrecy,
+                    "{tool}: unexpected secrecy for private={is_private}",
+                );
+                assert_eq!(
+                    integrity,
+                    writer_integrity(repo_id, &ctx),
+                    "{tool}: expected writer-level integrity",
+                );
+            }
         }
     }
 
