@@ -2634,6 +2634,106 @@ mod tests {
     }
 
     #[test]
+    fn test_repo_matches_scope_fails_closed_on_empty_scope_fields() {
+        // An Owner/Repo/RepoPrefix scope with an empty configured owner or repo must never match.
+        assert!(!repo_matches_scope(
+            ScopeKind::Owner,
+            "",
+            "hello",
+            "",
+            ""
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::Repo,
+            "",
+            "hello",
+            "",
+            "hello"
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::Repo,
+            "octocat",
+            "",
+            "octocat",
+            ""
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::RepoPrefix,
+            "",
+            "hello",
+            "",
+            "hel"
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::Owner,
+            "octocat",
+            "hello",
+            "",
+            ""
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::Repo,
+            "octocat",
+            "hello",
+            "",
+            "hello"
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::Repo,
+            "octocat",
+            "hello",
+            "octocat",
+            ""
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::RepoPrefix,
+            "octocat",
+            "hello",
+            "octocat",
+            ""
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::RepoPrefix,
+            "octocat",
+            "hello",
+            "",
+            "hel"
+        ));
+    }
+
+    #[test]
+    fn test_repo_matches_scope_is_case_insensitive() {
+        assert!(repo_matches_scope(
+            ScopeKind::Owner,
+            "OctoCat",
+            "hello",
+            "octocat",
+            ""
+        ));
+        assert!(repo_matches_scope(
+            ScopeKind::Repo,
+            "OctoCat",
+            "Hello",
+            "octocat",
+            "hello"
+        ));
+        assert!(repo_matches_scope(
+            ScopeKind::RepoPrefix,
+            "octocat",
+            "Hello-World",
+            "OCTOCAT",
+            "hello"
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::Repo,
+            "octocat",
+            "other",
+            "octocat",
+            "hello"
+        ));
+    }
+
+    #[test]
     fn blocked_users_pr_content_checks_parent_without_promoting_patches() {
         fn callback(tool: &str, args: &str, buffer: &mut [u8]) -> Result<usize, i32> {
             assert_eq!(tool, tool_names::PULL_REQUEST_READ);
