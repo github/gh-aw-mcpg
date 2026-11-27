@@ -1,0 +1,1 @@
+{"2026-11-27":"Tasks 1+2 nothing eligible (smoke/bot issues) -> fixed #17459. PR repo-assist/fix-issue-17459-ffi-null-safe-read (746 rust tests, clippy clean). Pending: #17381, #17436 (anyNonNoopGuard/TokenAuthorization), #17057, #17157. Monthly issue #16333 updated."}
