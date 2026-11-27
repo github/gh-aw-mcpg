@@ -2634,6 +2634,79 @@ mod tests {
     }
 
     #[test]
+    fn test_repo_matches_scope_fails_closed_on_empty_scope_fields() {
+        for (scope_kind, scoped_owner, scoped_repo) in [
+            (ScopeKind::Owner, "", ""),
+            (ScopeKind::Repo, "", "hello"),
+            (ScopeKind::Repo, "octocat", ""),
+            (ScopeKind::Repo, "", ""),
+            (ScopeKind::RepoPrefix, "", "hello"),
+            (ScopeKind::RepoPrefix, "octocat", ""),
+            (ScopeKind::RepoPrefix, "", ""),
+        ] {
+            assert!(
+                !repo_matches_scope(scope_kind, "octocat", "hello", scoped_owner, scoped_repo),
+                "{scope_kind}: {scoped_owner}/{scoped_repo}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_repo_matches_scope_is_case_insensitive() {
+        for (scope_kind, owner, repo, scoped_owner, scoped_repo, expected) in [
+            (ScopeKind::Owner, "OctoCat", "hello", "OCTOCAT", "", true),
+            (ScopeKind::Owner, "other", "hello", "OCTOCAT", "", false),
+            (
+                ScopeKind::Repo,
+                "OctoCat",
+                "Hello",
+                "OCTOCAT",
+                "HELLO",
+                true,
+            ),
+            (ScopeKind::Repo, "other", "Hello", "OCTOCAT", "HELLO", false),
+            (
+                ScopeKind::Repo,
+                "OctoCat",
+                "other",
+                "OCTOCAT",
+                "HELLO",
+                false,
+            ),
+            (
+                ScopeKind::RepoPrefix,
+                "OctoCat",
+                "Hello-world",
+                "OCTOCAT",
+                "HELLO",
+                true,
+            ),
+            (
+                ScopeKind::RepoPrefix,
+                "other",
+                "Hello-world",
+                "OCTOCAT",
+                "HELLO",
+                false,
+            ),
+            (
+                ScopeKind::RepoPrefix,
+                "OctoCat",
+                "other",
+                "OCTOCAT",
+                "HELLO",
+                false,
+            ),
+        ] {
+            assert_eq!(
+                repo_matches_scope(scope_kind, owner, repo, scoped_owner, scoped_repo),
+                expected,
+                "{scope_kind}: {owner}/{repo} against {scoped_owner}/{scoped_repo}"
+            );
+        }
+    }
+
+    #[test]
     fn blocked_users_pr_content_checks_parent_without_promoting_patches() {
         fn callback(tool: &str, args: &str, buffer: &mut [u8]) -> Result<usize, i32> {
             assert_eq!(tool, tool_names::PULL_REQUEST_READ);
