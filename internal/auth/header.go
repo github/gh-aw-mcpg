@@ -5,17 +5,13 @@
 // which requires Authorization headers to contain the API key directly
 // without any scheme prefix (e.g., NOT "Bearer <key>").
 //
-// The package provides both full parsing with error handling (ParseAuthHeader)
-// and a convenience method for extracting agent IDs (ExtractAgentID).
+// The package provides header parsing with error handling (ParseAuthHeader).
 //
 // Usage Guidelines:
 //
 //   - Use ParseAuthHeader() to parse the header with error handling:
 //     It returns the supplied API key and agent ID, but does not validate
 //     credentials. Validate the extracted credential separately.
-//
-//   - Use ExtractAgentID() when you only need the agent ID and want automatic
-//     fallback to "default" instead of error handling.
 //
 // Example:
 //
@@ -24,9 +20,6 @@
 //	if err != nil {
 //		return err
 //	}
-//
-//	// Extract agent ID only (for context, not authentication)
-//	agentID := auth.ExtractAgentID(r.Header.Get("Authorization"))
 package auth
 
 import (
@@ -95,29 +88,6 @@ func ParseAuthHeader(authHeader string) (apiKey string, agentID string, error er
 	// Use the entire header value as both API key and agent/session ID
 	logAuth.Print("Using plain agent ID format (MCP spec 7.1)")
 	return authHeader, authHeader, nil
-}
-
-// ExtractAgentID extracts the agent ID from an Authorization header.
-// This is a convenience wrapper around ParseAuthHeader that only returns the agent ID.
-// Returns "default" if the header is empty or cannot be parsed.
-//
-// This function is intended for use cases where you only need the agent ID
-// and don't need full error handling. For full header parsing with error
-// handling, use ParseAuthHeader instead. Parsing does not validate credentials;
-// validate them separately.
-func ExtractAgentID(authHeader string) string {
-	if authHeader == "" {
-		logAuth.Print("ExtractAgentID: auth header empty, using default agent ID")
-		return "default"
-	}
-
-	_, agentID, err := ParseAuthHeader(authHeader)
-	if err != nil {
-		logAuth.Printf("ExtractAgentID: failed to parse auth header, using default agent ID: %v", err)
-		return "default"
-	}
-
-	return agentID
 }
 
 // ExtractSessionID extracts session ID from Authorization header.

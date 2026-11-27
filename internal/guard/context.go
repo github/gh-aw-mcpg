@@ -12,8 +12,7 @@
 //
 // Example:
 //
-//	// Extract agent ID from auth header and store in context
-//	agentID := auth.ExtractAgentID(authHeader)
+//	// Store an authenticated agent ID in context
 //	ctx = guard.SetAgentIDInContext(ctx, agentID)
 //
 //	// Retrieve agent ID from context

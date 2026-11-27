@@ -58,7 +58,7 @@ func FetchWorkflowRepoVisibility(ctx context.Context, apiBaseURL, token string) 
 	}
 
 	var err error
-	result.Visibility, err = FetchRepoVisibility(ctx, apiBaseURL, result.Repository, "token "+token)
+	result.Visibility, err = FetchRepoVisibility(ctx, apiBaseURL, result.Repository, TokenAuthHeader(token))
 	return result, err
 }
 

@@ -70,6 +70,27 @@ func TestParseRateLimitResetHeader(t *testing.T) {
 	}
 }
 
+func TestTokenAuthHeader(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		token string
+		want  string
+	}{
+		{name: "token", token: "test-token", want: "token test-token"},
+		{name: "empty token", token: "", want: "token "},
+		{name: "whitespace preserved", token: " test-token ", want: "token  test-token "},
+		{name: "no scheme normalization", token: "token test-token", want: "token token test-token"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, TokenAuthHeader(tt.token))
+		})
+	}
+}
+
 // TestApplyGitHubAPIHeaders verifies that ApplyGitHubAPIHeaders sets the
 // expected headers on an HTTP request.
 func TestApplyGitHubAPIHeaders(t *testing.T) {

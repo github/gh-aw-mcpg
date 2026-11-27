@@ -344,7 +344,7 @@ func TestValidateAgentID(t *testing.T) {
 	}
 }
 
-func TestExtractAgentID(t *testing.T) {
+func TestParseAuthHeaderAgentID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -353,9 +353,9 @@ func TestExtractAgentID(t *testing.T) {
 		want       string
 	}{
 		{
-			name:       "Empty header returns default",
+			name:       "Empty header returns no agent ID",
 			authHeader: "",
-			want:       "default",
+			want:       "",
 		},
 		{
 			name:       "Plain API key",
@@ -408,7 +408,12 @@ func TestExtractAgentID(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := ExtractAgentID(tt.authHeader)
+			_, got, err := ParseAuthHeader(tt.authHeader)
+			if tt.authHeader == "" {
+				require.ErrorIs(t, err, ErrMissingAuthHeader)
+			} else {
+				require.NoError(t, err)
+			}
 			assert.Equal(t, tt.want, got)
 		})
 	}

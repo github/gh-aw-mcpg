@@ -130,7 +130,7 @@ func (g *guardBackendCaller) callCollaboratorPermission(ctx context.Context, arg
 		func(ctx context.Context, apiPath string) (*http.Response, error) {
 			logUnified.Printf("get_collaborator_permission: GET %s (for %s/%s user %s)",
 				util.HashPathForLogIf(sensitive, apiPath), logOwner, logRepo, logUser)
-			resp, err := githubhttp.DoGitHubGET(ctx, apiURL, apiPath, "token "+token)
+			resp, err := githubhttp.DoGitHubGET(ctx, apiURL, apiPath, githubhttp.TokenAuthHeader(token))
 			if err != nil {
 				logUnified.Printf("get_collaborator_permission: REST call failed for %s/%s user %s: %s",
 					logOwner, logRepo, logUser, sanitize.RedactErrorForLogIf(err, sensitive))
