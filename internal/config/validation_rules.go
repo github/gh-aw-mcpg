@@ -143,9 +143,9 @@ func TimeoutMinimum(timeout, min int, fieldName, jsonPath string) *ValidationErr
 	)
 }
 
-// TimeoutRange validates that a timeout value is within [min, max] (inclusive).
+// timeoutRange validates that a timeout value is within [min, max] (inclusive).
 // Returns nil if valid, *ValidationError if outside the range.
-func TimeoutRange(timeout, min, max int, fieldName, jsonPath string) *ValidationError {
+func timeoutRange(timeout, min, max int, fieldName, jsonPath string) *ValidationError {
 	suggestedTimeout := min + (max-min)/2
 	return validateInclusiveRangeRule(
 		timeout,

@@ -1494,7 +1494,7 @@ func TestTimeoutRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := TimeoutRange(tt.timeout, tt.min, tt.max, tt.fieldName, tt.jsonPath)
+			err := timeoutRange(tt.timeout, tt.min, tt.max, tt.fieldName, tt.jsonPath)
 
 			if tt.shouldErr {
 				require.NotNil(t, err, "Expected validation error but got none")
