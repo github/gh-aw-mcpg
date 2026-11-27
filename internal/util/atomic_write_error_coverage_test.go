@@ -114,7 +114,7 @@ func TestAtomicWriteFile_FileOperationFailures(t *testing.T) {
 			err := AtomicWriteFile("state.json", []byte("payload"), 0o600)
 
 			require.Error(t, err)
-			assert.ErrorIs(t, err, operationErr)
+			require.ErrorIs(t, err, operationErr)
 			assert.Contains(t, err.Error(), tt.wantText)
 			assert.Equal(t, file.name, removedPath)
 			assert.Equal(t, 1, file.closeCalls)
@@ -163,6 +163,6 @@ func TestAtomicWriteFile_CleanupFailureJoinsWithOperationFailure(t *testing.T) {
 	err := AtomicWriteFile("/ignored/state.json", []byte("payload"), 0o600)
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, operationErr)
-	assert.ErrorIs(t, err, cleanupErr)
+	require.ErrorIs(t, err, operationErr)
+	require.ErrorIs(t, err, cleanupErr)
 }
