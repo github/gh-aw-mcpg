@@ -2635,7 +2635,21 @@ mod tests {
 
     #[test]
     fn test_repo_matches_scope_fails_closed_on_empty_scope_fields() {
-        // An Owner/Repo/RepoPrefix scope with an empty configured owner or repo must never match.
+        for (scope_kind, scoped_owner, scoped_repo) in [
+            (ScopeKind::Owner, "", ""),
+            (ScopeKind::Repo, "", "hello"),
+            (ScopeKind::Repo, "octocat", ""),
+            (ScopeKind::Repo, "", ""),
+            (ScopeKind::RepoPrefix, "", "hello"),
+            (ScopeKind::RepoPrefix, "octocat", ""),
+            (ScopeKind::RepoPrefix, "", ""),
+        ] {
+            assert!(
+                !repo_matches_scope(scope_kind, "octocat", "hello", scoped_owner, scoped_repo),
+                "{scope_kind}: {scoped_owner}/{scoped_repo}"
+            );
+        }
+        // Empty candidate fields must not match empty configured fields either.
         assert!(!repo_matches_scope(
             ScopeKind::Owner,
             "",
@@ -2660,41 +2674,6 @@ mod tests {
         assert!(!repo_matches_scope(
             ScopeKind::RepoPrefix,
             "",
-            "hello",
-            "",
-            "hel"
-        ));
-        assert!(!repo_matches_scope(
-            ScopeKind::Owner,
-            "octocat",
-            "hello",
-            "",
-            ""
-        ));
-        assert!(!repo_matches_scope(
-            ScopeKind::Repo,
-            "octocat",
-            "hello",
-            "",
-            "hello"
-        ));
-        assert!(!repo_matches_scope(
-            ScopeKind::Repo,
-            "octocat",
-            "hello",
-            "octocat",
-            ""
-        ));
-        assert!(!repo_matches_scope(
-            ScopeKind::RepoPrefix,
-            "octocat",
-            "hello",
-            "octocat",
-            ""
-        ));
-        assert!(!repo_matches_scope(
-            ScopeKind::RepoPrefix,
-            "octocat",
             "hello",
             "",
             "hel"
@@ -2703,34 +2682,57 @@ mod tests {
 
     #[test]
     fn test_repo_matches_scope_is_case_insensitive() {
-        assert!(repo_matches_scope(
-            ScopeKind::Owner,
-            "OctoCat",
-            "hello",
-            "octocat",
-            ""
-        ));
-        assert!(repo_matches_scope(
-            ScopeKind::Repo,
-            "OctoCat",
-            "Hello",
-            "octocat",
-            "hello"
-        ));
-        assert!(repo_matches_scope(
-            ScopeKind::RepoPrefix,
-            "octocat",
-            "Hello-World",
-            "OCTOCAT",
-            "hello"
-        ));
-        assert!(!repo_matches_scope(
-            ScopeKind::Repo,
-            "octocat",
-            "other",
-            "octocat",
-            "hello"
-        ));
+        for (scope_kind, owner, repo, scoped_owner, scoped_repo, expected) in [
+            (ScopeKind::Owner, "OctoCat", "hello", "OCTOCAT", "", true),
+            (ScopeKind::Owner, "other", "hello", "OCTOCAT", "", false),
+            (
+                ScopeKind::Repo,
+                "OctoCat",
+                "Hello",
+                "OCTOCAT",
+                "HELLO",
+                true,
+            ),
+            (ScopeKind::Repo, "other", "Hello", "OCTOCAT", "HELLO", false),
+            (
+                ScopeKind::Repo,
+                "OctoCat",
+                "other",
+                "OCTOCAT",
+                "HELLO",
+                false,
+            ),
+            (
+                ScopeKind::RepoPrefix,
+                "OctoCat",
+                "Hello-world",
+                "OCTOCAT",
+                "HELLO",
+                true,
+            ),
+            (
+                ScopeKind::RepoPrefix,
+                "other",
+                "Hello-world",
+                "OCTOCAT",
+                "HELLO",
+                false,
+            ),
+            (
+                ScopeKind::RepoPrefix,
+                "OctoCat",
+                "other",
+                "OCTOCAT",
+                "HELLO",
+                false,
+            ),
+        ] {
+            assert_eq!(
+                repo_matches_scope(scope_kind, owner, repo, scoped_owner, scoped_repo),
+                expected,
+                "{scope_kind}: {owner}/{repo} against {scoped_owner}/{scoped_repo}"
+            );
+        }
     }
 
     #[test]

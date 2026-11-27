@@ -117,8 +117,8 @@ pub fn invoke_backend(
     let tool_bytes = tool_name.as_bytes();
     let args_bytes = args_json.as_bytes();
 
-    // SAFETY: every pointer/length pair refers to a live slice borrowed for the
-    // duration of the call; the host only reads the inputs and writes within `result_buffer`.
+    // SAFETY: The input slices and exclusive result buffer remain valid during the
+    // synchronous host call, which reads the inputs and writes within result_size.
     let result = unsafe {
         call_backend(
             tool_bytes.as_ptr() as u32,
@@ -162,7 +162,7 @@ fn log(level: LogLevel, msg: &str) {
         return;
     }
     let bytes = msg.as_bytes();
-    // SAFETY: `bytes` is a live, non-empty slice; the host only reads it during the call.
+    // SAFETY: The host reads the valid message slice synchronously without retaining it.
     unsafe {
         host_log(level as u32, bytes.as_ptr() as u32, bytes.len() as u32);
     }
@@ -184,28 +184,29 @@ fn log_error(msg: &str) {
     log(LogLevel::Error, msg);
 }
 
-/// Borrow the host-supplied input buffer, returning an empty slice for a null
-/// pointer or zero length (`slice::from_raw_parts` is UB for null pointers).
+/// Read input bytes supplied by the WASM host, treating null or zero-length input as empty.
 ///
 /// # Safety
-/// When `input_ptr` is non-null and `input_len` is non-zero, the caller (the gateway
-/// host) must guarantee that `input_ptr..input_ptr + input_len` is valid, readable
-/// WASM linear memory for the lifetime of the returned slice.
+/// For non-null, non-empty input, the host must supply a readable range within one
+/// allocation in WASM linear memory, no longer than `isize::MAX` bytes. The buffer
+/// must remain valid and unmodified for the lifetime of the returned slice.
 unsafe fn read_input<'a>(input_ptr: u32, input_len: u32) -> &'a [u8] {
     if input_ptr == 0 || input_len == 0 {
         return &[];
     }
-    slice::from_raw_parts(input_ptr as *const u8, input_len as usize)
+    // SAFETY: The caller guarantees a valid, immutable buffer; u8 has alignment 1.
+    unsafe { slice::from_raw_parts(input_ptr as *const u8, input_len as usize) }
 }
 
 /// Copy `bytes` into the WASM linear-memory output buffer.
 ///
 /// # Safety
-/// `output_ptr` must point to at least `bytes.len()` writable bytes in WASM
-/// linear memory. The caller must have already verified `bytes.len() <= output_size`.
+/// `output_ptr` must be non-null and point to at least `bytes.len()` exclusively
+/// writable bytes within one allocation in WASM linear memory, disjoint from `bytes`.
+/// The caller must have already verified `bytes.len() <= output_size`.
 unsafe fn write_bytes_to_output(output_ptr: u32, bytes: &[u8]) {
-    // SAFETY: guaranteed by the caller per the function's safety contract.
-    let dest = slice::from_raw_parts_mut(output_ptr as *mut u8, bytes.len());
+    // SAFETY: The caller guarantees a valid, exclusive output buffer; u8 has alignment 1.
+    let dest = unsafe { slice::from_raw_parts_mut(output_ptr as *mut u8, bytes.len()) };
     dest.copy_from_slice(bytes);
 }
 
@@ -231,8 +232,8 @@ fn try_write_json_output(
         ));
         return -1;
     }
-    // SAFETY: `len <= output_size` was verified above, and the host provides `output_size`
-    // writable bytes at `output_ptr`.
+    // SAFETY: The host supplies the separate writable output allocation, and the
+    // size check above ensures the serialized bytes fit within it.
     unsafe { write_bytes_to_output(output_ptr, output_json.as_bytes()) };
     log_info(&format!("<<< {fn_name} returning {len} bytes"));
     match i32::try_from(len) {
@@ -926,7 +927,7 @@ pub extern "C" fn label_agent(
     output_size: u32,
 ) -> i32 {
     log_info(">>> label_agent called");
-    // SAFETY: see `read_input`; the host supplies the input buffer.
+    // SAFETY: The host supplies the input buffer under read_input's contract.
     let input_bytes = unsafe { read_input(input_ptr, input_len) };
 
     let input: LabelAgentInput = match serde_json::from_slice(input_bytes) {
@@ -1018,7 +1019,7 @@ pub extern "C" fn label_resource(
     log_info(">>> label_resource called");
 
     // Read input bytes
-    // SAFETY: see `read_input`; the host supplies the input buffer.
+    // SAFETY: The host supplies the input buffer under read_input's contract.
     let input_bytes = unsafe { read_input(input_ptr, input_len) };
     log_info(&format!(
         "    input_len={input_len}, output_size={output_size}"
@@ -1061,7 +1062,7 @@ pub extern "C" fn label_response(
         log_error("    FAILED to read input: null pointer or zero length");
         return -1;
     }
-    // SAFETY: see `read_input`; the host supplies the input buffer.
+    // SAFETY: The host supplies the input buffer under read_input's contract.
     let input_bytes = unsafe { read_input(input_ptr, input_len) };
 
     log_info(&format!("    input_bytes={}", input_bytes.len()));
@@ -1147,7 +1148,7 @@ pub extern "C" fn alloc(size: u32) -> u32 {
         log_error(&format!("    alloc FAILED: invalid layout for size {size}"));
         return 0;
     };
-    // SAFETY: `layout` has a non-zero size (checked above) and a valid alignment.
+    // SAFETY: The layout is valid and non-zero, as checked above.
     let ptr = unsafe { std_alloc(layout) as u32 };
     log_debug(&format!("<<< alloc returning ptr={ptr}"));
     ptr
@@ -1167,8 +1168,8 @@ pub extern "C" fn dealloc(ptr: u32, size: u32) {
         ));
         return;
     };
-    // SAFETY: the host passes back a pointer and size previously returned by `alloc`,
-    // so `layout` matches the original allocation (alignment 8, same size).
+    // SAFETY: The host returns a live pointer from alloc with the original size,
+    // so the layout matches; each allocation is deallocated exactly once.
     unsafe { std_dealloc(ptr as *mut u8, layout) }
     log_debug("<<< dealloc complete");
 }
@@ -1180,10 +1181,18 @@ mod tests {
 
     #[test]
     fn read_input_returns_empty_for_null_or_zero_length() {
-        // SAFETY: both calls hit the null/zero-length guard and never dereference.
-        unsafe {
-            assert!(read_input(0, 16).is_empty());
-            assert!(read_input(1, 0).is_empty());
+        for (input_ptr, input_len) in [(0, 0), (0, 16), (1, 0)] {
+            // SAFETY: A null pointer or zero length requires no readable allocation.
+            assert!(unsafe { read_input(input_ptr, input_len) }.is_empty());
+        }
+    }
+
+    #[test]
+    fn label_exports_reject_null_or_zero_length() {
+        for (input_ptr, input_len) in [(0, 0), (0, 16), (1, 0)] {
+            assert_eq!(label_agent(input_ptr, input_len, 0, 0), -1);
+            assert_eq!(label_resource(input_ptr, input_len, 0, 0), -1);
+            assert_eq!(label_response(input_ptr, input_len, 0, 0), -1);
         }
     }
 
