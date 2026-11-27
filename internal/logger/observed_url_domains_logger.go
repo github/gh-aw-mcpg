@@ -10,12 +10,15 @@ import (
 	"github.com/github/gh-aw-mcpg/internal/util"
 )
 
+var logObservedDomains = ForFile()
+
 const observedURLDomainsFileName = "observed-url-domains.json"
 
 var urlDomainAuditEnabled atomic.Bool
 
 // SetURLDomainAuditEnabled toggles URL domain observation for middleware and guards.
 func SetURLDomainAuditEnabled(enabled bool) {
+	logObservedDomains.Printf("URL domain audit enabled=%v", enabled)
 	urlDomainAuditEnabled.Store(enabled)
 }
 
@@ -43,6 +46,7 @@ var observedURLDomainsLoggerFactory = newLoggerFactory(
 			file.Close()
 		}
 
+		logObservedDomains.Printf("Initializing observed URL domains logger: logDir=%s, fileName=%s", logDir, fileName)
 		l := &ObservedURLDomainsLogger{
 			jsonFileSink: jsonFileSink{logDir: logDir, fileName: fileName},
 			data:         make(map[string]map[string]struct{}),
@@ -74,6 +78,7 @@ func (l *ObservedURLDomainsLogger) LogDomains(serverID string, domains []string)
 
 	return l.withLock(func() error {
 		if l.useFallback {
+			logObservedDomains.Printf("Skipping domain logging in fallback mode: serverID=%s", serverID)
 			return nil
 		}
 
@@ -96,8 +101,10 @@ func (l *ObservedURLDomainsLogger) LogDomains(serverID string, domains []string)
 		}
 
 		if !changed {
+			logObservedDomains.Printf("No new domains observed: serverID=%s, candidates=%d", serverID, len(domains))
 			return nil
 		}
+		logObservedDomains.Printf("Persisting newly observed domains: serverID=%s, serverDomainCount=%d, servers=%d", serverID, len(serverDomains), len(l.data))
 		serialized := make(map[string][]string, len(l.data))
 		for serverID, serverDomains := range l.data {
 			serialized[serverID] = util.SortedSetKeys(serverDomains)
