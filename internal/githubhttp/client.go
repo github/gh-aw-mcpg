@@ -20,6 +20,12 @@ const GitHubUserAgent = "awmg/1.0"
 // requests cannot hang indefinitely when no explicit context deadline is set.
 var defaultGitHubHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
+// TokenAuthHeader formats a token as a GitHub Authorization header value.
+// Callers are responsible for checking whether a token is available.
+func TokenAuthHeader(token string) string {
+	return "token " + token
+}
+
 // ApplyGitHubAPIHeaders sets the standard GitHub API request headers on req.
 // authHeader should be the full Authorization header value (e.g. "token xyz" or
 // "******"). When authHeader is empty no Authorization header is set, which

@@ -406,7 +406,7 @@ func (r *restBackendCaller) CallTool(ctx context.Context, toolName string, args 
 	// correct author_association) which the client's GITHUB_TOKEN may lack.
 	enrichmentAuth := ""
 	if r.server.githubToken != "" {
-		enrichmentAuth = "token " + r.server.githubToken
+		enrichmentAuth = githubhttp.TokenAuthHeader(r.server.githubToken)
 	} else if r.clientAuth != "" {
 		enrichmentAuth = r.clientAuth
 	}
@@ -543,11 +543,11 @@ func (s *Server) forwardToGitHub(ctx context.Context, method, path string, body 
 	// Enclave mode always replaces the invocation capability with mcpg's token.
 	var authHeader string
 	if s.enclave != nil || s.delegation != nil {
-		authHeader = "token " + s.githubToken
+		authHeader = githubhttp.TokenAuthHeader(s.githubToken)
 	} else if clientAuth != "" {
 		authHeader = clientAuth
 	} else if s.githubToken != "" {
-		authHeader = "token " + s.githubToken
+		authHeader = githubhttp.TokenAuthHeader(s.githubToken)
 	}
 	githubhttp.ApplyGitHubAPIHeaders(req, authHeader)
 	if contentType != "" {

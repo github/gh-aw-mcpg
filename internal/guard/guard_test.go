@@ -560,6 +560,54 @@ func TestGuardRegistry_HasNonNoopSourceGuard(t *testing.T) {
 	assert.True(t, registry.HasNonNoopSourceGuard())
 }
 
+func TestGuardRegistry_NonNoopScans(t *testing.T) {
+	tests := []struct {
+		name       string
+		guards     map[string]Guard
+		wantGuard  bool
+		wantSource bool
+	}{
+		{name: "empty"},
+		{name: "noop", guards: map[string]Guard{"noop": NewNoopGuard()}},
+		{name: "sink only", guards: map[string]Guard{"sink": NewWriteSinkGuard(nil)}, wantGuard: true},
+		{
+			name:      "noop and sink",
+			guards:    map[string]Guard{"noop": NewNoopGuard(), "sink": NewWriteSinkGuard(nil)},
+			wantGuard: true,
+		},
+		{
+			name:       "source only",
+			guards:     map[string]Guard{"source": &mockGuard{id: "wasm"}},
+			wantGuard:  true,
+			wantSource: true,
+		},
+		{
+			name: "noop sink and source",
+			guards: map[string]Guard{
+				"noop":   NewNoopGuard(),
+				"sink":   NewWriteSinkGuard(nil),
+				"source": &mockGuard{id: "wasm"},
+			},
+			wantGuard:  true,
+			wantSource: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			registry := NewRegistry()
+			for id, g := range tt.guards {
+				registry.Register(id, g)
+			}
+			assert.Equal(t, tt.wantGuard, registry.HasNonNoopGuard())
+			assert.Equal(t, tt.wantSource, registry.HasNonNoopSourceGuard())
+
+			registry.Remove("source")
+			assert.False(t, registry.HasNonNoopSourceGuard())
+			assert.Equal(t, registry.Has("sink"), registry.HasNonNoopGuard())
+		})
+	}
+}
+
 func TestGuardRegistry_Close(t *testing.T) {
 	t.Run("close calls Close on guards that implement it", func(t *testing.T) {
 		registry := NewRegistry()

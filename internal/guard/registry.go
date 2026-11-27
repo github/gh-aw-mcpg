@@ -53,41 +53,39 @@ func (r *Registry) Has(serverID string) bool {
 
 // HasNonNoopGuard returns true if any registered guard is not a noop guard
 func (r *Registry) HasNonNoopGuard() bool {
-	found := false
-	r.guards.Range(func(_ string, g Guard) bool {
-		if g.Name() != "noop" {
-			logRegistry.Printf("HasNonNoopGuard: found non-noop guard=%s", g.Name())
-			found = true
-			return false
-		}
+	if g := r.findNonNoopGuard(false); g != nil {
+		logRegistry.Printf("HasNonNoopGuard: found non-noop guard=%s", g.Name())
 		return true
-	})
-	if !found {
-		logRegistry.Print("HasNonNoopGuard: all registered guards are noop")
 	}
-	return found
+	logRegistry.Print("HasNonNoopGuard: all registered guards are noop")
+	return false
 }
 
 // HasNonNoopSourceGuard returns true if any registered source-labeling guard
 // is not a noop guard. Write-sink guards do not contribute agent labels.
 func (r *Registry) HasNonNoopSourceGuard() bool {
-	found := false
+	if g := r.findNonNoopGuard(true); g != nil {
+		logRegistry.Printf("HasNonNoopSourceGuard: found source guard=%s", g.Name())
+		return true
+	}
+	logRegistry.Print("HasNonNoopSourceGuard: no non-noop source guards registered")
+	return false
+}
+
+func (r *Registry) findNonNoopGuard(sourceOnly bool) Guard {
+	var found Guard
 	r.guards.Range(func(_ string, g Guard) bool {
 		if g.Name() != "noop" {
-			if _, ok := g.(*WriteSinkGuard); ok {
+			if _, ok := g.(*WriteSinkGuard); sourceOnly && ok {
 				// Continue searching; write-sink guards do not label sources.
 				logRegistry.Print("HasNonNoopSourceGuard: skipping write-sink guard")
 				return true
 			}
-			logRegistry.Printf("HasNonNoopSourceGuard: found source guard=%s", g.Name())
-			found = true
+			found = g
 			return false
 		}
 		return true
 	})
-	if !found {
-		logRegistry.Print("HasNonNoopSourceGuard: no non-noop source guards registered")
-	}
 	return found
 }
 
