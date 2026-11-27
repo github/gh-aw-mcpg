@@ -7,11 +7,28 @@ import (
 	"path/filepath"
 )
 
+type atomicWriteTempFile interface {
+	Name() string
+	Chmod(os.FileMode) error
+	Write([]byte) (int, error)
+	Sync() error
+	Close() error
+}
+
+// These hooks keep filesystem error paths testable without relying on
+// platform-specific failures from os.File methods.
+var (
+	atomicWriteCreateTemp = func(dir, pattern string) (atomicWriteTempFile, error) {
+		return os.CreateTemp(dir, pattern)
+	}
+	atomicWriteRemoveTemp = removeTempFile
+)
+
 // AtomicWriteFile writes data to filePath by syncing a uniquely named
 // temporary file in the destination directory, renaming it into place, and
 // syncing the destination directory.
 func AtomicWriteFile(filePath string, data []byte, perm os.FileMode) (err error) {
-	temp, err := os.CreateTemp(filepath.Dir(filePath), "."+filepath.Base(filePath)+"-*")
+	temp, err := atomicWriteCreateTemp(filepath.Dir(filePath), "."+filepath.Base(filePath)+"-*")
 	if err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
@@ -21,7 +38,7 @@ func AtomicWriteFile(filePath string, data []byte, perm os.FileMode) (err error)
 		if !cleanupTemp {
 			return
 		}
-		if removeErr := removeTempFile(tempPath); removeErr != nil {
+		if removeErr := atomicWriteRemoveTemp(tempPath); removeErr != nil {
 			err = errors.Join(err, removeErr)
 		}
 	}()
