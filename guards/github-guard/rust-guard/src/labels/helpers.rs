@@ -2638,6 +2638,34 @@ mod tests {
         // An Owner/Repo/RepoPrefix scope with an empty configured owner or repo must never match.
         assert!(!repo_matches_scope(
             ScopeKind::Owner,
+            "",
+            "hello",
+            "",
+            ""
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::Repo,
+            "",
+            "hello",
+            "",
+            "hello"
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::Repo,
+            "octocat",
+            "",
+            "octocat",
+            ""
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::RepoPrefix,
+            "",
+            "hello",
+            "",
+            "hel"
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::Owner,
             "octocat",
             "hello",
             "",
