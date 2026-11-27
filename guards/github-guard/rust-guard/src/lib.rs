@@ -1057,6 +1057,10 @@ pub extern "C" fn label_response(
     ));
 
     // Read input bytes
+    if input_ptr == 0 || input_len == 0 {
+        log_error("    FAILED to read input: null pointer or zero length");
+        return -1;
+    }
     // SAFETY: see `read_input`; the host supplies the input buffer.
     let input_bytes = unsafe { read_input(input_ptr, input_len) };
 
