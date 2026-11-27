@@ -2649,6 +2649,35 @@ mod tests {
                 "{scope_kind}: {scoped_owner}/{scoped_repo}"
             );
         }
+        // Empty candidate fields must not match empty configured fields either.
+        assert!(!repo_matches_scope(
+            ScopeKind::Owner,
+            "",
+            "hello",
+            "",
+            ""
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::Repo,
+            "",
+            "hello",
+            "",
+            "hello"
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::Repo,
+            "octocat",
+            "",
+            "octocat",
+            ""
+        ));
+        assert!(!repo_matches_scope(
+            ScopeKind::RepoPrefix,
+            "",
+            "hello",
+            "",
+            "hel"
+        ));
     }
 
     #[test]

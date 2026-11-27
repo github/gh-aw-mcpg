@@ -1058,6 +1058,10 @@ pub extern "C" fn label_response(
     ));
 
     // Read input bytes
+    if input_ptr == 0 || input_len == 0 {
+        log_error("    FAILED to read input: null pointer or zero length");
+        return -1;
+    }
     // SAFETY: The host supplies the input buffer under read_input's contract.
     let input_bytes = unsafe { read_input(input_ptr, input_len) };
 
@@ -1184,11 +1188,11 @@ mod tests {
     }
 
     #[test]
-    fn label_exports_preserve_parse_error_codes_for_null_or_zero_length() {
+    fn label_exports_reject_null_or_zero_length() {
         for (input_ptr, input_len) in [(0, 0), (0, 16), (1, 0)] {
             assert_eq!(label_agent(input_ptr, input_len, 0, 0), -1);
             assert_eq!(label_resource(input_ptr, input_len, 0, 0), -1);
-            assert_eq!(label_response(input_ptr, input_len, 0, 0), 0);
+            assert_eq!(label_response(input_ptr, input_len, 0, 0), -1);
         }
     }
 
