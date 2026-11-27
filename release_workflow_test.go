@@ -410,6 +410,42 @@ func TestMcpScriptsServersKeepAPIKeyAuthentication(t *testing.T) {
 	}
 }
 
+func TestDailyComplianceCheckerReviewInputs(t *testing.T) {
+	t.Parallel()
+
+	content, err := os.ReadFile(filepath.Join(".github", "workflows", "daily-compliance-checker.md"))
+	require.NoError(t, err)
+	parts := strings.SplitN(string(content), "---", 3)
+	require.Len(t, parts, 3)
+	var workflow struct {
+		Checkout struct {
+			FetchDepth int `yaml:"fetch-depth"`
+		}
+		Network struct {
+			Allowed []string
+		}
+	}
+	require.NoError(t, yaml.Load([]byte(parts[1]), &workflow, yaml.WithUniqueKeys()))
+	assert.Equal(t, 21, workflow.Checkout.FetchDepth)
+	assert.Contains(t, workflow.Network.Allowed, "raw.githubusercontent.com")
+	assert.Contains(t, parts[2], "https://raw.githubusercontent.com/github/gh-aw/main/docs/src/content/docs/reference/mcp-gateway.md")
+	assert.Contains(t, parts[2], "curl --fail --silent --show-error")
+	assert.Contains(t, parts[2], "--output /tmp/gh-aw/mcp-gateway-spec.md")
+	assert.Contains(t, parts[2], "sed -n '1,200p' /tmp/gh-aw/mcp-gateway-spec.md")
+	assert.Contains(t, parts[2], "report_incomplete")
+	assert.Contains(t, parts[2], "**Call `noop`**")
+
+	found := false
+	for _, step := range readReleaseJobs(t, "daily-compliance-checker.lock.yml")["agent"].Steps {
+		if strings.HasPrefix(step.Uses, "actions/checkout@") {
+			found = true
+			assert.Equal(t, "21", step.With["fetch-depth"])
+			assert.Equal(t, "false", step.With["persist-credentials"])
+		}
+	}
+	assert.True(t, found, "agent checkout must fetch the history required by HEAD~10..HEAD")
+}
+
 func assertWorkflowUsesPinnedRemoteActions(t *testing.T, name string) {
 	t.Helper()
 
