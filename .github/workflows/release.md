@@ -158,9 +158,12 @@ jobs:
           
       - name: Set release tag
         id: set_tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          NEW_TAG: ${{ needs.create-tag.outputs.new_tag }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RELEASE_TAG="${{ needs.create-tag.outputs.new_tag }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            RELEASE_TAG="$NEW_TAG"
           else
             RELEASE_TAG="${GITHUB_REF#refs/tags/}"
           fi
