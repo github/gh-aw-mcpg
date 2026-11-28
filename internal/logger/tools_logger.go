@@ -11,6 +11,8 @@ import (
 	"sync"
 )
 
+var logTools = ForFile()
+
 // ToolInfo represents information about a single tool
 type ToolInfo struct {
 	Name        string `json:"name"`
@@ -50,6 +52,7 @@ var toolsLoggerFactory = newLoggerFactory(
 				Servers: make(map[string][]ToolInfo),
 			},
 		}
+		logTools.Printf("Initialized tools logger: logDir=%s, fileName=%s", logDir, fileName)
 		log.Printf("Tools logging to file: %s", filepath.Join(logDir, fileName))
 		return tl, nil
 	},
@@ -66,6 +69,7 @@ var toolsLoggerFactory = newLoggerFactory(
 // InitToolsLogger initializes the global tools logger
 // If the log directory doesn't exist and can't be created, falls back to no-op
 func InitToolsLogger(logDir, fileName string) error {
+	logTools.Printf("Initializing tools logger: logDir=%s, fileName=%s", logDir, fileName)
 	return toolsLoggerRef.initWithFallback(logDir, fileName, os.O_TRUNC, toolsLoggerFactory)
 }
 
@@ -73,10 +77,12 @@ func InitToolsLogger(logDir, fileName string) error {
 func (tl *ToolsLogger) LogTools(serverID string, tools []ToolInfo) error {
 	return tl.withLock(func() error {
 		if tl.useFallback {
+			logTools.Printf("Skipping tools log for server %s: fallback mode", serverID)
 			return nil // Silently skip if in fallback mode
 		}
 
 		// Update the data structure
+		logTools.Printf("Recording tools: serverID=%s, toolCount=%d", serverID, len(tools))
 		tl.data.Servers[serverID] = tools
 
 		// Write the updated data to file
@@ -97,6 +103,7 @@ func (tl *ToolsLogger) Close() error {
 func LogToolsForServer(serverID string, tools []ToolInfo) {
 	withGlobalLogger(&globalToolsMu, &globalToolsLogger, func(logger *ToolsLogger) {
 		if err := logger.LogTools(serverID, tools); err != nil {
+			logTools.Printf("Failed to write tools for server %s: %v", serverID, err)
 			// Log errors using the standard logger to avoid recursion
 			log.Printf("WARNING: Failed to log tools for server %s: %v", serverID, err)
 		}
