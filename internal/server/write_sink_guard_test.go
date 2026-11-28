@@ -87,6 +87,15 @@ func (g *writeSinkTestGuard) LabelResponse(_ context.Context, _ string, _ interf
 	return nil, nil
 }
 
+// newMCPTool returns a minimal tool definition for MCP backend fixtures.
+func newMCPTool(name string) map[string]interface{} {
+	return map[string]interface{}{
+		"name":        name,
+		"description": name,
+		"inputSchema": map[string]interface{}{"type": "object", "properties": map[string]interface{}{}},
+	}
+}
+
 // newMCPBackend creates an httptest server that implements MCP protocol
 // (initialize, tools/list, tools/call) with the given tools.
 func newMCPBackend(t *testing.T, tools []map[string]interface{}) *httptest.Server {
@@ -140,14 +149,10 @@ func TestWriteSinkGuardRegistration_FromConfig(t *testing.T) {
 	require := require.New(t)
 	assert := assert.New(t)
 
-	githubBackend := newMCPBackend(t, []map[string]interface{}{
-		{"name": "list_issues", "description": "list issues", "inputSchema": map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}},
-	})
+	githubBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("list_issues")})
 	defer githubBackend.Close()
 
-	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{
-		{"name": "create_issue", "description": "create issue", "inputSchema": map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}},
-	})
+	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("create_issue")})
 	defer safeoutputsBackend.Close()
 
 	// Register a test guard type for the GitHub server
@@ -209,14 +214,10 @@ func TestWriteSinkGuard_AllowsWriteAfterGitHubRead(t *testing.T) {
 	require := require.New(t)
 	assert := assert.New(t)
 
-	githubBackend := newMCPBackend(t, []map[string]interface{}{
-		{"name": "list_issues", "description": "list issues", "inputSchema": map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}},
-	})
+	githubBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("list_issues")})
 	defer githubBackend.Close()
 
-	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{
-		{"name": "create_issue", "description": "create issue", "inputSchema": map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}},
-	})
+	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("create_issue")})
 	defer safeoutputsBackend.Close()
 
 	testGuard := &writeSinkTestGuard{
@@ -290,14 +291,10 @@ func TestWriteSinkGuard_AllowsWriteAfterGitHubRead(t *testing.T) {
 func TestWriteSinkGuard_RejectsSecrecyMismatch(t *testing.T) {
 	require := require.New(t)
 
-	githubBackend := newMCPBackend(t, []map[string]interface{}{
-		{"name": "list_issues", "description": "list issues", "inputSchema": map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}},
-	})
+	githubBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("list_issues")})
 	defer githubBackend.Close()
 
-	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{
-		{"name": "create_issue", "description": "create issue", "inputSchema": map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}},
-	})
+	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("create_issue")})
 	defer safeoutputsBackend.Close()
 
 	// Agent reads from github/secret-org/* — a DIFFERENT org than what the sink accepts
@@ -358,6 +355,8 @@ func TestWriteSinkGuard_RejectsSecrecyMismatch(t *testing.T) {
 		"title": "Should be blocked",
 	})
 	require.Error(err, "write-sink should reject write when agent has uncovered secrecy tags")
+	require.ErrorContains(err, "DIFC Violation", "rejection should be a DIFC violation")
+	require.ErrorContains(err, "secrecy constraints", "rejection should cite secrecy, not integrity")
 }
 
 // TestNoopGuard_BlocksWriteAfterGitHubRead demonstrates that without a
@@ -365,14 +364,10 @@ func TestWriteSinkGuard_RejectsSecrecyMismatch(t *testing.T) {
 func TestNoopGuard_BlocksWriteAfterGitHubRead(t *testing.T) {
 	require := require.New(t)
 
-	githubBackend := newMCPBackend(t, []map[string]interface{}{
-		{"name": "list_issues", "description": "list issues", "inputSchema": map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}},
-	})
+	githubBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("list_issues")})
 	defer githubBackend.Close()
 
-	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{
-		{"name": "create_issue", "description": "create issue", "inputSchema": map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}},
-	})
+	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("create_issue")})
 	defer safeoutputsBackend.Close()
 
 	testGuard := &writeSinkTestGuard{
@@ -587,14 +582,10 @@ func TestDIFCAutoEnable_WithWriteSinkAndAllowOnly(t *testing.T) {
 	require := require.New(t)
 	assert := assert.New(t)
 
-	githubBackend := newMCPBackend(t, []map[string]interface{}{
-		{"name": "list_issues", "description": "list issues", "inputSchema": map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}},
-	})
+	githubBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("list_issues")})
 	defer githubBackend.Close()
 
-	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{
-		{"name": "noop", "description": "noop", "inputSchema": map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}},
-	})
+	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("noop")})
 	defer safeoutputsBackend.Close()
 
 	cfg := &config.Config{
@@ -627,9 +618,8 @@ func TestDIFCAutoEnable_WithWriteSinkAndAllowOnly(t *testing.T) {
 	// DIFC should be auto-enabled because write-sink is a non-noop guard
 	assert.True(us.enableDIFC, "DIFC should be auto-enabled with write-sink + allow-only policies")
 
-	// Verify correct guard types
+	// Verify correct guard types. The github server has no guard configured,
+	// so it keeps the noop guard even though it has an allow-only policy.
 	assert.Equal("write-sink", us.guardRegistry.Get("safeoutputs").Name())
-	// github gets noop because no WASM guard is loaded (test doesn't provide one),
-	// and the allow-only policy alone doesn't create a guard
-	// But DIFC is still enabled because write-sink is non-noop
+	assert.Equal("noop", us.guardRegistry.Get("github").Name())
 }
