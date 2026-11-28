@@ -377,6 +377,8 @@ func ValidateStringArrayField(field string, raw interface{}, requireNonEmpty boo
 
 // IsValidAllowOnlyReposValue returns true when repos is either "all"/"public"
 // (case-insensitive) or a valid non-empty allow-only scope array.
+// It is retained as a cross-package test hook for guard policy acceptance checks;
+// production uses NormalizeAllowOnlyReposValue to retain canonical values and errors.
 func IsValidAllowOnlyReposValue(repos interface{}) bool {
 	_, err := NormalizeAllowOnlyReposValue(repos)
 	return err == nil

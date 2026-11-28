@@ -287,6 +287,7 @@ func (r *AgentRegistry) Count() int {
 }
 
 // GetAllAgentIDs returns all registered agent IDs
+// It is retained as a test hook for registry and reflective component checks.
 func (r *AgentRegistry) GetAllAgentIDs() []string {
 	return r.agents.Keys()
 }

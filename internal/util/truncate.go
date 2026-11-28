@@ -36,6 +36,24 @@ func TruncateWithSuffix(s string, maxLen int, suffix string) string {
 	return s[:maxLen] + suffix
 }
 
+// TruncateBytes returns a prefix of data containing at most maxBytes bytes,
+// backing up to a UTF-8 rune boundary when truncation is needed.
+// Valid UTF-8 input stays valid; malformed input is not validated or repaired.
+// If maxBytes is zero or negative, it returns an empty slice.
+// The result shares data's backing array; no copy or suffix is added.
+func TruncateBytes(data []byte, maxBytes int) []byte {
+	if maxBytes <= 0 {
+		return data[:0]
+	}
+	if len(data) <= maxBytes {
+		return data
+	}
+	for maxBytes > 0 && !utf8.RuneStart(data[maxBytes]) {
+		maxBytes--
+	}
+	return data[:maxBytes]
+}
+
 // TruncateRunes truncates s to at most maxRunes Unicode code points (runes).
 // Unlike Truncate, which counts bytes, TruncateRunes is safe for non-ASCII
 // content (e.g. emoji, CJK characters). If maxRunes is 0 or negative, returns

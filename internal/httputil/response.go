@@ -34,8 +34,8 @@ func ReadResponseBody(resp *http.Response, context string) ([]byte, error) {
 // code does not match, it returns an error that includes the response body for
 // diagnostics. The response body is always closed before returning.
 //
-// Use this variant when the caller needs an exact status match (e.g. 200 only)
-// and wants the body included in the error message.
+// This variant is retained as a test hook for exact status matching and body
+// diagnostics; production callers use ReadResponseBody.
 func ReadResponseBodyStrict(resp *http.Response, expectedStatus int, context string) ([]byte, error) {
 	logHTTP.Printf("ReadResponseBodyStrict: context=%s, expectedStatus=%d", context, expectedStatus)
 	body, err := readResponseBody(resp, context, "ReadResponseBodyStrict")

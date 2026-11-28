@@ -354,16 +354,20 @@ func loadServerCARoots(serverID, caCertFile string) (*x509.CertPool, error) {
 }
 
 // IsHTTP returns true if this is an HTTP connection
+// It is retained as a cross-package test hook for launcher transport selection.
 func (c *Connection) IsHTTP() bool {
 	return c.isHTTP
 }
 
 // GetHTTPURL returns the HTTP URL for this connection
+// It is retained as a cross-package test hook for launcher endpoint configuration.
 func (c *Connection) GetHTTPURL() string {
 	return c.httpURL
 }
 
 // GetHTTPHeaders returns the HTTP headers for this connection
+// It is retained as a cross-package test hook for launcher authentication setup.
+// The returned map is not a copy: callers must not mutate it or log its secrets.
 func (c *Connection) GetHTTPHeaders() map[string]string {
 	return c.headers
 }

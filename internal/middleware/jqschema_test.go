@@ -1615,6 +1615,7 @@ func TestWrapToolHandler_PreviewUTF8Boundary(t *testing.T) {
 	require.True(t, ok, "payloadPreview must be a string")
 
 	// The preview must be valid UTF-8 (no mid-character truncation).
+	assert.Equal(t, string(encoded[:499])+"...", preview, "only the incomplete rune should be omitted")
 	assert.True(t, utf8.ValidString(preview), "preview must be valid UTF-8")
 	assert.True(t, strings.HasSuffix(preview, "..."), "truncated preview must end with '...'")
 }

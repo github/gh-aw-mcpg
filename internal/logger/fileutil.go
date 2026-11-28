@@ -32,6 +32,9 @@ func writeAndSyncLogFile(file *os.File, write func() error, context string) erro
 // - Resources are always released (no file descriptor leaks)
 // - Sync errors are logged for debugging but don't block cleanup
 // - Close errors are propagated to indicate serious issues
+//
+// Kept separate from syncFileWithWarning to preserve the before-close warning
+// text and the close-only error contract.
 func closeLogFile(file *os.File, mu *sync.Mutex, loggerName string) error {
 	if file == nil {
 		return nil
