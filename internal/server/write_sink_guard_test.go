@@ -87,8 +87,8 @@ func (g *writeSinkTestGuard) LabelResponse(_ context.Context, _ string, _ interf
 	return nil, nil
 }
 
-// newWriteSinkTool returns a minimal tool definition for MCP backend fixtures.
-func newWriteSinkTool(name string) map[string]interface{} {
+// newMCPTool returns a minimal tool definition for MCP backend fixtures.
+func newMCPTool(name string) map[string]interface{} {
 	return map[string]interface{}{
 		"name":        name,
 		"description": name,
@@ -149,10 +149,10 @@ func TestWriteSinkGuardRegistration_FromConfig(t *testing.T) {
 	require := require.New(t)
 	assert := assert.New(t)
 
-	githubBackend := newMCPBackend(t, []map[string]interface{}{newWriteSinkTool("list_issues")})
+	githubBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("list_issues")})
 	defer githubBackend.Close()
 
-	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newWriteSinkTool("create_issue")})
+	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("create_issue")})
 	defer safeoutputsBackend.Close()
 
 	// Register a test guard type for the GitHub server
@@ -214,10 +214,10 @@ func TestWriteSinkGuard_AllowsWriteAfterGitHubRead(t *testing.T) {
 	require := require.New(t)
 	assert := assert.New(t)
 
-	githubBackend := newMCPBackend(t, []map[string]interface{}{newWriteSinkTool("list_issues")})
+	githubBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("list_issues")})
 	defer githubBackend.Close()
 
-	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newWriteSinkTool("create_issue")})
+	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("create_issue")})
 	defer safeoutputsBackend.Close()
 
 	testGuard := &writeSinkTestGuard{
@@ -291,10 +291,10 @@ func TestWriteSinkGuard_AllowsWriteAfterGitHubRead(t *testing.T) {
 func TestWriteSinkGuard_RejectsSecrecyMismatch(t *testing.T) {
 	require := require.New(t)
 
-	githubBackend := newMCPBackend(t, []map[string]interface{}{newWriteSinkTool("list_issues")})
+	githubBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("list_issues")})
 	defer githubBackend.Close()
 
-	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newWriteSinkTool("create_issue")})
+	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("create_issue")})
 	defer safeoutputsBackend.Close()
 
 	// Agent reads from github/secret-org/* — a DIFFERENT org than what the sink accepts
@@ -364,10 +364,10 @@ func TestWriteSinkGuard_RejectsSecrecyMismatch(t *testing.T) {
 func TestNoopGuard_BlocksWriteAfterGitHubRead(t *testing.T) {
 	require := require.New(t)
 
-	githubBackend := newMCPBackend(t, []map[string]interface{}{newWriteSinkTool("list_issues")})
+	githubBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("list_issues")})
 	defer githubBackend.Close()
 
-	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newWriteSinkTool("create_issue")})
+	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("create_issue")})
 	defer safeoutputsBackend.Close()
 
 	testGuard := &writeSinkTestGuard{
@@ -582,10 +582,10 @@ func TestDIFCAutoEnable_WithWriteSinkAndAllowOnly(t *testing.T) {
 	require := require.New(t)
 	assert := assert.New(t)
 
-	githubBackend := newMCPBackend(t, []map[string]interface{}{newWriteSinkTool("list_issues")})
+	githubBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("list_issues")})
 	defer githubBackend.Close()
 
-	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newWriteSinkTool("noop")})
+	safeoutputsBackend := newMCPBackend(t, []map[string]interface{}{newMCPTool("noop")})
 	defer safeoutputsBackend.Close()
 
 	cfg := &config.Config{
