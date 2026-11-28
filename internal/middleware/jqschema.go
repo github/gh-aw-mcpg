@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"github.com/github/gh-aw-mcpg/internal/jqutil"
 	"github.com/github/gh-aw-mcpg/internal/logger"
@@ -347,6 +346,8 @@ func applyToolResponseFilter(ctx context.Context, code *gojq.Code, jsonData any)
 }
 
 // ApplyToolResponseFilter compiles and applies a jq expression to tool response data.
+// It is retained as a test hook for compilation and execution error cases;
+// production uses pre-compiled filters through tryApplyToolResponseFilter.
 func ApplyToolResponseFilter(ctx context.Context, filter string, jsonData any) (any, error) {
 	code, err := CompileToolResponseFilter(filter)
 	if err != nil {
@@ -643,18 +644,12 @@ func wrapToolHandler(
 		// Slice the bytes before converting to string to avoid allocating a full copy of the
 		// (potentially multi-MB) payload when only a short preview is needed.
 		//
-		// json.Marshal emits raw UTF-8 for non-ASCII runes, so a naive byte slice could
-		// split a multi-byte sequence. We adjust the cut point backward to the nearest
-		// valid rune boundary to guarantee the preview is valid UTF-8.
+		// json.Marshal emits raw UTF-8, so truncate at a rune boundary.
 		payloadLen := len(payloadJSON)
 		var preview string
 		truncated := payloadLen > PayloadPreviewSize
 		if truncated {
-			cutPoint := PayloadPreviewSize
-			for cutPoint > 0 && !utf8.RuneStart(payloadJSON[cutPoint]) {
-				cutPoint--
-			}
-			preview = string(payloadJSON[:cutPoint]) + "..."
+			preview = string(util.TruncateBytes(payloadJSON, PayloadPreviewSize)) + "..."
 			logger.LogInfo("payload", "Payload truncated for preview: tool=%s, queryID=%s, originalSize=%d bytes, previewSize=%d bytes",
 				toolName, queryID, payloadLen, PayloadPreviewSize)
 		} else {

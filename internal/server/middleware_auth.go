@@ -37,7 +37,7 @@ func matchesAnyKey(authHeader string, keys []string) bool {
 // Per spec: Authorization header MUST contain the API key directly.
 //
 // For header parsing logic, see internal/auth package which provides:
-//   - ParseAuthHeader() for extracting API keys and agent IDs
+//   - ExtractSessionID() for session identification, not credential validation
 //   - IsMalformedHeader() for malformed header detection
 //
 // This middleware validates credentials by directly comparing the parsed

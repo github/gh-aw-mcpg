@@ -103,6 +103,8 @@ func (fl *FileLogger) logLine(level LogLevel, category, format string, auditHash
 }
 
 // GetWriter returns the underlying io.Writer for the file logger
+// It is retained as a test hook for checking file and stderr fallback sinks;
+// production writes through the logging methods.
 func (fl *FileLogger) GetWriter() io.Writer {
 	fl.mu.Lock()
 	defer fl.mu.Unlock()

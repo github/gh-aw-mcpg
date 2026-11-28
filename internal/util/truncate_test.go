@@ -149,6 +149,63 @@ func TestTruncateWithSuffix(t *testing.T) {
 	}
 }
 
+func TestTruncateBytes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		maxBytes int
+		expected string
+	}{
+		{"empty input", "", 5, ""},
+		{"zero limit", "hello", 0, ""},
+		{"negative limit", "hello", -1, ""},
+		{"within limit", "hello", 10, "hello"},
+		{"exact byte length", "hello", 5, "hello"},
+		{"ASCII truncation", "hello world", 5, "hello"},
+		{"two-byte rune split", "aéz", 2, "a"},
+		{"two-byte rune boundary", "aéz", 3, "aé"},
+		{"three-byte rune split", "a日z", 3, "a"},
+		{"three-byte rune boundary", "a日z", 4, "a日"},
+		{"four-byte rune split", "a😀z", 4, "a"},
+		{"four-byte rune boundary", "a😀z", 5, "a😀"},
+		{"first rune exceeds limit", "😀z", 3, ""},
+		{"multibyte input within limit", "日本語", 10, "日本語"},
+		{"multibyte input exact byte length", "日本語", 9, "日本語"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := TruncateBytes([]byte(tt.input), tt.maxBytes)
+			assert.Equal(t, tt.expected, string(result))
+			assert.True(t, utf8.Valid(result))
+		})
+	}
+
+	assert.Nil(t, TruncateBytes(nil, 5))
+	assert.Nil(t, TruncateBytes(nil, 0))
+}
+
+func TestTruncateBytes_AllBoundaries(t *testing.T) {
+	input := []byte("aé日本😀z")
+	for maxBytes := 0; maxBytes <= len(input); maxBytes++ {
+		result := TruncateBytes(input, maxBytes)
+		assert.True(t, utf8.Valid(result), "limit %d", maxBytes)
+		assert.LessOrEqual(t, len(result), maxBytes)
+		assert.Equal(t, input[:len(result)], result)
+		if len(result) < len(input) {
+			_, nextSize := utf8.DecodeRune(input[len(result):])
+			assert.Greater(t, len(result)+nextSize, maxBytes, "must retain every complete rune that fits")
+		}
+	}
+}
+
+func TestTruncateBytes_SharesBackingArray(t *testing.T) {
+	input := []byte("hello")
+	result := TruncateBytes(input, 3)
+	result[0] = 'H'
+	assert.Equal(t, "Hello", string(input))
+}
+
 func TestTruncateRunes(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -299,7 +299,10 @@ func (p *SessionConnectionPool) Size() int {
 	return len(p.connections)
 }
 
-// GetMetadata returns metadata for a connection (for testing/monitoring)
+// GetMetadata returns metadata for a connection.
+// It is retained as a test hook for connection state, activity, and error counts;
+// production does not use it for monitoring. The returned metadata is not a copy
+// and must not be mutated or read concurrently with pool updates.
 func (p *SessionConnectionPool) GetMetadata(backendID, sessionID string) (*ConnectionMetadata, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

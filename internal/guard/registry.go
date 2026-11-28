@@ -149,7 +149,9 @@ var registeredGuards = make(map[string]GuardFactory)
 var registeredGuardsMu sync.RWMutex
 
 // RegisterGuardType registers a guard type with a factory function
-// This allows dynamic guard creation by name
+// This is retained as a cross-package test hook to inject guards into the
+// CreateGuard path used by server configuration. Production uses built-in guards
+// and does not register custom factories.
 func RegisterGuardType(name string, factory GuardFactory) {
 	logRegistry.Printf("Registering guard type: %s", name)
 	registeredGuardsMu.Lock()
@@ -181,6 +183,7 @@ func CreateGuard(name string) (Guard, error) {
 }
 
 // GetRegisteredGuardTypes returns all registered guard type names
+// It is retained for tests that inspect factory registration, including noop.
 func GetRegisteredGuardTypes() []string {
 	registeredGuardsMu.RLock()
 	defer registeredGuardsMu.RUnlock()

@@ -49,6 +49,8 @@ func (c *Capabilities) Remove(tag Tag) {
 }
 
 // Clear removes all tags from the capabilities
+// It is retained as a test hook for reset-and-reuse checks; production does not
+// reset the global capabilities set.
 func (c *Capabilities) Clear() {
 	logCapabilities.Print("Clearing all capabilities")
 	c.clear()

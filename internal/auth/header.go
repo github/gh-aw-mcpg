@@ -5,9 +5,10 @@
 // which requires Authorization headers to contain the API key directly
 // without any scheme prefix (e.g., NOT "Bearer <key>").
 //
-// The package provides header parsing with error handling (ParseAuthHeader).
+// Production session handling uses ExtractSessionID. ParseAuthHeader is retained
+// as a test hook for legacy parsing semantics with error handling.
 //
-// Usage Guidelines:
+// Legacy Parsing Test Usage:
 //
 //   - Use ParseAuthHeader() to parse the header with error handling:
 //     It returns the supplied API key and agent ID, but does not validate
@@ -61,7 +62,9 @@ func stripAuthScheme(authHeader string) (scheme, value string, matched bool) {
 // Per MCP spec 7.1, the Authorization header should contain the API key directly
 // without any Bearer prefix or other scheme.
 //
-// This function parses the value but does not validate credentials.
+// This function is retained for legacy parsing tests, not production authentication.
+// It parses the value but does not validate credentials; production session
+// handling uses ExtractSessionID, which has different whitespace semantics.
 //
 // For backward compatibility, this function also supports:
 //   - "Bearer <token>" format (uses token as both API key and agent ID)
