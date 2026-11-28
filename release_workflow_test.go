@@ -428,10 +428,10 @@ func TestDailyComplianceCheckerReviewInputs(t *testing.T) {
 	require.NoError(t, yaml.Load([]byte(parts[1]), &workflow, yaml.WithUniqueKeys()))
 	assert.Equal(t, 21, workflow.Checkout.FetchDepth)
 	assert.Contains(t, workflow.Network.Allowed, "raw.githubusercontent.com")
-	assert.Contains(t, parts[2], "https://raw.githubusercontent.com/github/gh-aw/main/docs/src/content/docs/reference/mcp-gateway.md")
+	assert.Contains(t, parts[2], "https://raw.githubusercontent.com/github/gh-aw/COMMIT_SHA/docs/src/content/docs/reference/mcp-gateway.md")
 	assert.Contains(t, parts[2], "curl --fail --silent --show-error")
 	assert.Contains(t, parts[2], "--output /tmp/gh-aw/mcp-gateway-spec.md")
-	assert.Contains(t, parts[2], "sed -n '1,200p' /tmp/gh-aw/mcp-gateway-spec.md")
+	assert.Contains(t, parts[2], "grep -En '(^|[^A-Z])(MUST|REQUIRED|SHALL|SHOULD|RECOMMENDED|MAY|OPTIONAL)")
 	assert.Contains(t, parts[2], "report_incomplete")
 	assert.Contains(t, parts[2], "**Call `noop`**")
 
